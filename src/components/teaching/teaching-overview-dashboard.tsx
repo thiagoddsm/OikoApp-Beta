@@ -3,6 +3,8 @@
 import React, { useMemo, useState } from 'react';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import { 
   Users, 
   BookOpen, 
@@ -14,7 +16,8 @@ import {
   CheckCircle2,
   CalendarDays,
   Loader2,
-  ChevronLeft
+  ChevronLeft,
+  Filter
 } from 'lucide-react';
 import { 
   Bar, 
@@ -43,6 +46,9 @@ export function TeachingOverviewDashboard() {
   const { isLoading } = useVolunteering();
 
   const [selectedMinistry, setSelectedMinistry] = useState<string | null>(null);
+  const [filterCycle, setFilterCycle] = useState<string>('all');
+  const [filterDateStart, setFilterDateStart] = useState<string>('');
+  const [filterDateEnd, setFilterDateEnd] = useState<string>('');
 
   const stats = useMemo(() => {
     if (isLoading) return null;
@@ -90,20 +96,45 @@ export function TeachingOverviewDashboard() {
     };
   }, [isLoading, classes, courses, enrollmentRequests, users]);
 
+  // Ciclos disponíveis para o ministério selecionado
+  const ministryCycles = useMemo(() => {
+    if (!selectedMinistry || !courses || !classes) return [];
+    const ministryCourseIds = new Set(courses.filter(c => (c.ministryName || 'Geral') === selectedMinistry).map(c => c.id));
+    const cycleSet = new Set<string>();
+    classes.filter(cls => ministryCourseIds.has(cls.courseId)).forEach(cls => {
+      if (cls.cycle) cycleSet.add(cls.cycle);
+    });
+    return Array.from(cycleSet).sort((a, b) => b.localeCompare(a));
+  }, [selectedMinistry, courses, classes]);
+
   const ministryDetailsData = useMemo(() => {
       if (!selectedMinistry || !courses || !classes) return [];
       
       const ministryCourses = courses.filter(c => (c.ministryName || 'Geral') === selectedMinistry);
       
       return ministryCourses.map(course => {
-          const courseClasses = classes.filter(cls => cls.courseId === course.id);
+          // Filtrar turmas pelo ciclo selecionado
+          let courseClasses = classes.filter(cls => cls.courseId === course.id);
+          if (filterCycle !== 'all') {
+            courseClasses = courseClasses.filter(cls => cls.cycle === filterCycle);
+          }
+
           let totalStudents = 0;
           let totalCapacity = 0;
           
           courseClasses.forEach(cls => {
+              // Filtro de período: contar apenas alunos matriculados em turmas dentro do período
+              const clsStart = (cls.startDate as string | undefined)?.split('T')[0] || '';
+              const clsEnd = (cls.endDate as string | undefined)?.split('T')[0] || '';
+              if (filterDateStart && clsEnd && clsEnd < filterDateStart) return;
+              if (filterDateEnd && clsStart && clsStart > filterDateEnd) return;
+
               totalStudents += (cls.students?.length || 0);
               totalCapacity += (cls.maxStudents || 20);
           });
+
+          // Não mostrar cursos sem turmas após o filtro
+          if (totalStudents === 0 && totalCapacity === 0) return null;
 
           return {
               name: course.name.length > 20 ? course.name.substring(0, 20) + '...' : course.name,
@@ -111,8 +142,8 @@ export function TeachingOverviewDashboard() {
               'Alunos Inscritos': totalStudents,
               'Vagas Livres': Math.max(0, totalCapacity - totalStudents)
           };
-      });
-  }, [selectedMinistry, courses, classes]);
+      }).filter(Boolean);
+  }, [selectedMinistry, courses, classes, filterCycle, filterDateStart, filterDateEnd]);
 
   const recentRequests = useMemo(() => {
     return enrollmentRequests
@@ -169,21 +200,80 @@ export function TeachingOverviewDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2 overflow-hidden">
           <CardHeader className="border-b bg-muted/10 pb-4">
-            <div className="flex items-center justify-between">
-                <div>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                    <School className="size-5 text-primary" />
-                    {selectedMinistry ? `Ocupação: ${selectedMinistry}` : 'Visão por Escolas / Ministérios'}
-                    </CardTitle>
-                    <CardDescription>
-                        {selectedMinistry ? 'Distribuição de vagas e matrículas por curso.' : 'Clique em uma coluna para ver os detalhes dos cursos.'}
-                    </CardDescription>
-                </div>
-                {selectedMinistry && (
-                    <Button variant="outline" size="sm" onClick={() => setSelectedMinistry(null)} className="h-8">
-                        <ChevronLeft className="size-4 mr-1" /> Voltar
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                  <div>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                      <School className="size-5 text-primary" />
+                      {selectedMinistry ? `Ocupação: ${selectedMinistry}` : 'Visão por Escolas / Ministérios'}
+                      </CardTitle>
+                      <CardDescription>
+                          {selectedMinistry ? 'Distribuição de vagas e matrículas por curso.' : 'Clique em uma coluna para ver os detalhes dos cursos.'}
+                      </CardDescription>
+                  </div>
+                  {selectedMinistry && (
+                      <Button variant="outline" size="sm" onClick={() => { setSelectedMinistry(null); setFilterCycle('all'); setFilterDateStart(''); setFilterDateEnd(''); }} className="h-8">
+                          <ChevronLeft className="size-4 mr-1" /> Voltar
+                      </Button>
+                  )}
+              </div>
+
+              {/* Filtros — aparecem somente na visão de detalhe */}
+              {selectedMinistry && (
+                <div className="flex flex-wrap items-end gap-3 pt-1">
+                  <Filter className="size-3.5 text-muted-foreground mb-2.5" />
+
+                  {/* Filtro Ciclo */}
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-black uppercase text-slate-500">Ciclo</Label>
+                    <Select value={filterCycle} onValueChange={setFilterCycle}>
+                      <SelectTrigger className="h-8 w-[130px] bg-white text-xs font-semibold">
+                        <SelectValue placeholder="Todos" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos os Ciclos</SelectItem>
+                        {ministryCycles.map(c => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Filtro Data Início */}
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-black uppercase text-slate-500">Início</Label>
+                    <input
+                      type="date"
+                      value={filterDateStart}
+                      onChange={e => setFilterDateStart(e.target.value)}
+                      className="flex h-8 w-[130px] rounded-md border border-input bg-white px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    />
+                  </div>
+
+                  {/* Filtro Data Fim */}
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-black uppercase text-slate-500">Fim</Label>
+                    <input
+                      type="date"
+                      value={filterDateEnd}
+                      onChange={e => setFilterDateEnd(e.target.value)}
+                      className="flex h-8 w-[130px] rounded-md border border-input bg-white px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    />
+                  </div>
+
+                  {/* Limpar filtros */}
+                  {(filterCycle !== 'all' || filterDateStart || filterDateEnd) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 text-xs text-muted-foreground mb-0.5"
+                      onClick={() => { setFilterCycle('all'); setFilterDateStart(''); setFilterDateEnd(''); }}
+                    >
+                      Limpar
                     </Button>
-                )}
+                  )}
+                </div>
+              )}
             </div>
           </CardHeader>
           <CardContent className="h-[320px] pt-6 outline-none focus:outline-none">
