@@ -145,6 +145,117 @@ export function TeachingOverviewDashboard() {
       }).filter(Boolean);
   }, [selectedMinistry, courses, classes, filterCycle, filterDateStart, filterDateEnd]);
 
+  // Cálculo de Inscritos x Aprovados x Em Risco
+  const approvalStats = useMemo(() => {
+    if (!courses || !classes) return { overview: [], details: [] };
+
+    // 1. Visão Geral (Por Ministério)
+    const ministryMap: Record<string, { totalStudents: number; eligibleStudents: number; riskStudents: number }> = {};
+
+    courses.forEach(course => {
+      const ministry = course.ministryName || 'Geral';
+      if (!ministryMap[ministry]) {
+        ministryMap[ministry] = { totalStudents: 0, eligibleStudents: 0, riskStudents: 0 };
+      }
+
+      let courseClasses = classes.filter(cls => cls.courseId === course.id);
+      if (filterCycle !== 'all') {
+        courseClasses = courseClasses.filter(cls => cls.cycle === filterCycle);
+      }
+
+      courseClasses.forEach(cls => {
+        const clsStart = (cls.startDate as string | undefined)?.split('T')[0] || '';
+        const clsEnd = (cls.endDate as string | undefined)?.split('T')[0] || '';
+        if (filterDateStart && clsEnd && clsEnd < filterDateStart) return;
+        if (filterDateEnd && clsStart && clsStart > filterDateEnd) return;
+
+        const activeStudents = cls.students || [];
+        const totalLessons = cls.attendance?.length || 0;
+        const minRate = course.minAttendanceApproval || 75;
+        const maxAbsences = Math.floor((1 - minRate / 100) * (totalLessons || 1));
+
+        activeStudents.forEach(studentId => {
+          let absences = 0;
+          cls.attendance?.forEach(att => {
+            const isPresent = att.presentStudentIds?.includes(studentId) || att.onlineStudentIds?.includes(studentId);
+            const isRepo = att.repositions?.some(r => r.studentId === studentId);
+            if (!isPresent && !isRepo) absences++;
+          });
+
+          ministryMap[ministry].totalStudents++;
+          if (totalLessons > 0 && absences > maxAbsences) {
+            ministryMap[ministry].riskStudents++;
+          } else {
+            ministryMap[ministry].eligibleStudents++;
+          }
+        });
+      });
+    });
+
+    const overview = Object.entries(ministryMap).map(([name, data]) => ({
+      name,
+      'Inscritos': data.totalStudents,
+      'Elegíveis / Aprovados': data.eligibleStudents,
+      'Em Risco / Reprovados': data.riskStudents
+    }));
+
+    // 2. Visão Detalhada (Por Curso do Ministério Selecionado)
+    let details: any[] = [];
+    if (selectedMinistry) {
+      const ministryCourses = courses.filter(c => (c.ministryName || 'Geral') === selectedMinistry);
+      details = ministryCourses.map(course => {
+        let courseClasses = classes.filter(cls => cls.courseId === course.id);
+        if (filterCycle !== 'all') {
+          courseClasses = courseClasses.filter(cls => cls.cycle === filterCycle);
+        }
+
+        let totalStudents = 0;
+        let eligibleStudents = 0;
+        let riskStudents = 0;
+
+        courseClasses.forEach(cls => {
+          const clsStart = (cls.startDate as string | undefined)?.split('T')[0] || '';
+          const clsEnd = (cls.endDate as string | undefined)?.split('T')[0] || '';
+          if (filterDateStart && clsEnd && clsEnd < filterDateStart) return;
+          if (filterDateEnd && clsStart && clsStart > filterDateEnd) return;
+
+          const activeStudents = cls.students || [];
+          const totalLessons = cls.attendance?.length || 0;
+          const minRate = course.minAttendanceApproval || 75;
+          const maxAbsences = Math.floor((1 - minRate / 100) * (totalLessons || 1));
+
+          activeStudents.forEach(studentId => {
+            let absences = 0;
+            cls.attendance?.forEach(att => {
+              const isPresent = att.presentStudentIds?.includes(studentId) || att.onlineStudentIds?.includes(studentId);
+              const isRepo = att.repositions?.some(r => r.studentId === studentId);
+              if (!isPresent && !isRepo) absences++;
+            });
+
+            totalStudents++;
+            if (totalLessons > 0 && absences > maxAbsences) {
+              riskStudents++;
+            } else {
+              eligibleStudents++;
+            }
+          });
+        });
+
+        if (totalStudents === 0) return null;
+
+        return {
+          name: course.name.length > 20 ? course.name.substring(0, 20) + '...' : course.name,
+          fullName: course.name,
+          'Inscritos': totalStudents,
+          'Elegíveis / Aprovados': eligibleStudents,
+          'Em Risco / Reprovados': riskStudents
+        };
+      }).filter(Boolean);
+    }
+
+    return { overview, details };
+  }, [courses, classes, selectedMinistry, filterCycle, filterDateStart, filterDateEnd]);
+
   const recentRequests = useMemo(() => {
     return enrollmentRequests
       .filter(r => r.status === 'pending')
@@ -309,6 +420,42 @@ export function TeachingOverviewDashboard() {
                 </BarChart>
                 </ResponsiveContainer>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Gráfico 2: Inscritos vs Aprovados vs Em Risco */}
+        <Card className="lg:col-span-2 overflow-hidden mt-6">
+          <CardHeader className="border-b bg-muted/10 pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <TrendingUp className="size-5 text-emerald-600" />
+                  {selectedMinistry ? `Desempenho & Aprovação: ${selectedMinistry}` : 'Desempenho de Alunos (Inscritos x Aprovados)'}
+                </CardTitle>
+                <CardDescription>
+                  {selectedMinistry 
+                    ? 'Acompanhe a quantidade de alunos elegíveis/aprovados e em risco de reprovação por falta.' 
+                    : 'Projeção geral de aprovação e situação de presença por ministério.'}
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="h-[320px] pt-6 outline-none focus:outline-none">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={selectedMinistry ? approvalStats.details : approvalStats.overview}>
+                <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.5} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={11} tickMargin={10} />
+                <YAxis axisLine={false} tickLine={false} fontSize={12} />
+                <Tooltip 
+                  cursor={{ fill: 'rgba(0,0,0,0.05)' }}
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                  labelFormatter={(label, payload) => payload[0]?.payload?.fullName || label}
+                />
+                <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '20px' }} />
+                <Bar dataKey="Elegíveis / Aprovados" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={50} />
+                <Bar dataKey="Em Risco / Reprovados" fill="#ef4444" radius={[4, 4, 0, 0]} maxBarSize={50} />
+              </BarChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
 
