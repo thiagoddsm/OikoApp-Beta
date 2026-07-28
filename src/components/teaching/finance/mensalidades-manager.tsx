@@ -9,6 +9,9 @@ import { Input } from '@/components/ui/input';
 import { DollarSign, CheckCircle2, Clock, AlertCircle, ShieldAlert, CreditCard, Search, FileText } from 'lucide-react';
 import { TuitionFee } from '@/lib/finance/financial-plan-types';
 import { useToast } from '@/hooks/use-toast';
+import { useVolunteering } from '@/contexts/volunteering-context';
+import { useFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
 
 interface MensalidadesManagerProps {
   fees?: TuitionFee[];
@@ -37,7 +40,10 @@ export function MensalidadesManager({
     return matchesSearch && matchesStatus;
   });
 
-  const handleToggleStatus = (feeId: string) => {
+  const { updateDisPayment, updateDocumentNonBlocking } = useVolunteering();
+  const { firestore } = useFirebase();
+
+  const handleToggleStatus = async (feeId: string) => {
     if (!canUpdateStatus) return;
 
     let targetStudentName = '';
@@ -62,6 +68,26 @@ export function MensalidadesManager({
         title: targetNextStatus === 'pago' ? 'Baixa Efetuada ✅' : 'Status Alterado',
         description: `Mensalidade de ${targetStudentName} marcada como ${targetNextStatus.toUpperCase()}.`
       });
+
+      // Persistir no Firestore (seja dis_payments ou tuition_fees)
+      try {
+        const dbStatus = targetNextStatus === 'pago' ? 'paid' : 'pending';
+        if (updateDisPayment && feeId) {
+          await updateDisPayment(feeId, { 
+            status: dbStatus,
+            paidAt: targetNextStatus === 'pago' ? new Date().toISOString() : null
+          });
+        }
+        if (firestore) {
+          const feeRef = doc(firestore, 'tuition_fees', feeId);
+          await updateDocumentNonBlocking(feeRef, {
+            status: targetNextStatus,
+            paidAt: targetNextStatus === 'pago' ? new Date().toISOString() : null
+          });
+        }
+      } catch (err) {
+        console.error('Erro ao atualizar status da mensalidade no Firestore:', err);
+      }
     }
   };
 

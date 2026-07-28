@@ -201,12 +201,17 @@ export function AcademicEnrollmentWizard({
 
       // 4. Generate Tuition Fees if paid course
       if (isPaidCourse && finalTuition > 0 && !isScholarship) {
+        const isDisCourse = (selectedCourse?.schoolId || selectedCourse?.ministry || '').toLowerCase().includes('dis') || (selectedCourse?.name || '').toLowerCase().includes('libras');
+
         for (let i = 1; i <= installments; i++) {
           const feeId = `fee_${enrollmentId}_${i}`;
           const compDate = new Date();
           compDate.setMonth(compDate.getMonth() + (i - 1));
           const competence = `${compDate.getFullYear()}-${String(compDate.getMonth() + 1).padStart(2, '0')}`;
-          const dueDateStr = `${compDate.getFullYear()}-${String(compDate.getMonth() + 1).padStart(2, '0')}-${String(dueDay).padStart(2, '0')}`;
+          
+          // Data de vencimento no dia do vencimento selecionado (mês subsequente para parcelas)
+          const dueDateDate = new Date(compDate.getFullYear(), compDate.getMonth() + (isDisCourse ? 1 : 0), dueDay);
+          const dueDateStr = `${dueDateDate.getFullYear()}-${String(dueDateDate.getMonth() + 1).padStart(2, '0')}-${String(dueDay).padStart(2, '0')}`;
 
           const fee: TuitionFee = {
             id: feeId,
@@ -221,6 +226,24 @@ export function AcademicEnrollmentWizard({
           };
           const feeRef = doc(firestore, 'tuition_fees', feeId);
           batch.set(feeRef, fee, { merge: true });
+
+          // Se for um curso do DIS, grava a primeira parcela diretamente no dis_payments para o DIS Finance Hub
+          if (isDisCourse && i === 1) {
+            const disPaymentRef = doc(collection(firestore, 'dis_payments'));
+            batch.set(disPaymentRef, {
+              userId: studentId,
+              studentName,
+              courseId,
+              courseName: selectedCourse?.name || 'Curso de Libras',
+              classId,
+              className: selectedClass?.name || '',
+              amount: finalTuition,
+              competence,
+              dueDate: dueDateStr,
+              status: 'em_aberto',
+              createdAt: nowIso
+            });
+          }
         }
       }
 

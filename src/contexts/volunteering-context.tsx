@@ -1010,9 +1010,23 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
           const cMin = (cData.ministryName || cData.ministry || '').toLowerCase();
 
           if (cSchool === 'dis' || cMin === 'dis' || cName.includes('libras')) {
+            // Busca o plano cadastrado no DIS (dis_plans)
+            let disPrice = 85;
+            let dueDayNumber = 5;
+            try {
+              const plansSnap = await getDocs(collection(firestore!, 'dis_plans'));
+              if (!plansSnap.empty) {
+                const planData = plansSnap.docs[0].data();
+                if (planData.price) disPrice = Number(planData.price);
+                if (planData.dueDateDay) dueDayNumber = Number(planData.dueDateDay);
+              }
+            } catch (errP) {
+              console.error('Erro ao ler dis_plans:', errP);
+            }
+
             const today = new Date();
-            // Mês subsequente no dia 05
-            const nextMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, 5);
+            // Mês subsequente no dia cadastrado no plano
+            const nextMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, dueDayNumber);
             const year = nextMonthDate.getFullYear();
             const month = String(nextMonthDate.getMonth() + 1).padStart(2, '0');
             const day = String(nextMonthDate.getDate()).padStart(2, '0');
@@ -1027,7 +1041,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
               courseName: cData.name || 'Curso de Libras',
               classId: classId,
               className: targetClass.name || '',
-              amount: 100, // Valor padrão da mensalidade DIS
+              amount: disPrice,
               competence: competence,
               dueDate: dueDateStr,
               status: 'em_aberto',
