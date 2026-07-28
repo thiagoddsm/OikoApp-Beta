@@ -24,6 +24,11 @@ export function MensalidadesManager({
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
 
+  // Sincroniza props.fees com o estado interno quando props mudar
+  React.useEffect(() => {
+    setFeeList(fees);
+  }, [fees]);
+
   const filteredFees = feeList.filter(fee => {
     const matchesSearch = !searchQuery || 
       fee.studentName.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -35,13 +40,14 @@ export function MensalidadesManager({
   const handleToggleStatus = (feeId: string) => {
     if (!canUpdateStatus) return;
 
+    let targetStudentName = '';
+    let targetNextStatus = '';
+
     setFeeList(prev => prev.map(f => {
       if (f.id === feeId) {
         const nextStatus = f.status === 'pago' ? 'em_aberto' : 'pago';
-        toast({
-          title: nextStatus === 'pago' ? 'Baixa Efetuada ✅' : 'Status Alterado',
-          description: `Mensalidade de ${f.studentName} marcada como ${nextStatus.toUpperCase()}.`
-        });
+        targetStudentName = f.studentName;
+        targetNextStatus = nextStatus;
         return {
           ...f,
           status: nextStatus,
@@ -50,6 +56,13 @@ export function MensalidadesManager({
       }
       return f;
     }));
+
+    if (targetStudentName) {
+      toast({
+        title: targetNextStatus === 'pago' ? 'Baixa Efetuada ✅' : 'Status Alterado',
+        description: `Mensalidade de ${targetStudentName} marcada como ${targetNextStatus.toUpperCase()}.`
+      });
+    }
   };
 
   const getBadgeForStatus = (status: TuitionFee['status']) => {
