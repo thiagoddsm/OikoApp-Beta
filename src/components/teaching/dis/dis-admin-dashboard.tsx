@@ -193,7 +193,7 @@ export function DisAdminDashboard() {
                     </Button>
                 </CardHeader>
                 <CardContent>
-                    <EnrollmentRequestsList courseId={primaryDisCourseId} />
+                    <EnrollmentRequestsList courseId={disCourseIds} />
                 </CardContent>
             </Card>
         </TabsContent>
