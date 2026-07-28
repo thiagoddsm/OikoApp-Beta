@@ -42,12 +42,12 @@ export function DisAdminDashboard() {
 
   const disCourses = useMemo(() => 
     courses.filter((c: any) => {
-      const m = (c.ministryName || '').toLowerCase();
-      const min = (c.ministry || '').toLowerCase();
-      const name = (c.name || '').toLowerCase();
-      const school = (c.schoolId || '').toLowerCase();
-      const program = (c.programId || '').toLowerCase();
-      return school === 'dis' || program === 'dis' || min === 'dis' || m.includes('dis') || name.includes('libras') || name.includes('dis');
+      const m = (c.ministryName || '').toLowerCase().trim();
+      const min = (c.ministry || '').toLowerCase().trim();
+      const name = (c.name || '').toLowerCase().trim();
+      const school = (c.schoolId || '').toLowerCase().trim();
+      const program = (c.programId || '').toLowerCase().trim();
+      return school === 'dis' || program === 'dis' || min === 'dis' || m === 'dis' || name.includes('libras');
     }),
     [courses]
   );
