@@ -35,9 +35,15 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string | strin
                 return r.courseId === courseId;
             })
             .sort((a, b) => {
-                const timeA = a.createdAt?.toMillis?.() || 0;
-                const timeB = b.createdAt?.toMillis?.() || 0;
-                return timeB - timeA;
+                const getMillis = (t: any) => {
+                    if (!t) return 0;
+                    if (typeof t.toMillis === 'function') return t.toMillis();
+                    if (typeof t.toDate === 'function') return t.toDate().getTime();
+                    if (t._seconds) return t._seconds * 1000;
+                    if (t.seconds) return t.seconds * 1000;
+                    return 0;
+                };
+                return getMillis(b.createdAt) - getMillis(a.createdAt);
             });
     }, [enrollmentRequests, courseId]);
 
