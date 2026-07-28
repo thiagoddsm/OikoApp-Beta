@@ -106,7 +106,6 @@ export default function ProgramDetailPage() {
     setClassFormOpen(true);
   };
 
-  // All hooks are called above — safe to do conditional returns here
   const isLoading = loadingPrograms || loadingCourses;
   const IconComponent = ICON_MAP[program?.icon] || GraduationCap;
   const capabilities = program?.capabilities || [];
@@ -153,6 +152,8 @@ export default function ProgramDetailPage() {
               <p className="text-sm text-slate-500 line-clamp-1">{program.description}</p>
             </div>
           </div>
+        </div>
+
         {program.slug === 'wave' ? (
           <WaveAdminDashboard />
         ) : program.slug === 'dis' || program.slug === 'libras' ? (
@@ -380,6 +381,7 @@ export default function ProgramDetailPage() {
             </TabsContent>
           </Tabs>
         )}
+      </div>
     </VolunteeringProvider>
   );
 }
