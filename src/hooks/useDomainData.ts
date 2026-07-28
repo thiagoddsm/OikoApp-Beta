@@ -210,3 +210,29 @@ export function useAutomationRules() {
     isLoading
   };
 }
+
+export function useLearningSessionsData(programId?: string) {
+  const { firestore, user } = useFirebase();
+
+  const sessionsQ = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    if (programId) {
+      return query(collection(firestore, 'learning_sessions'), where('programId', '==', programId), limit(300));
+    }
+    return query(collection(firestore, 'learning_sessions'), limit(300));
+  }, [firestore, user, programId]);
+
+  const makeupsQ = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(collection(firestore, 'wave_makeups'), limit(200));
+  }, [firestore, user]);
+
+  const { data: sessions, isLoading: ls } = useCollection<any>(sessionsQ);
+  const { data: makeups, isLoading: lm } = useCollection<any>(makeupsQ);
+
+  return {
+    sessions: sessions || [],
+    makeups: makeups || [],
+    isLoading: ls || lm
+  };
+}

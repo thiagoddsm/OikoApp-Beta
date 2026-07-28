@@ -52,4 +52,5 @@ export interface EffectiveCapabilities {
 export * from './academic-cycle-types';
 export * from './track-types';
 export * from './enrollment-types';
+export * from './learning-session-types';
 export * from '../finance/financial-plan-types';

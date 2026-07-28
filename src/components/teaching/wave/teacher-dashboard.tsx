@@ -1,79 +1,119 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, User, BookOpen, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import Link from 'next/link';
+import { Calendar, User, BookOpen, Clock, AlertTriangle, CheckCircle, Play, Plus, RefreshCw, Loader2, Music } from 'lucide-react';
 import { useFirebase } from '@/firebase';
-import { useVolunteering } from '@/contexts/volunteering-context';
-import { useMembersData, useCoursesData, useTeachingFinance } from "@/hooks/useDomainData";
+import { useMembersData, useCoursesData, useTeachingFinance, useLearningSessionsData } from "@/hooks/useDomainData";
+import { ClassSessionModal } from './class-session-modal';
+import { doc, setDoc } from 'firebase/firestore';
+import { toast } from '@/hooks/use-toast';
 
 export function TeacherDashboard() {
-  const { user } = useFirebase();
+  const { user, firestore } = useFirebase();
   const { users } = useMembersData();
   const { courses, classes, isLoading: loadingCourses } = useCoursesData();
-  const { wavePayments, wavePlans, isLoading: loadingFinance } = useTeachingFinance();
-  const { isLoading: loadingVolunteering } = useVolunteering();
+  const { wavePayments, isLoading: loadingFinance } = useTeachingFinance();
+  const { sessions, makeups, isLoading: loadingSessions } = useLearningSessionsData('wave');
 
-  const isLoading = loadingCourses || loadingFinance || loadingVolunteering;
+  const [selectedSession, setSelectedSession] = useState<any>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
-  // Filter lessons/classes for the logged-in teacher
+  const isLoading = loadingCourses || loadingFinance || loadingSessions;
+
+  // Filter assigned classes for the logged-in teacher
   const teacherClasses = useMemo(() => {
     if (!user || !classes) return [];
     return classes.filter(cls => cls.teacherId === user.uid);
   }, [user, classes]);
 
+  // Filter learning sessions assigned to this teacher
+  const teacherSessions = useMemo(() => {
+    if (!user || !sessions) return [];
+    return sessions.filter(s => s.teacherId === user.uid || teacherClasses.some(c => c.id === s.classId));
+  }, [user, sessions, teacherClasses]);
+
   const courseMap = useMemo(() => new Map(courses.map(c => [c.id, c.name])), [courses]);
+  const userMap = useMemo(() => new Map(users.map(u => [u.id, u.name])), [users]);
 
-  // Find next upcoming class for this teacher (today's closest class)
-  const upcomingClass = useMemo(() => {
-    if (teacherClasses.length === 0) return null;
-    return teacherClasses[0]; // Returns the first active assigned class
-  }, [teacherClasses]);
+  // Generate today's date formatted as YYYY-MM-DD
+  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
-  const totalStudents = useMemo(() => {
-    const studentSet = new Set<string>();
-    teacherClasses.forEach(cls => {
-      cls.students?.forEach(studentId => studentSet.add(studentId));
-    });
-    return studentSet.size;
-  }, [teacherClasses]);
+  // Today's sessions
+  const todaySessions = useMemo(() => {
+    return teacherSessions.filter(s => s.date === todayStr);
+  }, [teacherSessions, todayStr]);
 
-  // Calculate dynamic monthly commission (50% of paid amounts of the teacher's students)
-  const financialSummary = useMemo(() => {
-    const teacherStudentIds = new Set<string>();
-    teacherClasses.forEach(cls => {
-      cls.students?.forEach(studentId => teacherStudentIds.add(studentId));
-    });
+  // Upcoming next session
+  const upcomingSession = useMemo(() => {
+    if (todaySessions.length > 0) return todaySessions[0];
+    return teacherSessions.find(s => s.status === 'scheduled' || s.status === 'in_progress') || null;
+  }, [todaySessions, teacherSessions]);
 
-    const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
-    
-    // Payments from students enrolled in this teacher's classes
-    const teacherStudentPayments = wavePayments.filter(p => teacherStudentIds.has(p.userId) && p.month.startsWith(currentMonth));
-    
-    const paidSum = teacherStudentPayments
-      .filter(p => p.status === 'paid')
-      .reduce((sum, p) => sum + p.amount, 0);
+  // Pending diaries count
+  const pendingDiaries = useMemo(() => {
+    return teacherSessions.filter(s => s.status === 'finished' && !s.diaryCompleted);
+  }, [teacherSessions]);
 
-    const pendingSum = teacherStudentPayments
-      .filter(p => p.status === 'pending' || p.status === 'overdue')
-      .reduce((sum, p) => sum + p.amount, 0);
+  // Pending makeups count
+  const pendingMakeups = useMemo(() => {
+    if (!user || !makeups) return [];
+    return makeups.filter(m => m.teacherId === user.uid && m.status === 'pending');
+  }, [user, makeups]);
 
-    // 50% commission rate for the teacher
-    const totalReceived = paidSum * 0.5;
-    const pending = pendingSum * 0.5;
+  // 🔄 Generate Auto Sessions for Active Classes if none exist for today
+  const handleGenerateTodaySessions = async () => {
+    if (!firestore || !user || teacherClasses.length === 0) return;
+    setIsGenerating(true);
+    try {
+      let createdCount = 0;
+      for (const cls of teacherClasses) {
+        const studentList = cls.students || [];
+        if (studentList.length > 0) {
+          for (const studentId of studentList) {
+            const sessionId = `${cls.id}_${studentId}_${todayStr}`;
+            const sessionRef = doc(firestore, 'learning_sessions', sessionId);
+            
+            const studentName = userMap.get(studentId) || 'Aluno Wave';
+            const courseName = courseMap.get(cls.courseId) || 'Música';
 
-    const localeOptions = { minimumFractionDigits: 2, style: 'currency' as const, currency: 'BRL' };
+            await setDoc(sessionRef, {
+              id: sessionId,
+              programId: 'wave',
+              courseId: cls.courseId,
+              classId: cls.id,
+              teacherId: user.uid,
+              studentId,
+              title: `Aula de ${courseName} - ${studentName}`,
+              date: todayStr,
+              startTime: cls.startTime || '14:00',
+              status: 'scheduled',
+              diaryCompleted: false,
+              attendanceCompleted: false,
+              createdAt: new Date().toISOString()
+            }, { merge: true });
 
-    return {
-      monthName: new Date().toLocaleDateString('pt-BR', { month: 'long' }),
-      totalReceived: totalReceived.toLocaleString('pt-BR', localeOptions),
-      pending: pending.toLocaleString('pt-BR', localeOptions),
-    };
-  }, [teacherClasses, wavePayments]);
+            createdCount++;
+          }
+        }
+      }
+      toast({ title: '📅 Agenda Gerada!', description: `${createdCount} sessões de aula foram criadas para hoje.` });
+    } catch (err: any) {
+      console.error(err);
+      toast({ variant: 'destructive', title: 'Erro ao gerar agenda', description: err.message });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleOpenSessionModal = (session: any) => {
+    setSelectedSession(session);
+    setIsModalOpen(true);
+  };
 
   if (isLoading) {
     return (
@@ -85,106 +125,145 @@ export function TeacherDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Welcome and Summary */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <Card className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm rounded-xl">
+      {/* 3 Summary Top Cards */}
+      <div className="grid gap-6 md:grid-cols-3">
+        {/* Card 1: Próxima Aula */}
+        <Card className="bg-white border border-slate-100 shadow-sm rounded-2xl">
           <CardHeader className="pb-2">
-            <CardDescription>Próxima Aula</CardDescription>
-            <CardTitle className="text-3xl text-indigo-650 dark:text-indigo-400">{upcomingClass?.startTime || '--:--'}</CardTitle>
+            <CardDescription className="text-xs font-bold text-slate-500 uppercase tracking-wider">Próximo Compromisso</CardDescription>
+            <CardTitle className="text-3xl font-black text-indigo-600">
+              {upcomingSession ? upcomingSession.startTime : '--:--'}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-xs text-slate-500">
-              Turma: <strong>{upcomingClass?.name || 'Não agendada'}</strong>
+            <p className="text-xs font-bold text-slate-700 truncate">
+              {upcomingSession ? upcomingSession.title : 'Nenhuma aula pendente agora'}
+            </p>
+            {upcomingSession && (
+              <Badge className="mt-2 bg-indigo-50 text-indigo-700 border-indigo-200">
+                {upcomingSession.status === 'in_progress' ? '▶️ Em Andamento' : '📅 Agendada'}
+              </Badge>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Card 2: Central de Pendências */}
+        <Card className="bg-white border border-slate-100 shadow-sm rounded-2xl">
+          <CardHeader className="pb-2">
+            <CardDescription className="text-xs font-bold text-slate-500 uppercase tracking-wider">Central de Pendências</CardDescription>
+            <CardTitle className="text-3xl font-black text-amber-600">
+              {pendingDiaries.length + pendingMakeups.length}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xs space-y-1 text-slate-600 font-medium">
+              <p>• <strong>{pendingDiaries.length}</strong> diários sem preencher</p>
+              <p>• <strong>{pendingMakeups.length}</strong> reposições pendentes</p>
             </div>
           </CardContent>
         </Card>
-        
-        <Card className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm rounded-xl">
+
+        {/* Card 3: Total Aulas Hoje */}
+        <Card className="bg-white border border-slate-100 shadow-sm rounded-2xl">
           <CardHeader className="pb-2">
-            <CardDescription>Total de Alunos</CardDescription>
-            <CardTitle className="text-3xl text-emerald-600">{totalStudents}</CardTitle>
+            <CardDescription className="text-xs font-bold text-slate-500 uppercase tracking-wider">Aulas de Hoje ({todayStr})</CardDescription>
+            <CardTitle className="text-3xl font-black text-emerald-600">
+              {todaySessions.length}
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-xs text-slate-500">
-              Gerenciando {totalStudents} jornadas musicais no Wave
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm rounded-xl">
-          <CardHeader className="pb-2">
-            <CardDescription>Repasse Estimado ({financialSummary.monthName})</CardDescription>
-            <CardTitle className="text-3xl text-indigo-600">{financialSummary.totalReceived}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-xs text-slate-500">
-              {financialSummary.pending} aguardando pagamento
-            </div>
+          <CardContent className="flex justify-between items-end">
+            <p className="text-xs text-slate-500 font-medium">
+              {teacherClasses.length} turmas alocadas no Wave
+            </p>
+            <Button size="sm" variant="outline" onClick={handleGenerateTodaySessions} disabled={isGenerating} className="text-xs h-7">
+              {isGenerating ? <Loader2 className="size-3 animate-spin mr-1" /> : <RefreshCw className="size-3 mr-1 text-indigo-600" />} Gerar Aulas
+            </Button>
           </CardContent>
         </Card>
       </div>
-      
-      {/* Schedule and Students */}
-      <div className="grid grid-cols-1">
-        <Card className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm rounded-xl">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-md font-bold">
-              <BookOpen className="size-5 text-indigo-500"/>
-              Minhas Turmas Ativas
+
+      {/* Main Agenda Section (Aulas do Dia) */}
+      <Card className="bg-white border border-slate-100 shadow-sm rounded-2xl">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-md font-bold text-slate-800">
+              <Calendar className="size-5 text-indigo-600" />
+              Agenda de Aulas & Atendimentos
             </CardTitle>
-            <CardDescription>Lista de instrumentos e alunos sob sua mentoria.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
+            <CardDescription className="text-xs">Gerencie suas sessões de música do dia com controle de início/fim e diário.</CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-slate-50">
+                <TableHead>Horário</TableHead>
+                <TableHead>Aula / Aluno</TableHead>
+                <TableHead>Curso</TableHead>
+                <TableHead>Status Operacional</TableHead>
+                <TableHead>Diário</TableHead>
+                <TableHead className="text-right">Ação</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {todaySessions.length === 0 ? (
                 <TableRow>
-                  <TableHead>Turma</TableHead>
-                  <TableHead>Curso</TableHead>
-                  <TableHead>Nº de Alunos</TableHead>
-                  <TableHead>Horário</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
+                  <TableCell colSpan={6} className="text-center h-28 text-slate-400 italic">
+                    Nenhuma aula agendada para hoje. Clique no botão "Gerar Aulas" acima para criar as sessões da sua grade.
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {teacherClasses.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center h-24 text-slate-400">
-                      Você não está alocado em nenhuma turma do Wave.
+              ) : (
+                todaySessions.map(session => (
+                  <TableRow key={session.id}>
+                    <TableCell className="font-bold text-slate-800">{session.startTime}</TableCell>
+                    <TableCell>
+                      <div>
+                        <p className="font-bold text-slate-800 text-xs">{session.title}</p>
+                        <p className="text-[11px] text-slate-400 font-medium">{userMap.get(session.studentId) || 'Aluno'}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-[10px]">
+                        {courseMap.get(session.courseId) || 'Música'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {session.status === 'scheduled' && <Badge variant="outline" className="text-slate-600 text-[10px]">📅 Agendada</Badge>}
+                      {session.status === 'in_progress' && <Badge className="bg-amber-500 text-white text-[10px] animate-pulse">▶️ Em Andamento</Badge>}
+                      {session.status === 'finished' && <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px]">⏹️ Finalizada ({session.durationMinutes || 50}m)</Badge>}
+                      {session.status === 'cancelled' && <Badge variant="destructive" className="text-[10px]">🔴 Cancelada</Badge>}
+                    </TableCell>
+                    <TableCell>
+                      {session.diaryCompleted ? (
+                        <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]">✅ Preenchido</Badge>
+                      ) : session.status === 'finished' ? (
+                        <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px]">⚠️ Pendente</Badge>
+                      ) : (
+                        <span className="text-[10px] text-slate-400">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button size="sm" onClick={() => handleOpenSessionModal(session)} className="h-8 text-xs font-bold bg-indigo-600 hover:bg-indigo-700">
+                        <BookOpen className="size-3.5 mr-1.5" />
+                        {session.status === 'scheduled' ? 'Iniciar / Diário' : session.status === 'in_progress' ? 'Finalizar Aula' : 'Ver / Editar Diário'}
+                      </Button>
                     </TableCell>
                   </TableRow>
-                ) : (
-                  teacherClasses.map(cls => (
-                    <TableRow key={cls.id}>
-                      <TableCell className="font-bold">{cls.name}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {courseMap.get(cls.courseId) || 'Curso não encontrado'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className="bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200">
-                          {cls.students?.length || 0}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-slate-500">
-                        {cls.dayOfWeek} às {cls.startTime}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" asChild>
-                          <Link href={`/dashboard/teaching/diario`}>
-                            <BookOpen className="size-4 mr-2 text-indigo-500"/>
-                            Registrar Aula
-                          </Link>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      </div>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Modal Dialog */}
+      {selectedSession && (
+        <ClassSessionModal
+          session={selectedSession}
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+        />
+      )}
     </div>
   );
 }
