@@ -39,7 +39,7 @@ import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
 
 const COLORS = ['#6750A4', '#9A89C6', '#BDB2D9', '#D9D3E9', '#F2F0F7'];
 
-export function TeachingOverviewDashboard() {
+export function TeachingOverviewDashboard({ onNavigateToRequests }: { onNavigateToRequests?: () => void }) {
     const { users } = useMembersData();
     const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
 
@@ -495,8 +495,18 @@ export function TeachingOverviewDashboard() {
                 )
               })
             )}
-            <Button variant="ghost" className="w-full text-xs font-black uppercase text-primary tracking-widest h-10 mt-2" asChild>
-              <a href="#requests">Gerenciar Tudo</a>
+            <Button 
+              variant="ghost" 
+              className="w-full text-xs font-black uppercase text-primary tracking-widest h-10 mt-2" 
+              onClick={() => {
+                if (onNavigateToRequests) {
+                  onNavigateToRequests();
+                } else {
+                  window.location.hash = 'requests';
+                }
+              }}
+            >
+              Gerenciar Tudo
             </Button>
           </CardContent>
         </Card>

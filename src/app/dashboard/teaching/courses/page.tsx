@@ -50,7 +50,7 @@ export default function CoursesPage() {
           </TabsList>
 
           <TabsContent value="dashboard" className="mt-6 animate-in fade-in-50 duration-500">
-            <TeachingOverviewDashboard />
+            <TeachingOverviewDashboard onNavigateToRequests={() => setActiveTab('requests')} />
           </TabsContent>
 
           <TabsContent value="requests" className="mt-6 animate-in fade-in-50 duration-500">
