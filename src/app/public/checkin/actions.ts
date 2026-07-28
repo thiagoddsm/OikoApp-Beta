@@ -110,7 +110,7 @@ export async function getPublicCheckInData(areaId: string | null, dateParam: str
       }
     }));
 
-    // Map slots with names and check-in statuses
+    // Map slots with names and check-in/out statuses
     const checkIns = scheduleData.checkIns || {};
     const slots = daySlots.map((item: any) => {
       const checkInKey = `${item.date}_${item.eventName}_${item.slotIndex || 0}`;
@@ -122,7 +122,10 @@ export async function getPublicCheckInData(areaId: string | null, dateParam: str
         teamName: item.teamName || '',
         volunteerId,
         volunteerName: volunteerId ? (memberNames[volunteerId] || 'Voluntário') : '',
-        checkInStatus: checkIn?.status || 'pending'
+        checkInStatus: checkIn?.status || 'pending',
+        checkInTime: checkIn?.checkInTime || (checkIn?.timestamp ? new Date(checkIn.timestamp.toMillis ? checkIn.timestamp.toMillis() : checkIn.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : null),
+        checkOutTime: checkIn?.checkOutTime || null,
+        badgeReturned: checkIn?.badgeReturned ?? false
       };
     });
 
@@ -138,7 +141,10 @@ export async function getPublicCheckInData(areaId: string | null, dateParam: str
           teamName: 'Extra',
           volunteerId: vId,
           volunteerName: allVolunteersMap.get(vId) || 'Voluntário Extra',
-          checkInStatus: 'present',
+          checkInStatus: checkIn?.status || 'present',
+          checkInTime: checkIn?.checkInTime || (checkIn?.timestamp ? new Date(checkIn.timestamp.toMillis ? checkIn.timestamp.toMillis() : checkIn.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : null),
+          checkOutTime: checkIn?.checkOutTime || null,
+          badgeReturned: checkIn?.badgeReturned ?? false,
           isAvulso: true
         });
       }
@@ -190,10 +196,18 @@ export async function submitCheckIn(params: {
         ? `${date}_avulso_${memberId}` 
         : `${date}_${eventName}_${slotIndex}`;
       
+      const now = new Date();
+      const timeFormatted = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+      const existingData = checkIns[checkInKey] || {};
+
       checkIns[checkInKey] = {
+        ...existingData,
         status: 'present',
         memberId: memberId,
-        timestamp: new Date(),
+        checkInTime: timeFormatted,
+        checkInTimestamp: now.toISOString(),
+        badgeGiven: true,
         method: 'qr_code'
       };
       
@@ -207,6 +221,62 @@ export async function submitCheckIn(params: {
     return { success: true };
   } catch (error: any) {
     console.error("Public checkin failed:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function submitCheckOut(params: {
+  areaId: string;
+  month: string;
+  eventName: string;
+  date: string;
+  slotIndex: number;
+  memberId: string;
+  isAvulso?: boolean;
+}) {
+  const { areaId, month, eventName, date, slotIndex, memberId, isAvulso } = params;
+  try {
+    const db = getAdminDb();
+    const docId = `${areaId}_${month}`;
+    const docRef = db.collection('saved_schedules').doc(docId);
+
+    await db.runTransaction(async (transaction) => {
+      const snap = await transaction.get(docRef);
+      if (!snap.exists) throw new Error("Escala não encontrada.");
+
+      const scheduleData = snap.data() || {};
+      const checkIns = scheduleData.checkIns || {};
+      const checkInKey = isAvulso 
+        ? `${date}_avulso_${memberId}` 
+        : `${date}_${eventName}_${slotIndex}`;
+
+      const now = new Date();
+      const timeFormatted = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+      const existingData = checkIns[checkInKey] || {};
+
+      let durationMinutes = null;
+      if (existingData.checkInTimestamp) {
+        const inDate = new Date(existingData.checkInTimestamp);
+        const diffMs = now.getTime() - inDate.getTime();
+        durationMinutes = Math.round(diffMs / (1000 * 60));
+      }
+
+      checkIns[checkInKey] = {
+        ...existingData,
+        status: 'checked_out',
+        checkOutTime: timeFormatted,
+        checkOutTimestamp: now.toISOString(),
+        durationMinutes,
+        badgeReturned: true
+      };
+
+      transaction.update(docRef, { checkIns });
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Public checkout failed:", error);
     return { success: false, error: error.message };
   }
 }

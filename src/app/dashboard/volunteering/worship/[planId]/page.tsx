@@ -396,6 +396,59 @@ function PlanEditorInner({ planId }: { planId: string }) {
     });
   };
 
+  const handleToggleVolunteerCheckIn = async (vol: any) => {
+    const nextCheckIn = !vol.isCheckedIn;
+
+    try {
+      if (vol.positionId) {
+        // Área de Louvor (neededPositions)
+        const updatedPositions = localNeededPositions.map(p => {
+          if (p.id === vol.positionId) {
+            return { ...p, checkedIn: nextCheckIn };
+          }
+          return p;
+        });
+        setLocalNeededPositions(updatedPositions);
+        setIsDirty(true);
+        if (planId && updatePlan) {
+          await updatePlan(planId, { neededPositions: updatedPositions });
+        }
+      } else if (vol.savedScheduleRef && vol.itemRef) {
+        // Áreas de Serviço (Som, Mídia, Recepção, etc)
+        const ss = vol.savedScheduleRef;
+        const item = vol.itemRef;
+        const checkInKey = `${item.date}_${item.eventName}_${item.slotIndex || 0}`;
+        const checkIns = { ...(ss.checkIns || {}) };
+
+        if (!nextCheckIn) {
+          delete checkIns[checkInKey];
+        } else {
+          checkIns[checkInKey] = {
+            status: 'present',
+            checkedIn: true,
+            memberId: vol.userId,
+            timestamp: new Date().toISOString(),
+            method: 'manual_worship_panel'
+          };
+        }
+
+        const { saveSchedule } = await import('@/contexts/volunteering-context').then(m => ({ saveSchedule: null }));
+        // Atualizar documento saved_schedules no Firestore
+        const { getFirestore, doc: fDoc, setDoc } = await import('firebase/firestore');
+        const db = getFirestore();
+        await setDoc(fDoc(db, 'saved_schedules', ss.id), { checkIns }, { merge: true });
+      }
+
+      toast({
+        title: nextCheckIn ? 'Check-in Realizado! ✅' : 'Check-in Removido ⏳',
+        description: `Status de presença de ${vol.userName} atualizado.`
+      });
+    } catch (err: any) {
+      console.error('Erro ao registrar check-in:', err);
+      toast({ variant: 'destructive', title: 'Erro no Check-in', description: err.message });
+    }
+  };
+
   // Plan Attachments management
   const handleAddPlanAttachment = () => {
     if (!newPlanAttName.trim()) return;
@@ -544,6 +597,10 @@ function PlanEditorInner({ planId }: { planId: string }) {
       userAvatar?: string;
       role: string;
       status: 'confirmed' | 'declined' | 'pending';
+      isCheckedIn?: boolean;
+      positionId?: string;
+      itemRef?: any;
+      savedScheduleRef?: any;
     }[]> = {};
 
     savedSchedules.forEach((ss) => {
@@ -562,12 +619,17 @@ function PlanEditorInner({ planId }: { planId: string }) {
 
         if (isDateMatch && isEventMatch) {
           const confirmations = ss.confirmations || {};
+          const checkIns = (ss as any).checkIns || {};
 
           item.memberIds?.forEach((mId) => {
             const memberObj = users.find(u => u.id === mId);
             const memberName = memberObj?.name || 'Voluntário';
             const memberAvatar = memberObj?.avatar;
             const status = confirmations[mId]?.status || 'pending';
+
+            const checkInKey = `${item.date}_${item.eventName}_${(item as any).slotIndex || 0}`;
+            const checkInData = checkIns[checkInKey] || checkIns[mId];
+            const isCheckedIn = checkInData?.status === 'present' || checkInData?.checkedIn === true;
 
             if (!grouped[areaName]) {
               grouped[areaName] = [];
@@ -581,6 +643,9 @@ function PlanEditorInner({ planId }: { planId: string }) {
               userAvatar: memberAvatar,
               role,
               status,
+              isCheckedIn,
+              itemRef: item,
+              savedScheduleRef: ss
             });
           });
         }
@@ -602,6 +667,8 @@ function PlanEditorInner({ planId }: { planId: string }) {
           if (pos.status === 'accepted') status = 'confirmed';
           if (pos.status === 'declined') status = 'declined';
 
+          const isCheckedIn = Boolean(pos.checkedIn);
+
           if (!grouped[worshipAreaName]) {
             grouped[worshipAreaName] = [];
           }
@@ -614,6 +681,8 @@ function PlanEditorInner({ planId }: { planId: string }) {
             userAvatar: memberAvatar,
             role: roleLabel,
             status,
+            isCheckedIn,
+            positionId: pos.id
           });
         }
       });
@@ -812,7 +881,7 @@ function PlanEditorInner({ planId }: { planId: string }) {
                                 <p className="text-[11px] text-slate-500 font-semibold">{vol.role}</p>
                               </div>
                             </div>
-                            <div>
+                            <div className="flex items-center gap-2 flex-wrap justify-end">
                               {vol.status === 'confirmed' && (
                                 <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100 text-[10px] font-bold">
                                   <CheckCircle2 className="size-3 mr-1" /> Confirmado
@@ -828,6 +897,26 @@ function PlanEditorInner({ planId }: { planId: string }) {
                                   <Clock className="size-3 mr-1" /> Pendente
                                 </Badge>
                               )}
+
+                              {/* Botão / Badge de Check-in em Tempo Real */}
+                              <Button
+                                size="sm"
+                                variant={vol.isCheckedIn ? 'outline' : 'secondary'}
+                                onClick={() => handleToggleVolunteerCheckIn(vol)}
+                                className={vol.isCheckedIn 
+                                  ? 'h-6 text-[10px] font-bold border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 gap-1' 
+                                  : 'h-6 text-[10px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-700 gap-1'}
+                              >
+                                {vol.isCheckedIn ? (
+                                  <>
+                                    <CheckCircle2 className="size-3 text-indigo-600" /> Check-in Feito
+                                  </>
+                                ) : (
+                                  <>
+                                    <Clock className="size-3 text-slate-500" /> Sem Check-in
+                                  </>
+                                )}
+                              </Button>
                             </div>
                           </div>
                         ))}

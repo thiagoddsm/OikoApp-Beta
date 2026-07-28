@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Loader2, CheckCircle, HandHelping, Calendar, UserCheck, AlertTriangle, UserPlus, ArrowLeft } from 'lucide-react';
-import { getPublicCheckInData, submitCheckIn } from './actions';
+import { getPublicCheckInData, submitCheckIn, submitCheckOut } from './actions';
 
 export default function PublicCheckInPage() {
     const [areaId, setAreaId] = useState<string | null>(null);
@@ -25,7 +25,7 @@ export default function PublicCheckInPage() {
     const [selectedAvulsoMemberId, setSelectedAvulsoMemberId] = useState<string>('');
     
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isSuccess, setIsSuccess] = useState(false);
+    const [isSuccess, setIsSuccess] = useState<boolean | 'checkout'>(false);
     const [errorMessage, setErrorMessage] = useState('');
 
     const loadData = (aId: string | null, dt: string) => {
@@ -69,7 +69,7 @@ export default function PublicCheckInPage() {
         loadData(id, dateParam);
     };
 
-    const handleConfirmCheckin = async () => {
+    const handleConfirmCheckin = async (actionType: 'checkin' | 'checkout' = 'checkin') => {
         const activeAreaId = selectedAreaId || areaId;
         if (!activeAreaId || !checkInData || !dateParam) return;
         
@@ -95,22 +95,32 @@ export default function PublicCheckInPage() {
         setIsSubmitting(true);
         setErrorMessage('');
 
-        const res = await submitCheckIn({
-            areaId: activeAreaId,
-            month: checkInData.monthString,
-            eventName,
-            date: checkInData.date,
-            slotIndex,
-            memberId,
-            isAvulso: isAvulsoMode
-        });
+        const res = actionType === 'checkout' 
+          ? await submitCheckOut({
+              areaId: activeAreaId,
+              month: checkInData.monthString,
+              eventName,
+              date: checkInData.date,
+              slotIndex,
+              memberId,
+              isAvulso: isAvulsoMode
+            })
+          : await submitCheckIn({
+              areaId: activeAreaId,
+              month: checkInData.monthString,
+              eventName,
+              date: checkInData.date,
+              slotIndex,
+              memberId,
+              isAvulso: isAvulsoMode
+            });
 
         setIsSubmitting(false);
 
         if (res.success) {
-            setIsSuccess(true);
+            setIsSuccess(actionType === 'checkout' ? 'checkout' : true);
         } else {
-            setErrorMessage(res.error || 'Ocorreu um erro ao registrar a presença.');
+            setErrorMessage(res.error || 'Ocorreu um erro ao registrar a solicitação.');
         }
     };
 
@@ -150,11 +160,15 @@ export default function PublicCheckInPage() {
                             <CheckCircle className="size-12 text-emerald-500" />
                         </div>
                         <div className="space-y-1">
-                            <h2 className="text-xl font-black text-slate-800">Presença Confirmada!</h2>
-                            <p className="text-sm text-slate-500">Obrigado por servir hoje na casa do Senhor!</p>
+                            <h2 className="text-xl font-black text-slate-800">
+                              {isSuccess === 'checkout' ? 'Check-out Concluído!' : 'Presença Confirmada!'}
+                            </h2>
+                            <p className="text-sm text-slate-500">
+                              {isSuccess === 'checkout' ? 'Crachá devolvido. Excelente trabalho hoje! 🙏' : 'Pegue seu crachá. Bom serviço na casa do Senhor! 🙌'}
+                            </p>
                         </div>
-                        <Badge className="bg-emerald-100 text-emerald-800 border-emerald-250 hover:bg-emerald-100 text-[10px] py-1 px-3">
-                            Check-in Realizado ✅
+                        <Badge className={isSuccess === 'checkout' ? "bg-indigo-100 text-indigo-800 border-indigo-200 text-[10px] py-1 px-3" : "bg-emerald-100 text-emerald-800 border-emerald-250 text-[10px] py-1 px-3"}>
+                            {isSuccess === 'checkout' ? 'Crachá Devolvido ✅' : 'Check-in Realizado (Crachá Entregue) 🏷️'}
                         </Badge>
                         <div className="pt-4">
                             <Button 
@@ -269,19 +283,22 @@ export default function PublicCheckInPage() {
                                                     {checkInData.slots.map((item: any, idx: number) => {
                                                         const hasVolunteers = !!item.volunteerId;
                                                         const isAlreadyCheckedIn = item.checkInStatus === 'present';
+                                                        const isCheckedOut = item.checkInStatus === 'checked_out';
 
                                                         return (
                                                             <button
                                                                 key={idx}
                                                                 type="button"
-                                                                disabled={!hasVolunteers || isAlreadyCheckedIn}
+                                                                disabled={!hasVolunteers || isCheckedOut}
                                                                 onClick={() => setSelectedItemIndex(idx)}
                                                                 className={`w-full p-4 border rounded-2xl flex items-center justify-between text-left transition-all ${
-                                                                    isAlreadyCheckedIn 
-                                                                        ? 'bg-emerald-50/30 border-emerald-150 cursor-not-allowed opacity-80' 
-                                                                        : hasVolunteers
-                                                                            ? 'border-slate-200 hover:border-primary hover:bg-primary/5 active:scale-[0.99] cursor-pointer'
-                                                                            : 'bg-slate-25/20 border-slate-150 cursor-not-allowed opacity-50'
+                                                                    isCheckedOut
+                                                                        ? 'bg-slate-50 border-slate-200 cursor-not-allowed opacity-60'
+                                                                        : isAlreadyCheckedIn 
+                                                                            ? 'bg-emerald-50/50 border-emerald-300 hover:border-emerald-500 cursor-pointer' 
+                                                                            : hasVolunteers
+                                                                                ? 'border-slate-200 hover:border-primary hover:bg-primary/5 active:scale-[0.99] cursor-pointer'
+                                                                                : 'bg-slate-25/20 border-slate-150 cursor-not-allowed opacity-50'
                                                                 }`}
                                                             >
                                                                 <div className="space-y-1 pr-4">
@@ -289,11 +306,18 @@ export default function PublicCheckInPage() {
                                                                     <p className="text-xs text-slate-500 font-bold">
                                                                         {item.volunteerName || 'Vaga Aberta'}
                                                                     </p>
+                                                                    {item.checkInTime && (
+                                                                        <p className="text-[10px] text-slate-400">
+                                                                            Entrada: <strong>{item.checkInTime}</strong> {item.checkOutTime ? `• Saída: ${item.checkOutTime}` : ''}
+                                                                        </p>
+                                                                    )}
                                                                 </div>
-                                                                {isAlreadyCheckedIn ? (
-                                                                    <Badge className="bg-emerald-100 text-emerald-800 text-[10px] font-bold border-emerald-200">Presente</Badge>
+                                                                {isCheckedOut ? (
+                                                                    <Badge variant="outline" className="text-slate-500 border-slate-300 text-[10px]">Concluído</Badge>
+                                                                ) : isAlreadyCheckedIn ? (
+                                                                    <Badge className="bg-emerald-600 text-white text-[10px] font-bold">Check-out (Devolver Crachá) →</Badge>
                                                                 ) : hasVolunteers ? (
-                                                                    <span className="text-[10px] font-bold text-primary flex items-center gap-1">Check-in →</span>
+                                                                    <span className="text-[10px] font-bold text-primary flex items-center gap-1">Entrada (Pegar Crachá) →</span>
                                                                 ) : (
                                                                     <Badge variant="outline" className="text-slate-400 border-slate-250 text-[10px]">Vago</Badge>
                                                                 )}
@@ -366,7 +390,7 @@ export default function PublicCheckInPage() {
                                             <Button
                                                 type="button"
                                                 disabled={isSubmitting || !selectedAvulsoMemberId}
-                                                onClick={handleConfirmCheckin}
+                                                onClick={() => handleConfirmCheckin('checkin')}
                                                 className="w-full h-11 text-xs font-bold rounded-2xl"
                                             >
                                                 {isSubmitting ? (
@@ -376,7 +400,7 @@ export default function PublicCheckInPage() {
                                                     </>
                                                 ) : (
                                                     <>
-                                                        <UserCheck className="size-4.5 mr-2" /> Confirmar Minha Presença
+                                                        <UserCheck className="size-4.5 mr-2" /> Confirmar Minha Presença & Pegar Crachá
                                                     </>
                                                 )}
                                             </Button>
@@ -401,6 +425,12 @@ export default function PublicCheckInPage() {
                                                     <span>Culto/Evento:</span>
                                                     <strong className="text-slate-700">{checkInData.slots[selectedItemIndex!].eventName}</strong>
                                                 </div>
+                                                {checkInData.slots[selectedItemIndex!].checkInTime && (
+                                                    <div className="pt-1 flex justify-between text-xs text-slate-500">
+                                                        <span>Horário de Entrada:</span>
+                                                        <strong className="text-emerald-700">{checkInData.slots[selectedItemIndex!].checkInTime}</strong>
+                                                    </div>
+                                                )}
                                             </div>
 
                                             {errorMessage && (
@@ -409,23 +439,43 @@ export default function PublicCheckInPage() {
                                                 </p>
                                             )}
 
-                                            <Button
-                                                type="button"
-                                                disabled={isSubmitting}
-                                                onClick={handleConfirmCheckin}
-                                                className="w-full h-11 text-xs font-bold rounded-2xl"
-                                            >
-                                                {isSubmitting ? (
-                                                    <>
-                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                        Confirmando...
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <UserCheck className="size-4.5 mr-2" /> Confirmar Minha Presença
-                                                    </>
-                                                )}
-                                            </Button>
+                                            {checkInData.slots[selectedItemIndex!].checkInStatus === 'present' ? (
+                                                <Button
+                                                    type="button"
+                                                    disabled={isSubmitting}
+                                                    onClick={() => handleConfirmCheckin('checkout')}
+                                                    className="w-full h-11 text-xs font-bold rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white"
+                                                >
+                                                    {isSubmitting ? (
+                                                        <>
+                                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                            Registrando Saída...
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <CheckCircle className="size-4.5 mr-2" /> Devolver Crachá & Fazer Check-out
+                                                        </>
+                                                    )}
+                                                </Button>
+                                            ) : (
+                                                <Button
+                                                    type="button"
+                                                    disabled={isSubmitting}
+                                                    onClick={() => handleConfirmCheckin('checkin')}
+                                                    className="w-full h-11 text-xs font-bold rounded-2xl"
+                                                >
+                                                    {isSubmitting ? (
+                                                        <>
+                                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                            Confirmando...
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <UserCheck className="size-4.5 mr-2" /> Pegar Crachá & Fazer Check-in
+                                                        </>
+                                                    )}
+                                                </Button>
+                                            )}
                                         </div>
                                     )}
                                 </>
