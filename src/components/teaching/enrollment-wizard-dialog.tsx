@@ -201,7 +201,8 @@ export function AcademicEnrollmentWizard({
 
       // 4. Generate Tuition Fees if paid course
       if (isPaidCourse && finalTuition > 0 && !isScholarship) {
-        const isDisCourse = (selectedCourse?.schoolId || selectedCourse?.ministry || '').toLowerCase().includes('dis') || (selectedCourse?.name || '').toLowerCase().includes('libras');
+        const scAny = selectedCourse as any;
+        const isDisCourse = (scAny?.schoolId || scAny?.ministry || '').toLowerCase().includes('dis') || (selectedCourse?.name || '').toLowerCase().includes('libras');
 
         for (let i = 1; i <= installments; i++) {
           const feeId = `fee_${enrollmentId}_${i}`;

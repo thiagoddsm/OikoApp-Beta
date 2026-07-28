@@ -10,7 +10,7 @@ import { DollarSign, CheckCircle2, Clock, AlertCircle, ShieldAlert, CreditCard, 
 import { TuitionFee } from '@/lib/finance/financial-plan-types';
 import { useToast } from '@/hooks/use-toast';
 import { useVolunteering } from '@/contexts/volunteering-context';
-import { useFirebase } from '@/firebase';
+import { useFirebase, setDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 
 interface MensalidadesManagerProps {
@@ -40,7 +40,7 @@ export function MensalidadesManager({
     return matchesSearch && matchesStatus;
   });
 
-  const { updateDisPayment, updateDocumentNonBlocking } = useVolunteering();
+  const { updateDisPayment } = useVolunteering();
   const { firestore } = useFirebase();
 
   const handleToggleStatus = async (feeId: string) => {
@@ -80,10 +80,10 @@ export function MensalidadesManager({
         }
         if (firestore) {
           const feeRef = doc(firestore, 'tuition_fees', feeId);
-          await updateDocumentNonBlocking(feeRef, {
+          await setDocumentNonBlocking(feeRef, {
             status: targetNextStatus,
             paidAt: targetNextStatus === 'pago' ? new Date().toISOString() : null
-          });
+          }, { merge: true });
         }
       } catch (err) {
         console.error('Erro ao atualizar status da mensalidade no Firestore:', err);
