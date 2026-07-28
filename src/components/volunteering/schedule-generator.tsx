@@ -11,7 +11,7 @@ import { Label } from '../ui/label';
 import { Badge } from '../ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Timestamp } from 'firebase/firestore';
-import { useDoc } from '@/firebase';
+import { useDoc, useFirebase } from '@/firebase';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useMembersData, useEventsData, useVolunteeringServiceData } from "@/hooks/useDomainData";
 
@@ -51,6 +51,7 @@ const getAllFifthWeeksOfYear = (year: number) => {
 }
 
 export function ScheduleGenerator() {
+    const { user: currentUser } = useFirebase();
     const { users } = useMembersData();
     const { events, reservations, rooms, strategicEvents, reservationCategories } = useEventsData();
     const { serviceAreas: areas, teams, savedSchedules } = useVolunteeringServiceData();
@@ -345,10 +346,13 @@ export function ScheduleGenerator() {
                 });
 
                 try {
-                    // Usa o novo endpoint que envia botão interativo + registra pendência no Firestore
+                    const token = await currentUser?.getIdToken();
                     const resp = await fetch('/api/notifications/send-schedule-confirmation', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                        },
                         body: JSON.stringify({
                             volunteerId: volunteer.id,
                             phone: volunteer.phone,

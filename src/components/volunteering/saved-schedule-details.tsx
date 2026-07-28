@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useVolunteering, type SavedSchedule } from '@/contexts/volunteering-context';
-import { useDoc } from '@/firebase';
+import { useDoc, useFirebase } from '@/firebase';
 import { Loader2, Download, Send, Trash2, ChevronDown, Mail, MessageSquare, CheckCircle, XCircle, Clock, CheckCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -19,6 +19,7 @@ import { useMembersData, useVolunteeringServiceData } from "@/hooks/useDomainDat
 const weekDays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
 
 export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, monthFilter: string }) {
+    const { user: currentUser } = useFirebase();
     const { users } = useMembersData();
     const { serviceAreas: areas, teams, savedSchedules } = useVolunteeringServiceData();
 
@@ -221,9 +222,13 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
             });
 
             try {
+                const token = await currentUser?.getIdToken();
                 const response = await fetch('/api/notifications/send-schedule-confirmation', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    },
                     body: JSON.stringify({
                         volunteerId: volunteer.id,
                         phone: volunteer.phone,
