@@ -9,19 +9,20 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { DollarSign, CheckCircle2, Clock, AlertCircle, Search, PlusCircle, TrendingUp, ArrowDownRight, ArrowUpRight, Percent, Calendar, Edit, Trash2, ShieldCheck, Tag } from 'lucide-react';
+import { DollarSign, CheckCircle2, Clock, AlertCircle, Search, PlusCircle, TrendingUp, ArrowUpRight, ArrowDownRight, Edit, Trash2, ShieldCheck, Tag, Receipt, MinusCircle } from 'lucide-react';
 import { MensalidadesManager } from './mensalidades-manager';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { useTeachingFinance } from '@/hooks/useDomainData';
 import { useToast } from '@/hooks/use-toast';
+import { Timestamp } from 'firebase/firestore';
 
 interface DisFinanceHubProps {
   disPayments: any[];
 }
 
 export function DisFinanceHub({ disPayments }: DisFinanceHubProps) {
-  const { disPlans } = useTeachingFinance();
-  const { addDisPlan, updateDisPlan, deleteDisPlan } = useVolunteering();
+  const { disPlans, disExpenses } = useTeachingFinance();
+  const { addDisPlan, updateDisPlan, deleteDisPlan, addDisExpense, updateDisExpense, deleteDisExpense } = useVolunteering();
   const { toast } = useToast();
 
   const [activeSubTab, setActiveSubTab] = useState('overview');
@@ -35,7 +36,16 @@ export function DisFinanceHub({ disPayments }: DisFinanceHubProps) {
   const [planDiscountPercent, setPlanDiscountPercent] = useState('0');
   const [isSavingPlan, setIsSavingPlan] = useState(false);
 
-  // Financial KPIs
+  // Expense Dialog State
+  const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<any>(null);
+  const [expenseDescription, setExpenseDescription] = useState('');
+  const [expenseAmount, setExpenseAmount] = useState('');
+  const [expenseCategory, setExpenseCategory] = useState('Material Didático');
+  const [expenseDate, setExpenseDate] = useState(new Date().toISOString().split('T')[0]);
+  const [isSavingExpense, setIsSavingExpense] = useState(false);
+
+  // Financial KPIs including expenses
   const metrics = useMemo(() => {
     const totalCount = disPayments.length;
     const paidList = disPayments.filter(p => p.status === 'paid' || p.status === 'pago');
@@ -46,6 +56,9 @@ export function DisFinanceHub({ disPayments }: DisFinanceHubProps) {
     const totalPending = pendingList.reduce((acc, p) => acc + (p.amount || 0), 0);
     const totalOverdue = overdueList.reduce((acc, p) => acc + (p.amount || 0), 0);
 
+    const totalExpenses = (disExpenses || []).reduce((acc: number, e: any) => acc + (e.amount || 0), 0);
+    const netBalance = totalRevenue - totalExpenses;
+
     const defaultPrice = disPlans.length > 0 ? disPlans[0].price : 100;
     const projectedRevenue = totalCount > 0 ? totalCount * defaultPrice : (totalRevenue + totalPending + totalOverdue);
 
@@ -55,6 +68,8 @@ export function DisFinanceHub({ disPayments }: DisFinanceHubProps) {
       totalRevenue,
       totalPending,
       totalOverdue,
+      totalExpenses,
+      netBalance,
       projectedRevenue,
       adimplenciaRate,
       paidCount: paidList.length,
@@ -62,7 +77,7 @@ export function DisFinanceHub({ disPayments }: DisFinanceHubProps) {
       overdueCount: overdueList.length,
       totalCount
     };
-  }, [disPayments, disPlans]);
+  }, [disPayments, disPlans, disExpenses]);
 
   // Handle Plan Modal
   const handleOpenPlanModal = (plan?: any) => {
@@ -123,14 +138,76 @@ export function DisFinanceHub({ disPayments }: DisFinanceHubProps) {
     }
   };
 
+  // Handle Expense Modal
+  const handleOpenExpenseModal = (expense?: any) => {
+    if (expense) {
+      setEditingExpense(expense);
+      setExpenseDescription(expense.description || '');
+      setExpenseAmount(expense.amount?.toString() || '');
+      setExpenseCategory(expense.category || 'Material Didático');
+      setExpenseDate(expense.dateStr || new Date().toISOString().split('T')[0]);
+    } else {
+      setEditingExpense(null);
+      setExpenseDescription('');
+      setExpenseAmount('');
+      setExpenseCategory('Material Didático');
+      setExpenseDate(new Date().toISOString().split('T')[0]);
+    }
+    setIsExpenseModalOpen(true);
+  };
+
+  const handleSaveExpense = async () => {
+    const numAmount = Number(expenseAmount);
+    if (!expenseDescription.trim() || !expenseAmount || isNaN(numAmount)) {
+      toast({ variant: 'destructive', title: 'Campos Obrigatórios', description: 'Informe a descrição e o valor da despesa.' });
+      return;
+    }
+
+    setIsSavingExpense(true);
+    try {
+      const payload = {
+        description: expenseDescription.trim(),
+        amount: numAmount,
+        category: expenseCategory,
+        dateStr: expenseDate,
+        createdAt: Timestamp.now()
+      };
+
+      if (editingExpense) {
+        await updateDisExpense(editingExpense.id, payload);
+        toast({ title: 'Despesa Atualizada' });
+      } else {
+        await addDisExpense(payload);
+        toast({ title: 'Despesa Registrada', description: 'Lançamento de saída adicionado com sucesso.' });
+      }
+      setIsExpenseModalOpen(false);
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'Erro ao Salvar Despesa', description: e.message });
+    } finally {
+      setIsSavingExpense(false);
+    }
+  };
+
+  const handleDeleteExpenseClick = async (expenseId: string) => {
+    if (confirm('Deseja remover este lançamento de despesa?')) {
+      try {
+        await deleteDisExpense(expenseId);
+        toast({ title: 'Despesa Excluída' });
+      } catch (e: any) {
+        toast({ variant: 'destructive', title: 'Erro ao Excluir', description: e.message });
+      }
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Sub-navigation */}
       <Tabs value={activeSubTab} onValueChange={setActiveSubTab} className="w-full">
-        <TabsList className="grid grid-cols-3 max-w-md mb-4 bg-muted/60 p-1 rounded-xl">
+        <TabsList className="grid grid-cols-4 max-w-xl mb-4 bg-muted/60 p-1 rounded-xl">
           <TabsTrigger value="overview" className="font-bold text-xs">Visão & Métricas</TabsTrigger>
           <TabsTrigger value="fees" className="font-bold text-xs">Carnês & Baixas</TabsTrigger>
-          <TabsTrigger value="plans" className="font-bold text-xs">Configurar Planos</TabsTrigger>
+          <TabsTrigger value="expenses" className="font-bold text-xs">Despesas & Saídas</TabsTrigger>
+          <TabsTrigger value="plans" className="font-bold text-xs">Planos & Regras</TabsTrigger>
         </TabsList>
 
         {/* SUBTAB 1: OVERVIEW & DASHBOARD */}
@@ -138,7 +215,7 @@ export function DisFinanceHub({ disPayments }: DisFinanceHubProps) {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card className="bg-emerald-50/60 border-emerald-200">
               <CardHeader className="pb-2">
-                <CardDescription className="text-emerald-700 font-bold uppercase text-[10px] tracking-wider">Arrecadado (Recebido)</CardDescription>
+                <CardDescription className="text-emerald-700 font-bold uppercase text-[10px] tracking-wider">Arrecadado (Entradas)</CardDescription>
                 <CardTitle className="text-2xl font-black text-emerald-800 flex items-center justify-between">
                   R$ {metrics.totalRevenue.toFixed(2)}
                   <ArrowUpRight className="size-5 text-emerald-600" />
@@ -149,42 +226,42 @@ export function DisFinanceHub({ disPayments }: DisFinanceHubProps) {
               </CardContent>
             </Card>
 
+            <Card className="bg-rose-50/60 border-rose-200">
+              <CardHeader className="pb-2">
+                <CardDescription className="text-rose-700 font-bold uppercase text-[10px] tracking-wider">Despesas (Saídas)</CardDescription>
+                <CardTitle className="text-2xl font-black text-rose-800 flex items-center justify-between">
+                  R$ {metrics.totalExpenses.toFixed(2)}
+                  <ArrowDownRight className="size-5 text-rose-600" />
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-xs text-rose-700 font-semibold">{(disExpenses || []).length} despesas lançadas</p>
+              </CardContent>
+            </Card>
+
+            <Card className={metrics.netBalance >= 0 ? "bg-indigo-50/60 border-indigo-200" : "bg-red-50/60 border-red-200"}>
+              <CardHeader className="pb-2">
+                <CardDescription className="text-indigo-700 font-bold uppercase text-[10px] tracking-wider">Saldo Líquido DIS</CardDescription>
+                <CardTitle className="text-2xl font-black text-indigo-900 flex items-center justify-between">
+                  R$ {metrics.netBalance.toFixed(2)}
+                  <DollarSign className="size-5 text-indigo-600" />
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-xs text-indigo-700 font-semibold">Receitas líquidas descontando saídas</p>
+              </CardContent>
+            </Card>
+
             <Card className="bg-amber-50/60 border-amber-200">
               <CardHeader className="pb-2">
-                <CardDescription className="text-amber-700 font-bold uppercase text-[10px] tracking-wider">A Vencer (Em Aberto)</CardDescription>
+                <CardDescription className="text-amber-700 font-bold uppercase text-[10px] tracking-wider">A Vencer (Pendentes)</CardDescription>
                 <CardTitle className="text-2xl font-black text-amber-800 flex items-center justify-between">
                   R$ {metrics.totalPending.toFixed(2)}
                   <Clock className="size-5 text-amber-600" />
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-xs text-amber-700 font-semibold">{metrics.pendingCount} pendentes no mês</p>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-rose-50/60 border-rose-200">
-              <CardHeader className="pb-2">
-                <CardDescription className="text-rose-700 font-bold uppercase text-[10px] tracking-wider">Em Atraso (Inadimplência)</CardDescription>
-                <CardTitle className="text-2xl font-black text-rose-800 flex items-center justify-between">
-                  R$ {metrics.totalOverdue.toFixed(2)}
-                  <AlertCircle className="size-5 text-rose-600" />
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-xs text-rose-700 font-semibold">{metrics.overdueCount}</p>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-indigo-50/60 border-indigo-200">
-              <CardHeader className="pb-2">
-                <CardDescription className="text-indigo-700 font-bold uppercase text-[10px] tracking-wider">Taxa de Adimplência</CardDescription>
-                <CardTitle className="text-2xl font-black text-indigo-800 flex items-center justify-between">
-                  {metrics.adimplenciaRate}%
-                  <ShieldCheck className="size-5 text-indigo-600" />
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-xs text-indigo-700 font-semibold">Total de {metrics.totalCount} cobranças geradas</p>
+                <p className="text-xs text-amber-700 font-semibold">{metrics.pendingCount} cobranças em aberto</p>
               </CardContent>
             </Card>
           </div>
@@ -203,8 +280,12 @@ export function DisFinanceHub({ disPayments }: DisFinanceHubProps) {
                   <span className="text-sm font-black">R$ {metrics.projectedRevenue.toFixed(2)}</span>
                 </div>
                 <div className="flex items-center justify-between p-3 bg-emerald-50 rounded-lg text-emerald-900 border border-emerald-100">
-                  <span className="text-xs font-semibold">Total Recebido até o momento</span>
+                  <span className="text-xs font-semibold">Total Recebido (Entradas)</span>
                   <span className="text-sm font-black text-emerald-700">R$ {metrics.totalRevenue.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-rose-50 rounded-lg text-rose-900 border border-rose-100">
+                  <span className="text-xs font-semibold">Total de Despesas (Saídas)</span>
+                  <span className="text-sm font-black text-rose-700">R$ {metrics.totalExpenses.toFixed(2)}</span>
                 </div>
                 <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg text-amber-900 border border-amber-100">
                   <span className="text-xs font-semibold">A Receber no Ciclo</span>
@@ -255,7 +336,69 @@ export function DisFinanceHub({ disPayments }: DisFinanceHubProps) {
           />
         </TabsContent>
 
-        {/* SUBTAB 3: CONFIGURAR PLANOS E VENCIMENTOS */}
+        {/* SUBTAB 3: DESPESAS & SAÍDAS */}
+        <TabsContent value="expenses" className="animate-in fade-in-50">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-base font-bold flex items-center gap-2">
+                  <Receipt className="size-4 text-rose-600" /> Despesas & Custos do DIS
+                </CardTitle>
+                <CardDescription className="text-xs">Registre materiais didáticos, impressões, lanches e custos operacionais do curso</CardDescription>
+              </div>
+              <Button size="sm" onClick={() => handleOpenExpenseModal()} className="font-bold bg-rose-600 hover:bg-rose-700 text-white gap-1.5">
+                <PlusCircle className="size-4" /> Lançar Despesa
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-xl border overflow-hidden">
+                <Table>
+                  <TableHeader className="bg-slate-50 dark:bg-slate-900">
+                    <TableRow>
+                      <TableHead className="text-xs">Descrição</TableHead>
+                      <TableHead className="text-xs">Categoria</TableHead>
+                      <TableHead className="text-xs text-center">Data</TableHead>
+                      <TableHead className="text-xs text-right">Valor (R$)</TableHead>
+                      <TableHead className="text-xs text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(!disExpenses || disExpenses.length === 0) ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="h-24 text-center text-xs text-muted-foreground">
+                          Nenhuma despesa lançada para o programa DIS ainda.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      disExpenses.map((exp: any) => (
+                        <TableRow key={exp.id}>
+                          <TableCell className="font-bold text-xs">{exp.description}</TableCell>
+                          <TableCell className="text-xs text-slate-600"><Badge variant="outline">{exp.category || 'Geral'}</Badge></TableCell>
+                          <TableCell className="text-xs text-center font-mono">{exp.dateStr || '—'}</TableCell>
+                          <TableCell className="text-xs text-right font-black text-rose-600">
+                            - R$ {(exp.amount || 0).toFixed(2)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button size="icon" variant="ghost" className="size-7" onClick={() => handleOpenExpenseModal(exp)}>
+                                <Edit className="size-3.5" />
+                              </Button>
+                              <Button size="icon" variant="ghost" className="size-7 text-destructive" onClick={() => handleDeleteExpenseClick(exp.id)}>
+                                <Trash2 className="size-3.5" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* SUBTAB 4: CONFIGURAR PLANOS E VENCIMENTOS */}
         <TabsContent value="plans" className="animate-in fade-in-50">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
@@ -384,6 +527,72 @@ export function DisFinanceHub({ disPayments }: DisFinanceHubProps) {
             </Button>
             <Button onClick={handleSavePlan} disabled={isSavingPlan} className="text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white">
               {isSavingPlan ? 'Salvando...' : 'Salvar Plano'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* EXPENSE DIALOG */}
+      <Dialog open={isExpenseModalOpen} onOpenChange={setIsExpenseModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingExpense ? 'Editar Lançamento de Despesa' : 'Lançar Nova Despesa do DIS'}</DialogTitle>
+            <DialogDescription className="text-xs">
+              Registre os custos com materiais, lanches ou impressões do curso.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-1">
+              <Label className="text-xs font-bold">Descrição da Despesa</Label>
+              <Input 
+                value={expenseDescription} 
+                onChange={e => setExpenseDescription(e.target.value)} 
+                placeholder="Ex: Impressão de apostilas de Libras 1º Nível"
+                className="h-9 text-xs"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-bold">Valor da Saída (R$)</Label>
+                <Input 
+                  type="number" 
+                  value={expenseAmount} 
+                  onChange={e => setExpenseAmount(e.target.value)} 
+                  placeholder="50.00"
+                  className="h-9 text-xs"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-bold">Data do Pagamento</Label>
+                <Input 
+                  type="date" 
+                  value={expenseDate} 
+                  onChange={e => setExpenseDate(e.target.value)} 
+                  className="h-9 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs font-bold">Categoria</Label>
+              <Input 
+                value={expenseCategory} 
+                onChange={e => setExpenseCategory(e.target.value)} 
+                placeholder="Ex: Material Didático, Lanche, Eventos"
+                className="h-9 text-xs"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsExpenseModalOpen(false)} disabled={isSavingExpense} className="text-xs font-bold">
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveExpense} disabled={isSavingExpense} className="text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white">
+              {isSavingExpense ? 'Salvar Despesa...' : 'Salvar Despesa'}
             </Button>
           </DialogFooter>
         </DialogContent>

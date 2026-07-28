@@ -98,12 +98,14 @@ export function useTeachingFinance() {
   const wavePlansQ = useMemoFirebase(() => firestore && user ? query(collection(firestore, 'wave_plans')) : null, [firestore, user]);
   const disPlansQ = useMemoFirebase(() => firestore && user ? query(collection(firestore, 'dis_plans')) : null, [firestore, user]);
   const waveExpensesQ = useMemoFirebase(() => firestore && user ? query(collection(firestore, 'wave_expenses'), limit(100)) : null, [firestore, user]);
+  const disExpensesQ = useMemoFirebase(() => firestore && user ? query(collection(firestore, 'dis_expenses'), limit(100)) : null, [firestore, user]);
 
   const { data: wavePayments, isLoading: lwp } = useCollection<WavePayment>(wavePaymentsQ);
   const { data: disPayments, isLoading: ldp } = useCollection<DisPayment>(disPaymentsQ);
   const { data: wavePlans, isLoading: lwpn } = useCollection<WavePlan>(wavePlansQ);
   const { data: disPlans, isLoading: ldpn } = useCollection<DisPlan>(disPlansQ);
   const { data: waveExpenses, isLoading: lwe } = useCollection<WaveExpense>(waveExpensesQ);
+  const { data: disExpenses, isLoading: lde } = useCollection<any>(disExpensesQ);
 
   return {
     wavePayments: wavePayments || [],
@@ -111,7 +113,8 @@ export function useTeachingFinance() {
     wavePlans: wavePlans || [],
     disPlans: disPlans || [],
     waveExpenses: waveExpenses || [],
-    isLoading: lwp || ldp || lwpn || ldpn || lwe
+    disExpenses: disExpenses || [],
+    isLoading: lwp || ldp || lwpn || ldpn || lwe || lde
   };
 }
 

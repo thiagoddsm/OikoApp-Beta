@@ -725,6 +725,9 @@ interface VolunteeringContextType {
   addWaveExpense: (data: any) => Promise<void>;
   updateWaveExpense: (id: string, data: any) => Promise<void>;
   deleteWaveExpense: (id: string) => Promise<void>;
+  addDisExpense: (data: any) => Promise<void>;
+  updateDisExpense: (id: string, data: any) => Promise<void>;
+  deleteDisExpense: (id: string) => Promise<void>;
   addFinancialTransaction: (data: any) => Promise<void>;
   updateFinancialTransaction: (id: string, data: any) => Promise<void>;
   deleteFinancialTransaction: (id: string) => Promise<void>;
@@ -953,6 +956,9 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
     addWaveExpense: async (data: any) => { await addDoc(collection(firestore!, 'wave_expenses'), data); },
     updateWaveExpense: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'wave_expenses', id), data); },
     deleteWaveExpense: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'wave_expenses', id)); },
+    addDisExpense: async (data: any) => { await addDoc(collection(firestore!, 'dis_expenses'), data); },
+    updateDisExpense: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'dis_expenses', id), data); },
+    deleteDisExpense: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'dis_expenses', id)); },
     addFinancialTransaction: async (data: any) => { await addDoc(collection(firestore!, 'financial_transactions'), data); },
     updateFinancialTransaction: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'financial_transactions', id), data); },
     deleteFinancialTransaction: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'financial_transactions', id)); },
