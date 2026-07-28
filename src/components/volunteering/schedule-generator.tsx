@@ -23,11 +23,10 @@ const months = [
 const currentYear = new Date().getFullYear();
 const years = [currentYear, currentYear + 1];
 
-// Helper to get the week of the month for a given date
+// Helper to get the occurrence (1st, 2nd, 3rd, 4th, 5th) of a weekday in its month
 const getWeekOfMonth = (date: Date) => {
-  const firstDay = new Date(date.getFullYear(), date.getMonth(), 1).getDay();
-  return Math.ceil((date.getDate() + firstDay) / 7);
-}
+  return Math.ceil(date.getDate() / 7);
+};
 
 // Helper to get which occurrence of a "5th week" this is in the year
 const getFifthWeekOccurrenceInYear = (date: Date, allFifthWeeksOfYear: Date[]) => {
