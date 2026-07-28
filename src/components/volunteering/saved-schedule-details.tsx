@@ -210,40 +210,34 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
             return;
         }
 
-        toast({ title: 'Enviando notificações de confirmação...', description: `Enviando para ${volunteers.length} voluntários via WhatsApp.` });
+        toast({ title: 'Enviando notificações de confirmação...', description: `Enviando confirmações via WhatsApp com botões interativos para ${volunteers.length} voluntários.` });
 
         let successCount = 0;
         for (const volunteer of volunteers) {
-            const firstName = volunteer.name
-                ? (volunteer.name.trim().split(' ')[0].charAt(0).toUpperCase() + volunteer.name.trim().split(' ')[0].slice(1).toLowerCase())
-                : 'Membro';
-
             const scheduledItems = scheduleData.schedule.filter((item: any) => item.memberIds.includes(volunteer.id));
-            const formattedDates = scheduledItems.map((item: any) => {
+            const formattedItems = scheduledItems.map((item: any) => {
                 const day = getDayOfWeek(item.date);
-                return `• ${item.date} (${day}) - ${item.eventName}${item.teamName ? ` [Equipe ${item.teamName}]` : ''}`;
-            }).join('\n');
-
-            const message = `Olá, ${firstName}! 🗓️ Segue sua escala de *${areaName}* para ${monthName.toLowerCase()}:\n\n${formattedDates}\n\nConfirme sua participação respondendo:\n✅ *SIM* — para confirmar todos os dias\n❌ *NÃO* — se tiver algum impedimento`;
+                return `${item.date} (${day}) - ${item.eventName}${item.teamName ? ` [${item.teamName}]` : ''}`;
+            });
 
             try {
-                const response = await fetch('/api/notifications/send', {
+                const response = await fetch('/api/notifications/send-schedule-confirmation', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        channel: 'whatsapp',
-                        audience: 'specific_members',
-                        targets: [{ id: volunteer.id, name: volunteer.name, phone: volunteer.phone }],
-                        message,
-                        instanceKey: waConfig?.instanceKey || waConfig?.whatsappApiKey,
-                        serverUrl: waConfig?.serverUrl,
+                        volunteerId: volunteer.id,
+                        phone: volunteer.phone,
+                        name: volunteer.name,
+                        scheduleId: `${areaId}_${monthFilter}`,
+                        items: formattedItems,
+                        areaName,
                     }),
                 });
                 if (response.ok) successCount++;
             } catch { /* ignore per-volunteer errors */ }
         }
 
-        toast({ title: `✅ ${successCount} notificações enviadas!`, description: 'Aguarde as confirmações de SIM/NÃO no WhatsApp.' });
+        toast({ title: `✅ ${successCount} confirmações enviadas!`, description: 'Os voluntários receberam a mensagem com os botões de confirmação no WhatsApp.' });
     };
 
     const handleNotification = async (channel: 'email' | 'whatsapp', audience: 'all' | string) => {
