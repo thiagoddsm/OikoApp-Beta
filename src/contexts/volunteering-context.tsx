@@ -917,12 +917,16 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
     updateClass: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'classes', id), data); },
     deleteClass: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'classes', id)); },
     enrollStudent: async (studentId: string, courseId: string, classId?: string) => {
+      let targetClassId = classId;
+      let targetClassName = '';
+
       if (classId) {
         // Busca o documento da turma diretamente do Firestore (estado local pode estar vazio)
         const classRef = doc(firestore!, 'classes', classId);
         const classSnap = await getDoc(classRef);
         if (classSnap.exists()) {
           const classData = classSnap.data() as any;
+          targetClassName = classData.name || '';
           const students: string[] = classData.students || [];
           if (!students.includes(studentId)) {
             await updateDocumentNonBlocking(classRef, { students: [...students, studentId] });
@@ -933,13 +937,73 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
         const classesSnap = await getDocs(query(collection(firestore!, 'classes'), where('courseId', '==', courseId)));
         if (classesSnap.size === 1) {
           const clsDoc = classesSnap.docs[0];
+          targetClassId = clsDoc.id;
           const clsData = clsDoc.data() as any;
+          targetClassName = clsData.name || '';
           const students: string[] = clsData.students || [];
           if (!students.includes(studentId)) {
             await updateDocumentNonBlocking(doc(firestore!, 'classes', clsDoc.id), { students: [...students, studentId] });
           }
         }
-        // Se houver mais de uma turma, não faz nada (o usuário deve selecionar no UI)
+      }
+
+      // Se for um curso do DIS / Libras, gerar a cobrança automática em dis_payments
+      try {
+        const courseSnap = await getDoc(doc(firestore!, 'courses', courseId));
+        if (courseSnap.exists()) {
+          const cData = courseSnap.data() as any;
+          const cName = (cData.name || '').toLowerCase();
+          const cSchool = (cData.schoolId || '').toLowerCase();
+          const cMin = (cData.ministryName || cData.ministry || '').toLowerCase();
+
+          if (cSchool === 'dis' || cMin === 'dis' || cName.includes('libras')) {
+            // Busca o nome do aluno
+            let studentName = 'Aluno';
+            const userSnap = await getDoc(doc(firestore!, 'users', studentId));
+            if (userSnap.exists()) {
+              studentName = (userSnap.data() as any).name || studentName;
+            }
+
+            // Busca valor do plano DIS
+            let disPrice = 85;
+            let dueDayNumber = 5;
+            try {
+              const plansSnap = await getDocs(collection(firestore!, 'dis_plans'));
+              if (!plansSnap.empty) {
+                const planData = plansSnap.docs[0].data();
+                if (planData.price) disPrice = Number(planData.price);
+                if (planData.dueDateDay) dueDayNumber = Number(planData.dueDateDay);
+              }
+            } catch (errP) {
+              console.error('Erro ao ler dis_plans no enrollStudent:', errP);
+            }
+
+            const today = new Date();
+            const nextMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, dueDayNumber);
+            const year = nextMonthDate.getFullYear();
+            const month = String(nextMonthDate.getMonth() + 1).padStart(2, '0');
+            const day = String(nextMonthDate.getDate()).padStart(2, '0');
+
+            const competence = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+            const dueDateStr = `${year}-${month}-${day}`;
+
+            await addDoc(collection(firestore!, 'dis_payments'), {
+              userId: studentId,
+              studentName,
+              courseId,
+              courseName: cData.name || 'Curso de Libras',
+              classId: targetClassId || '',
+              className: targetClassName,
+              amount: disPrice,
+              competence,
+              dueDate: dueDateStr,
+              status: 'em_aberto',
+              createdAt: Timestamp.now()
+            });
+          }
+        }
+      } catch (errDis) {
+        console.error('Erro ao gerar cobrança automática do DIS no enrollStudent:', errDis);
       }
     },
     addPedagogicalLog: async (data: any) => { await addDoc(collection(firestore!, 'pedagogical_logs'), data); },
