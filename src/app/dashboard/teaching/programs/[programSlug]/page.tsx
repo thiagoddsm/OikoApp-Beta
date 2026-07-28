@@ -13,6 +13,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { VolunteeringProvider } from '@/contexts/volunteering-context';
 import { WaveAdminDashboard } from '@/components/teaching/wave/admin-dashboard';
+import { DisAdminDashboard } from '@/components/teaching/dis/dis-admin-dashboard';
 import { WaveFinanceDashboard } from '@/components/teaching/wave/wave-finance-dashboard';
 import { StudentsManagement } from '@/components/teaching/students-management';
 import { ClassFormDialog } from '@/components/teaching/class-form-dialog';
@@ -203,6 +204,8 @@ export default function ProgramDetailPage() {
           <TabsContent value="overview">
             {program.slug === 'wave' ? (
               <WaveAdminDashboard />
+            ) : program.slug === 'dis' || program.slug === 'libras' ? (
+              <DisAdminDashboard />
             ) : (
               <Card className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm rounded-xl">
                 <CardHeader>
