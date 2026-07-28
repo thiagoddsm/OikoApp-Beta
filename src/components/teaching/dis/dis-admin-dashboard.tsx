@@ -20,7 +20,7 @@ import { StudentsManagement } from '../students-management';
 import { TeachersManagement } from '../teachers-management';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
-import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
+import { useMembersData, useCoursesData, useTeachingFinance } from "@/hooks/useDomainData";
 
 const growthData = [
   { name: 'Jul', matriculas: 12, solicitacoes: 18 },
@@ -32,6 +32,7 @@ const growthData = [
 export function DisAdminDashboard() {
     const { users } = useMembersData();
     const { courses, classes, enrollmentRequests } = useCoursesData();
+    const { disPayments } = useTeachingFinance();
 
   const { isLoading } = useVolunteering();
   const [activeTab, setActiveTab] = useState('overview');
@@ -281,7 +282,18 @@ export function DisAdminDashboard() {
         </TabsContent>
 
         <TabsContent value="finance" className="animate-in slide-in-from-left-4">
-            <MensalidadesManager canUpdateStatus={true} />
+            <MensalidadesManager 
+                fees={disPayments.map((p: any) => ({
+                    id: p.id,
+                    studentName: p.studentName || 'Aluno',
+                    courseName: p.courseName || 'Curso de Libras',
+                    competence: p.competence || '2026-07',
+                    dueDate: p.dueDate || '10/07/2026',
+                    amount: p.amount || 100,
+                    status: (p.status === 'paid' ? 'pago' : p.status === 'pending' ? 'em_aberto' : p.status) || 'em_aberto'
+                }))} 
+                canUpdateStatus={true} 
+            />
         </TabsContent>
 
         <TabsContent value="materials" className="animate-in slide-in-from-left-4">

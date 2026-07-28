@@ -991,6 +991,39 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
         await updateDocumentNonBlocking(doc(firestore!, 'classes', classId), { students: [...currentStudents, studentId] });
       }
       await updateDocumentNonBlocking(doc(firestore!, 'enrollment_requests', requestId), { status: 'approved', classId });
+
+      // Se for um curso do DIS / Libras, gerar automaticamente o registro de mensalidade
+      try {
+        const courseSnap = await getDoc(doc(firestore!, 'courses', req.courseId));
+        if (courseSnap.exists()) {
+          const cData = courseSnap.data() as any;
+          const cName = (cData.name || '').toLowerCase();
+          const cSchool = (cData.schoolId || '').toLowerCase();
+          const cMin = (cData.ministryName || cData.ministry || '').toLowerCase();
+
+          if (cSchool === 'dis' || cMin === 'dis' || cName.includes('libras')) {
+            const today = new Date();
+            const yearMonth = today.toISOString().slice(0, 7); // ex: 2026-07
+            const dueDateStr = `${yearMonth}-10`; // Vencimento padrão dia 10
+
+            await addDoc(collection(firestore!, 'dis_payments'), {
+              userId: studentId,
+              studentName: req.name,
+              courseId: req.courseId,
+              courseName: cData.name || 'Curso de Libras',
+              classId: classId,
+              className: targetClass.name || '',
+              amount: 100, // Valor padrão da mensalidade DIS
+              competence: yearMonth,
+              dueDate: dueDateStr,
+              status: 'em_aberto',
+              createdAt: Timestamp.now()
+            });
+          }
+        }
+      } catch (finErr) {
+        console.error('Erro ao gerar mensalidade automática do DIS:', finErr);
+      }
     },
     updateEnrollmentRequest: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'enrollment_requests', id), data); },
     deleteEnrollmentRequest: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'enrollment_requests', id)); },
