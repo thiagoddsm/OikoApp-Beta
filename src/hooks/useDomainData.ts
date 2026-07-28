@@ -71,7 +71,7 @@ export function useCoursesData() {
   const { firestore, user } = useFirebase();
   const coursesQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'courses'), limit(200)) : null, [firestore]);
   const classesQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'classes'), limit(200)) : null, [firestore]);
-  const enrollmentRequestsQ = useMemoFirebase(() => firestore && user ? query(collection(firestore, 'enrollment_requests'), limit(200)) : null, [firestore, user]);
+  const enrollmentRequestsQ = useMemoFirebase(() => firestore && user ? query(collection(firestore, 'enrollment_requests'), orderBy('createdAt', 'desc'), limit(300)) : null, [firestore, user]);
   const pedagogicalLogsQ = useMemoFirebase(() => firestore && user ? query(collection(firestore, 'pedagogical_logs'), limit(200)) : null, [firestore, user]);
   const theoflixCoursesQ = useMemoFirebase(() => firestore && user ? query(collection(firestore, 'theoflix_courses'), limit(200)) : null, [firestore, user]);
 
