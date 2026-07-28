@@ -153,58 +153,54 @@ export default function ProgramDetailPage() {
               <p className="text-sm text-slate-500 line-clamp-1">{program.description}</p>
             </div>
           </div>
-        </div>
-
-        {/* Tabs */}
-        <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="flex flex-wrap h-auto p-1 bg-slate-100 dark:bg-slate-850 rounded-xl mb-6">
-            <TabsTrigger value="overview" className="rounded-lg text-xs font-semibold py-2">
-              Visão Geral
-            </TabsTrigger>
-            <TabsTrigger value="courses" className="rounded-lg text-xs font-semibold py-2">
-              Cursos &amp; Turmas
-            </TabsTrigger>
-
-            {capabilities.includes('financial') && (
-              <TabsTrigger value="financial" className="rounded-lg text-xs font-semibold py-2 flex items-center gap-1.5">
-                <DollarSign className="size-3.5" /> Financeiro
+        {program.slug === 'wave' ? (
+          <WaveAdminDashboard />
+        ) : program.slug === 'dis' || program.slug === 'libras' ? (
+          <DisAdminDashboard />
+        ) : (
+          <Tabs defaultValue="overview" className="w-full">
+            <TabsList className="flex flex-wrap h-auto p-1 bg-slate-100 dark:bg-slate-850 rounded-xl mb-6">
+              <TabsTrigger value="overview" className="rounded-lg text-xs font-semibold py-2">
+                Visão Geral
               </TabsTrigger>
-            )}
-
-            {capabilities.includes('electronic_point') && (
-              <TabsTrigger value="diario" className="rounded-lg text-xs font-semibold py-2 flex items-center gap-1.5">
-                <CheckSquare className="size-3.5" /> Ponto &amp; Diário
+              <TabsTrigger value="courses" className="rounded-lg text-xs font-semibold py-2">
+                Cursos &amp; Turmas
               </TabsTrigger>
-            )}
 
-            {capabilities.includes('replacement_queue') && (
-              <TabsTrigger value="reposicoes" className="rounded-lg text-xs font-semibold py-2 flex items-center gap-1.5">
-                <History className="size-3.5" /> Reposições
+              {capabilities.includes('financial') && (
+                <TabsTrigger value="financial" className="rounded-lg text-xs font-semibold py-2 flex items-center gap-1.5">
+                  <DollarSign className="size-3.5" /> Financeiro
+                </TabsTrigger>
+              )}
+
+              {capabilities.includes('electronic_point') && (
+                <TabsTrigger value="diario" className="rounded-lg text-xs font-semibold py-2 flex items-center gap-1.5">
+                  <CheckSquare className="size-3.5" /> Ponto &amp; Diário
+                </TabsTrigger>
+              )}
+
+              {capabilities.includes('replacement_queue') && (
+                <TabsTrigger value="reposicoes" className="rounded-lg text-xs font-semibold py-2 flex items-center gap-1.5">
+                  <History className="size-3.5" /> Reposições
+                </TabsTrigger>
+              )}
+
+              {capabilities.includes('quizzes') && (
+                <TabsTrigger value="quizzes" className="rounded-lg text-xs font-semibold py-2 flex items-center gap-1.5">
+                  <FileQuestion className="size-3.5" /> Quizzes &amp; EAD
+                </TabsTrigger>
+              )}
+
+              <TabsTrigger value="materials" className="rounded-lg text-xs font-semibold py-2 flex items-center gap-1.5">
+                <Folder className="size-3.5" /> Materiais
               </TabsTrigger>
-            )}
 
-            {capabilities.includes('quizzes') && (
-              <TabsTrigger value="quizzes" className="rounded-lg text-xs font-semibold py-2 flex items-center gap-1.5">
-                <FileQuestion className="size-3.5" /> Quizzes &amp; EAD
+              <TabsTrigger value="students" className="rounded-lg text-xs font-semibold py-2 flex items-center gap-1.5">
+                <Users className="size-3.5" /> Alunos
               </TabsTrigger>
-            )}
+            </TabsList>
 
-            <TabsTrigger value="materials" className="rounded-lg text-xs font-semibold py-2 flex items-center gap-1.5">
-              <Folder className="size-3.5" /> Materiais
-            </TabsTrigger>
-
-            <TabsTrigger value="students" className="rounded-lg text-xs font-semibold py-2 flex items-center gap-1.5">
-              <Users className="size-3.5" /> Alunos
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Tab 1: Overview */}
-          <TabsContent value="overview">
-            {program.slug === 'wave' ? (
-              <WaveAdminDashboard />
-            ) : program.slug === 'dis' || program.slug === 'libras' ? (
-              <DisAdminDashboard />
-            ) : (
+            <TabsContent value="overview">
               <Card className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm rounded-xl">
                 <CardHeader>
                   <CardTitle>Painel do Programa: {program.name}</CardTitle>
@@ -227,171 +223,163 @@ export default function ProgramDetailPage() {
                   </div>
                 </CardContent>
               </Card>
-            )}
-          </TabsContent>
+            </TabsContent>
 
-          {/* Tab 2: Courses & Classes */}
-          <TabsContent value="courses">
-            <Card className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm rounded-xl">
-              <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-2">
-                <div>
-                  <CardTitle>Turmas e Agendas de {program.name}</CardTitle>
-                  <CardDescription>Gestão de disciplinas, horários de aula, salas e mentores alocados.</CardDescription>
-                </div>
-                <Button size="sm" onClick={handleNewClassClick} disabled={isCreatingCourse} className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">
-                  <PlusCircle className="mr-2 size-4" /> Nova Turma / Mentoria
-                </Button>
-              </CardHeader>
-              <CardContent>
-                <div className="rounded-xl border border-slate-100 dark:border-slate-800 overflow-hidden">
-                  <Table>
-                    <TableHeader className="bg-slate-50 dark:bg-slate-850">
-                      <TableRow>
-                        <TableHead>Turma</TableHead>
-                        <TableHead>Mentor / Professor</TableHead>
-                        <TableHead>Horário</TableHead>
-                        <TableHead className="text-center">Alunos</TableHead>
-                        <TableHead className="text-right">Status</TableHead>
-                        <TableHead className="text-right">Ações</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {programClasses.length === 0 ? (
+            <TabsContent value="courses">
+              <Card className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm rounded-xl">
+                <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <CardTitle>Turmas e Agendas de {program.name}</CardTitle>
+                    <CardDescription>Gestão de disciplinas, horários de aula, salas e mentores alocados.</CardDescription>
+                  </div>
+                  <Button size="sm" onClick={handleNewClassClick} disabled={isCreatingCourse} className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">
+                    <PlusCircle className="mr-2 size-4" /> Nova Turma / Mentoria
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  <div className="rounded-xl border border-slate-100 dark:border-slate-800 overflow-hidden">
+                    <Table>
+                      <TableHeader className="bg-slate-50 dark:bg-slate-850">
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center py-8 text-slate-400">
-                            Nenhuma turma cadastrada neste programa ainda. Clique no botão acima para adicionar!
-                          </TableCell>
+                          <TableHead>Turma</TableHead>
+                          <TableHead>Mentor / Professor</TableHead>
+                          <TableHead>Horário</TableHead>
+                          <TableHead className="text-center">Alunos</TableHead>
+                          <TableHead className="text-right">Status</TableHead>
+                          <TableHead className="text-right">Ações</TableHead>
                         </TableRow>
-                      ) : (
-                        programClasses.map(cls => (
-                          <TableRow key={cls.id}>
-                            <TableCell className="font-bold">{cls.name}</TableCell>
-                            <TableCell>{userMap.get(cls.teacherId) || 'A definir'}</TableCell>
-                            <TableCell className="text-xs text-slate-500">
-                              {cls.dayOfWeek} das {cls.startTime} às {cls.endTime}
-                            </TableCell>
-                            <TableCell className="text-center font-semibold">
-                              {cls.students?.length || 0}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
-                                {cls.status || 'Ativa'}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setSelectedClassForEdit(cls)}
-                                aria-label={`Editar turma ${cls.name}`}
-                              >
-                                <Pencil className="mr-1.5 size-3.5" /> Editar
-                              </Button>
+                      </TableHeader>
+                      <TableBody>
+                        {programClasses.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center py-8 text-slate-400">
+                              Nenhuma turma cadastrada neste programa ainda. Clique no botão acima para adicionar!
                             </TableCell>
                           </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
+                        ) : (
+                          programClasses.map(cls => (
+                            <TableRow key={cls.id}>
+                              <TableCell className="font-bold">{cls.name}</TableCell>
+                              <TableCell>{userMap.get(cls.teacherId) || 'A definir'}</TableCell>
+                              <TableCell className="text-xs text-slate-500">
+                                {cls.dayOfWeek} das {cls.startTime} às {cls.endTime}
+                              </TableCell>
+                              <TableCell className="text-center font-semibold">
+                                {cls.students?.length || 0}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                                  {cls.status || 'Ativa'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setSelectedClassForEdit(cls)}
+                                  aria-label={`Editar turma ${cls.name}`}
+                                >
+                                  <Pencil className="mr-1.5 size-3.5" /> Editar
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
 
-            <ClassFormDialog
-              open={isClassFormOpen}
-              onOpenChange={setClassFormOpen}
-              courseId={selectedCourseId || primaryCourseId}
-            />
-
-            {selectedClassForEdit && (
               <ClassFormDialog
-                open={Boolean(selectedClassForEdit)}
-                onOpenChange={(open) => {
-                  if (!open) setSelectedClassForEdit(null);
-                }}
-                existingClass={selectedClassForEdit}
-                courseId={selectedClassForEdit.courseId}
+                open={isClassFormOpen}
+                onOpenChange={setClassFormOpen}
+                courseId={selectedCourseId || primaryCourseId}
               />
+
+              {selectedClassForEdit && (
+                <ClassFormDialog
+                  open={Boolean(selectedClassForEdit)}
+                  onOpenChange={(open) => {
+                    if (!open) setSelectedClassForEdit(null);
+                  }}
+                  existingClass={selectedClassForEdit}
+                  courseId={selectedClassForEdit.courseId}
+                />
+              )}
+            </TabsContent>
+
+            {capabilities.includes('financial') && (
+              <TabsContent value="financial">
+                <WaveFinanceDashboard />
+              </TabsContent>
             )}
-          </TabsContent>
 
-          {/* Tab 3: Financial */}
-          {capabilities.includes('financial') && (
-            <TabsContent value="financial">
-              <WaveFinanceDashboard />
+            {capabilities.includes('electronic_point') && (
+              <TabsContent value="diario">
+                <Card className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm rounded-xl">
+                  <CardHeader>
+                    <CardTitle>Ponto Eletrônico &amp; Diários</CardTitle>
+                    <CardDescription>Sessões ativas e diários de aula dos mentores de {program.name}.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Link href="/dashboard/teaching/diario">
+                      <Button className="bg-indigo-600 text-white">Abrir Central do Diário de Classe</Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            )}
+
+            {capabilities.includes('replacement_queue') && (
+              <TabsContent value="reposicoes">
+                <Card className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm rounded-xl">
+                  <CardHeader>
+                    <CardTitle>Fila de Reposições de {program.name}</CardTitle>
+                    <CardDescription>Reagendamento automático de faltas de alunos ou professores.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Link href="/dashboard/teaching/reposicoes">
+                      <Button className="bg-indigo-600 text-white">Abrir Fila de Reposições</Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            )}
+
+            {capabilities.includes('quizzes') && (
+              <TabsContent value="quizzes">
+                <Card className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm rounded-xl">
+                  <CardHeader>
+                    <CardTitle>Quizzes, Conteúdos EAD &amp; Vídeos TheoFlix</CardTitle>
+                    <CardDescription>Plataforma de videoaulas, episódios, questionários e acompanhamento de respostas.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Link href="/dashboard/teaching/theoflix">
+                      <Button className="bg-indigo-600 text-white">Abrir Portal TheoFlix &amp; Quizzes</Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            )}
+
+            <TabsContent value="materials">
+              <HierarchicalMaterialsManager 
+                programName={program.name} 
+                courseName={programCourses[0]?.name || 'Curso do Programa'} 
+                canManage={true} 
+              />
             </TabsContent>
-          )}
 
-          {/* Tab 4: Electronic Point / Diario */}
-          {capabilities.includes('electronic_point') && (
-            <TabsContent value="diario">
-              <Card className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm rounded-xl">
-                <CardHeader>
-                  <CardTitle>Ponto Eletrônico &amp; Diários</CardTitle>
-                  <CardDescription>Sessões ativas e diários de aula dos mentores de {program.name}.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Link href="/dashboard/teaching/diario">
-                    <Button className="bg-indigo-600 text-white">Abrir Central do Diário de Classe</Button>
-                  </Link>
-                </CardContent>
-              </Card>
+            <TabsContent value="students">
+              <StudentsManagement 
+                filterCourseIds={Array.from(programCourseIds)} 
+                defaultCourseId={primaryCourseId} 
+              />
             </TabsContent>
-          )}
-
-          {/* Tab 5: Reposicoes */}
-          {capabilities.includes('replacement_queue') && (
-            <TabsContent value="reposicoes">
-              <Card className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm rounded-xl">
-                <CardHeader>
-                  <CardTitle>Fila de Reposições de {program.name}</CardTitle>
-                  <CardDescription>Reagendamento automático de faltas de alunos ou professores.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Link href="/dashboard/teaching/reposicoes">
-                    <Button className="bg-indigo-600 text-white">Abrir Fila de Reposições</Button>
-                  </Link>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          )}
-
-          {/* Tab 6: Quizzes & EAD */}
-          {capabilities.includes('quizzes') && (
-            <TabsContent value="quizzes">
-              <Card className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm rounded-xl">
-                <CardHeader>
-                  <CardTitle>Quizzes, Conteúdos EAD &amp; Vídeos TheoFlix</CardTitle>
-                  <CardDescription>Plataforma de videoaulas, episódios, questionários e acompanhamento de respostas.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Link href="/dashboard/teaching/theoflix">
-                    <Button className="bg-indigo-600 text-white">Abrir Portal TheoFlix &amp; Quizzes</Button>
-                  </Link>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          )}
-
-          {/* Tab 7: Materials */}
-          <TabsContent value="materials">
-            <HierarchicalMaterialsManager 
-              programName={program.name} 
-              courseName={programCourses[0]?.name || 'Curso do Programa'} 
-              canManage={true} 
-            />
-          </TabsContent>
-
-          {/* Tab 8: Students */}
-          <TabsContent value="students">
-            <StudentsManagement 
-              filterCourseIds={Array.from(programCourseIds)} 
-              defaultCourseId={primaryCourseId} 
-            />
-          </TabsContent>
-        </Tabs>
-      </div>
+          </Tabs>
+        )}
     </VolunteeringProvider>
   );
 }
