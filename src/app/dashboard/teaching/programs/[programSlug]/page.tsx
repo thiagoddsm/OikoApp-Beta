@@ -107,7 +107,7 @@ export default function ProgramDetailPage() {
   };
 
   const isLoading = loadingPrograms || loadingCourses;
-  const IconComponent = ICON_MAP[program?.icon] || GraduationCap;
+  const IconComponent = (program?.icon ? ICON_MAP[program.icon] : null) || GraduationCap;
   const capabilities = program?.capabilities || [];
 
   if (isLoading) {
