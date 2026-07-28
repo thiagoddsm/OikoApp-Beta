@@ -14,6 +14,7 @@ import { AcademicEnrollmentWizard } from '../enrollment-wizard-dialog';
 import { ClassFormDialog } from '../class-form-dialog';
 import { ClassPromotionDialog } from '../class-promotion-dialog';
 import { MensalidadesManager } from '../finance/mensalidades-manager';
+import { DisFinanceHub } from '../finance/dis-finance-hub';
 import { HierarchicalMaterialsManager } from '../materials/hierarchical-materials-manager';
 import { EnrollmentRequestsList } from '../enrollment-requests-list';
 import { StudentsManagement } from '../students-management';
@@ -282,18 +283,7 @@ export function DisAdminDashboard() {
         </TabsContent>
 
         <TabsContent value="finance" className="animate-in slide-in-from-left-4">
-            <MensalidadesManager 
-                fees={disPayments.map((p: any) => ({
-                    id: p.id,
-                    studentName: p.studentName || 'Aluno',
-                    courseName: p.courseName || 'Curso de Libras',
-                    competence: p.competence || '2026-07',
-                    dueDate: p.dueDate || '10/07/2026',
-                    amount: p.amount || 100,
-                    status: (p.status === 'paid' ? 'pago' : p.status === 'pending' ? 'em_aberto' : p.status) || 'em_aberto'
-                }))} 
-                canUpdateStatus={true} 
-            />
+            <DisFinanceHub disPayments={disPayments} />
         </TabsContent>
 
         <TabsContent value="materials" className="animate-in slide-in-from-left-4">
