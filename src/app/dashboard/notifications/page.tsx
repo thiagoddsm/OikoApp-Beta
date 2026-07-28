@@ -2782,11 +2782,11 @@ function WhatsappGroupsManager({ config }: { config: any }) {
                                             }))
                                             .filter((p: any) => {
                                                 const term = participantSearch.toLowerCase();
-                                                return p.id?.toLowerCase().includes(term) || 
-                                                       p.name?.toLowerCase().includes(term) ||
-                                                       p.enriched.name?.toLowerCase().includes(term) ||
-                                                       p.enriched.phone?.toLowerCase().includes(term) ||
-                                                       p.enriched.lid?.toLowerCase().includes(term);
+                                                return String(p.id || '').toLowerCase().includes(term) || 
+                                                       String(p.name || '').toLowerCase().includes(term) ||
+                                                       String(p.enriched?.name || '').toLowerCase().includes(term) ||
+                                                       String(p.enriched?.phone || '').toLowerCase().includes(term) ||
+                                                       String(p.enriched?.lid || '').toLowerCase().includes(term);
                                             })
                                             .map((p: any) => {
                                                 const isUpdating = !!updatingParticipantsMap[p.id];
