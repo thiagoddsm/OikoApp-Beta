@@ -24,6 +24,7 @@ import { ClassFormDialog } from '../class-form-dialog';
 import { EnrollmentRequestsList } from '../enrollment-requests-list';
 import { StudentsManagement } from '../students-management';
 import { TeachersManagement } from '../teachers-management';
+import { TeacherDashboard } from './teacher-dashboard';
 
 const COLORS = ['#6750A4', '#8A75B5', '#AE9CCE', '#D1C4E7', '#F2F0F7'];
 
@@ -322,7 +323,8 @@ export function WaveAdminDashboard() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-5 max-w-2xl mb-6 bg-slate-100 dark:bg-slate-800/50 p-1 rounded-full">
+        <TabsList className="grid w-full grid-cols-6 max-w-3xl mb-6 bg-slate-100 dark:bg-slate-800/50 p-1 rounded-full">
+          <TabsTrigger value="agenda" className="rounded-full text-xs font-bold text-indigo-700 dark:text-indigo-400"><Calendar className="size-3.5 mr-1.5"/>Agenda & Diários</TabsTrigger>
           <TabsTrigger value="overview" className="rounded-full text-xs"><LayoutDashboard className="size-3.5 mr-1.5"/>Geral</TabsTrigger>
           <TabsTrigger value="requests" className="rounded-full text-xs">
             Inscrições {pendingRequestsCount > 0 && <Badge className="ml-1.5 h-4 px-1">{pendingRequestsCount}</Badge>}
@@ -331,6 +333,11 @@ export function WaveAdminDashboard() {
           <TabsTrigger value="classes" className="rounded-full text-xs">Turmas</TabsTrigger>
           <TabsTrigger value="teachers" className="rounded-full text-xs">Professores</TabsTrigger>
         </TabsList>
+
+        {/* 0. AGENDA & DIÁRIOS TAB */}
+        <TabsContent value="agenda" className="space-y-6 animate-in fade-in-50">
+          <TeacherDashboard />
+        </TabsContent>
 
         {/* 1. OVERVIEW / METRICS TAB */}
         <TabsContent value="overview" className="space-y-8 animate-in fade-in-50">
