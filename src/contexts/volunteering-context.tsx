@@ -622,6 +622,8 @@ export type DisPlan = {
   name: string; 
   price: number;
   dueDay?: number;
+  dueDateDay?: number;
+  discountPercent?: number;
   installments?: number;
   periodicityMonths?: number;
 };

@@ -15,9 +15,9 @@ export interface FinancialPlan {
 export interface TuitionFee {
   id: string;
   tenantId?: string;
-  enrollmentId: string;
+  enrollmentId?: string;
   financialPlanId?: string;
-  studentId: string;
+  studentId?: string;
   studentName: string;
   courseName: string;
   amount: number;
