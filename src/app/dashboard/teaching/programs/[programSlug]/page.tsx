@@ -71,7 +71,6 @@ export default function ProgramDetailPage() {
 
   const programClasses = useMemo(() => {
     if (!classes) return [];
-    // If specific courses exist, filter by them; otherwise show all active classes for the program
     if (programCourseIds.size > 0) {
       return classes.filter(cls => programCourseIds.has(cls.courseId));
     }
@@ -107,7 +106,10 @@ export default function ProgramDetailPage() {
     setClassFormOpen(true);
   };
 
+  // All hooks are called above — safe to do conditional returns here
   const isLoading = loadingPrograms || loadingCourses;
+  const IconComponent = ICON_MAP[program?.icon] || GraduationCap;
+  const capabilities = program?.capabilities || [];
 
   if (isLoading) {
     return (
@@ -128,9 +130,6 @@ export default function ProgramDetailPage() {
       </div>
     );
   }
-
-  const IconComponent = ICON_MAP[program.icon] || GraduationCap;
-  const capabilities = program.capabilities || [];
 
   return (
     <VolunteeringProvider>
@@ -156,17 +155,16 @@ export default function ProgramDetailPage() {
           </div>
         </div>
 
-        {/* Declarative Tabs powered by Capabilities */}
+        {/* Tabs */}
         <Tabs defaultValue="overview" className="w-full">
           <TabsList className="flex flex-wrap h-auto p-1 bg-slate-100 dark:bg-slate-850 rounded-xl mb-6">
             <TabsTrigger value="overview" className="rounded-lg text-xs font-semibold py-2">
               Visão Geral
             </TabsTrigger>
             <TabsTrigger value="courses" className="rounded-lg text-xs font-semibold py-2">
-              Cursos & Turmas
+              Cursos &amp; Turmas
             </TabsTrigger>
 
-            {/* Conditional Capability-driven Tabs */}
             {capabilities.includes('financial') && (
               <TabsTrigger value="financial" className="rounded-lg text-xs font-semibold py-2 flex items-center gap-1.5">
                 <DollarSign className="size-3.5" /> Financeiro
@@ -175,7 +173,7 @@ export default function ProgramDetailPage() {
 
             {capabilities.includes('electronic_point') && (
               <TabsTrigger value="diario" className="rounded-lg text-xs font-semibold py-2 flex items-center gap-1.5">
-                <CheckSquare className="size-3.5" /> Ponto & Diário
+                <CheckSquare className="size-3.5" /> Ponto &amp; Diário
               </TabsTrigger>
             )}
 
@@ -187,7 +185,7 @@ export default function ProgramDetailPage() {
 
             {capabilities.includes('quizzes') && (
               <TabsTrigger value="quizzes" className="rounded-lg text-xs font-semibold py-2 flex items-center gap-1.5">
-                <FileQuestion className="size-3.5" /> Quizzes & EAD
+                <FileQuestion className="size-3.5" /> Quizzes &amp; EAD
               </TabsTrigger>
             )}
 
@@ -318,7 +316,7 @@ export default function ProgramDetailPage() {
             )}
           </TabsContent>
 
-          {/* Tab 3: Financial (if capability present) */}
+          {/* Tab 3: Financial */}
           {capabilities.includes('financial') && (
             <TabsContent value="financial">
               <WaveFinanceDashboard />
@@ -330,7 +328,7 @@ export default function ProgramDetailPage() {
             <TabsContent value="diario">
               <Card className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm rounded-xl">
                 <CardHeader>
-                  <CardTitle>Ponto Eletrônico & Diários</CardTitle>
+                  <CardTitle>Ponto Eletrônico &amp; Diários</CardTitle>
                   <CardDescription>Sessões ativas e diários de aula dos mentores de {program.name}.</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -364,12 +362,12 @@ export default function ProgramDetailPage() {
             <TabsContent value="quizzes">
               <Card className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm rounded-xl">
                 <CardHeader>
-                  <CardTitle>Quizzes, Conteúdos EAD & Vídeos TheoFlix</CardTitle>
+                  <CardTitle>Quizzes, Conteúdos EAD &amp; Vídeos TheoFlix</CardTitle>
                   <CardDescription>Plataforma de videoaulas, episódios, questionários e acompanhamento de respostas.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <Link href="/dashboard/teaching/theoflix">
-                    <Button className="bg-indigo-600 text-white">Abrir Portal TheoFlix & Quizzes</Button>
+                    <Button className="bg-indigo-600 text-white">Abrir Portal TheoFlix &amp; Quizzes</Button>
                   </Link>
                 </CardContent>
               </Card>
