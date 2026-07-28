@@ -265,17 +265,33 @@ function CheckinPanelContent() {
                                                         {volunteerName || <span className="text-slate-400 italic">Vaga Aberta</span>}
                                                     </TableCell>
                                                     <TableCell>
-                                                        {checkIn?.status === 'present' ? (
-                                                            <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50 border-emerald-200">
-                                                                <CheckCircle className="size-3 mr-1" /> Presente
-                                                            </Badge>
+                                                        {checkIn?.status === 'checked_out' ? (
+                                                            <div className="space-y-1">
+                                                                <Badge className="bg-indigo-50 text-indigo-700 hover:bg-indigo-50 border-indigo-200">
+                                                                    <CheckCircle className="size-3 mr-1 text-indigo-600" /> Check-out (Concluído)
+                                                                </Badge>
+                                                                {checkIn?.checkInTime && (
+                                                                    <p className="text-[10px] text-slate-400">
+                                                                        {checkIn.checkInTime} → {checkIn.checkOutTime || ''} {checkIn.durationMinutes ? `(${Math.floor(checkIn.durationMinutes / 60)}h ${checkIn.durationMinutes % 60}m)` : ''}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        ) : checkIn?.status === 'present' ? (
+                                                            <div className="space-y-1">
+                                                                <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50 border-emerald-200">
+                                                                    <CheckCircle className="size-3 mr-1" /> Em Serviço (Presente)
+                                                                </Badge>
+                                                                {checkIn?.checkInTime && (
+                                                                    <p className="text-[10px] text-slate-400">Entrada: {checkIn.checkInTime}</p>
+                                                                )}
+                                                            </div>
                                                         ) : checkIn?.status === 'absent' ? (
                                                             <Badge variant="destructive" className="bg-red-50 text-red-700 border-red-200 hover:bg-red-50">
                                                                 <XCircle className="size-3 mr-1" /> Ausente
                                                             </Badge>
                                                         ) : (
                                                             <Badge variant="outline" className="text-slate-400 border-slate-200">
-                                                                <Clock className="size-3 mr-1" /> Não confirmado
+                                                                <Clock className="size-3 mr-1" /> Sem Check-in
                                                             </Badge>
                                                         )}
                                                     </TableCell>

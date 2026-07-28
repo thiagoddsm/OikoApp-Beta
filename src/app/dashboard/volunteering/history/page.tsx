@@ -60,7 +60,9 @@ function VolunteerHistoryContent() {
                         teamName: item.teamName || '-',
                         slotIndex: item.slotIndex || 0,
                         checkInStatus: checkIn?.status || 'pending',
-                        checkInTime: checkIn?.timestamp,
+                        checkInTime: checkIn?.checkInTime || (checkIn?.timestamp ? new Date(checkIn.timestamp.seconds ? checkIn.timestamp.seconds * 1000 : checkIn.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : null),
+                        checkOutTime: checkIn?.checkOutTime || null,
+                        durationMinutes: checkIn?.durationMinutes || null,
                         checkInMethod: checkIn?.method,
                         confirmationStatus: confirmation?.status || 'pending'
                     });
@@ -80,12 +82,19 @@ function VolunteerHistoryContent() {
     // KPI Calculations
     const stats = useMemo(() => {
         const total = volunteerHistory.length;
-        const present = volunteerHistory.filter(h => h.checkInStatus === 'present').length;
+        const present = volunteerHistory.filter(h => h.checkInStatus === 'present' || h.checkInStatus === 'checked_out').length;
         const absent = volunteerHistory.filter(h => h.checkInStatus === 'absent').length;
         const pending = volunteerHistory.filter(h => h.checkInStatus === 'pending').length;
         const rate = total > 0 ? Math.round(((present) / (total - pending || total)) * 100) : 100;
+        
+        const totalMinutesServed = volunteerHistory.reduce((acc, curr) => acc + (curr.durationMinutes || 0), 0);
+        const hoursServed = Math.floor(totalMinutesServed / 60);
+        const minsLeft = totalMinutesServed % 60;
+        const totalTimeFormatted = totalMinutesServed > 0 
+          ? (hoursServed > 0 ? `${hoursServed}h ${minsLeft > 0 ? `${minsLeft}m` : ''}` : `${minsLeft}m`) 
+          : '-';
 
-        return { total, present, absent, pending, rate };
+        return { total, present, absent, pending, rate, totalTimeFormatted };
     }, [volunteerHistory]);
 
     return (
@@ -135,7 +144,7 @@ function VolunteerHistoryContent() {
                     {selectedVolunteerId ? (
                         <>
                             {/* KPI Metrics */}
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
                                 <div className="border border-slate-150 rounded-xl p-4 bg-white shadow-sm space-y-1">
                                     <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Total de Escalas</span>
                                     <div className="flex items-center gap-2">
@@ -164,6 +173,13 @@ function VolunteerHistoryContent() {
                                         <span className="text-2xl font-black text-slate-800">{stats.rate}%</span>
                                     </div>
                                 </div>
+                                <div className="border border-slate-150 rounded-xl p-4 bg-white shadow-sm space-y-1">
+                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Horas Servidas</span>
+                                    <div className="flex items-center gap-2">
+                                        <Clock className="size-5 text-indigo-500" />
+                                        <span className="text-xl font-black text-slate-800">{stats.totalTimeFormatted}</span>
+                                    </div>
+                                </div>
                             </div>
 
                             {/* History Table */}
@@ -175,54 +191,67 @@ function VolunteerHistoryContent() {
                                             <TableHead>Culto / Evento</TableHead>
                                             <TableHead>Área de Serviço</TableHead>
                                             <TableHead>Equipe</TableHead>
-                                            <TableHead>Confirmação</TableHead>
-                                            <TableHead>Frequência (Check-in)</TableHead>
+                                            <TableHead>Frequência / Status</TableHead>
+                                            <TableHead>Entrada / Saída</TableHead>
+                                            <TableHead className="text-right">Duração</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {volunteerHistory.length === 0 ? (
                                             <TableRow>
-                                                <TableCell colSpan={6} className="h-24 text-center text-slate-400 italic">
+                                                <TableCell colSpan={7} className="h-24 text-center text-slate-400 italic">
                                                     Nenhuma escala encontrada para este período.
                                                 </TableCell>
                                             </TableRow>
                                         ) : (
-                                            volunteerHistory.map((item, idx) => (
-                                                <TableRow key={idx}>
-                                                    <TableCell className="font-semibold text-slate-700">{item.date}</TableCell>
-                                                    <TableCell>{item.eventName}</TableCell>
-                                                    <TableCell><Badge variant="outline">{item.areaName}</Badge></TableCell>
-                                                    <TableCell>{item.teamName}</TableCell>
-                                                    <TableCell>
-                                                        {item.confirmationStatus === 'confirmed' && (
-                                                            <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100/80 border-emerald-250">✅ Confirmado</Badge>
-                                                        )}
-                                                        {item.confirmationStatus === 'declined' && (
-                                                            <Badge variant="destructive">❌ Recusou</Badge>
-                                                        )}
-                                                        {item.confirmationStatus === 'pending' && (
-                                                            <Badge variant="outline" className="text-amber-600 border-amber-300">⏳ Pendente</Badge>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {item.checkInStatus === 'present' && (
-                                                            <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50 border-emerald-200">
-                                                                <CheckCircle className="size-3 mr-1" /> Presente
-                                                            </Badge>
-                                                        )}
-                                                        {item.checkInStatus === 'absent' && (
-                                                            <Badge variant="destructive" className="bg-red-50 text-red-700 border-red-200 hover:bg-red-50">
-                                                                <XCircle className="size-3 mr-1" /> Ausente
-                                                            </Badge>
-                                                        )}
-                                                        {item.checkInStatus === 'pending' && (
-                                                            <Badge variant="outline" className="text-slate-500 border-slate-300">
-                                                                <Clock className="size-3 mr-1" /> Não confirmado
-                                                            </Badge>
-                                                        )}
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))
+                                            volunteerHistory.map((item, idx) => {
+                                                const durHours = item.durationMinutes ? Math.floor(item.durationMinutes / 60) : 0;
+                                                const durMins = item.durationMinutes ? item.durationMinutes % 60 : 0;
+                                                const durFormatted = item.durationMinutes 
+                                                  ? (durHours > 0 ? `${durHours}h ${durMins > 0 ? `${durMins}m` : ''}` : `${durMins}m`)
+                                                  : '-';
+
+                                                return (
+                                                    <TableRow key={idx}>
+                                                        <TableCell className="font-semibold text-slate-700">{item.date}</TableCell>
+                                                        <TableCell>{item.eventName}</TableCell>
+                                                        <TableCell><Badge variant="outline">{item.areaName}</Badge></TableCell>
+                                                        <TableCell>{item.teamName}</TableCell>
+                                                        <TableCell>
+                                                            {item.checkInStatus === 'checked_out' ? (
+                                                                <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-50">
+                                                                    <CheckCircle className="size-3 mr-1 text-indigo-600" /> Check-out (Concluído)
+                                                                </Badge>
+                                                            ) : item.checkInStatus === 'present' ? (
+                                                                <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50 border-emerald-200">
+                                                                    <CheckCircle className="size-3 mr-1" /> Em Serviço (Presente)
+                                                                </Badge>
+                                                            ) : item.checkInStatus === 'absent' ? (
+                                                                <Badge variant="destructive" className="bg-red-50 text-red-700 border-red-200 hover:bg-red-50">
+                                                                    <XCircle className="size-3 mr-1" /> Ausente
+                                                                </Badge>
+                                                            ) : (
+                                                                <Badge variant="outline" className="text-slate-400 border-slate-200">
+                                                                    <Clock className="size-3 mr-1" /> Não confirmado
+                                                                </Badge>
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell className="text-xs text-slate-600 font-medium">
+                                                            {item.checkInTime ? (
+                                                              <div className="space-y-0.5">
+                                                                <p><span className="text-slate-400">In:</span> <strong>{item.checkInTime}</strong></p>
+                                                                {item.checkOutTime && <p><span className="text-slate-400">Out:</span> <strong>{item.checkOutTime}</strong></p>}
+                                                              </div>
+                                                            ) : (
+                                                              <span className="text-slate-400">-</span>
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-bold text-xs text-slate-700">
+                                                            {durFormatted}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                );
+                                            })
                                         )}
                                     </TableBody>
                                 </Table>
