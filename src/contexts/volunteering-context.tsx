@@ -1003,8 +1003,14 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
 
           if (cSchool === 'dis' || cMin === 'dis' || cName.includes('libras')) {
             const today = new Date();
-            const yearMonth = today.toISOString().slice(0, 7); // ex: 2026-07
-            const dueDateStr = `${yearMonth}-10`; // Vencimento padrão dia 10
+            // Mês subsequente no dia 05
+            const nextMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, 5);
+            const year = nextMonthDate.getFullYear();
+            const month = String(nextMonthDate.getMonth() + 1).padStart(2, '0');
+            const day = String(nextMonthDate.getDate()).padStart(2, '0');
+            
+            const competence = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+            const dueDateStr = `${year}-${month}-${day}`; // ex: 2026-08-05
 
             await addDoc(collection(firestore!, 'dis_payments'), {
               userId: studentId,
@@ -1014,7 +1020,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
               classId: classId,
               className: targetClass.name || '',
               amount: 100, // Valor padrão da mensalidade DIS
-              competence: yearMonth,
+              competence: competence,
               dueDate: dueDateStr,
               status: 'em_aberto',
               createdAt: Timestamp.now()
