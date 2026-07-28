@@ -123,7 +123,7 @@ export async function getPublicCheckInData(areaId: string | null, dateParam: str
         volunteerId,
         volunteerName: volunteerId ? (memberNames[volunteerId] || 'Voluntário') : '',
         checkInStatus: checkIn?.status || 'pending',
-        checkInTime: checkIn?.checkInTime || (checkIn?.timestamp ? new Date(checkIn.timestamp.toMillis ? checkIn.timestamp.toMillis() : checkIn.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : null),
+        checkInTime: checkIn?.checkInTime || (checkIn?.timestamp ? new Date(checkIn.timestamp.toMillis ? checkIn.timestamp.toMillis() : checkIn.timestamp).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' }) : null),
         checkOutTime: checkIn?.checkOutTime || null,
         badgeReturned: checkIn?.badgeReturned ?? false
       };
@@ -142,7 +142,7 @@ export async function getPublicCheckInData(areaId: string | null, dateParam: str
           volunteerId: vId,
           volunteerName: allVolunteersMap.get(vId) || 'Voluntário Extra',
           checkInStatus: checkIn?.status || 'present',
-          checkInTime: checkIn?.checkInTime || (checkIn?.timestamp ? new Date(checkIn.timestamp.toMillis ? checkIn.timestamp.toMillis() : checkIn.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : null),
+          checkInTime: checkIn?.checkInTime || (checkIn?.timestamp ? new Date(checkIn.timestamp.toMillis ? checkIn.timestamp.toMillis() : checkIn.timestamp).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' }) : null),
           checkOutTime: checkIn?.checkOutTime || null,
           badgeReturned: checkIn?.badgeReturned ?? false,
           isAvulso: true
@@ -197,7 +197,7 @@ export async function submitCheckIn(params: {
         : `${date}_${eventName}_${slotIndex}`;
       
       const now = new Date();
-      const timeFormatted = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      const timeFormatted = now.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
 
       const existingData = checkIns[checkInKey] || {};
 
@@ -251,7 +251,7 @@ export async function submitCheckOut(params: {
         : `${date}_${eventName}_${slotIndex}`;
 
       const now = new Date();
-      const timeFormatted = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      const timeFormatted = now.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
 
       const existingData = checkIns[checkInKey] || {};
 
