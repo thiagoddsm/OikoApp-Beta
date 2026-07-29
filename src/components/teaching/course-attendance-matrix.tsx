@@ -228,17 +228,16 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
             });
         });
 
+        const moduleTheoflixId = modules[modIndex]?.theoflixCourseId;
         const targetTheoflixIds = [
-            courseId,
             course?.linkedTheoflixId,
-            (course as any)?.slug,
-            course?.name?.toLowerCase()
+            moduleTheoflixId
         ].filter(Boolean) as string[];
 
-        const currentModTitle = (modules[modIndex]?.title || '').toLowerCase();
+        const currentModTitle = (modules[modIndex]?.title || '').toLowerCase().trim();
 
         // 1. Checar tentativas de quizzes aprovadas em theoflix_quiz_attempts
-        const hasApprovedQuiz = quizAttempts?.some((att: any) => {
+        const hasApprovedQuiz = targetTheoflixIds.length > 0 && quizAttempts?.some((att: any) => {
             const matchesUser = att.userId === student.id || (att.userEmail && student.email && att.userEmail.toLowerCase() === student.email.toLowerCase());
             if (!matchesUser || att.approved === false) return false;
 
@@ -246,21 +245,20 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
             const attCourseTitle = (att.courseTitle || '').toLowerCase();
 
             const matchesCourse = targetTheoflixIds.some(id => 
-                id && (attCourseId.includes(id.toLowerCase()) || attCourseTitle.includes(id.toLowerCase()))
+                id && (attCourseId === id.toLowerCase() || attCourseTitle === id.toLowerCase())
             );
             if (!matchesCourse) return false;
 
             const attEpId = String(att.episodeId ?? '');
-            const attEpTitle = (att.episodeTitle || '').toLowerCase();
+            const attEpTitle = (att.episodeTitle || '').toLowerCase().trim();
             
             return attEpId === String(modIndex) || 
                    attEpId === String(modId) || 
-                   (currentModTitle && attEpTitle.includes(currentModTitle)) ||
-                   (currentModTitle && currentModTitle.includes(attEpTitle));
+                   (currentModTitle.length >= 4 && attEpTitle.length >= 4 && (attEpTitle.includes(currentModTitle) || currentModTitle.includes(attEpTitle)));
         });
 
         // 2. Checar progresso no documento do usuário
-        const hasTheoflixUserProgress = targetTheoflixIds.some(tId => {
+        const hasTheoflixUserProgress = targetTheoflixIds.length > 0 && targetTheoflixIds.some(tId => {
             if (!tId) return false;
             const attMap = student.journey?.theoflixAttendance?.[tId];
             if (attMap?.[modIndex] || attMap?.[modId]) return true;
@@ -270,9 +268,9 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                 if (typeof progMap === 'object') {
                     const values = Object.values(progMap);
                     if (values[modIndex] === true) return true;
-                    if (currentModTitle) {
+                    if (currentModTitle && currentModTitle.length >= 4) {
                         const keys = Object.keys(progMap);
-                        if (keys.some(k => k.toLowerCase().includes(currentModTitle) && progMap[k] === true)) return true;
+                        if (keys.some(k => k.toLowerCase().trim().includes(currentModTitle) && progMap[k] === true)) return true;
                     }
                 }
             }
