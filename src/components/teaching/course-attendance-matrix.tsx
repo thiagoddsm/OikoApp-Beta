@@ -234,45 +234,46 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
             moduleTheoflixId
         ].filter(Boolean) as string[];
 
-        const currentModTitle = (modules[modIndex]?.title || '').toLowerCase().trim();
-
-        // 1. Checar tentativas de quizzes aprovadas em theoflix_quiz_attempts
+        // 1. Checar tentativas de quizzes aprovadas em theoflix_quiz_attempts com vínculo explícito de IDs
         const hasApprovedQuiz = targetTheoflixIds.length > 0 && quizAttempts?.some((att: any) => {
             const matchesUser = att.userId === student.id || (att.userEmail && student.email && att.userEmail.toLowerCase() === student.email.toLowerCase());
             if (!matchesUser || att.approved === false) return false;
 
             const attCourseId = (att.courseId || '').toLowerCase();
-            const attCourseTitle = (att.courseTitle || '').toLowerCase();
 
             const matchesCourse = targetTheoflixIds.some(id => 
-                id && (attCourseId === id.toLowerCase() || attCourseTitle === id.toLowerCase())
+                id && attCourseId === id.toLowerCase()
             );
             if (!matchesCourse) return false;
 
-            const attEpId = String(att.episodeId ?? '');
-            const attEpTitle = (att.episodeTitle || '').toLowerCase().trim();
+            // EXIGÊNCIA ESTRITA B01-B03: Vínculo relacional explícito entre episódio e módulo (ex: att.syllabusId ou att.theoflixCourseId)
+            const attSyllabusId = att.syllabusId || att.episodeSyllabusId;
+            const targetSyllabusId = modules[modIndex]?.id;
             
-            return attEpId === String(modIndex) || 
-                   attEpId === String(modId) || 
-                   (currentModTitle.length >= 4 && attEpTitle.length >= 4 && (attEpTitle.includes(currentModTitle) || currentModTitle.includes(attEpTitle)));
+            if (attSyllabusId && targetSyllabusId) {
+                return attSyllabusId === targetSyllabusId;
+            }
+
+            // Se o quiz não possui syllabusId explícito, exige correspondência exata do ID do módulo cadastrado no theoflix
+            if (moduleTheoflixId && att.courseId === moduleTheoflixId) {
+                return true;
+            }
+
+            return false;
         });
 
-        // 2. Checar progresso no documento do usuário
+        // 2. Checar progresso no documento do usuário apenas por chaves de ID explícitas
         const hasTheoflixUserProgress = targetTheoflixIds.length > 0 && targetTheoflixIds.some(tId => {
             if (!tId) return false;
+            const targetSyllabusId = modules[modIndex]?.id;
+
             const attMap = student.journey?.theoflixAttendance?.[tId];
-            if (attMap?.[modIndex] || attMap?.[modId]) return true;
+            if (targetSyllabusId && attMap?.[targetSyllabusId] === true) return true;
 
             const progMap = student.journey?.theoflixProgress?.[tId];
-            if (progMap) {
-                if (typeof progMap === 'object') {
-                    const values = Object.values(progMap);
-                    if (values[modIndex] === true) return true;
-                    if (currentModTitle && currentModTitle.length >= 4) {
-                        const keys = Object.keys(progMap);
-                        if (keys.some(k => k.toLowerCase().trim().includes(currentModTitle) && progMap[k] === true)) return true;
-                    }
-                }
+            if (progMap && typeof progMap === 'object') {
+                if (targetSyllabusId && progMap[targetSyllabusId] === true) return true;
+                if (moduleTheoflixId && progMap[moduleTheoflixId] === true) return true;
             }
             return false;
         });
@@ -689,7 +690,8 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                                                 })
                                             ) : (
                                                 allDates.map((date, index) => {
-                                                    const attendanceRecord = filteredClasses.flatMap(c => c.attendance || []).find(att => att.date === date);
+                                                    const studentClass = courseClasses.find(c => c.students?.includes(student.id));
+                                                    const attendanceRecord = studentClass?.attendance?.find(att => att.date === date);
                                                     const isInPerson = attendanceRecord?.presentStudentIds?.includes(student.id);
                                                     const isOnlineLive = attendanceRecord?.onlineStudentIds?.includes(student.id);
                                                     
