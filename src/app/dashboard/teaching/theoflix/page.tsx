@@ -449,11 +449,7 @@ function TheoFlixContent() {
     setLessonNotes('');
   };
 
-  const handlePlayEpisode = (episode: Episode) => {
-    setCurrentEpisode(episode);
-    setIsPlaying(true);
-    setLessonNotes('');
-  };
+
 
   const handleClosePlayer = () => {
     setSelectedCourse(null);
