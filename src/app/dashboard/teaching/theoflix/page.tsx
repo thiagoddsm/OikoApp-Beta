@@ -468,6 +468,14 @@ function TheoFlixContent() {
             </div>
             {isAdmin && (
                 <>
+                  <Link href="/dashboard/teaching/theoflix/reports/watch-history">
+                    <Button 
+                      variant="outline" 
+                      className="rounded-full h-10 gap-2 font-bold text-xs border-primary/20 hover:bg-primary/10 transition-colors"
+                    >
+                      <Clock className="size-4 text-primary" /> Histórico de Visualizações
+                    </Button>
+                  </Link>
                   <Link href="/dashboard/teaching/theoflix/reports">
                     <Button 
                       variant="outline" 

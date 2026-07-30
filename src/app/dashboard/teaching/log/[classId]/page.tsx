@@ -2,6 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useVolunteering } from '@/contexts/volunteering-context';
+import { getModuleCompletion } from '@/domain/teaching/module-completion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, ArrowLeft, CheckCircle2, ClipboardCheck, History, Plus, Save, UserPlus, Search as SearchIcon } from 'lucide-react';
@@ -189,36 +190,24 @@ function PedagogicalLogPageContent() {
         const currentEnrolledIds = new Set(classData?.students || []);
         const currentSyllabusId = currentResolvedItem?.syllabusItem?.id;
 
-        // Turmas simultâneas ou anteriores do mesmo curso
-        const siblingClasses = classes.filter(c => c.courseId === courseData.id && c.id !== classId && (!classData?.cycle || c.cycle === classData?.cycle));
+        const siblingClasses = classes.filter((c: any) => c.courseId === courseData.id && c.id !== classId && (!classData?.cycle || c.cycle === classData?.cycle));
 
         const studentIds = new Set<string>();
-        siblingClasses.forEach(sibling => {
-            // Descobrir as datas em que esta turma (sibling) lecionou o mesmo syllabusId
+        siblingClasses.forEach((sibling: any) => {
             const siblingSchedule = getResolvedSchedule(sibling, courseData);
             const matchingDates = siblingSchedule.filter((s: any) => s.syllabusItem?.id === currentSyllabusId).map((s: any) => s.dateStr);
 
-            (sibling.students || []).forEach(sid => {
+            (sibling.students || []).forEach((sid: string) => {
                 if (currentEnrolledIds.has(sid)) return;
-                const user = users.find(u => u.id === sid);
-                if (!user) return;
 
-                // Se for curso de membro, usamos o memberCourseProgress como fonte de verdade final
-                if (isMemberCourse && user.journey?.memberCourseProgress?.[currentModuleKey]) return;
-
-                // Verificar se o aluno teve presença em ALGUMA das datas que deram este módulo na turma dele
                 let attendedInSibling = false;
-                matchingDates.forEach(mDate => {
-                    const record = sibling.attendance?.find((a: any) => a.date === mDate);
-                    if (record?.presentStudentIds?.includes(sid)) attendedInSibling = true;
-                    // Também verificar reposições que esse aluno fez no sibling (opcional)
+                matchingDates.forEach((dStr: string) => {
+                    const record = sibling.attendance?.find((a: any) => a.date === dStr);
+                    if (record?.presentStudentIds?.includes(sid) || record?.onlineStudentIds?.includes(sid)) attendedInSibling = true;
                     if (record?.repositions?.some((r: any) => r.studentId === sid)) attendedInSibling = true;
                 });
 
-                // Se o módulo já passou na turma dele e ele não estava presente, ele é pendente!
-                // Mas e se o módulo ainda nem ocorreu na turma dele?
-                // Podemos mostrar alunos de turmas onde o módulo JÁ OCORREU (date <= today)
-                const moduleAlreadyPassed = matchingDates.some(mDate => {
+                const moduleAlreadyPassed = matchingDates.some((mDate: string) => {
                     if (!mDate) return false;
                     try {
                         const parsed = parseISO(mDate.split('T')[0]);
@@ -234,22 +223,33 @@ function PedagogicalLogPageContent() {
             });
         });
 
-        return users.filter(u => studentIds.has(u.id));
+        return users.filter((u: any) => studentIds.has(u.id));
     }, [users, classes, classData, courseData, classId, selectedDate, currentModuleIndex, currentModuleKey, isMemberCourse, currentResolvedItem]);
 
     // Lógica para sugerir alunos que precisam repor este módulo específico (pendência no progresso geral)
     const repositionSuggestions = useMemo(() => {
         if (!users || !selectedDate || currentModuleIndex === -1) return [];
         const enrolledIds = new Set(classData?.students || []);
-        const previousClassIds = new Set(previousClassStudentsForModule.map(u => u.id));
+        const previousClassIds = new Set(previousClassStudentsForModule.map((u: any) => u.id));
 
-        return users.filter(u => {
+        return users.filter((u: any) => {
             const isNotEnrolled = !enrolledIds.has(u.id);
             const isNotFromPreviousClass = !previousClassIds.has(u.id);
             
             let hasPending = false;
             if (isMemberCourse) {
-                hasPending = !u.journey?.memberCourseProgress?.[currentModuleKey];
+                const status = getModuleCompletion({
+                    studentId: u.id,
+                    studentEmail: u.email,
+                    studentJourney: u.journey,
+                    course: courseData,
+                    modIndex: currentModuleIndex,
+                    modId: currentModuleKey,
+                    modules: courseData?.syllabus || [],
+                    courseClasses: classes,
+                    isMembership: true
+                });
+                hasPending = !status.isDone;
             }
             
             const isStudent = u.integrationStatus === 'novo_convertido' || u.integrationStatus === 'membro' || u.integrationStatus === 'consolidado';
