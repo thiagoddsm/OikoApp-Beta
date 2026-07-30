@@ -102,9 +102,33 @@ export function ScheduleGenerator() {
             const currentDate = new Date(selectedYear, selectedMonth, day);
             const dayOfWeekName = currentDate.toLocaleDateString('pt-BR', { weekday: 'long' });
 
+            const isLastWeekOfMonth = (d: Date) => {
+                const nextWeek = new Date(d);
+                nextWeek.setDate(d.getDate() + 7);
+                return nextWeek.getMonth() !== d.getMonth();
+            };
+
             const weeklyEvents = events.filter(e => e.frequency === 'semanal' && e.dayOfWeek?.toLowerCase() === dayOfWeekName.toLowerCase());
+            
+            const biweeklyEvents = events.filter(e => {
+                if (e.frequency !== 'quinzenal' || e.dayOfWeek?.toLowerCase() !== dayOfWeekName.toLowerCase()) return false;
+                const weekNum = Math.ceil(day / 7);
+                return weekNum % 2 === 1;
+            });
+
+            const monthlyEvents = events.filter(e => {
+                if (e.frequency !== 'mensal' || e.dayOfWeek?.toLowerCase() !== dayOfWeekName.toLowerCase()) return false;
+                const weekNum = getWeekOfMonth(currentDate);
+                const targetWeek = e.weekOfMonth || '1';
+                if (targetWeek === 'last' || targetWeek === 'ultima') {
+                    return isLastWeekOfMonth(currentDate);
+                }
+                return String(weekNum) === String(targetWeek);
+            });
+
             const punctualEvents = events.filter(e => e.frequency === 'pontual' && e.date === currentDate.toISOString().split('T')[0]);
-            const relevantEvents = [...weeklyEvents, ...punctualEvents];
+            
+            const relevantEvents = [...weeklyEvents, ...biweeklyEvents, ...monthlyEvents, ...punctualEvents];
 
             relevantEvents.forEach(event => {
                 event.requiredAreas?.forEach(reqArea => {
@@ -155,7 +179,7 @@ export function ScheduleGenerator() {
 
         const eligibleVolunteers = users
             .filter(u => {
-                const isCorrectArea = u.serviceAreaId === item.areaId || (u.worshipAreaId === item.areaId && u.worshipRoles && u.worshipRoles.length > 0);
+                const isCorrectArea = u.serviceAreaId === item.areaId || (u.serviceAreaIds && u.serviceAreaIds.includes(item.areaId)) || (u.worshipAreaId === item.areaId && u.worshipRoles && u.worshipRoles.length > 0);
                 const isEligibleForEvent = u.eligibleEventIds?.includes(item.eventId);
                 const isCorrectTeam = !item.teamId || u.serviceTeamId === item.teamId || !u.serviceTeamId; // Wildcard if no team is assigned to slot
                 const isNotBlocked = !u.blockedDates?.includes(dateString);

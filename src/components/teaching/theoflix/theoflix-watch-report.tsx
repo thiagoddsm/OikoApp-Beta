@@ -4,6 +4,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
 import { useMembersData } from '@/hooks/useDomainData';
+import { format, parseISO } from 'date-fns';
 import { theoflixDB, type Course, type Episode } from '@/lib/theoflix-data';
 import { 
     Search, 
@@ -75,14 +76,29 @@ export function TheoflixWatchReport() {
             let completedCount = 0;
             const episodesStatus = episodes.map(episode => {
                 const episodeKey = episode.youtubeId || episode.title.replace(/\s+/g, '_');
-                const isCompleted = !!courseProgress[episodeKey];
+                const progValue = courseProgress[episodeKey];
+                const isCompleted = !!progValue;
                 if (isCompleted) {
                     completedCount++;
                 }
+
+                let completedAt: string | undefined;
+                let startedAt: string | undefined;
+                let watchedMinutes: number | undefined;
+
+                if (progValue && typeof progValue === 'object') {
+                    completedAt = progValue.completedAt;
+                    startedAt = progValue.startedAt;
+                    watchedMinutes = progValue.watchedMinutes || (progValue.timeSpentSeconds ? Math.round(progValue.timeSpentSeconds / 60) : undefined);
+                }
+
                 return {
                     title: episode.title,
                     completed: isCompleted,
-                    duration: episode.duration
+                    duration: episode.duration,
+                    completedAt,
+                    startedAt,
+                    watchedMinutes
                 };
             });
 
@@ -404,26 +420,47 @@ export function TheoflixWatchReport() {
                                                                     {student.episodesStatus.map((ep, idx) => (
                                                                         <div 
                                                                             key={idx} 
-                                                                            className="flex items-center justify-between p-2.5 rounded-lg border border-slate-200/60 bg-white"
+                                                                            className="flex flex-col gap-1.5 p-2.5 rounded-lg border border-slate-200/60 bg-white"
                                                                         >
-                                                                            <div className="flex items-center gap-2">
-                                                                                {ep.completed ? (
-                                                                                    <div className="p-1 bg-emerald-50 text-emerald-600 rounded-full">
-                                                                                        <Check className="size-3.5 stroke-[3]" />
-                                                                                    </div>
-                                                                                ) : (
-                                                                                    <div className="p-1 bg-slate-100 text-slate-400 rounded-full">
-                                                                                        <Clock className="size-3.5" />
-                                                                                    </div>
+                                                                            <div className="flex items-center justify-between">
+                                                                                <div className="flex items-center gap-2">
+                                                                                    {ep.completed ? (
+                                                                                        <div className="p-1 bg-emerald-50 text-emerald-600 rounded-full">
+                                                                                            <Check className="size-3.5 stroke-[3]" />
+                                                                                        </div>
+                                                                                    ) : (
+                                                                                        <div className="p-1 bg-slate-100 text-slate-400 rounded-full">
+                                                                                            <Clock className="size-3.5" />
+                                                                                        </div>
+                                                                                    )}
+                                                                                    <span className="text-sm font-medium text-slate-700">
+                                                                                        {ep.title}
+                                                                                    </span>
+                                                                                </div>
+                                                                                {ep.duration && (
+                                                                                    <span className="text-xs text-slate-400 font-mono">
+                                                                                        {ep.duration}
+                                                                                    </span>
                                                                                 )}
-                                                                                <span className="text-sm font-medium text-slate-700">
-                                                                                    {ep.title}
-                                                                                </span>
                                                                             </div>
-                                                                            {ep.duration && (
-                                                                                <span className="text-xs text-slate-400">
-                                                                                    {ep.duration}
-                                                                                </span>
+
+                                                                            {/* Detalhes de Telemetria (Data, Hora e Tempo de Permanência) */}
+                                                                            {ep.completed && (
+                                                                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-500 pl-7">
+                                                                                    {ep.completedAt ? (
+                                                                                        <span>
+                                                                                            📅 Concluído em: <strong className="text-slate-700 font-semibold">{format(parseISO(ep.completedAt), "dd/MM/yyyy 'às' HH:mm")}</strong>
+                                                                                        </span>
+                                                                                    ) : (
+                                                                                        <span className="italic text-slate-400">Concluído (Histórico)</span>
+                                                                                    )}
+
+                                                                                    {ep.watchedMinutes !== undefined && (
+                                                                                        <span className="bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-medium border border-emerald-100">
+                                                                                            ⏱️ Permanência: {ep.watchedMinutes} min
+                                                                                        </span>
+                                                                                    )}
+                                                                                </div>
                                                                             )}
                                                                         </div>
                                                                     ))}

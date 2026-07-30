@@ -24,6 +24,7 @@ export type User = {
   };
   serviceStatus?: 'serving' | 'not_serving';
   serviceAreaId?: string;
+  serviceAreaIds?: string[];
   serviceTeamId?: string;
   eligibleEventIds?: string[];
   blockedDates?: string[];

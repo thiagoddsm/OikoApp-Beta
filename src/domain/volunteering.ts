@@ -33,8 +33,9 @@ export type VolunteeringEvent = {
   name: string;
   time: string;
   date?: string;
-  frequency?: 'semanal' | 'pontual';
+  frequency?: 'semanal' | 'pontual' | 'quinzenal' | 'mensal';
   dayOfWeek?: string;
+  weekOfMonth?: string;
   requiredAreas?: { areaId: string; quantity: number }[];
   room?: string;
   tenantId?: string;

@@ -35,8 +35,9 @@ export function CreateEventDialog({ open, onOpenChange, existingEvent, isDuplica
   const [name, setName] = useState('');
   const [time, setTime] = useState('');
   const [date, setDate] = useState('');
-  const [frequency, setFrequency] = useState<'pontual' | 'semanal'>('pontual');
+  const [frequency, setFrequency] = useState<'pontual' | 'semanal' | 'quinzenal' | 'mensal'>('pontual');
   const [dayOfWeek, setDayOfWeek] = useState('Domingo');
+  const [weekOfMonth, setWeekOfMonth] = useState<string>('1');
   const [room, setRoom] = useState('');
   const [requiredAreas, setRequiredAreas] = useState<RequiredAreaState[]>([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -49,6 +50,7 @@ export function CreateEventDialog({ open, onOpenChange, existingEvent, isDuplica
       setRoom(existingEvent?.room || '');
       setFrequency(existingEvent?.frequency || 'pontual');
       setDayOfWeek(existingEvent?.dayOfWeek || 'Domingo');
+      setWeekOfMonth(existingEvent?.weekOfMonth || '1');
       setRequiredAreas(existingEvent?.requiredAreas?.map(a => ({...a})) || []);
     }
   }, [open, existingEvent]);
@@ -80,16 +82,17 @@ export function CreateEventDialog({ open, onOpenChange, existingEvent, isDuplica
   const handleSave = async () => {
     if (!name.trim() || !time.trim()) return;
     if (frequency === 'pontual' && !date) return;
-    if (frequency === 'semanal' && !dayOfWeek) return;
+    if (frequency !== 'pontual' && !dayOfWeek) return;
     
     setIsSaving(true);
     
-    const eventData = {
+    const eventData: any = {
       name,
       time,
       frequency,
       date: frequency === 'pontual' ? date : '',
-      dayOfWeek: frequency === 'semanal' ? dayOfWeek : '',
+      dayOfWeek: frequency !== 'pontual' ? dayOfWeek : '',
+      weekOfMonth: frequency === 'mensal' ? weekOfMonth : '',
       requiredAreas,
       room,
     };
@@ -110,23 +113,25 @@ export function CreateEventDialog({ open, onOpenChange, existingEvent, isDuplica
         <DialogHeader>
           <DialogTitle>{existingEvent && !isDuplicating ? 'Editar Evento' : 'Criar Novo Evento'}</DialogTitle>
           <DialogDescription>
-            Defina os detalhes do evento, o ambiente e as áreas de serviço necessárias.
+            Defina os detalhes do evento/culto, recorrência e áreas de serviço necessárias.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-2 max-h-[70vh] overflow-y-auto pr-2">
             <div>
-              <Label htmlFor="event-name">Nome do Evento</Label>
-              <Input id="event-name" value={name} onChange={(e) => setName(e.target.value)} required />
+              <Label htmlFor="event-name">Nome do Evento / Culto</Label>
+              <Input id="event-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Culto de Celebração, Culto de Mulheres..." required />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="frequency">Frequência</Label>
-                <Select value={frequency} onValueChange={(val: 'pontual' | 'semanal') => setFrequency(val)}>
+                <Select value={frequency} onValueChange={(val: any) => setFrequency(val)}>
                   <SelectTrigger id="frequency"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="pontual">Pontual (Data única)</SelectItem>
-                    <SelectItem value="semanal">Semanal (Recorrente)</SelectItem>
+                    <SelectItem value="semanal">Semanal (Toda semana)</SelectItem>
+                    <SelectItem value="quinzenal">Quinzenal (A cada 2 semanas)</SelectItem>
+                    <SelectItem value="mensal">Mensal (Semana e dia no mês)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -150,6 +155,25 @@ export function CreateEventDialog({ open, onOpenChange, existingEvent, isDuplica
                 )}
               </div>
             </div>
+
+            {frequency === 'mensal' && (
+              <div className="bg-slate-50 p-3 rounded-lg border space-y-1.5">
+                <Label htmlFor="week-of-month" className="text-xs font-bold text-slate-700 uppercase">Qual semana do mês?</Label>
+                <Select value={weekOfMonth} onValueChange={setWeekOfMonth}>
+                  <SelectTrigger id="week-of-month"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1ª semana do mês (ex: 1ª {dayOfWeek})</SelectItem>
+                    <SelectItem value="2">2ª semana do mês (ex: 2ª {dayOfWeek})</SelectItem>
+                    <SelectItem value="3">3ª semana do mês (ex: 3ª {dayOfWeek})</SelectItem>
+                    <SelectItem value="4">4ª semana do mês (ex: 4ª {dayOfWeek})</SelectItem>
+                    <SelectItem value="last">Última semana do mês</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground italic">
+                  O culto ocorrerá na <strong>{weekOfMonth === 'last' ? 'última' : `${weekOfMonth}ª`} {dayOfWeek}</strong> de cada mês.
+                </p>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <div>

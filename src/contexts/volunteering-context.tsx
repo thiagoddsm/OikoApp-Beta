@@ -32,6 +32,7 @@ export type User = {
   };
   serviceStatus?: 'serving' | 'not_serving';
   serviceAreaId?: string;
+  serviceAreaIds?: string[];
   serviceTeamId?: string;
   eligibleEventIds?: string[];
   blockedDates?: string[];
@@ -92,8 +93,9 @@ export type VolunteeringEvent = {
   name: string;
   time: string;
   date?: string;
-  frequency?: 'semanal' | 'pontual';
+  frequency?: 'semanal' | 'pontual' | 'quinzenal' | 'mensal';
   dayOfWeek?: string;
+  weekOfMonth?: string;
   requiredAreas?: { areaId: string; quantity: number }[];
   room?: string;
 };

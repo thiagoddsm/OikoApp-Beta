@@ -239,13 +239,22 @@ function TheoFlixContent() {
     }
   }, [isPlaying, currentEpisode, isApiReady]);
 
+  // Telemetria do vídeo
+  const [watchStartTime, setWatchStartTime] = useState<string | null>(null);
+
+  const handlePlayEpisode = (episode: Episode) => {
+    setCurrentEpisode(episode);
+    setIsPlaying(true);
+    setWatchStartTime(new Date().toISOString());
+    setLessonNotes('');
+  };
+
   const handleMarkAsCompleted = () => {
     if (!user || !selectedCourse || !currentEpisode || !firestore) return;
     
     // Check for quiz
     if (currentEpisode.quiz?.enabled && currentEpisode.quiz.questions?.length > 0 && !quizSubmitted) {
         setIsQuizOpen(true);
-        // Inicializa com string vazia para essay (discursiva) e -1 para multipla escolha
         setQuizAnswers(currentEpisode.quiz.questions.map(q => q.type === 'essay' ? '' : -1));
         return;
     }
@@ -263,8 +272,21 @@ function TheoFlixContent() {
         });
     }
 
+    const nowISO = new Date().toISOString();
+    const startTimeISO = watchStartTime || nowISO;
+    const timeSpentSeconds = Math.max(1, Math.round((new Date(nowISO).getTime() - new Date(startTimeISO).getTime()) / 1000));
+    const watchedMinutes = Math.max(1, Math.round(timeSpentSeconds / 60));
+
+    const progressData = {
+      completed: true,
+      startedAt: startTimeISO,
+      completedAt: nowISO,
+      timeSpentSeconds,
+      watchedMinutes
+    };
+
     updateDocumentNonBlocking(doc(firestore, 'users', user.uid), {
-      [`journey.theoflixProgress.${selectedCourse.id}.${episodeKey}`]: true,
+      [`journey.theoflixProgress.${selectedCourse.id}.${episodeKey}`]: progressData,
       // Grava no histórico se o aluno submeteu respostas discursivas neste quiz
       ...(Object.keys(essayAnswers).length > 0 && {
         [`journey.theoflixEssayAnswers.${selectedCourse.id}.${episodeKey}`]: essayAnswers

@@ -199,7 +199,24 @@ export function EventsManagement() {
                   <TableRow key={event.id}>
                     <TableCell className="font-medium">{event.name}</TableCell>
                     <TableCell>
-                      {(event as any).frequency ? (event as any).frequency : (event.date || (event as any).dayOfWeek || 'Recorrente')}
+                      {(() => {
+                        const freq = event.frequency;
+                        if (freq === 'pontual') {
+                          return <Badge variant="outline" className="bg-slate-50">{event.date ? `Pontual (${event.date})` : 'Pontual'}</Badge>;
+                        }
+                        if (freq === 'quinzenal') {
+                          return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Quinzenal - {event.dayOfWeek || ''}</Badge>;
+                        }
+                        if (freq === 'mensal') {
+                          const weekLabels: Record<string, string> = { '1': '1ª', '2': '2ª', '3': '3ª', '4': '4ª', 'last': 'Última' };
+                          const weekLabel = weekLabels[event.weekOfMonth || '1'] || `${event.weekOfMonth || 1}ª`;
+                          return <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">Mensal ({weekLabel} {event.dayOfWeek || ''})</Badge>;
+                        }
+                        if (freq === 'semanal') {
+                          return <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">Semanal - {event.dayOfWeek || ''}</Badge>;
+                        }
+                        return <Badge variant="outline">{(event as any).frequency || event.date || (event as any).dayOfWeek || 'Recorrente'}</Badge>;
+                      })()}
                     </TableCell>
                     <TableCell>
                       {event.time}

@@ -57,6 +57,7 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
         if (!users) return [];
         return users.filter(u => 
             u.serviceAreaId === areaId || 
+            (u.serviceAreaIds && u.serviceAreaIds.includes(areaId)) ||
             (u.worshipAreaId === areaId && u.worshipRoles && u.worshipRoles.length > 0)
         ).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     }, [users, areaId]);

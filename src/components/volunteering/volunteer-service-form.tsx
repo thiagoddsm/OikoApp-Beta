@@ -33,8 +33,26 @@ export function VolunteerServiceForm({ user }: VolunteerServiceFormProps) {
     updateVolunteer(user.id, updateData);
   };
 
+  const handleMultipleAreaToggle = (areaId: string, checked: boolean) => {
+    const currentAreas = user.serviceAreaIds && user.serviceAreaIds.length > 0
+      ? user.serviceAreaIds
+      : (user.serviceAreaId ? [user.serviceAreaId] : []);
+      
+    const newAreas = checked
+      ? Array.from(new Set([...currentAreas, areaId]))
+      : currentAreas.filter(id => id !== areaId);
+    
+    updateVolunteer(user.id, { 
+      serviceAreaIds: newAreas,
+      serviceAreaId: newAreas.length > 0 ? newAreas[0] : ''
+    });
+  };
+
   const handleAreaChange = (areaId: string) => {
-    updateVolunteer(user.id, { serviceAreaId: areaId === 'null' ? '' : areaId });
+    const val = areaId === 'null' ? '' : areaId;
+    const currentAreas = user.serviceAreaIds || [];
+    const newAreas = val ? Array.from(new Set([val, ...currentAreas])) : currentAreas;
+    updateVolunteer(user.id, { serviceAreaId: val, serviceAreaIds: newAreas });
   };
   
   const handleTeamChange = (teamId: string) => {
@@ -150,25 +168,32 @@ export function VolunteerServiceForm({ user }: VolunteerServiceFormProps) {
                     </div>
                 </div>
 
+                <div className="space-y-3">
+                    <Label className="text-base font-semibold">Áreas de Atuação (Serviço Voluntário)</Label>
+                    <p className="text-xs text-muted-foreground">O voluntário pode servir em mais de uma área simultaneamente.</p>
+                    <ScrollArea className="h-44 w-full rounded-md border p-3 bg-slate-50/50">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                            {areas.map(area => {
+                                const isChecked = (user.serviceAreaIds && user.serviceAreaIds.includes(area.id)) || user.serviceAreaId === area.id;
+                                return (
+                                    <div key={area.id} className="flex items-center space-x-2 p-1.5 rounded hover:bg-slate-100 transition-colors">
+                                        <Checkbox
+                                            id={`user-area-${user.id}-${area.id}`}
+                                            checked={isChecked}
+                                            onCheckedChange={(checked) => handleMultipleAreaToggle(area.id, !!checked)}
+                                            disabled={!isServing || isLoading}
+                                        />
+                                        <Label htmlFor={`user-area-${user.id}-${area.id}`} className="text-xs font-medium cursor-pointer select-none">
+                                            {area.name}
+                                        </Label>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </ScrollArea>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                        <Label htmlFor="service-area">Área de Serviço</Label>
-                        <Select
-                            value={user.serviceAreaId || 'null'}
-                            onValueChange={handleAreaChange}
-                            disabled={!isServing || isLoading}
-                        >
-                            <SelectTrigger id="service-area">
-                                <SelectValue placeholder="Selecione uma área..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="null">Nenhuma</SelectItem>
-                                {areas.map(area => <SelectItem key={area.id} value={area.id}>{area.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                        <p className="text-xs text-muted-foreground">A área onde o voluntário atua.</p>
-                    </div>
-                    
                     <div className="space-y-2">
                         <Label htmlFor="service-team">Equipe de Rodízio</Label>
                         <Select
