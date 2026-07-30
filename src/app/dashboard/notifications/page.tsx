@@ -292,7 +292,7 @@ function WhatsappChats() {
 }
 
 function WhatsappSender({ config }: { config: any }) {
-    const { firestore } = useFirebase();
+    const { firestore, user } = useFirebase();
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
     const [message, setMessage] = useState('');
@@ -394,8 +394,135 @@ function WhatsappSender({ config }: { config: any }) {
     const [contactName, setContactName] = useState('');
     const [contactPhone, setContactPhone] = useState('');
 
+    const [selectedServiceAreaId, setSelectedServiceAreaId] = useState<string>('');
+
     const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
     const { data: users } = useCollection<any>(usersQuery);
+
+    const cellsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'cells')) : null, [firestore]);
+    const { data: cells } = useCollection<any>(cellsQuery);
+
+    const areasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'areas')) : null, [firestore]);
+    const { data: areas } = useCollection<any>(areasQuery);
+
+    const redesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'redes')) : null, [firestore]);
+    const { data: redes } = useCollection<any>(redesQuery);
+
+    const serviceAreasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'areas_of_service')) : null, [firestore]);
+    const { data: serviceAreas } = useCollection<any>(serviceAreasQuery);
+
+    const teamsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'teams')) : null, [firestore]);
+    const { data: teams } = useCollection<any>(teamsQuery);
+
+    const targetAudienceUsers = useMemo(() => {
+        if (!users) return [];
+
+        switch (targetAudience) {
+            case 'all_members':
+                return users;
+
+            case 'specific_members':
+                return users.filter(u => selectedUserIds.includes(u.id));
+
+            case 'gc_leaders':
+                return users.filter(u => {
+                    const isRoleLider = u.hierarchy?.role === 'lider' || u.isLiderGc === true || u.role === 'lider_gc' || u.isLider === true;
+                    const isCellLider = cells?.some((c: any) => c.liderId === u.id || c.liderCasalId === u.id);
+                    return isRoleLider || isCellLider;
+                });
+
+            case 'gc_coliders':
+                return users.filter(u => {
+                    const isRoleCoLider = u.hierarchy?.role === 'colider' || u.isCoLider === true || u.role === 'colider';
+                    const isCellCoLider = cells?.some((c: any) => 
+                        c.coLiderIds?.includes(u.id) || 
+                        c.coLideres?.some((cl: any) => cl.id === u.id || cl.casalId === u.id)
+                    );
+                    return isRoleCoLider || isCellCoLider;
+                });
+
+            case 'gc_supervisors':
+                return users.filter(u => {
+                    const isRoleSupervisor = u.hierarchy?.role === 'supervisor' || u.role === 'supervisor' || u.isSupervisor === true;
+                    const isCellSupervisor = cells?.some((c: any) => c.supervisorId === u.id);
+                    return isRoleSupervisor || isCellSupervisor;
+                });
+
+            case 'gc_area_leaders':
+                return users.filter(u => {
+                    const isRoleArea = u.hierarchy?.role === 'lider_area' || u.hierarchy?.role === 'lider_rede';
+                    const isAreaLider = areas?.some((a: any) => a.liderId === u.id) || redes?.some((r: any) => r.liderId === u.id);
+                    return isRoleArea || isAreaLider;
+                });
+
+            case 'all_volunteers':
+                return users.filter(u => 
+                    u.isVolunteer === true || 
+                    u.serviceStatus === 'serving' ||
+                    (Array.isArray(u.serviceAreaIds) && u.serviceAreaIds.length > 0) || 
+                    (Array.isArray(u.volunteeringAreas) && u.volunteeringAreas.length > 0) ||
+                    (Array.isArray(u.serviceAreaNames) && u.serviceAreaNames.length > 0) ||
+                    (Array.isArray(u.areas) && u.areas.length > 0) ||
+                    !!u.serviceAreaId ||
+                    !!u.areaOfServiceId ||
+                    !!u.areaId ||
+                    !!u.serviceTeamId ||
+                    !!u.teamId
+                );
+
+            case 'volunteers_by_area': {
+                if (!selectedServiceAreaId) return [];
+                
+                const targetArea = serviceAreas?.find((sa: any) => sa.id === selectedServiceAreaId || sa.name === selectedServiceAreaId);
+                const areaId = targetArea?.id || selectedServiceAreaId;
+                const areaName = targetArea?.name || selectedServiceAreaId;
+
+                const cleanId = areaId.toLowerCase().trim();
+                const cleanName = areaName.toLowerCase().trim();
+
+                return users.filter(u => {
+                    const matches = (val?: string) => {
+                        if (!val || typeof val !== 'string') return false;
+                        const v = val.toLowerCase().trim();
+                        return v === cleanId || v === cleanName;
+                    };
+
+                    if (Array.isArray(u.serviceAreaIds) && u.serviceAreaIds.some((id: string) => matches(id))) return true;
+                    if (Array.isArray(u.volunteeringAreas) && u.volunteeringAreas.some((id: string) => matches(id))) return true;
+                    if (Array.isArray(u.serviceAreaNames) && u.serviceAreaNames.some((id: string) => matches(id))) return true;
+                    if (Array.isArray(u.areas) && u.areas.some((id: string) => matches(id))) return true;
+
+                    if (matches(u.serviceAreaId)) return true;
+                    if (matches(u.areaOfServiceId)) return true;
+                    if (matches(u.areaId)) return true;
+                    if (matches(u.servicoAreaId)) return true;
+                    if (matches(u.serviceArea)) return true;
+
+                    if (u.serviceTeamId || u.teamId) {
+                        const userTeam = teams?.find((t: any) => t.id === u.serviceTeamId || t.id === u.teamId);
+                        if (userTeam && (matches(userTeam.areaId) || matches(userTeam.serviceAreaId))) return true;
+                    }
+
+                    return false;
+                });
+            }
+
+            case 'role_pastor':
+                return users.filter(u => u.role === 'pastor' || u.hierarchy?.role === 'pastor');
+
+            case 'role_admin':
+                return users.filter(u => u.role === 'admin' || u.isAdmin === true);
+
+            case 'role_membro':
+                return users.filter(u => u.integrationStatus === 'membro');
+
+            case 'role_novo_convertido':
+                return users.filter(u => u.integrationStatus === 'novo_convertido' || u.integrationStatus === 'visitante' || u.role === 'visitante');
+
+            default:
+                return [];
+        }
+    }, [users, cells, areas, redes, serviceAreas, teams, targetAudience, selectedUserIds, selectedServiceAreaId]);
 
     const resolveUser = useCallback((phone: string) => {
         const rawId = String(phone || '').split('@')[0];
@@ -513,28 +640,6 @@ function WhatsappSender({ config }: { config: any }) {
                     targetCount = 1;
                 }
             }
-        } else if (targetAudience === 'all_members') {
-            users?.forEach((u: any) => {
-                if (u.phone) {
-                    const cleaned = String(u.phone).replace(/\D/g, '');
-                    if (blacklistedSet.has(cleaned)) {
-                        blacklistedCount++;
-                    } else {
-                        targetCount++;
-                    }
-                }
-            });
-        } else if (targetAudience === 'specific_members') {
-            selectedUsersList?.forEach((u: any) => {
-                if (u.phone) {
-                    const cleaned = String(u.phone).replace(/\D/g, '');
-                    if (blacklistedSet.has(cleaned)) {
-                        blacklistedCount++;
-                    } else {
-                        targetCount++;
-                    }
-                }
-            });
         } else if (targetAudience === 'import_spreadsheet') {
             importedContacts?.forEach((c: any) => {
                 if (c.phone) {
@@ -548,6 +653,17 @@ function WhatsappSender({ config }: { config: any }) {
             });
         } else if (targetAudience === 'specific_groups') {
             targetCount = selectedGroupIds.length;
+        } else {
+            targetAudienceUsers?.forEach((u: any) => {
+                if (u.phone) {
+                    const cleaned = String(u.phone).replace(/\D/g, '');
+                    if (blacklistedSet.has(cleaned)) {
+                        blacklistedCount++;
+                    } else {
+                        targetCount++;
+                    }
+                }
+            });
         }
 
         let totalSeconds = 0;
@@ -579,7 +695,7 @@ function WhatsappSender({ config }: { config: any }) {
             targetCount,
             blacklistedCount
         };
-    }, [targetAudience, individualPhone, users, selectedUsersList, importedContacts, selectedGroupIds, blacklistedSet, config]);
+    }, [targetAudience, individualPhone, users, selectedUsersList, importedContacts, selectedGroupIds, blacklistedSet, config, targetAudienceUsers]);
 
     const handleAddUser = (userId: string) => {
         setSelectedUserIds(prev => [...prev, userId]);
@@ -604,6 +720,11 @@ function WhatsappSender({ config }: { config: any }) {
         
         if (targetAudience === 'individual' && !individualPhone) {
             toast({ variant: 'destructive', title: "Informe o número para teste." });
+            return;
+        }
+
+        if (targetAudience === 'volunteers_by_area' && !selectedServiceAreaId) {
+            toast({ variant: 'destructive', title: "Selecione uma área de serviço." });
             return;
         }
 
@@ -640,19 +761,16 @@ function WhatsappSender({ config }: { config: any }) {
 
         setIsLoading(true);
 
+        const isUserBasedAudience = targetAudience !== 'individual' && targetAudience !== 'import_spreadsheet' && targetAudience !== 'specific_groups';
+
         const payload: any = {
             channel: 'whatsapp',
             audience: targetAudience,
             message,
             userIds: targetAudience === 'specific_members' ? selectedUserIds : undefined,
-            // Melhoria: Se for 'all_members', também manda como targets para evitar erro de credenciais no server local
-            targets: (targetAudience === 'specific_members' || targetAudience === 'all_members' || targetAudience === 'import_spreadsheet') 
-                ? (
-                    targetAudience === 'import_spreadsheet' 
-                        ? importedContacts 
-                        : (targetAudience === 'all_members' ? users : selectedUsersList)?.filter(u => u.phone).map(u => ({ id: u.id, name: u.name, phone: u.phone }))
-                  )
-                : undefined,
+            targets: isUserBasedAudience 
+                ? targetAudienceUsers.filter(u => u.phone).map(u => ({ id: u.id, name: u.name, phone: u.phone }))
+                : (targetAudience === 'import_spreadsheet' ? importedContacts : undefined),
             groupIds: targetAudience === 'specific_groups' ? selectedGroupIds : undefined,
             individualPhone: targetAudience === 'individual' ? individualPhone : undefined,
             type: msgType,
@@ -681,9 +799,13 @@ function WhatsappSender({ config }: { config: any }) {
         }
 
         try {
+            const idToken = user ? await user.getIdToken() : '';
             const response = await fetch('/api/notifications/send', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 
+                'Content-Type': 'application/json',
+                ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+              },
               body: JSON.stringify(payload),
             });
             
@@ -741,12 +863,81 @@ function WhatsappSender({ config }: { config: any }) {
                                 <SelectItem value="individual">Individual (Teste)</SelectItem>
                                 <SelectItem value="all_members">Todos os Membros</SelectItem>
                                 <SelectItem value="specific_members">Membros Selecionados</SelectItem>
+                                
+                                <SelectItem value="gc_leaders">👑 Líderes de GC</SelectItem>
+                                <SelectItem value="gc_coliders">🌱 Líderes em Treinamento (Co-líderes de GC)</SelectItem>
+                                <SelectItem value="gc_supervisors">🛡️ Supervisores de GC</SelectItem>
+                                <SelectItem value="gc_area_leaders">🗺️ Líderes de Área / Rede (GC)</SelectItem>
+
+                                <SelectItem value="all_volunteers">🙌 Todos os Voluntários</SelectItem>
+                                <SelectItem value="volunteers_by_area">🎪 Voluntários por Área de Serviço</SelectItem>
+
+                                <SelectItem value="role_pastor">📖 Pastores e Liderança Pastoral</SelectItem>
+                                <SelectItem value="role_admin">⚙️ Administradores do Sistema</SelectItem>
+                                <SelectItem value="role_membro">👥 Somente Membros Oficializados</SelectItem>
+                                <SelectItem value="role_novo_convertido">🌱 Novos Convertidos e Visitantes</SelectItem>
+
                                 <SelectItem value="specific_groups">Grupos do WhatsApp</SelectItem>
                                 <SelectItem value="import_spreadsheet">Importar Planilha (CSV/Texto)</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
                 </div>
+
+                {targetAudience === 'volunteers_by_area' && (
+                    <div className="space-y-2 p-4 border rounded-lg bg-emerald-50/40 border-emerald-200">
+                        <Label className="text-emerald-900 font-bold flex items-center gap-2">
+                            <Users size={16} /> Selecione a Área de Serviço
+                        </Label>
+                        <Select value={selectedServiceAreaId} onValueChange={setSelectedServiceAreaId}>
+                            <SelectTrigger className="bg-white h-11">
+                                <SelectValue placeholder="Escolha a área de serviço (ex: Louvor, Infantil, Recepção)..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {serviceAreas?.map(sa => (
+                                    <SelectItem key={sa.id} value={sa.id}>{sa.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <p className="text-[11px] text-emerald-700 italic">
+                            Dispara a mensagem especificamente para os voluntários vinculados a esta área de serviço.
+                        </p>
+                    </div>
+                )}
+
+                {targetAudience !== 'individual' && targetAudience !== 'import_spreadsheet' && targetAudience !== 'specific_groups' && targetAudience !== 'specific_members' && targetAudience !== 'all_members' && (
+                    <div className="p-4 border rounded-xl bg-purple-50/40 border-purple-200 space-y-2">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-purple-900 flex items-center gap-2">
+                                <Users size={15} className="text-purple-600" />
+                                Membros Filtrados por Perfil ({targetAudienceUsers.length} encontrados)
+                            </span>
+                            <Badge className="bg-purple-600 text-white font-bold text-[10px]">
+                                {targetAudienceUsers.filter(u => u.phone).length} com WhatsApp válido
+                            </Badge>
+                        </div>
+                        {targetAudienceUsers.length > 0 ? (
+                            <div className="flex flex-wrap gap-1.5 pt-1">
+                                {targetAudienceUsers.slice(0, 12).map(u => (
+                                    <Badge key={u.id} variant="outline" className="bg-white text-xs text-slate-700 border-purple-200 font-medium">
+                                        {u.name}
+                                    </Badge>
+                                ))}
+                                {targetAudienceUsers.length > 12 && (
+                                    <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-300 text-xs font-bold">
+                                        +{targetAudienceUsers.length - 12} outros
+                                    </Badge>
+                                )}
+                            </div>
+                        ) : (
+                            <p className="text-xs text-amber-700 italic">
+                                {targetAudience === 'volunteers_by_area' && !selectedServiceAreaId
+                                    ? "Selecione uma área de serviço no menu acima."
+                                    : "Nenhum membro cadastrado com este perfil no momento."}
+                            </p>
+                        )}
+                    </div>
+                )}
 
                 {targetAudience === 'import_spreadsheet' && (
                     <div className="space-y-4 p-4 border rounded-lg bg-emerald-50/30">

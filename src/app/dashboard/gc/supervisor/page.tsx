@@ -143,7 +143,12 @@ function getWeekEnd(offsetWeeks = 0): Date {
   d.setDate(d.getDate() + 6);
   return d;
 }
-function toDateStr(d: Date) { return d.toISOString().split('T')[0]; }
+function toDateStr(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 function getMeetingDateInWeek(meetingDay?: string, weekOffset = 0): string {
   if (!meetingDay || DAY_MAP[meetingDay] === undefined) return toDateStr(getWeekEnd(weekOffset));
   const weekSunday = getWeekStart(weekOffset);
@@ -408,13 +413,35 @@ export default function SupervisorPage() {
   // Status de relatório por célula (com base na semana selecionada)
   const cellReportStatus = useMemo(() => {
     const status: Record<string, { sent: boolean; date: string; log?: ReuniaoLog }> = {};
+    const reportWeekStart = toDateStr(getWeekStart(reportWeekOffset));
+    const reportWeekEnd = toDateStr(getWeekEnd(reportWeekOffset));
+
+    // Combinar logsAll e recentLogs para garantir máxima cobertura de busca
+    const availableLogs = [...(logsAll || []), ...(recentLogs || [])];
+
     allCells?.forEach(cell => {
       const meetingDate = getMeetingDateInWeek(cell.meetingDay, reportWeekOffset);
-      const log = recentLogs?.find(l => l.cellId === cell.id && l.date === meetingDate);
-      status[cell.id] = { sent: !!log, date: meetingDate, log };
+      
+      // Busca se há relatório enviado para esta célula no intervalo da semana ou na data exata
+      const log = availableLogs.find(l => {
+        if (l.cellId !== cell.id) return false;
+        const logDateStr = (l.date || '').split('T')[0];
+
+        // 1. Coincidência com a data de reunião estimada
+        if (logDateStr === meetingDate) return true;
+
+        // 2. Qualquer relatório preenchido dentro dos limites da semana de referência
+        return logDateStr >= reportWeekStart && logDateStr <= reportWeekEnd;
+      });
+
+      status[cell.id] = {
+        sent: !!log,
+        date: log ? log.date.split('T')[0] : meetingDate,
+        log
+      };
     });
     return status;
-  }, [allCells, recentLogs, reportWeekOffset]);
+  }, [allCells, logsAll, recentLogs, reportWeekOffset]);
 
   // Alertas Luz Vermelha — busca histórico de 90 dias para calcular faltas consecutivas
   const alertasQuery = useMemoFirebase(() => {
