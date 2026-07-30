@@ -799,7 +799,13 @@ function WhatsappSender({ config }: { config: any }) {
         }
 
         try {
-            const idToken = user ? await user.getIdToken() : '';
+            let idToken = '';
+            try {
+                if (user) idToken = await user.getIdToken();
+            } catch (authErr) {
+                console.warn("Aviso: Falha ao obter idToken atualizado do Firebase Auth (offline/rede):", authErr);
+            }
+
             const response = await fetch('/api/notifications/send', {
               method: 'POST',
               headers: { 
