@@ -11,7 +11,7 @@ import {
     AlertCircle, PlusCircle, ExternalLink, HelpCircle,
     Shield, ShieldAlert, Settings, Edit3
 } from 'lucide-react';
-import { usePeople } from "@/hooks/usePeople";
+import { useMembersData } from "@/hooks/useDomainData";
 import { useFirebase, initializeFirebase } from '@/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { doc, getDoc } from 'firebase/firestore';
@@ -29,8 +29,7 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
     const { toast } = useToast();
     const { storage } = useFirebase();
     const { updateClass } = useVolunteering();
-    const { members } = usePeople();
-    const users = members as any[] | undefined;
+    const { users } = useMembersData();
 
     const [groupInfo, setGroupInfo] = useState<any | null>(null);
     const [isLoading, setIsLoading] = useState(false);

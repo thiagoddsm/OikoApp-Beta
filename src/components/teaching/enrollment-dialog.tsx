@@ -22,8 +22,7 @@ import {
 import { PlusCircle } from 'lucide-react';
 import { format, parseISO, isAfter } from 'date-fns';
 
-import { usePeople } from "@/hooks/usePeople";
-import { useCoursesData } from "@/hooks/useDomainData";
+import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
 
 interface EnrollmentDialogProps {
   open: boolean;
@@ -33,7 +32,7 @@ interface EnrollmentDialogProps {
 }
 
 export function EnrollmentDialog({ open, onOpenChange, initialStudentId, initialCourseId }: EnrollmentDialogProps) {
-  const { members: users } = usePeople();
+  const { users } = useMembersData();
   const { courses, classes } = useCoursesData();
   const { enrollStudent, addUser, isLoading } = useVolunteering();
   const { data: config } = useDoc<any>('config/notifications');

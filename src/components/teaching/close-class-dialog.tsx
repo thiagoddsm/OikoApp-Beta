@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useVolunteering, type Class, type Course } from '@/contexts/volunteering-context';
 import { addTimelineEvent } from '@/lib/timeline';
 import { useFirebase } from '@/firebase';
-import { usePeople } from "@/hooks/usePeople";
+import { useMembersData } from "@/hooks/useDomainData";
 
 interface CloseClassDialogProps {
   open: boolean;
@@ -22,7 +22,7 @@ interface CloseClassDialogProps {
 }
 
 export function CloseClassDialog({ open, onOpenChange, classData, courseData }: CloseClassDialogProps) {
-    const { members: users } = usePeople();
+    const { users } = useMembersData();
 
   const { updateClass, updateVolunteer } = useVolunteering();
   const { firestore, user: currentUser } = useFirebase();

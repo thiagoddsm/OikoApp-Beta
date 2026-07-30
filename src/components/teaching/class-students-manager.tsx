@@ -7,14 +7,14 @@ import { Button } from '@/components/ui/button';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Loader2, PlusCircle, UserX } from 'lucide-react';
 import { EnrollmentDialog } from './enrollment-dialog';
-import { usePeople } from "@/hooks/usePeople";
+import { useMembersData } from "@/hooks/useDomainData";
 
 interface ClassStudentsManagerProps {
     classData: Class;
 }
 
 export function ClassStudentsManager({ classData }: ClassStudentsManagerProps) {
-    const { members: users } = usePeople();
+    const { users } = useMembersData();
 
     const { isLoading, updateClass } = useVolunteering();
     const [isEnrollmentOpen, setEnrollmentOpen] = useState(false);

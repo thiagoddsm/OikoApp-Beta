@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
-import { usePeople } from '@/hooks/usePeople';
+import { useMembersData } from '@/hooks/useDomainData';
 import { theoflixDB, type Course, type Episode } from '@/lib/theoflix-data';
 import { 
     Search, 
@@ -31,7 +31,7 @@ import { Progress } from '@/components/ui/progress';
 
 export function TheoflixWatchReport() {
     const { firestore } = useFirebase();
-    const { members, isLoading: isLoadingMembers } = usePeople();
+    const { users: members, isLoading: isLoadingMembers } = useMembersData();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCourseId, setSelectedCourseId] = useState<string>('');
     const [expandedStudents, setExpandedStudents] = useState<Record<string, boolean>>({});
