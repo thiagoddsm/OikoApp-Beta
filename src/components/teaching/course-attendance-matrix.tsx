@@ -100,7 +100,12 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
     } | null>(null);
 
     const course = useMemo(() => courses.find(c => c.id === courseId), [courses, courseId]);
-    const isMembership = course?.name?.toLowerCase().includes('membro') || course?.name?.toLowerCase().includes('pertencer') || course?.name?.toLowerCase().includes('integração');
+    const isMembership = Boolean(
+        course?.id === 'pertencer' ||
+        course?.id === 'membros' ||
+        course?.linkedTheoflixId === 'membros' ||
+        /^(pertencer|curso de membro|curso de membros)/i.test(course?.name || '')
+    );
     const threshold = course?.minAttendanceApproval || 75;
     const useModuleView = isMembership || (course?.simultaneousClasses && course?.syllabus && course.syllabus.length > 0) || (selectedClassId === 'all' && course?.syllabus && course.syllabus.length > 0);
 
@@ -211,66 +216,114 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
         let regularAttendance: any = null;
         let repositionAttendance: any = null;
 
-        courseClasses.forEach(c => {
-            const isEnrolled = c.students?.includes(student.id);
-            c.attendance?.forEach(att => {
-                if (getModuleIndexForDate(att.date, c, course?.syllabus || []) === modIndex) {
+        // B07 + B08: 1º Passo - Verificar primeiro na turma oficial do aluno (studentClass)
+        const studentClass = courseClasses.find(c => c.students?.includes(student.id));
+
+        if (studentClass) {
+            studentClass.attendance?.forEach(att => {
+                if (getModuleIndexForDate(att.date, studentClass, course?.syllabus || []) === modIndex) {
                     const isPresent = att.presentStudentIds?.includes(student.id);
                     const isOnline = att.onlineStudentIds?.includes(student.id);
                     const isRepoRecord = att.repositions?.some(r => r.studentId === student.id);
 
-                    if (isEnrolled && (isPresent || isOnline)) {
+                    if (isPresent || isOnline) {
                         regularAttendance = { ...att, isOnline };
-                    } else if (!isEnrolled && (isPresent || isOnline || isRepoRecord)) {
+                    } else if (isRepoRecord) {
+                        // B07: Reposição na própria turma (aula extra)
                         repositionAttendance = att;
                     }
                 }
             });
-        });
+        }
+
+        // B08: 2º Passo - Se NÃO houver presença regular na própria turma, procurar reposição em OUTRAS turmas
+        // Exige vínculo relacional ESTRITO em att.repositions (impede classificar visitante normal como reposição)
+        if (!regularAttendance) {
+            const otherClasses = courseClasses.filter(c => !c.students?.includes(student.id));
+            for (const otherClass of otherClasses) {
+                if (repositionAttendance) break; // Trava ao encontrar a primeira reposição válida
+
+                otherClass.attendance?.forEach(att => {
+                    if (getModuleIndexForDate(att.date, otherClass, course?.syllabus || []) === modIndex) {
+                        const hasExplicitRepoRecord = att.repositions?.some(r => r.studentId === student.id);
+                        if (hasExplicitRepoRecord) {
+                            repositionAttendance = att;
+                        }
+                    }
+                });
+            }
+        }
 
         const moduleTheoflixId = modules[modIndex]?.theoflixCourseId;
         const targetTheoflixIds = [
+            course?.id,
             course?.linkedTheoflixId,
             moduleTheoflixId
         ].filter(Boolean) as string[];
 
-        // 1. Checar tentativas de quizzes aprovadas em theoflix_quiz_attempts com vínculo explícito de IDs
+        const currentModTitle = (modules[modIndex]?.title || '').toLowerCase().trim();
+
+        // 1. Checar tentativas de quizzes aprovadas em theoflix_quiz_attempts com vínculo relacional estrito
         const hasApprovedQuiz = targetTheoflixIds.length > 0 && quizAttempts?.some((att: any) => {
             const matchesUser = att.userId === student.id || (att.userEmail && student.email && att.userEmail.toLowerCase() === student.email.toLowerCase());
             if (!matchesUser || att.approved === false) return false;
 
             const attCourseId = (att.courseId || '').toLowerCase();
-
-            const matchesCourse = targetTheoflixIds.some(id => 
-                id && attCourseId === id.toLowerCase()
-            );
+            const matchesCourse = targetTheoflixIds.some(id => id && attCourseId === id.toLowerCase());
             if (!matchesCourse) return false;
 
-            // EXIGÊNCIA ESTRITA B01-B03: Vínculo relacional explícito entre episódio e módulo (ex: att.syllabusId ou att.theoflixCourseId)
             const attSyllabusId = att.syllabusId || att.episodeSyllabusId;
             const targetSyllabusId = modules[modIndex]?.id;
             
-            if (attSyllabusId && targetSyllabusId) {
-                return attSyllabusId === targetSyllabusId;
+            // A) Match estrito por ID do Syllabus
+            if (attSyllabusId && targetSyllabusId && attSyllabusId === targetSyllabusId) {
+                return true;
             }
 
-            // Se o quiz não possui syllabusId explícito, exige correspondência exata do ID do módulo cadastrado no theoflix
-            if (moduleTheoflixId && att.courseId === moduleTheoflixId) {
+            // B) Match por theoflixCourseId cadastrado no módulo da Ementa
+            if (moduleTheoflixId && attCourseId === moduleTheoflixId.toLowerCase()) {
+                return true;
+            }
+
+            // C) Match por igualdade de título de episódio
+            const attEpTitle = (att.episodeTitle || '').toLowerCase().trim();
+            if (currentModTitle && attEpTitle && currentModTitle === attEpTitle) {
                 return true;
             }
 
             return false;
         });
 
-        // 2. Checar progresso no documento do usuário apenas por chaves de ID explícitas
+        // 2. Checar progresso no documento do usuário (theoflixAttendance / theoflixProgress) com MOTOR DE AGREGAÇÃO ESTRITO (every)
         const hasTheoflixUserProgress = targetTheoflixIds.length > 0 && targetTheoflixIds.some(tId => {
             if (!tId) return false;
-            const targetSyllabusId = modules[modIndex]?.id;
+            const currentMod = modules[modIndex] as any;
+            const targetSyllabusId = currentMod?.id;
 
-            const attMap = student.journey?.theoflixAttendance?.[tId];
-            if (targetSyllabusId && attMap?.[targetSyllabusId] === true) return true;
+            // Se o módulo híbrido tem um conjunto de vídeos obrigatórios configurado na ementa (theoflixRequiredVideoIds)
+            const requiredVideoIds = currentMod?.theoflixRequiredVideoIds as string[] | undefined;
+            if (requiredVideoIds && requiredVideoIds.length > 0) {
+                const attMap = student.journey?.theoflixAttendance?.[tId] || student.journey?.theoflixAttendance?.[tId.toLowerCase()];
+                const progMap = student.journey?.theoflixProgress?.[tId] || student.journey?.theoflixProgress?.[tId.toLowerCase()];
 
-            const progMap = student.journey?.theoflixProgress?.[tId];
+                // AGREGAÇÃO ESTRITA: Exige que TODOS os vídeos da lista obrigatória estejam concluídos pelo aluno (.every)
+                const allVideosDone = requiredVideoIds.every(vId => {
+                    const isAttDone = attMap?.[vId] === true || attMap?.[`module${parseInt(vId) + 1}`] === true;
+                    const isProgDone = progMap && typeof progMap === 'object' && (progMap[vId] === true || Object.keys(progMap).some(k => k.includes(vId)));
+                    return isAttDone || isProgDone;
+                });
+
+                return allVideosDone;
+            }
+
+            // Fallback para módulo sem array de vídeos: exige o vínculo relacional explícito
+            const attMap = student.journey?.theoflixAttendance?.[tId] || student.journey?.theoflixAttendance?.[tId.toLowerCase()];
+            if (attMap) {
+                if (targetSyllabusId && attMap[targetSyllabusId] === true) return true;
+                if (moduleTheoflixId && attMap[moduleTheoflixId] === true) return true;
+            }
+
+            const progMap = student.journey?.theoflixProgress?.[tId] || student.journey?.theoflixProgress?.[tId.toLowerCase()];
             if (progMap && typeof progMap === 'object') {
                 if (targetSyllabusId && progMap[targetSyllabusId] === true) return true;
                 if (moduleTheoflixId && progMap[moduleTheoflixId] === true) return true;
@@ -278,16 +331,21 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
             return false;
         });
 
-        const isTheoflixDone = !!(regularAttendance?.isOnline || hasApprovedQuiz || hasTheoflixUserProgress);
+        // B01-B03 Correção de Domínio: Conclusão EAD TheoFlix depende EXCLUSIVAMENTE de Quiz Aprovado ou Progresso EAD
+        const isTheoflixEadDone = Boolean(hasApprovedQuiz || hasTheoflixUserProgress);
+        
+        // Presença regular (presencial ou transmissão ao vivo da turma)
+        const isRegularDone = Boolean(regularAttendance);
+
         const isManualDone = isMembership 
             ? !!(student.journey?.memberCourseProgress?.[`module${modId}`]) 
             : !!(student.journey?.courseProgress?.[courseId]?.[`module${modId}`]);
         
         return {
-            isDone: !!(regularAttendance || repositionAttendance || isTheoflixDone || isManualDone),
-            isRepo: !!(!regularAttendance && repositionAttendance),
-            isOnline: isTheoflixDone,
-            isManual: !!(isManualDone && !regularAttendance && !repositionAttendance && !isTheoflixDone),
+            isDone: !!(isRegularDone || repositionAttendance || isTheoflixEadDone || isManualDone),
+            isRepo: !!(!isRegularDone && repositionAttendance),
+            isOnline: isTheoflixEadDone, // ← Propriedade usada estritamente pela renderização para exibir o ícone ▶️ TheoFlix
+            isManual: !!(isManualDone && !isRegularDone && !repositionAttendance && !isTheoflixEadDone),
             data: regularAttendance || repositionAttendance
         };
     };

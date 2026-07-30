@@ -304,9 +304,14 @@ export function getModuleIndexForDate(dateStr: string, classData: any, syllabus:
     // Tentar match exato com data e hora primeiro
     let extraSession = classData.extraSessions?.find((s: any) => `${s.date}T${s.startTime}` === dateStr);
     
-    // Se não achou, tentar match apenas com a data
+    // Se não achou, tentar match por data se houver exatamente 1 extraSession ou se timeOnly bater com startTime
     if (!extraSession) {
-        extraSession = classData.extraSessions?.find((s: any) => s.date === dateOnly);
+        const sessionsOnDate = classData.extraSessions?.filter((s: any) => s.date === dateOnly);
+        if (sessionsOnDate && sessionsOnDate.length === 1) {
+            extraSession = sessionsOnDate[0];
+        } else if (sessionsOnDate && sessionsOnDate.length > 1 && timeOnly) {
+            extraSession = sessionsOnDate.find((s: any) => s.startTime === timeOnly);
+        }
     }
 
     if (extraSession?.syllabusId) {
@@ -384,7 +389,6 @@ export function getModuleIndexForDate(dateStr: string, classData: any, syllabus:
             
             // Verificar override no nível do slot
             if (overrides[slotKey]?.isCancelled) {
-                currentIndex++;
                 continue;
             }
 
@@ -1120,13 +1124,11 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
     updateEnrollmentRequest: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'enrollment_requests', id), data); },
     deleteEnrollmentRequest: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'enrollment_requests', id)); },
     markAttendanceByTheoflix: async (userId: string, theoflixCourseId: string, episodeIndex: number, lessonNotes?: string) => {
-      // 1. Atualizar o progresso individual de presenças EAD no documento do usuário
+      // 1. Gravar APENAS a evidencia do fato de baixo nivel (video assistido) no documento do usuario
       if (firestore && userId) {
         const userRef = doc(firestore, 'users', userId);
-        const moduleKey = `module${episodeIndex + 1}`;
         await updateDocumentNonBlocking(userRef, {
           [`journey.theoflixAttendance.${theoflixCourseId}.${episodeIndex}`]: true,
-          [`journey.memberCourseProgress.${moduleKey}`]: true,
           [`journey.lumineProgress.${theoflixCourseId}.${episodeIndex}`]: true
         });
       }
@@ -1155,7 +1157,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
         const physicalCourse = linkedCourses.find(c => c.id === cls.courseId);
         const syllabus = physicalCourse?.syllabus || [];
         
-        // Find which syllabus module requires this episode
+        // Find which syllabus module explicitly requires this episode
         const episodeIdxStr = episodeIndex.toString();
         let targetSyllabusIndex = -1;
         
@@ -1166,10 +1168,10 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
 
         if (hybridIndex !== -1) {
             targetSyllabusIndex = hybridIndex;
-        } else if (physicalCourse?.id === theoflixCourseId || physicalCourse?.linkedTheoflixId === theoflixCourseId) {
-            targetSyllabusIndex = episodeIndex;
         }
 
+        // DESACOPLAMENTO ARQUITETURAL: Se o video nao pertence explicitamente a um modulo hibrido com array theoflixRequiredVideoIds,
+        // NAO executamos o fallback de 1 video = 1 modulo (targetSyllabusIndex = episodeIndex ELIMINADO).
         if (targetSyllabusIndex === -1) continue;
         // Build the projected schedule to accurately find the date for this episode
         const items: any[] = [];

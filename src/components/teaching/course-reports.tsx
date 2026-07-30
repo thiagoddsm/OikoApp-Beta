@@ -98,7 +98,15 @@ export function CourseReports({ courseId }: CourseReportsProps) {
                 )
               );
               
-              const isManualDone = student.journey?.memberCourseProgress?.[`module${modIndex + 1}`];
+              const isMembership = Boolean(
+                course?.id === 'pertencer' ||
+                course?.id === 'membros' ||
+                course?.linkedTheoflixId === 'membros' ||
+                /^(pertencer|curso de membro|curso de membros)/i.test(course?.name || '')
+              );
+              const isManualDone = isMembership
+                ? student.journey?.memberCourseProgress?.[`module${modIndex + 1}`]
+                : student.journey?.courseProgress?.[cls.courseId]?.[`module${modIndex + 1}`];
               
               if (hasRepoInOtherClass || isManualDone) {
                 hasCompleted = true;
