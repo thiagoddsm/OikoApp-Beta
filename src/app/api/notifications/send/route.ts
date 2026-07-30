@@ -122,8 +122,9 @@ export async function POST(request: NextRequest) {
     }
 
     const filteredTargetUsers = targetUsers.filter(user => {
-        const cleaned = user.phone.replace(/\D/g, '');
-        return !blacklistedNumbers.has(cleaned);
+        const phoneStr = String(user.phone || '');
+        const cleaned = phoneStr.replace(/\D/g, '');
+        return cleaned.length > 0 && !blacklistedNumbers.has(cleaned);
     });
 
     if (filteredTargetUsers.length === 0 && targetGroups.length === 0) {
@@ -314,7 +315,7 @@ export async function POST(request: NextRequest) {
                 .replace(/\{\{faltas\}\}/gi, userMissedLessonsText)
                 .replace(/\{faltas\}/gi, userMissedLessonsText);
             const personalizedBody = parseSpintax(messageWithVariables);
-            const formattedPhone = formatWhatsAppNumber(user.phone);
+            const formattedPhone = formatWhatsAppNumber(String(user.phone || ''));
 
             await sendOne(formattedPhone, user.name, personalizedBody, user);
             messageIndex++;
