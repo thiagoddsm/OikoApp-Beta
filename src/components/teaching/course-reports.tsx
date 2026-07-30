@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { useVolunteering, getModuleIndexForDate, getResolvedSchedule } from '@/contexts/volunteering-context';
+import { getModuleCompletion } from '@/domain/teaching/module-completion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
@@ -98,17 +99,20 @@ export function CourseReports({ courseId }: CourseReportsProps) {
                 )
               );
               
-              const isMembership = Boolean(
-                course?.id === 'pertencer' ||
-                course?.id === 'membros' ||
-                course?.linkedTheoflixId === 'membros' ||
-                /^(pertencer|curso de membro|curso de membros)/i.test(course?.name || '')
-              );
-              const isManualDone = isMembership
-                ? student.journey?.memberCourseProgress?.[`module${modIndex + 1}`]
-                : student.journey?.courseProgress?.[cls.courseId]?.[`module${modIndex + 1}`];
+              const courseSyllabus = course?.syllabus || [];
+              const completionResult = getModuleCompletion({
+                studentId: student.id,
+                studentEmail: student.email,
+                studentJourney: student.journey,
+                course,
+                modIndex,
+                modId: modIndex + 1,
+                modules: courseSyllabus,
+                courseClasses: classes,
+                isMembership: true
+              });
               
-              if (hasRepoInOtherClass || isManualDone) {
+              if (hasRepoInOtherClass || completionResult.isDone) {
                 hasCompleted = true;
               }
             }

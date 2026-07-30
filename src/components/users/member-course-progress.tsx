@@ -10,6 +10,8 @@ import { Badge } from '../ui/badge';
 import { format, parseISO, addWeeks, addMonths, isBefore } from 'date-fns';
 import { useCoursesData } from "@/hooks/useDomainData";
 
+import { getModuleCompletion } from '@/domain/teaching/module-completion';
+
 export function MemberCourseProgress({ user }: { user: any }) {
     const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
 
@@ -50,38 +52,36 @@ export function MemberCourseProgress({ user }: { user: any }) {
         const relevantClasses = classes.filter(c => c.courseId === memberCourse.id);
 
         modules.forEach(mod => {
-            let foundDate: string | undefined;
-            let foundMethod: string | undefined;
-
-            relevantClasses.forEach(c => {
-                c.attendance?.forEach(att => {
-                    const dateIndexInClass = getModuleIndexForDate(att.date, c, memberCourse.syllabus || []);
-                    if (dateIndexInClass === mod.index) {
-                        const isPresent = att.presentStudentIds?.includes(user.id);
-                        const isOnline = att.onlineStudentIds && att.onlineStudentIds.includes(user.id);
-                        
-                        if (isPresent || isOnline) {
-                            foundDate = att.date;
-                            foundMethod = isPresent ? 'Presencial' : 'Theoflix';
-                        }
-                    }
-                });
+            const result = getModuleCompletion({
+                studentId: user.id,
+                studentEmail: user.email,
+                studentJourney: user.journey,
+                course: memberCourse,
+                modIndex: mod.index,
+                modId: mod.id,
+                modules: memberCourse.syllabus || [],
+                courseClasses: relevantClasses,
+                isMembership: true
             });
 
-            if (foundDate) {
-                progress[mod.id] = { completed: true, date: foundDate, method: foundMethod };
+            if (result.isDone) {
+                const methodStr = result.isRepo ? 'Reposição' : result.isOnline ? 'Theoflix' : result.isManual ? 'Manual / Aprovação' : 'Presencial';
+                progress[mod.id] = { 
+                    completed: true, 
+                    date: result.data?.date || new Date().toISOString(), 
+                    method: methodStr 
+                };
             }
         });
 
         return progress;
-    }, [memberCourse, classes, user.id, modules]);
+    }, [memberCourse, classes, user.id, user.email, user.journey, modules]);
 
     const mergedProgress = useMemo(() => {
         const merged: Record<string, any> = { ...manualProgress };
         modules.forEach(mod => {
             if (attendanceProgress[mod.id]) {
                 merged[mod.id] = true;
-                // Guardar metadados para exibição
                 merged[`${mod.id}_detail`] = attendanceProgress[mod.id];
             }
         });
