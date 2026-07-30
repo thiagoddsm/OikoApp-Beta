@@ -22,9 +22,9 @@ export interface ModuleCompletionParams {
 }
 
 /**
- * Funções auxiliares de checagem isolada por tipo de regra
+ * Evaluators de requisitos de módulo (Requirement Evaluators)
  */
-export function hasAttendance(params: ModuleCompletionParams): any {
+export function evaluateAttendanceRequirement(params: ModuleCompletionParams): any {
   const { studentId, modIndex, course, courseClasses } = params;
   const studentClass = courseClasses.find(c => c.students?.includes(studentId));
   if (!studentClass) return null;
@@ -37,7 +37,7 @@ export function hasAttendance(params: ModuleCompletionParams): any {
   }) || null;
 }
 
-export function hasReposition(params: ModuleCompletionParams, hasRegularAttendance: boolean): any {
+export function evaluateRepositionRequirement(params: ModuleCompletionParams, hasRegularAttendance: boolean): any {
   if (hasRegularAttendance) return null;
   const { studentId, modIndex, course, courseClasses } = params;
   const otherClasses = courseClasses.filter(c => !c.students?.includes(studentId));
@@ -55,7 +55,7 @@ export function hasReposition(params: ModuleCompletionParams, hasRegularAttendan
   return null;
 }
 
-export function hasTheoflixCompletion(params: ModuleCompletionParams): boolean {
+export function evaluateTheoflixRequirement(params: ModuleCompletionParams): boolean {
   const { studentId, studentEmail, studentJourney, course, modIndex, modules, quizAttempts } = params;
   const moduleTheoflixId = modules[modIndex]?.theoflixCourseId;
   const targetTheoflixIds = [
@@ -129,21 +129,38 @@ export function hasTheoflixCompletion(params: ModuleCompletionParams): boolean {
   return Boolean(hasApprovedQuiz || hasTheoflixUserProgress);
 }
 
-export function hasManualApproval(params: ModuleCompletionParams): boolean {
+export function evaluateManualApprovalRequirement(params: ModuleCompletionParams): boolean {
   const { studentJourney, isMembership, modId, course } = params;
+  
+  // 1. Nova Fonte de Verdade: retroactiveApprovals
+  const key = isMembership ? `module${modId}` : `${course?.id}_module${modId}`;
+  const isRetroactiveApproved = !!(
+    studentJourney?.retroactiveApprovals?.[key] ||
+    studentJourney?.retroactiveApprovals?.[`module${modId}`] ||
+    studentJourney?.retroactiveApprovals?.[modId]
+  );
+  if (isRetroactiveApproved) return true;
+
+  // 2. Fallback de Segurança Legado (Preservado para dados antigos do Eklesia/Histórico)
   return isMembership 
-    ? !!(studentJourney?.memberCourseProgress?.[`module${modId}`]) 
-    : !!(studentJourney?.courseProgress?.[course?.id]?.[`module${modId}`]);
+    ? !!(studentJourney?.memberCourseProgress?.[`module${modId}`] || studentJourney?.memberCourseProgress?.[modId]) 
+    : !!(studentJourney?.courseProgress?.[course?.id]?.[`module${modId}`] || studentJourney?.courseProgress?.[course?.id]?.[modId]);
 }
 
+// Aliases para retrocompatibilidade
+export const hasAttendance = evaluateAttendanceRequirement;
+export const hasReposition = evaluateRepositionRequirement;
+export const hasTheoflixCompletion = evaluateTheoflixRequirement;
+export const hasManualApproval = evaluateManualApprovalRequirement;
+
 /**
- * Função principal pura de avaliação do módulo
+ * Orquestrador Principal do Domínio de Ensino
  */
 export function getModuleCompletion(params: ModuleCompletionParams): ModuleCompletionResult {
-  const regularAttendance = hasAttendance(params);
-  const repositionAttendance = hasReposition(params, Boolean(regularAttendance));
-  const isTheoflixEadDone = hasTheoflixCompletion(params);
-  const isManualDone = hasManualApproval(params);
+  const regularAttendance = evaluateAttendanceRequirement(params);
+  const repositionAttendance = evaluateRepositionRequirement(params, Boolean(regularAttendance));
+  const isTheoflixEadDone = evaluateTheoflixRequirement(params);
+  const isManualDone = evaluateManualApprovalRequirement(params);
 
   const isRegularDone = Boolean(regularAttendance);
   const isOnlineAttendance = Boolean(regularAttendance?.isOnline);

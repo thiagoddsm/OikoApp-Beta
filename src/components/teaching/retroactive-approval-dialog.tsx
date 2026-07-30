@@ -86,10 +86,13 @@ export function RetroactiveApprovalDialog({ open, onOpenChange, courseId, course
           [`journey.courseStatus.${courseId}`]: 'approved'
         };
 
-        // Se for o curso de membresia, preencher todos os módulos no progresso manual do aluno
-        if (isMembresiaCourse && targetCourse?.syllabus) {
+        // Gravar na nova estrutura de exceções: journey.retroactiveApprovals
+        if (targetCourse?.syllabus) {
           targetCourse.syllabus.forEach((_: any, idx: number) => {
-            updateData[`journey.memberCourseProgress.module${idx + 1}`] = true;
+            if (isMembresiaCourse) {
+              updateData[`journey.retroactiveApprovals.module${idx + 1}`] = true;
+            }
+            updateData[`journey.retroactiveApprovals.${courseId}_module${idx + 1}`] = true;
           });
         }
 

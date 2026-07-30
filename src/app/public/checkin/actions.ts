@@ -59,6 +59,10 @@ export async function getPublicCheckInData(areaId: string | null, dateParam: str
     const volunteersSnap = await db.collection('users')
       .where('serviceAreaId', '==', areaId)
       .get();
+
+    const volunteersMultiSnap = await db.collection('users')
+      .where('serviceAreaIds', 'array-contains', areaId)
+      .get();
       
     const worshipSnap = await db.collection('users')
       .where('worshipAreaId', '==', areaId)
@@ -66,6 +70,9 @@ export async function getPublicCheckInData(areaId: string | null, dateParam: str
 
     const allVolunteersMap = new Map();
     volunteersSnap.docs.forEach(doc => {
+      allVolunteersMap.set(doc.id, doc.data().name || 'Voluntário');
+    });
+    volunteersMultiSnap.docs.forEach(doc => {
       allVolunteersMap.set(doc.id, doc.data().name || 'Voluntário');
     });
     worshipSnap.docs.forEach(doc => {

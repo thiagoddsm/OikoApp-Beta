@@ -435,27 +435,10 @@ function PedagogicalLogPageContent() {
             }
 
 
-            const progressPromises: Promise<any>[] = [];
-            if (isMemberCourse && firestore && currentModuleKey) {
-                presentStudents.forEach(studentId => {
-                    const userRef = doc(firestore, 'users', studentId);
-                    progressPromises.push(updateDocumentNonBlocking(userRef, { [`journey.memberCourseProgress.${currentModuleKey}`]: true }));
-                });
-
-                const previousAttendance = classData?.attendance?.find(a => a.date === selectedDate);
-                const removedStudents = (previousAttendance?.presentStudentIds || []).filter(id => !presentStudents.includes(id));
-                
-                removedStudents.forEach(studentId => {
-                    const userRef = doc(firestore, 'users', studentId);
-                    progressPromises.push(updateDocumentNonBlocking(userRef, { [`journey.memberCourseProgress.${currentModuleKey}`]: false }));
-                });
-            }
-
             await Promise.all([
                 logPromise, 
                 attendancePromise, 
-                ...normalizedWrites,
-                ...progressPromises.filter(p => p !== undefined)
+                ...normalizedWrites
             ]);
 
             try {

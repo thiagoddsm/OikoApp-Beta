@@ -161,13 +161,19 @@ function CheckinPanelContent() {
                     <div className="lg:col-span-1 space-y-4">
                         <div className="border border-slate-150 rounded-2xl p-5 bg-slate-50/50 space-y-4">
                             <div>
-                                <Label htmlFor="area-select">Área de Serviço</Label>
-                                <Select value={selectedAreaId} onValueChange={setSelectedAreaId}>
-                                    <SelectTrigger id="area-select" className="bg-white"><SelectValue placeholder="Selecione uma área..." /></SelectTrigger>
+                                <Label htmlFor="area-select">Modalidade do Check-in / QR Code</Label>
+                                <Select value={selectedAreaId || 'all'} onValueChange={(val) => setSelectedAreaId(val === 'all' ? '' : val)}>
+                                    <SelectTrigger id="area-select" className="bg-white font-semibold"><SelectValue placeholder="Selecione uma modalidade..." /></SelectTrigger>
                                     <SelectContent>
+                                        <SelectItem value="all" className="font-bold text-emerald-700">⭐ QR Code Único Geral (Todas as Áreas)</SelectItem>
                                         {areas.map((area) => <SelectItem key={area.id} value={area.id}>{area.name}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
+                                <p className="text-[11px] text-muted-foreground italic mt-1">
+                                    {!selectedAreaId 
+                                        ? "Gera 1 QR Code único para o dia todo. O voluntário escaneia e escolhe sua área na tela."
+                                        : `Gera QR Code específico apenas para a área ${areaName}.`}
+                                </p>
                             </div>
                             <div>
                                 <Label htmlFor="date-select">Data da Escala</Label>
@@ -199,15 +205,22 @@ function CheckinPanelContent() {
 
                         {qrCodeApiUrl ? (
                             <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm flex flex-col items-center text-center space-y-4">
-                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider font-semibold">QR Code para Impressão</span>
-                                <div className="border-4 border-slate-50 rounded-2xl p-3 bg-white">
+                                <Badge className={!selectedAreaId ? "bg-emerald-100 text-emerald-800 border-emerald-300 font-bold" : "bg-slate-100 text-slate-700 border-slate-300"}>
+                                    {!selectedAreaId ? '⭐ QR Code Único Geral' : `Área: ${areaName}`}
+                                </Badge>
+                                <div className="border-4 border-slate-50 rounded-2xl p-3 bg-white shadow-inner">
                                     <img src={qrCodeApiUrl} alt="Check-in QR Code" className="size-48" />
                                 </div>
                                 <div className="space-y-1">
-                                    <p className="text-sm font-bold text-slate-700">{selectedAreaId ? areaName : 'Geral (Todas as Áreas)'}</p>
-                                    <p className="text-xs text-slate-500">{formattedSelectedDate}</p>
+                                    <p className="text-sm font-bold text-slate-800">{!selectedAreaId ? 'Todas as Áreas de Serviço' : areaName}</p>
+                                    <p className="text-xs text-slate-500 font-medium">{formattedSelectedDate}</p>
+                                    {!selectedAreaId && (
+                                        <p className="text-[11px] text-emerald-700 font-semibold bg-emerald-50 p-2 rounded-xl border border-emerald-150 mt-2">
+                                            📱 Qualquer voluntário escaneia este QR Code, escolhe sua área e confirma a presença!
+                                        </p>
+                                    )}
                                 </div>
-                                <Button type="button" onClick={handlePrintQrCode} className="w-full h-9 text-xs">
+                                <Button type="button" onClick={handlePrintQrCode} className="w-full h-9 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white">
                                     <Printer className="size-4 mr-2" /> Imprimir Card de QR Code
                                 </Button>
                             </div>
@@ -238,12 +251,20 @@ function CheckinPanelContent() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {!selectedAreaId ? (
-                                        <TableRow>
-                                            <TableCell colSpan={5} className="h-32 text-center text-slate-400 italic">
-                                                Selecione a Área de Serviço ao lado para carregar a escala.
-                                            </TableCell>
-                                        </TableRow>
+                                     {!selectedAreaId ? (
+                                         <TableRow>
+                                             <TableCell colSpan={5} className="h-32 text-center text-slate-500 py-8">
+                                                 <div className="max-w-md mx-auto space-y-1">
+                                                     <p className="font-bold text-slate-700 text-sm">⭐ Modalidade QR Code Único Geral Ativa</p>
+                                                     <p className="text-xs text-slate-400">
+                                                         O QR Code acima serve para <strong>TODAS AS ÁREAS DE SERVIÇO</strong> da igreja hoje.
+                                                     </p>
+                                                     <p className="text-[11px] text-slate-400 pt-1">
+                                                         Para acompanhar os check-ins em tempo real de uma área específica na tabela abaixo, selecione-a no filtro ao lado.
+                                                     </p>
+                                                 </div>
+                                             </TableCell>
+                                         </TableRow>
                                     ) : dayScheduleItems.length === 0 ? (
                                         <TableRow>
                                             <TableCell colSpan={5} className="h-32 text-center text-slate-400 italic">
