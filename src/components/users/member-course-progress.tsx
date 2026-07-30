@@ -99,8 +99,16 @@ export function MemberCourseProgress({ user }: { user: any }) {
     const handleSync = async () => {
         setIsSyncing(true);
         try {
+            // Recalcular caderneta limpa baseada exclusivamente nos diários reais de classe
+            const cleanProgress: Record<string, boolean> = {};
+            modules.forEach(mod => {
+                if (attendanceProgress[mod.id]?.completed || manualProgress[mod.id] === true) {
+                    cleanProgress[mod.id] = true;
+                }
+            });
+
             await updateVolunteer(user.id, {
-                'journey.memberCourseProgress': mergedProgress
+                'journey.memberCourseProgress': cleanProgress
             });
             toast({ title: "Caderneta Atualizada", description: "O progresso foi sincronizado com os diários de classe de todos os ciclos." });
         } catch (e) {
