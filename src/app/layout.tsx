@@ -7,6 +7,7 @@ import { FirebaseClientProvider } from '@/firebase';
 import Script from 'next/script';
 import { firebaseConfig } from '@/firebase/config';
 import { ZaiaCleanup } from '@/components/zaia-cleanup';
+import { SystemCacheCleaner } from '@/components/system/system-cache-cleaner';
 
 const manrope = Manrope({
   subsets: ['latin'],
@@ -59,7 +60,7 @@ export default function RootLayout({
             }
           } catch (_) {}
           
-          // Auto-reload on ChunkLoadError to fix new build cache issues
+          // Auto-reload em erros de ChunkLoad para forçar atualização de cache
           if (typeof window !== 'undefined') {
             window.addEventListener('error', function(e) {
               if (e && e.message && (e.message.indexOf('ChunkLoadError') > -1 || e.message.indexOf('Loading chunk') > -1)) {
@@ -83,6 +84,7 @@ export default function RootLayout({
         inter.variable
       )}>
         <FirebaseClientProvider>
+          <SystemCacheCleaner />
           <ZaiaCleanup />
           {children}
         </FirebaseClientProvider>
