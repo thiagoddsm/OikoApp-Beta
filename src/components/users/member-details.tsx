@@ -6,6 +6,8 @@ import { User, Phone, Home, CheckCircle, Calendar, Users, MapPin, BadgeHelp, Use
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+import { getCaminhadaInicioLabel, getProximoPassoLabel } from './journey-status-config';
+
 interface DetailItemProps {
   icon: React.ComponentType<any>;
   label: string;
@@ -87,15 +89,26 @@ export function MemberDetails({ user }: MemberDetailsProps) {
                 </div>
             </section>
             <section>
-                <h4 className="font-semibold text-primary border-b pb-2 mb-4">Jornada Espiritual</h4>
+                <h4 className="font-semibold text-primary border-b pb-2 mb-4">Jornada Espiritual e Conexão</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
-                    <DetailItem icon={CheckCircle} label="Batizado?" value={formatBaptismVal()} />
-                    <DetailItem icon={Church} label="Veio de outra igreja?" value={user.membroAntigo === 'sim' ? `Sim, da ${user.igrejaAntiga || 'outra igreja'}` : 'Não'} />
-                    <DetailItem icon={Church} label="Status de Arrolamento" value={user.statusArrolamento || 'Não informado'} />
-                    <DetailItem icon={Calendar} label="Data do Arrolamento" value={user.dataArrolamento || 'Não informado'} />
-                    <DetailItem icon={LogIn} label="Status Inicial" value={user.initialStatus?.replace('_', ' ') || 'Não informado'} />
-                    <DetailItem icon={Target} label="Decisão" value={user.decisao?.join(', ') || 'Não informado'} />
-                    <DetailItem icon={Calendar} label="Data da Decisão" value={user.dataDecisao || 'Não informado'} />
+                    <DetailItem icon={LogIn} label="Início da Caminhada" value={getCaminhadaInicioLabel(user.caminhadaInicio, user.initialStatus)} />
+                    <DetailItem icon={Calendar} label="Data da Decisão / Conversão" value={user.dataDecisao || null} />
+                    <DetailItem icon={CheckCircle} label="Batizado nas Águas?" value={formatBaptismVal()} />
+                    {(user.caminhadaInicio === 'transferencia' || user.membroAntigo === 'sim') && (
+                        <DetailItem icon={Church} label="Igreja de Origem" value={user.igrejaAntiga ? `Vim da ${user.igrejaAntiga}` : 'Sim (Vim de outra igreja)'} />
+                    )}
+                    {user.statusArrolamento && (
+                        <DetailItem icon={Church} label="Status de Arrolamento" value={user.statusArrolamento} />
+                    )}
+                    <DetailItem 
+                        icon={Target} 
+                        label="Desejos de Conexão / Próximos Passos" 
+                        value={
+                            Array.isArray(user.proximosPassos) && user.proximosPassos.length > 0
+                                ? user.proximosPassos.map(getProximoPassoLabel)
+                                : (Array.isArray(user.decisao) && user.decisao.length > 0 ? user.decisao.map(getProximoPassoLabel) : null)
+                        } 
+                    />
                 </div>
             </section>
             <section>

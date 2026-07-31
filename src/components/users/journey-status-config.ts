@@ -58,3 +58,53 @@ export const iconMap: { [key: string]: React.ElementType } = {
     pastor: Briefcase,
     default: Target,
 };
+
+/**
+ * Opções de Início de Caminhada (Status Inicial em linguagem clara)
+ */
+export const CAMINHADA_INICIO_OPTIONS = [
+    { value: 'conversao', label: 'Me converti / Aceitei a Cristo aqui na IBM', initialStatus: 'novo_convertido' },
+    { value: 'reconciliacao', label: 'Me reconciliei com Jesus aqui', initialStatus: 'novo_convertido' },
+    { value: 'transferencia', label: 'Já era cristão(ã) e vim transferido(a) de outra igreja', initialStatus: 'membro_outra_igreja' },
+    { value: 'conhecendo', label: 'Ainda estou conhecendo a fé cristã / Não sou convertido', initialStatus: 'visitante' },
+];
+
+/**
+ * Opções de Desejos de Conexão / Próximos Passos (Opcional)
+ */
+export const PROXIMOS_PASSOS_OPTIONS = [
+    { value: 'batismo', label: 'Quero me batizar nas águas' },
+    { value: 'gc', label: 'Quero me integrar em uma Célula / GC' },
+    { value: 'voluntariado', label: 'Quero me voluntariar em uma área de serviço' },
+    { value: 'congregar', label: 'Estou procurando uma igreja para me integrar e congregar' },
+    { value: 'aconselhamento', label: 'Preciso de atendimento pastoral ou aconselhamento' },
+];
+
+export const getProximoPassoLabel = (key: string): string => {
+    const found = PROXIMOS_PASSOS_OPTIONS.find(o => o.value === key);
+    if (found) return found.label;
+    
+    // Mapeamentos legados
+    if (key === 'Decisão por Cristo') return 'Quero me batizar nas águas';
+    if (key === 'Reconciliação') return 'Me reconciliei com Jesus';
+    if (key === 'Ingressar em um GC') return 'Quero me integrar em uma Célula / GC';
+    if (key === 'Procurando uma igreja para congregar' || key === 'Procurando uma igreja para me integrar/congregar') return 'Estou procurando uma igreja para me integrar e congregar';
+    if (key === 'Apenas Visitando') return 'Apenas visitando a igreja';
+    
+    return key;
+};
+
+export const getCaminhadaInicioLabel = (value?: string, fallbackInitialStatus?: string): string => {
+    if (value) {
+        const found = CAMINHADA_INICIO_OPTIONS.find(o => o.value === value);
+        if (found) return found.label;
+    }
+    if (fallbackInitialStatus) {
+        if (fallbackInitialStatus === 'novo_convertido') return 'Me converti / Aceitei a Cristo aqui na IBM';
+        if (fallbackInitialStatus === 'reconciliado') return 'Me reconciliei com Jesus aqui';
+        if (fallbackInitialStatus === 'membro_outra_igreja') return 'Já era cristão(ã) e vim transferido(a) de outra igreja';
+        if (fallbackInitialStatus === 'nao_convertido' || fallbackInitialStatus === 'visitante') return 'Ainda estou conhecendo a fé cristã / Não sou convertido';
+        return fallbackInitialStatus.replace('_', ' ');
+    }
+    return 'Não informado';
+};

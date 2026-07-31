@@ -39,6 +39,8 @@ export type User = {
   membroAntigo?: 'sim' | 'nao';
   igrejaAntiga?: string;
   decisao?: string[];
+  caminhadaInicio?: string;
+  proximosPassos?: string[];
   initialStatus?: string;
   dataDecisao?: string;
   absenceCount?: number;

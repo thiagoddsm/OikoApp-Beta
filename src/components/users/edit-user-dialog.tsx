@@ -22,7 +22,7 @@ import { useFirebase, useDoc, useMemoFirebase, updateDocumentNonBlocking, addDoc
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, query, doc, Timestamp } from 'firebase/firestore';
 import { userRoles } from '@/lib/roles';
-import { journeyColumns } from '@/components/users/journey-status-config';
+import { journeyColumns, CAMINHADA_INICIO_OPTIONS, PROXIMOS_PASSOS_OPTIONS } from '@/components/users/journey-status-config';
 import { sendWelcomeMessage } from '@/app/actions/whatsapp-actions';
 import { Textarea } from '../ui/textarea';
 import { formatName } from '@/lib/utils';
@@ -62,6 +62,8 @@ type User = {
   membroAntigo?: string;
   igrejaAntiga?: string;
   decisao?: string[];
+  caminhadaInicio?: string;
+  proximosPassos?: string[];
   initialStatus?: string;
   dataDecisao?: string;
   temFilhos?: string;
@@ -130,6 +132,8 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
     membroAntigo: 'nao',
     igrejaAntiga: '',
     decisao: [] as string[],
+    caminhadaInicio: '',
+    proximosPassos: [] as string[],
     initialStatus: '',
     dataDecisao: '',
     estadoCivil: '',
@@ -214,8 +218,12 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         supervisorId: user.hierarchy?.supervisorId || '',
         batizado: user.batizado || 'nao',
         igrejaBatismo: user.igrejaBatismo || '',
-        membroAntigo: user.membroAntigo || 'nao',
+        membroAntigo: user.caminhadaInicio === 'transferencia' ? 'sim' : (user.membroAntigo || 'nao'),
         igrejaAntiga: user.igrejaAntiga || '',
+        caminhadaInicio: user.caminhadaInicio || (user.initialStatus === 'novo_convertido' ? 'conversao' : user.initialStatus === 'reconciliado' ? 'reconciliacao' : user.initialStatus === 'membro_outra_igreja' ? 'transferencia' : user.initialStatus === 'nao_convertido' || user.initialStatus === 'visitante' ? 'conhecendo' : ''),
+        proximosPassos: Array.isArray(user.proximosPassos) && user.proximosPassos.length > 0
+          ? user.proximosPassos
+          : (Array.isArray(user.decisao) ? user.decisao : []),
         decisao: user.decisao || [],
         initialStatus: user.initialStatus || '',
         dataDecisao: user.dataDecisao || '',
@@ -253,6 +261,8 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         igrejaBatismo: '',
         membroAntigo: 'nao',
         igrejaAntiga: '',
+        caminhadaInicio: '',
+        proximosPassos: [],
         decisao: [],
         initialStatus: '',
         dataDecisao: '',
@@ -322,7 +332,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
     setFormData(prev => ({ ...prev, [name]: value === 'null' ? '' : value }));
   };
 
-  const handleCheckboxChange = (name: 'decisao' | 'contatoPreferencia' | 'contatoTurno', value: string, checked: boolean) => {
+  const handleCheckboxChange = (name: 'decisao' | 'proximosPassos' | 'contatoPreferencia' | 'contatoTurno', value: string, checked: boolean) => {
     setFormData(prev => {
         const currentValues = (prev[name] as string[]) || [];
         if (checked) {
@@ -352,13 +362,26 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
     }
     setIsSaving(true);
 
+    let derivedInitialStatus = formData.initialStatus;
+    let isMembroAntigo = formData.membroAntigo;
+    if (formData.caminhadaInicio === 'conversao') {
+      derivedInitialStatus = 'novo_convertido';
+    } else if (formData.caminhadaInicio === 'reconciliacao') {
+      derivedInitialStatus = 'novo_convertido';
+    } else if (formData.caminhadaInicio === 'transferencia') {
+      derivedInitialStatus = 'membro_outra_igreja';
+      isMembroAntigo = 'sim';
+    } else if (formData.caminhadaInicio === 'conhecendo') {
+      derivedInitialStatus = 'visitante';
+    }
+
     let finalIntegrationStatus = formData.integrationStatus;
     if (finalIntegrationStatus === 'nao_alcancado') {
-        if (formData.decisao.includes('Decisão por Cristo')) {
+        if (formData.caminhadaInicio === 'conversao' || formData.proximosPassos.includes('batismo') || formData.decisao.includes('Decisão por Cristo')) {
             finalIntegrationStatus = 'novo_convertido';
-        } else if (formData.decisao.includes('Reconciliação')) {
+        } else if (formData.caminhadaInicio === 'reconciliacao' || formData.decisao.includes('Reconciliação')) {
             finalIntegrationStatus = 'reconciliado';
-        } else if (formData.initialStatus === 'membro_outra_igreja') {
+        } else if (formData.caminhadaInicio === 'transferencia' || derivedInitialStatus === 'membro_outra_igreja') {
             finalIntegrationStatus = 'transferido';
         }
     }
@@ -414,10 +437,12 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         },
         batizado: formData.batizado,
         igrejaBatismo: formData.igrejaBatismo,
-        membroAntigo: formData.membroAntigo,
+        membroAntigo: isMembroAntigo,
         igrejaAntiga: formData.igrejaAntiga,
-        decisao: formData.decisao,
-        initialStatus: formData.initialStatus,
+        caminhadaInicio: formData.caminhadaInicio,
+        proximosPassos: formData.proximosPassos,
+        decisao: formData.proximosPassos.length > 0 ? formData.proximosPassos : formData.decisao,
+        initialStatus: derivedInitialStatus,
         dataDecisao: formData.dataDecisao,
         temFilhos: formData.temFilhos,
         idadeFilhos: formData.idadeFilhos,
@@ -637,64 +662,69 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
           </section>
           
           <section className="space-y-4 p-4 border rounded-lg">
-              <h4 className="font-semibold text-primary border-b pb-2">Jornada Espiritual</h4>
+              <h4 className="font-semibold text-primary border-b pb-2">Jornada Espiritual e Conexão</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Início da Caminhada */}
+                  <div className="space-y-1.5 col-span-1 md:col-span-2">
+                      <Label htmlFor="caminhadaInicio">Como foi o início de caminhada conosco na IBM?</Label>
+                      <Select 
+                        value={formData.caminhadaInicio} 
+                        onValueChange={(v) => {
+                          handleSelectChange('caminhadaInicio', v);
+                          if (v === 'transferencia') {
+                            setFormData(prev => ({ ...prev, caminhadaInicio: v, membroAntigo: 'sim' }));
+                          }
+                        }}
+                      >
+                          <SelectTrigger id="caminhadaInicio"><SelectValue placeholder="Selecione a opção que melhor descreve..."/></SelectTrigger>
+                          <SelectContent>
+                              {CAMINHADA_INICIO_OPTIONS.map(opt => (
+                                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                              ))}
+                          </SelectContent>
+                      </Select>
+                  </div>
+
+                  {formData.caminhadaInicio === 'transferencia' && (
+                    <div className="space-y-1.5 col-span-1 md:col-span-2 animate-in fade-in duration-200">
+                        <Label htmlFor="igrejaAntiga">De qual igreja veio?</Label>
+                        <Input id="igrejaAntiga" name="igrejaAntiga" value={formData.igrejaAntiga} onChange={handleInputChange} placeholder="Nome da igreja de origem" />
+                    </div>
+                  )}
+
                   <div className="space-y-1.5">
-                      <Label>Batizado?</Label>
-                      <RadioGroup value={formData.batizado} onValueChange={(v) => handleRadioChange('batizado', v)} className="flex items-center gap-4"><RadioGroupItem value="sim" id="batizado-sim" /><Label htmlFor="batizado-sim">Sim</Label><RadioGroupItem value="nao" id="batizado-nao" /><Label htmlFor="batizado-nao">Não</Label></RadioGroup>
+                      <Label htmlFor="dataDecisao">Data aproximada da decisão / conversão (Opcional)</Label>
+                      <Input id="dataDecisao" name="dataDecisao" type="date" value={formData.dataDecisao} onChange={handleInputChange} />
+                  </div>
+
+                  <div className="space-y-1.5">
+                      <Label>Batizado nas Águas?</Label>
+                      <RadioGroup value={formData.batizado} onValueChange={(v) => handleRadioChange('batizado', v)} className="flex items-center gap-4 pt-1"><RadioGroupItem value="sim" id="batizado-sim" /><Label htmlFor="batizado-sim">Sim</Label><RadioGroupItem value="nao" id="batizado-nao" /><Label htmlFor="batizado-nao">Não</Label></RadioGroup>
                   </div>
                   {formData.batizado === 'sim' && (
-                       <>
-                           <div className="space-y-1.5"><Label htmlFor="igrejaBatismo">Qual igreja foi batizado?</Label><Input id="igrejaBatismo" name="igrejaBatismo" value={formData.igrejaBatismo} onChange={handleInputChange}/></div>
-                           <div className="space-y-1.5"><Label htmlFor="dataBatismo">Data do Batismo</Label><Input id="dataBatismo" name="dataBatismo" type="date" value={formData.dataBatismo} onChange={handleInputChange}/></div>
-                       </>
-                   )}
+                      <>
+                          <div className="space-y-1.5"><Label htmlFor="igrejaBatismo">Onde / Qual igreja foi batizado(a)?</Label><Input id="igrejaBatismo" name="igrejaBatismo" value={formData.igrejaBatismo} onChange={handleInputChange}/></div>
+                          <div className="space-y-1.5"><Label htmlFor="dataBatismo">Data do Batismo</Label><Input id="dataBatismo" name="dataBatismo" type="date" value={formData.dataBatismo} onChange={handleInputChange}/></div>
+                      </>
+                  )}
 
-                  <div className="space-y-1.5">
-                      <Label>Veio de outra igreja?</Label>
-                      <RadioGroup value={formData.membroAntigo} onValueChange={(v) => handleRadioChange('membroAntigo', v)} className="flex items-center gap-4"><RadioGroupItem value="sim" id="membro-sim" /><Label htmlFor="membro-sim">Sim</Label><RadioGroupItem value="nao" id="membro-nao" /><Label htmlFor="membro-nao">Não</Label></RadioGroup>
-                  </div>
-                  {formData.membroAntigo === 'sim' && <div className="space-y-1.5"><Label htmlFor="igrejaAntiga">Qual o nome da igreja de origem?</Label><Input id="igrejaAntiga" name="igrejaAntiga" value={formData.igrejaAntiga} onChange={handleInputChange}/></div>}
-                  
-                  <div className="space-y-1.5">
-                      <Label htmlFor="statusArrolamento">Status de Arrolamento</Label>
-                      <Select value={formData.statusArrolamento} onValueChange={(v) => handleSelectChange('statusArrolamento', v)}>
-                          <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                          <SelectContent>
-                              <SelectItem value="Visitante">Visitante</SelectItem>
-                              <SelectItem value="Participante">Participante</SelectItem>
-                              <SelectItem value="Membro">Membro</SelectItem>
-                          </SelectContent>
-                      </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                      <Label htmlFor="dataArrolamento">Data do Arrolamento</Label>
-                      <Input id="dataArrolamento" name="dataArrolamento" type="date" value={formData.dataArrolamento} onChange={handleInputChange} />
-                  </div>
-
-                  <div className="space-y-1.5">
-                      <Label htmlFor="initialStatus">Status Inicial *</Label>
-                      <Select value={formData.initialStatus} onValueChange={(v) => handleSelectChange('initialStatus', v)}>
-                          <SelectTrigger id="initialStatus"><SelectValue placeholder="Selecione o status..."/></SelectTrigger>
-                          <SelectContent>
-                              <SelectItem value="nao_convertido">Não Convertido</SelectItem>
-                              <SelectItem value="novo_convertido">Novo Convertido</SelectItem>
-                              <SelectItem value="reconciliado">Reconciliado</SelectItem>
-                              <SelectItem value="membro_outra_igreja">Membro de outra igreja</SelectItem>
-                          </SelectContent>
-                      </Select>
-                  </div>
-                  
-                  <div className="space-y-1.5">
-                      <Label>Decisões Tomadas</Label>
-                      <div className="flex flex-col space-y-2">
-                          {decisaoOptions.map(item => (<div key={item} className="flex items-center gap-2"><Checkbox id={`decisao-${item}`} checked={formData.decisao.includes(item)} onCheckedChange={(checked) => handleCheckboxChange('decisao', item, !!checked)}/><Label htmlFor={`decisao-${item}`}>{item}</Label></div>))}
+                  <div className="space-y-2 col-span-1 md:col-span-2 pt-2">
+                      <Label className="font-semibold text-slate-900">
+                        Quais são os seus próximos passos ou desejos de conexão? <span className="text-xs text-amber-600 font-normal">(Opcional)</span>
+                      </Label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                          {PROXIMOS_PASSOS_OPTIONS.map(item => (
+                            <label key={item.value} className="flex items-center gap-3 p-3 bg-white rounded-lg border border-slate-200 hover:bg-slate-100/80 cursor-pointer transition-colors text-xs font-medium text-slate-900 shadow-sm">
+                              <Checkbox 
+                                id={`passo-${item.value}`} 
+                                checked={formData.proximosPassos.includes(item.value)} 
+                                onCheckedChange={(checked) => handleCheckboxChange('proximosPassos', item.value, !!checked)}
+                                className="size-4"
+                              />
+                              <span>{item.label}</span>
+                            </label>
+                          ))}
                       </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                      <Label htmlFor="dataDecisao">Data da decisão</Label>
-                      <Input id="dataDecisao" name="dataDecisao" type="date" value={formData.dataDecisao} onChange={handleInputChange} />
                   </div>
               </div>
           </section>
