@@ -12,6 +12,7 @@
 import { useMemo } from 'react';
 import { useFirebase } from '@/firebase';
 import { useVolunteering } from '@/contexts/volunteering-context';
+import { canViewPerson, isAdminOrPastor } from '@/lib/access-control';
 
 export type TimelinePermissionReason =
   | 'self'
@@ -31,8 +32,6 @@ export interface TimelinePermission {
   /** Carregando ainda */
   isLoading: boolean;
 }
-
-const ADMIN_ROLES = new Set(['admin', 'pastor_senior', 'pastor']);
 
 export function useTimelinePermission(memberId: string): TimelinePermission {
   const { user: currentUser } = useFirebase();
@@ -55,42 +54,43 @@ export function useTimelinePermission(memberId: string): TimelinePermission {
       return { canView: true, canAddManualEvent: false, reason: 'self', isLoading: false };
     }
 
-    // Encontrar o membro alvo
     const member = users.find((u) => u.id === memberId);
-    if (!member) {
-      return { canView: false, canAddManualEvent: false, reason: 'none', isLoading: false };
-    }
-
-    // Encontrar o usuário atual no sistema para checar seu papel
     const currentUserData = users.find((u) => u.id === currentUid);
-    const currentRole = currentUserData?.hierarchy?.role ?? '';
 
-    // 2. É admin / pastor sênior / pastor
-    if (ADMIN_ROLES.has(currentRole)) {
+    // Converte os dados do usuário atual e do membro alvo para a interface de controle de acesso
+    const currentUserProfile = currentUserData ? {
+      id: currentUserData.id,
+      role: currentUserData.hierarchy?.role,
+      cellId: (currentUserData as any).cellId,
+      areaId: (currentUserData as any).areaId,
+    } : { id: currentUid };
+
+    const targetUserProfile = member ? {
+      id: member.id,
+      role: member.hierarchy?.role,
+      cellId: (member as any).cellId,
+      areaId: (member as any).areaId,
+    } : { id: memberId };
+
+    // 2. Admin / Pastor
+    if (isAdminOrPastor(currentUserProfile)) {
       return { canView: true, canAddManualEvent: true, reason: 'admin', isLoading: false };
     }
 
-    // 3. É o Líder de GC direto do membro
-    //    member.hierarchy.supervisorId === currentUid
-    if (member.hierarchy?.supervisorId === currentUid) {
-      return { canView: true, canAddManualEvent: true, reason: 'gc_leader', isLoading: false };
+    // 3. Validação pela Engine de Controle de Acesso
+    const hasViewAccess = canViewPerson(currentUserProfile, targetUserProfile);
+    if (hasViewAccess) {
+      const isGC = currentUserData?.hierarchy?.role === 'gc_leader' || currentUserData?.hierarchy?.role === 'gc_training_leader';
+      const isArea = currentUserData?.hierarchy?.role === 'area_leader';
+      return {
+        canView: true,
+        canAddManualEvent: true,
+        reason: isGC ? 'gc_leader' : isArea ? 'area_leader' : 'admin',
+        isLoading: false,
+      };
     }
 
-    // 4. É o Líder de Área
-    //    Encontrar o líder de GC do membro e verificar se o supervisor DELE é o currentUid
-    const gcLeader = users.find((u) => u.id === member.hierarchy?.supervisorId);
-    if (gcLeader && gcLeader.hierarchy?.supervisorId === currentUid) {
-      return { canView: true, canAddManualEvent: true, reason: 'area_leader', isLoading: false };
-    }
-
-    // 5. É o Líder de Rede
-    //    Encontrar o líder de área e verificar se o supervisor DELE é o currentUid
-    const areaLeader = users.find((u) => u.id === gcLeader?.hierarchy?.supervisorId);
-    if (areaLeader && areaLeader.hierarchy?.supervisorId === currentUid) {
-      return { canView: true, canAddManualEvent: true, reason: 'rede_leader', isLoading: false };
-    }
-
-    // 6. Sem permissão
+    // 4. Sem permissão
     return { canView: false, canAddManualEvent: false, reason: 'none', isLoading: false };
   }, [currentUser, memberId, users, isLoading]);
 
