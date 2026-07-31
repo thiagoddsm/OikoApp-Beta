@@ -102,6 +102,9 @@ export async function verifyEmailRegistered(email: string) {
                 idadeFilhos: userData.idadeFilhos || '',
                 comoConheceu: userData.comoConheceu || '',
                 nomeConvidou: userData.nomeConvidou || '',
+                caminhadaInicio: userData.caminhadaInicio || '',
+                dataDecisao: userData.dataDecisao || '',
+                proximosPassos: userData.proximosPassos || [],
                 batizado: userData.batizado || 'nao',
                 dataBatismo: userData.dataBatismo || '',
                 igrejaBatismo: userData.igrejaBatismo || '',
@@ -141,6 +144,9 @@ export async function savePublicRegistration(data: {
     idadeFilhos?: string;
     comoConheceu?: string;
     nomeConvidou?: string;
+    caminhadaInicio?: string;
+    dataDecisao?: string;
+    proximosPassos?: string[];
     batizado?: string;
     dataBatismo?: string;
     igrejaBatismo?: string;
@@ -172,6 +178,14 @@ export async function savePublicRegistration(data: {
             ? data.filhosList.filter(f => f.name.trim()).map(f => ({ name: formatName(f.name), dataNascimento: f.dataNascimento || '' }))
             : [];
 
+        // Derivar integrationStatus a partir da caminhada inicial
+        let derivedStatus = 'visitante';
+        if (data.caminhadaInicio === 'conversao' || data.caminhadaInicio === 'reconciliacao') {
+            derivedStatus = 'novo_convertido';
+        } else if (data.caminhadaInicio === 'transferencia') {
+            derivedStatus = 'membro_outra_igreja';
+        }
+
         const userData: any = {
             name: formatName(data.name),
             email: emailClean,
@@ -179,7 +193,7 @@ export async function savePublicRegistration(data: {
             cpf: data.cpf || '',
             dataNascimento: data.dataNascimento || '',
             estadoCivil: data.estadoCivil || '',
-            dataCasamento: data.estadoCivil === 'casado' ? (data.dataCasamento || '') : '',
+            dataCasamento: (data.estadoCivil === 'Casado(a)' || data.estadoCivil === 'União Estável' || data.estadoCivil === 'casado') ? (data.dataCasamento || '') : '',
             gender: cleanSexo,
             sexo: cleanSexo,
             escolaridade: data.escolaridade || '',
@@ -192,16 +206,19 @@ export async function savePublicRegistration(data: {
                 street: data.addressStreet || '',
                 cep: data.addressCep || ''
             },
-            conjuge: data.estadoCivil === 'casado' && data.conjuge ? formatName(data.conjuge) : null,
+            conjuge: (data.estadoCivil === 'Casado(a)' || data.estadoCivil === 'União Estável' || data.estadoCivil === 'casado') && data.conjuge ? formatName(data.conjuge) : null,
             temFilhos: data.temFilhos || 'nao',
             filhosList: validFilhos,
             idadeFilhos: data.idadeFilhos || '',
             comoConheceu: data.comoConheceu || '',
             nomeConvidou: data.nomeConvidou ? formatName(data.nomeConvidou) : '',
+            caminhadaInicio: data.caminhadaInicio || '',
+            dataDecisao: data.dataDecisao || '',
+            proximosPassos: Array.isArray(data.proximosPassos) ? data.proximosPassos : [],
             batizado: data.batizado || 'nao',
             dataBatismo: data.dataBatismo || '',
             igrejaBatismo: data.igrejaBatismo || '',
-            membroAntigo: data.membroAntigo || 'nao',
+            membroAntigo: data.caminhadaInicio === 'transferencia' ? 'sim' : (data.membroAntigo || 'nao'),
             igrejaAntiga: data.igrejaAntiga || '',
             veiculo: (data.veiculoPlaca || data.veiculoMarca || data.veiculoModelo || data.veiculoCor) ? {
                 placa: data.veiculoPlaca || null,

@@ -42,6 +42,9 @@ export default function PublicCadastroPage() {
         idadeFilhos: '',
         comoConheceu: '',
         nomeConvidou: '',
+        caminhadaInicio: '',
+        dataDecisao: '',
+        proximosPassos: [] as string[],
         batizado: 'nao',
         dataBatismo: '',
         igrejaBatismo: '',
@@ -99,6 +102,9 @@ export default function PublicCadastroPage() {
                 idadeFilhos: result.userData.idadeFilhos || '',
                 comoConheceu: result.userData.comoConheceu || '',
                 nomeConvidou: result.userData.nomeConvidou || '',
+                caminhadaInicio: result.userData.caminhadaInicio || '',
+                dataDecisao: result.userData.dataDecisao || '',
+                proximosPassos: Array.isArray(result.userData.proximosPassos) ? result.userData.proximosPassos : [],
                 batizado: result.userData.batizado || 'nao',
                 dataBatismo: result.userData.dataBatismo || '',
                 igrejaBatismo: result.userData.igrejaBatismo || '',
@@ -135,6 +141,9 @@ export default function PublicCadastroPage() {
                 idadeFilhos: '',
                 comoConheceu: '',
                 nomeConvidou: '',
+                caminhadaInicio: '',
+                dataDecisao: '',
+                proximosPassos: [],
                 batizado: 'nao',
                 dataBatismo: '',
                 igrejaBatismo: '',
@@ -181,6 +190,15 @@ export default function PublicCadastroPage() {
         } finally {
             setIsSaving(false);
         }
+    };
+
+    const handleProximoPassoToggle = (stepKey: string) => {
+        setFormData(prev => {
+            const current = prev.proximosPassos || [];
+            const exists = current.includes(stepKey);
+            const updated = exists ? current.filter(k => k !== stepKey) : [...current, stepKey];
+            return { ...prev, proximosPassos: updated };
+        });
     };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -493,13 +511,41 @@ export default function PublicCadastroPage() {
                                     </div>
                                 </div>
 
-                                {/* 4. JORNADA ESPIRITUAL */}
+                                {/* 4. JORNADA ESPIRITUAL E CONEXÃO */}
                                 <div className="space-y-4">
                                     <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
                                         <Compass className="size-5 text-primary" />
                                         <h3 className="font-black uppercase italic text-sm tracking-tight text-slate-900">4. Jornada e Conexão</h3>
                                     </div>
+                                    
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {/* Início da Caminhada */}
+                                        <div className="space-y-1.5 col-span-1 md:col-span-2">
+                                            <Label htmlFor="caminhadaInicio" className="text-xs font-bold text-slate-900">
+                                                Como foi o seu início de caminhada conosco na IBM?
+                                            </Label>
+                                            <Select value={formData.caminhadaInicio} onValueChange={(v) => handleSelectChange('caminhadaInicio', v)}>
+                                                <SelectTrigger className="h-11 border-slate-300 text-slate-900 bg-white">
+                                                    <SelectValue placeholder="Selecione a opção que melhor descreve..." />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="conversao">Me converti / Aceitei a Cristo aqui na IBM</SelectItem>
+                                                    <SelectItem value="reconciliacao">Me reconciliei com Jesus aqui</SelectItem>
+                                                    <SelectItem value="transferencia">Já era cristão(ã) e vim transferido(a) de outra igreja</SelectItem>
+                                                    <SelectItem value="conhecendo">Ainda estou conhecendo a fé cristã / Não sou convertido</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+
+                                        {/* Campo condicional para igreja anterior */}
+                                        {formData.caminhadaInicio === 'transferencia' && (
+                                            <div className="space-y-1.5 col-span-1 md:col-span-2 animate-in fade-in duration-200">
+                                                <Label htmlFor="igrejaAntiga" className="text-xs font-bold text-slate-900">De qual igreja você veio?</Label>
+                                                <Input id="igrejaAntiga" name="igrejaAntiga" value={formData.igrejaAntiga} onChange={handleInputChange} placeholder="Nome da igreja de origem" className="h-11 border-slate-300 text-slate-900 bg-white" />
+                                            </div>
+                                        )}
+
+                                        {/* Como conheceu / Quem convidou */}
                                         <div className="space-y-1.5">
                                             <Label htmlFor="comoConheceu" className="text-xs font-bold text-slate-900">Como conheceu a igreja?</Label>
                                             <Input id="comoConheceu" name="comoConheceu" value={formData.comoConheceu} onChange={handleInputChange} placeholder="Ex: Redes sociais, Um amigo..." className="h-11 border-slate-300 text-slate-900 placeholder:text-slate-400 bg-white" />
@@ -508,6 +554,14 @@ export default function PublicCadastroPage() {
                                             <Label htmlFor="nomeConvidou" className="text-xs font-bold text-slate-900">Quem te convidou?</Label>
                                             <Input id="nomeConvidou" name="nomeConvidou" value={formData.nomeConvidou} onChange={handleInputChange} placeholder="Nome de quem te convidou, se houver" className="h-11 border-slate-300 text-slate-900 placeholder:text-slate-400 bg-white" />
                                         </div>
+
+                                        {/* Data da decisão */}
+                                        <div className="space-y-1.5">
+                                            <Label htmlFor="dataDecisao" className="text-xs font-bold text-slate-900">Data aproximada da sua decisão / conversão (Opcional)</Label>
+                                            <Input id="dataDecisao" name="dataDecisao" type="date" value={formData.dataDecisao} onChange={handleInputChange} className="h-11 border-slate-300 text-slate-900 bg-white" />
+                                        </div>
+
+                                        {/* Batismo */}
                                         <div className="space-y-1.5">
                                             <Label htmlFor="batizado" className="text-xs font-bold text-slate-900">É Batizado nas Águas?</Label>
                                             <Select value={formData.batizado} onValueChange={(v) => handleSelectChange('batizado', v)}>
@@ -518,6 +572,7 @@ export default function PublicCadastroPage() {
                                                 </SelectContent>
                                             </Select>
                                         </div>
+
                                         {formData.batizado === 'sim' && (
                                             <>
                                                 <div className="space-y-1.5 animate-in fade-in duration-200">
@@ -530,22 +585,38 @@ export default function PublicCadastroPage() {
                                                 </div>
                                             </>
                                         )}
-                                        <div className="space-y-1.5">
-                                            <Label htmlFor="membroAntigo" className="text-xs font-bold text-slate-900">Já foi membro de outra igreja?</Label>
-                                            <Select value={formData.membroAntigo} onValueChange={(v) => handleSelectChange('membroAntigo', v)}>
-                                                <SelectTrigger className="h-11 border-slate-300 text-slate-900 bg-white"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="sim">Sim</SelectItem>
-                                                    <SelectItem value="nao">Não</SelectItem>
-                                                </SelectContent>
-                                            </Select>
+                                    </div>
+
+                                    {/* Próximos passos (OPCIONAL) */}
+                                    <div className="space-y-2 pt-3">
+                                        <div className="flex flex-col">
+                                            <Label className="text-xs font-bold text-slate-900">
+                                                Quais são os seus próximos passos ou desejos de conexão? <span className="text-xs font-bold text-amber-600 not-italic">(Opcional)</span>
+                                            </Label>
+                                            <p className="text-[11px] text-slate-500 font-medium">Selecione todas as opções que fazem sentido para o seu momento atual.</p>
                                         </div>
-                                        {formData.membroAntigo === 'sim' && (
-                                            <div className="space-y-1.5 animate-in fade-in duration-200">
-                                                <Label htmlFor="igrejaAntiga" className="text-xs font-bold text-slate-900">Qual igreja anterior?</Label>
-                                                <Input id="igrejaAntiga" name="igrejaAntiga" value={formData.igrejaAntiga} onChange={handleInputChange} placeholder="Nome da igreja anterior" className="h-11 border-slate-300 text-slate-900 placeholder:text-slate-400 bg-white" />
-                                            </div>
-                                        )}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                                            {[
+                                                { key: 'batismo', label: 'Quero me batizar nas águas' },
+                                                { key: 'gc', label: 'Quero me integrar em uma Célula / GC' },
+                                                { key: 'voluntariado', label: 'Quero me voluntariar em uma área de serviço' },
+                                                { key: 'congregar', label: 'Estou procurando uma igreja para me integrar e congregar' },
+                                                { key: 'aconselhamento', label: 'Preciso de atendimento pastoral ou aconselhamento' },
+                                            ].map((item) => {
+                                                const isChecked = (formData.proximosPassos || []).includes(item.key);
+                                                return (
+                                                    <label key={item.key} className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200 hover:bg-slate-100/80 cursor-pointer transition-colors text-xs font-medium text-slate-900 shadow-sm">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isChecked}
+                                                            onChange={() => handleProximoPassoToggle(item.key)}
+                                                            className="size-4 rounded border-slate-300 text-primary focus:ring-primary"
+                                                        />
+                                                        <span>{item.label}</span>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
                                 </div>
 
