@@ -18,10 +18,13 @@ export async function getPublicFormOptions() {
 
         const cells = cellsSnap.docs.map(doc => {
             const data = doc.data();
-            let leaderName = data.leaderName || '';
-            if (!leaderName && data.leaderId) {
-                leaderName = usersMap.get(data.leaderId) || '';
+            let leaderName = data.leaderName || data.liderNome || data.liderName || '';
+            const liderId = data.liderId || data.leaderId || data.liderId1;
+            
+            if (!leaderName && liderId) {
+                leaderName = usersMap.get(liderId) || '';
             }
+
             if (!leaderName && Array.isArray(data.leaders) && data.leaders.length > 0) {
                 const firstLeaderId = typeof data.leaders[0] === 'string' ? data.leaders[0] : data.leaders[0]?.id;
                 if (firstLeaderId) leaderName = usersMap.get(firstLeaderId) || '';
@@ -32,7 +35,22 @@ export async function getPublicFormOptions() {
                 nome: data.nome || data.name || 'Célula sem nome',
                 leaderName: leaderName ? formatName(leaderName) : ''
             };
-        }).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+        });
+
+        // Se alguma célula ainda não encontrou o líder pelo documento da célula, buscar no users por quem tem a celulaId no hierarchy
+        usersSnap.forEach(uDoc => {
+            const uData = uDoc.data();
+            const celId = uData.hierarchy?.celulaId;
+            const role = uData.hierarchy?.role || uData.role;
+            if (celId && (role === 'lider' || role === 'lider_gc' || role === 'lider_celula' || role === 'pastor')) {
+                const targetCell = cells.find(c => c.id === celId);
+                if (targetCell && !targetCell.leaderName && uData.name) {
+                    targetCell.leaderName = formatName(uData.name);
+                }
+            }
+        });
+
+        cells.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
 
         const areasSnap = await db.collection('areas_of_service').get();
         const areas = areasSnap.docs
