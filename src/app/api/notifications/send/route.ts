@@ -153,6 +153,15 @@ export async function POST(request: NextRequest) {
         sentList.forEach((t: any) => {
             if (t.phone) alreadySentSet.add(String(t.phone).replace(/\D/g, ''));
         });
+
+        // Fallback para disparos legados cujo array sentTargets estava vazio:
+        // Considera que os primeiros initialSentCount membros da lista ja receberam a mensagem
+        if (alreadySentSet.size < initialSentCount && filteredTargetUsers.length >= initialSentCount) {
+            for (let i = 0; i < initialSentCount; i++) {
+                const phoneClean = String(filteredTargetUsers[i].phone || '').replace(/\D/g, '');
+                if (phoneClean) alreadySentSet.add(phoneClean);
+            }
+        }
     }
 
     const pendingTargetUsers = broadcastId
