@@ -1,17 +1,24 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { useCollection, useMemoFirebase, useFirebase } from '@/firebase';
+import { useCollection, useMemoFirebase, useFirebase, useDoc } from '@/firebase';
 import { collection, query, orderBy, doc, updateDoc } from 'firebase/firestore';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { 
   CheckSquare, Search, Filter, Loader2, CheckCircle2, Clock, 
   MessageCircle, ExternalLink, User, AlertCircle, Sparkles, Waves, 
-  Users, GraduationCap, HandHelping, MessageSquare 
+  Users, GraduationCap, HandHelping, MessageSquare, Eye, Info, Phone, Mail, MapPin, Heart
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -23,6 +30,7 @@ interface PastoralTask {
   personId: string;
   personName: string;
   personPhone?: string;
+  personEmail?: string;
   solicitacaoId?: string;
   title: string;
   description: string;
@@ -58,6 +66,7 @@ export default function TarefasPastoraisPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
+  const [selectedTask, setSelectedTask] = useState<PastoralTask | null>(null);
 
   const tasksQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -98,6 +107,9 @@ export default function TarefasPastoraisPage() {
         title: "Status Atualizado",
         description: `Tarefa alterada para "${newStatus === 'CONCLUIDA' ? 'Concluída' : 'Em Andamento'}".`,
       });
+      if (selectedTask && selectedTask.id === taskId) {
+        setSelectedTask(prev => prev ? { ...prev, status: newStatus } : null);
+      }
     } catch (e: any) {
       toast({
         variant: "destructive",
@@ -107,36 +119,41 @@ export default function TarefasPastoraisPage() {
     }
   };
 
-  const formatTaskDescription = (desc: string) => {
-    if (!desc) return '';
+  const parseTaskDetails = (desc: string) => {
+    if (!desc) return { text: '', json: {} };
     try {
       const jsonMatch = desc.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
-        let cleanedText = desc.replace(jsonMatch[0], '').trim();
-        const parts: string[] = [];
-        if (cleanedText) parts.push(cleanedText);
-        if (parsed.observacoes) parts.push(`Observação: "${parsed.observacoes}"`);
-        if (parsed.comoConheceu) parts.push(`Como conheceu: ${parsed.comoConheceu}`);
-        if (parsed.atendimentoDesejado) parts.push(`Tipo de Atendimento: ${parsed.atendimentoDesejado}`);
-        return parts.join('\n');
+        const cleanedText = desc.replace(jsonMatch[0], '').trim();
+        return { text: cleanedText, json: parsed };
       }
     } catch (e) {
-      // Ignora erro de sintaxe e mantém texto original
+      // Ignora erro
     }
-    return desc;
+    return { text: desc, json: {} };
+  };
+
+  const formatTaskDescription = (desc: string) => {
+    const { text, json } = parseTaskDetails(desc);
+    const parts: string[] = [];
+    if (text) parts.push(text);
+    if (json.observacoes) parts.push(`Observação: "${json.observacoes}"`);
+    if (json.comoConheceu) parts.push(`Como conheceu: ${json.comoConheceu}`);
+    if (json.atendimentoDesejado) parts.push(`Atendimento: ${json.atendimentoDesejado}`);
+    return parts.length > 0 ? parts.join('\n') : desc;
   };
 
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6">
       
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
         <div>
-          <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-2">
-            <CheckSquare className="size-4" /> Gestão de Tarefas Pastorais
-          </div>
-          <h1 className="text-3xl font-black italic tracking-tighter uppercase text-slate-900 leading-none">
+          <Badge className="bg-purple-100 text-purple-700 border-purple-200 mb-2 font-bold">
+            <CheckSquare className="size-3 mr-1" /> GESTÃO DE TAREFAS PASTORAIS
+          </Badge>
+          <h1 className="text-2xl md:text-3xl font-black uppercase italic tracking-tight text-slate-900">
             Fila de Acompanhamento
           </h1>
           <p className="text-slate-600 text-sm font-medium mt-1">
@@ -208,16 +225,21 @@ export default function TarefasPastoraisPage() {
             const cleanPhone = (task.personPhone || '').replace(/\D/g, '');
 
             return (
-              <Card key={task.id} className="border border-slate-200 shadow-sm bg-white hover:shadow-md transition-shadow flex flex-col justify-between">
+              <Card 
+                key={task.id} 
+                className="border border-slate-200 shadow-sm bg-white hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between group cursor-pointer"
+                onClick={() => setSelectedTask(task)}
+              >
                 <CardHeader className="p-5 pb-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <div className={`p-2.5 rounded-xl border ${badgeStyle} shrink-0`}>
+                      <div className={`p-2.5 rounded-xl border ${badgeStyle} shrink-0 group-hover:scale-105 transition-transform`}>
                         <Icon className="size-5" />
                       </div>
                       <div>
-                        <CardTitle className="text-sm font-black uppercase tracking-tight text-slate-900 leading-tight">
+                        <CardTitle className="text-sm font-black uppercase tracking-tight text-slate-900 leading-tight group-hover:text-primary transition-colors flex items-center gap-1.5">
                           {task.personName}
+                          <Eye className="size-3.5 opacity-0 group-hover:opacity-100 text-primary transition-opacity" />
                         </CardTitle>
                         <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">
                           {task.category}
@@ -234,9 +256,9 @@ export default function TarefasPastoraisPage() {
                   </div>
                 </CardHeader>
 
-                <CardContent className="p-5 pt-0 space-y-4 flex-1 flex flex-col justify-between">
-                  <div className="space-y-2">
-                    <p className="text-xs text-slate-600 font-medium whitespace-pre-wrap line-clamp-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <CardContent className="p-5 pt-0 space-y-4 flex-1 flex flex-col justify-between" onClick={(e) => e.stopPropagation()}>
+                  <div className="space-y-2 cursor-pointer" onClick={() => setSelectedTask(task)}>
+                    <p className="text-xs text-slate-600 font-medium whitespace-pre-wrap line-clamp-3 bg-slate-50 p-3 rounded-xl border border-slate-100 hover:bg-slate-100/60 transition-colors">
                       {formatTaskDescription(task.description)}
                     </p>
 
@@ -248,23 +270,34 @@ export default function TarefasPastoraisPage() {
                     )}
                   </div>
 
-                  {/* Ações */}
-                  <div className="space-y-2 pt-2 border-t">
-                    <div className="flex gap-2">
-                      {cleanPhone && (
+                  {/* Ações Rápidas */}
+                  <div className="space-y-2 pt-2 border-t border-slate-100">
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        onClick={() => setSelectedTask(task)}
+                        className="text-xs font-bold h-9 rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50"
+                        title="Ver Detalhes Completos"
+                      >
+                        <Eye className="size-3.5 mr-1" /> Detalhes
+                      </Button>
+
+                      {cleanPhone ? (
                         <Button 
                           size="sm" 
                           variant="outline" 
                           onClick={() => window.open(`https://wa.me/55${cleanPhone}`, '_blank')}
-                          className="w-full text-xs font-bold h-9 rounded-xl border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                          className="text-xs font-bold h-9 rounded-xl border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                          title="Abrir WhatsApp"
                         >
-                          <MessageCircle className="size-3.5 mr-1.5 text-emerald-600" /> WhatsApp
+                          <MessageCircle className="size-3.5 mr-1 text-emerald-600" /> Whats
                         </Button>
-                      )}
+                      ) : <div />}
 
                       <Link href={`/dashboard/people/${task.personId}`} className="w-full">
                         <Button size="sm" variant="outline" className="w-full text-xs font-bold h-9 rounded-xl">
-                          <User className="size-3.5 mr-1.5" /> Ficha
+                          <User className="size-3.5 mr-1" /> Ficha
                         </Button>
                       </Link>
                     </div>
@@ -285,7 +318,7 @@ export default function TarefasPastoraisPage() {
                         <Button 
                           size="sm" 
                           onClick={() => handleUpdateStatus(task.id, 'CONCLUIDA')}
-                          className="w-full text-xs font-bold h-9 rounded-xl text-white"
+                          className="w-full text-xs font-bold h-9 rounded-xl bg-purple-600 hover:bg-purple-700 text-white"
                         >
                           <CheckCircle2 className="size-3.5 mr-1.5" /> Concluir
                         </Button>
@@ -299,6 +332,140 @@ export default function TarefasPastoraisPage() {
         </div>
       )}
 
+      {/* MODAL DE DETALHES COMPLETOS DO CARD / SOLICITAÇÃO */}
+      {selectedTask && (
+        <Dialog open={!!selectedTask} onOpenChange={(open) => !open && setSelectedTask(null)}>
+          <DialogContent className="sm:max-w-lg rounded-3xl p-6 bg-white space-y-4">
+            <DialogHeader>
+              <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-3">
+                  <div className={`p-3 rounded-2xl border ${CATEGORY_COLORS[selectedTask.category] || 'bg-slate-100'}`}>
+                    {React.createElement(CATEGORY_ICONS[selectedTask.category] || Sparkles, { className: "size-6" })}
+                  </div>
+                  <div>
+                    <DialogTitle className="text-lg font-black uppercase italic tracking-tight text-slate-900">
+                      {selectedTask.personName}
+                    </DialogTitle>
+                    <DialogDescription className="text-xs text-slate-500 font-bold uppercase">
+                      Solicitação: {selectedTask.category}
+                    </DialogDescription>
+                  </div>
+                </div>
+                <Badge 
+                  variant={selectedTask.status === 'CONCLUIDA' ? 'default' : selectedTask.status === 'EM_ANDAMENTO' ? 'secondary' : 'outline'}
+                  className="text-[10px] font-bold uppercase px-3 py-1 rounded-full"
+                >
+                  {selectedTask.status === 'CONCLUIDA' ? 'Concluída' : selectedTask.status === 'EM_ANDAMENTO' ? 'Em Andamento' : 'Pendente'}
+                </Badge>
+              </div>
+            </DialogHeader>
+
+            <div className="space-y-4 pt-1">
+              {/* Informações de Contato */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                {selectedTask.personPhone && (
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                    <Phone className="size-4 text-emerald-600 shrink-0" />
+                    <span>{selectedTask.personPhone}</span>
+                  </div>
+                )}
+                {selectedTask.personEmail && (
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-800 truncate">
+                    <Mail className="size-4 text-slate-500 shrink-0" />
+                    <span className="truncate">{selectedTask.personEmail}</span>
+                  </div>
+                )}
+                {selectedTask.createdAt && (
+                  <div className="flex items-center gap-2 text-xs font-medium text-slate-500 col-span-full">
+                    <Clock className="size-4 text-slate-400 shrink-0" />
+                    <span>
+                      Recebido em {selectedTask.createdAt?.toDate ? format(selectedTask.createdAt.toDate(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : 'Data recente'}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Detalhes Extraídos do Formulário */}
+              {(() => {
+                const { text, json } = parseTaskDetails(selectedTask.description);
+
+                return (
+                  <div className="space-y-3">
+                    <p className="text-xs font-black uppercase tracking-wider text-slate-400">Conteúdo do Pedido</p>
+
+                    {text && (
+                      <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-xs text-slate-800 font-medium leading-relaxed">
+                        {text}
+                      </div>
+                    )}
+
+                    {json.observacoes && (
+                      <div className="bg-purple-50/70 p-3.5 rounded-2xl border border-purple-100 space-y-1">
+                        <p className="text-[10px] font-black uppercase text-purple-700">Mensagem / Observação da Pessoa:</p>
+                        <p className="text-xs text-slate-900 font-medium italic">"{json.observacoes}"</p>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                      {json.atendimentoDesejado && (
+                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase block">Atendimento</span>
+                          <span className="font-bold text-slate-800">{json.atendimentoDesejado}</span>
+                        </div>
+                      )}
+
+                      {json.comoConheceu && (
+                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase block">Como Conheceu</span>
+                          <span className="font-bold text-slate-800">{json.comoConheceu}</span>
+                        </div>
+                      )}
+
+                      {json.estadoCivil && (
+                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-2">
+                          <Heart className="size-4 text-pink-500 shrink-0" />
+                          <div>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase block">Estado Civil</span>
+                            <span className="font-bold text-slate-800">{json.estadoCivil.toUpperCase()} {json.conjuge ? `(Cônjuge: ${json.conjuge})` : ''}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {json.bairro && (
+                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-2">
+                          <MapPin className="size-4 text-amber-500 shrink-0" />
+                          <div>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase block">Bairro / Cidade</span>
+                            <span className="font-bold text-slate-800">{json.bairro} {json.cidade ? `- ${json.cidade}` : ''}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Ações Principais no Rodapé do Modal */}
+              <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row gap-2">
+                {selectedTask.personPhone && (
+                  <Button 
+                    onClick={() => window.open(`https://wa.me/55${selectedTask.personPhone?.replace(/\D/g, '')}`, '_blank')}
+                    className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm"
+                  >
+                    <MessageCircle className="size-4 mr-2" /> Abrir no WhatsApp
+                  </Button>
+                )}
+
+                <Link href={`/dashboard/people/${selectedTask.personId}`} className="w-full">
+                  <Button variant="outline" className="w-full h-11 rounded-xl text-xs font-bold">
+                    <User className="size-4 mr-2" /> Abrir Ficha Completa
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
