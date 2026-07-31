@@ -728,14 +728,19 @@ function WhatsappSender({ config }: { config: any }) {
         };
     }, [targetAudience, individualPhone, users, selectedUsersList, importedContacts, selectedGroupIds, blacklistedSet, config, targetAudienceUsers]);
 
+    const historyQuery = useMemoFirebase(() => 
+        firestore ? query(collection(firestore, 'notifications_history'), orderBy('sentAt', 'desc'), limit(100)) : null,
+    [firestore]);
+    const { data: historyData } = useCollection<any>(historyQuery);
+
+    const responsesQuery = useMemoFirebase(() => 
+        firestore ? query(collection(firestore, 'notifications_responses'), orderBy('receivedAt', 'desc'), limit(500)) : null,
+    [firestore]);
+    const { data: responsesData } = useCollection<any>(responsesQuery);
+
     const accountHealth = useMemo(() => {
-        return CampaignHealthService.getAccountHealth({
-            restrictionsCount: 1,
-            daysSinceLastRestriction: 14,
-            deliveryRate: 96.5,
-            replyRate: 24.2
-        });
-    }, []);
+        return CampaignHealthService.computeHealthFromFirestore(historyData || [], responsesData || []);
+    }, [historyData, responsesData]);
 
     const campaignAnalysis = useMemo(() => {
         const recipients = targetAudienceUsers?.map((u: any) => ({
@@ -929,7 +934,7 @@ function WhatsappSender({ config }: { config: any }) {
                     </h3>
                     <p className="text-xs text-muted-foreground">Configure os parâmetros da campanha com a orientação do Assistente Inteligente.</p>
                 </div>
-                <AccountHealthHeader health={accountHealth} policyMode={policyMode} onPolicyModeChange={setPolicyMode} />
+                <AccountHealthHeader health={accountHealth} policyMode={policyMode} onPolicyModeChange={setPolicyMode} historyData={historyData || []} />
             </div>
 
             <form onSubmit={handleSend} className="space-y-6">

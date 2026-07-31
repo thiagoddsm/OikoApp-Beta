@@ -7,7 +7,8 @@ import { doc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { 
   Loader2, ArrowLeft, Edit, Users, ShieldCheck, Network, Map, 
-  Footprints, User as UserIcon, Heart, HandHelping, Bot, GraduationCap, CheckCircle2, Camera
+  Footprints, User as UserIcon, Heart, HandHelping, Bot, GraduationCap, CheckCircle2, Camera, RefreshCw, History,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,6 +36,8 @@ import { VolunteerServiceForm } from '@/components/volunteering/volunteer-servic
 import { AIProfileAnalysis } from '@/components/users/ai-profile-analysis';
 import { EditUserDialog } from '@/components/users/edit-user-dialog';
 import { InviteUserButton } from '@/components/users/invite-user-button';
+import { PersonProcessesList } from '@/components/users/person-processes-list';
+import { RelationshipTimeline } from '@/components/users/relationship-timeline';
 import { useMembersData, useCoursesData, useGCData } from "@/hooks/useDomainData";
 
 function PersonProfilePageContent() {
@@ -52,6 +55,7 @@ function PersonProfilePageContent() {
     const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
     const [livePhotoUrl, setLivePhotoUrl] = useState<string | null>(null);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
+    const tabsNavRef = React.useRef<HTMLDivElement>(null);
     const { firestore, storage } = useFirebase();
 
     const compressImage = (file: File, maxWidth = 500, maxHeight = 500): Promise<Blob> => {
@@ -354,19 +358,59 @@ function PersonProfilePageContent() {
             {/* Abas Principais: Gestão Integrada */}
             <Card className="border-none shadow-sm">
                 <CardContent className="p-0">
-                    <Tabs defaultValue="trilha" className="w-full">
-                        <div className="px-6 pt-2 border-b bg-muted/30">
-                            <TabsList className="h-12 bg-transparent gap-6 overflow-x-auto no-scrollbar flex-nowrap">
-                                <TabsTrigger value="trilha" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none font-bold text-xs uppercase whitespace-nowrap"><Footprints size={14} className="mr-2" /> Trilha</TabsTrigger>
-                                <TabsTrigger value="discipulado" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none font-bold text-xs uppercase whitespace-nowrap"><ShieldCheck size={14} className="mr-2" /> Discipulado</TabsTrigger>
-                                <TabsTrigger value="detalhes" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none font-bold text-xs uppercase whitespace-nowrap"><UserIcon size={14} className="mr-2" /> Detalhes</TabsTrigger>
-                                <TabsTrigger value="familia" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none font-bold text-xs uppercase whitespace-nowrap"><Heart size={14} className="mr-2" /> Família</TabsTrigger>
-                                <TabsTrigger value="servico" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none font-bold text-xs uppercase whitespace-nowrap"><HandHelping size={14} className="mr-2" /> Serviço</TabsTrigger>
-                                <TabsTrigger value="ai" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none font-bold text-xs uppercase whitespace-nowrap"><Bot size={14} className="mr-2" /> Análise IA</TabsTrigger>
-                            </TabsList>
+                    <Tabs defaultValue="timeline" className="w-full">
+                        <div className="px-4 py-2 border-b bg-muted/30 flex items-center gap-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() => {
+                                  if (tabsNavRef.current) {
+                                    tabsNavRef.current.scrollBy({ left: -250, behavior: 'smooth' });
+                                  }
+                                }}
+                                className="size-8 rounded-full shrink-0 bg-white hover:bg-primary/10 hover:text-primary border-slate-200 shadow-sm"
+                                title="Rolar para esquerda"
+                            >
+                                <ChevronLeft className="size-4" />
+                            </Button>
+
+                            <div ref={tabsNavRef} className="overflow-x-auto no-scrollbar scroll-smooth flex-1">
+                                <TabsList className="h-12 bg-transparent gap-4 flex-nowrap w-max">
+                                    <TabsTrigger value="timeline" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none font-bold text-xs uppercase whitespace-nowrap"><History size={14} className="mr-2" /> Timeline</TabsTrigger>
+                                    <TabsTrigger value="processos" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none font-bold text-xs uppercase whitespace-nowrap"><RefreshCw size={14} className="mr-2" /> Processos Ativos</TabsTrigger>
+                                    <TabsTrigger value="trilha" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none font-bold text-xs uppercase whitespace-nowrap"><Footprints size={14} className="mr-2" /> Trilha</TabsTrigger>
+                                    <TabsTrigger value="discipulado" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none font-bold text-xs uppercase whitespace-nowrap"><ShieldCheck size={14} className="mr-2" /> Discipulado</TabsTrigger>
+                                    <TabsTrigger value="detalhes" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none font-bold text-xs uppercase whitespace-nowrap"><UserIcon size={14} className="mr-2" /> Detalhes</TabsTrigger>
+                                    <TabsTrigger value="familia" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none font-bold text-xs uppercase whitespace-nowrap"><Heart size={14} className="mr-2" /> Família</TabsTrigger>
+                                    <TabsTrigger value="servico" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none font-bold text-xs uppercase whitespace-nowrap"><HandHelping size={14} className="mr-2" /> Serviço</TabsTrigger>
+                                    <TabsTrigger value="ai" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none font-bold text-xs uppercase whitespace-nowrap"><Bot size={14} className="mr-2" /> Análise IA</TabsTrigger>
+                                </TabsList>
+                            </div>
+
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() => {
+                                  if (tabsNavRef.current) {
+                                    tabsNavRef.current.scrollBy({ left: 250, behavior: 'smooth' });
+                                  }
+                                }}
+                                className="size-8 rounded-full shrink-0 bg-white hover:bg-primary/10 hover:text-primary border-slate-200 shadow-sm"
+                                title="Rolar para direita"
+                            >
+                                <ChevronRight className="size-4" />
+                            </Button>
                         </div>
 
                         <div className="p-6">
+                            <TabsContent value="timeline" className="mt-0 animate-in fade-in-50">
+                                <RelationshipTimeline userId={person.id} personName={person.name} />
+                            </TabsContent>
+                            <TabsContent value="processos" className="mt-0 animate-in fade-in-50">
+                                <PersonProcessesList userId={person.id} />
+                            </TabsContent>
                             <TabsContent value="trilha" className="mt-0 space-y-8 animate-in fade-in-50">
                                 <MemberCourseProgress user={person} />
                                 

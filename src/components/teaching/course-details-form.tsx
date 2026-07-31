@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Loader2, ShieldCheck, Mail, Info, School, PlayCircle, Percent, Lock, UserCheck, CheckCircle2, GraduationCap, BookOpen, Layers, Upload, MessageCircle } from 'lucide-react';
+import { Loader2, ShieldCheck, Mail, Info, School, PlayCircle, Percent, Lock, UserCheck, CheckCircle2, GraduationCap, BookOpen, Layers, Upload, MessageCircle, Waves } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -33,6 +33,8 @@ export function CourseDetailsForm({ course }: { course: any }) {
     minAttendanceApproval: '75',
     requiresMemberStatus: false,
     requiresBaptism: false,
+    isMembershipPrerequisite: false,
+    isBaptismCourse: false,
     prerequisiteCourseId: '',
     sortOrder: '0',
     imageUrl: '',
@@ -59,6 +61,8 @@ export function CourseDetailsForm({ course }: { course: any }) {
         minAttendanceApproval: course.minAttendanceApproval?.toString() || '75',
         requiresMemberStatus: course.requiresMemberStatus || false,
         requiresBaptism: course.requiresBaptism || false,
+        isMembershipPrerequisite: course.isMembershipPrerequisite || false,
+        isBaptismCourse: course.isBaptismCourse || false,
         prerequisiteCourseId: course.prerequisiteCourseId || '',
         sortOrder: course.sortOrder?.toString() || '0',
         imageUrl: course.imageUrl || '',
@@ -199,6 +203,8 @@ export function CourseDetailsForm({ course }: { course: any }) {
             minAttendanceApproval: Number(formData.minAttendanceApproval) || 0,
             requiresMemberStatus: formData.requiresMemberStatus,
             requiresBaptism: formData.requiresBaptism,
+            isMembershipPrerequisite: formData.isMembershipPrerequisite,
+            isBaptismCourse: formData.isBaptismCourse,
             prerequisiteCourseId: formData.prerequisiteCourseId === 'none' ? '' : formData.prerequisiteCourseId,
             sortOrder: Number(formData.sortOrder) || 0,
             imageUrl: formData.imageUrl,
@@ -463,6 +469,32 @@ export function CourseDetailsForm({ course }: { course: any }) {
                           <Switch 
                             checked={formData.requiresBaptism} 
                             onCheckedChange={(v) => handleFieldChange('requiresBaptism', v)} 
+                          />
+                      </div>
+
+                      <div className="flex items-center justify-between gap-4 pt-3 border-t">
+                          <div className="space-y-0.5">
+                              <Label className="text-sm font-bold flex items-center gap-2">
+                                  <GraduationCap className="size-3 text-purple-600" /> Curso Obrigatório para Membresia
+                              </Label>
+                              <p className="text-[10px] text-muted-foreground italic">Marca este curso como pré-requisito para se tornar Membro IBM (vencido no /conectar).</p>
+                          </div>
+                          <Switch 
+                            checked={formData.isMembershipPrerequisite} 
+                            onCheckedChange={(v) => handleFieldChange('isMembershipPrerequisite', v)} 
+                          />
+                      </div>
+
+                      <div className="flex items-center justify-between gap-4">
+                          <div className="space-y-0.5">
+                              <Label className="text-sm font-bold flex items-center gap-2">
+                                  <Waves className="size-3 text-cyan-600" /> Curso Oficial de Batismo
+                              </Label>
+                              <p className="text-[10px] text-muted-foreground italic">Vincula este curso diretamente à opção 'Quero me batizar' da Central de Conexão.</p>
+                          </div>
+                          <Switch 
+                            checked={formData.isBaptismCourse} 
+                            onCheckedChange={(v) => handleFieldChange('isBaptismCourse', v)} 
                           />
                       </div>
                   </div>

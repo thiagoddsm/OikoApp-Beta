@@ -1,7 +1,7 @@
 'use client';
 import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { CheckCircle2, Circle, GraduationCap, Lock, ArrowRight, AlertTriangle, RefreshCw, Loader2 } from 'lucide-react';
+import { CheckCircle2, Circle, GraduationCap, Lock, ArrowRight, AlertTriangle, RefreshCw, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '../ui/button';
 import { useVolunteering, getModuleIndexForDate, weekDayMap } from '@/contexts/volunteering-context';
@@ -116,6 +116,15 @@ export function MemberCourseProgress({ user }: { user: any }) {
         toast({ title: "Bem-vindo!", description: `${user.name} agora é oficialmente um Membro IBM.` });
     };
     
+    const scrollRef = React.useRef<HTMLDivElement>(null);
+
+    const scrollModules = (direction: 'left' | 'right') => {
+        if (scrollRef.current) {
+            const amount = direction === 'left' ? -220 : 220;
+            scrollRef.current.scrollBy({ left: amount, behavior: 'smooth' });
+        }
+    };
+
     return (
         <Card className="bg-primary/5 border-primary/20 shadow-sm">
             <CardHeader className="pb-2 flex flex-row items-start justify-between">
@@ -132,46 +141,67 @@ export function MemberCourseProgress({ user }: { user: any }) {
                 </Button>
             </CardHeader>
             <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 mt-4">
-                    {modules.map((mod, idx) => {
-                        const isCompleted = mergedProgress[mod.id];
-                        const isLocked = mod.isElective && !isReadyForElective;
-                        
-                        return (
-                            <div key={mod.id} className={cn(
-                                "flex flex-col items-center text-center p-3 rounded-xl border-2 transition-all relative",
-                                isCompleted ? "bg-emerald-50 border-emerald-500 shadow-sm" : 
-                                isLocked ? "bg-slate-100 border-slate-200 opacity-60" : "bg-white border-slate-200",
-                                mod.isElective && !isCompleted && "border-dashed"
-                            )}>
-                                <div className={cn(
-                                    "size-10 rounded-full flex items-center justify-center mb-2",
-                                    isCompleted ? "bg-emerald-500 text-white" : 
-                                    isLocked ? "bg-slate-300 text-slate-500" : 
-                                    mod.isElective ? "bg-amber-50 text-amber-500 border border-amber-200" : "bg-slate-100 text-slate-400"
+                <div className="relative flex items-center gap-1 mt-4">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => scrollModules('left')}
+                        className="size-8 rounded-full shrink-0 bg-white hover:bg-primary/10 hover:text-primary border-slate-200 shadow-sm z-10"
+                        title="Rolar para esquerda"
+                    >
+                        <ChevronLeft className="size-4" />
+                    </Button>
+
+                    <div ref={scrollRef} className="flex gap-4 overflow-x-auto no-scrollbar scroll-smooth flex-1 py-1 px-1">
+                        {modules.map((mod, idx) => {
+                            const isCompleted = mergedProgress[mod.id];
+                            const isLocked = mod.isElective && !isReadyForElective;
+                            
+                            return (
+                                <div key={mod.id} className={cn(
+                                    "flex flex-col items-center text-center p-3 rounded-xl border-2 transition-all relative shrink-0 w-36 sm:w-44",
+                                    isCompleted ? "bg-emerald-50 border-emerald-500 shadow-sm" : 
+                                    isLocked ? "bg-slate-100 border-slate-200 opacity-60" : "bg-white border-slate-200",
+                                    mod.isElective && !isCompleted && "border-dashed"
                                 )}>
-                                    {isCompleted ? <CheckCircle2 className="size-6" /> : 
-                                     isLocked ? <Lock className="size-5" /> : <Circle className="size-6" />}
-                                </div>
-                                <p className="text-[10px] font-black uppercase leading-tight mb-1 px-1 line-clamp-2">{mod.label}</p>
-                                <p className="text-[9px] text-muted-foreground">{mod.description}</p>
-                                
-                                {isCompleted && mergedProgress[`${mod.id}_detail`] && (
-                                    <div className="mt-2 pt-1 border-t border-emerald-200/50 w-full">
-                                        <p className="text-[8px] font-bold text-emerald-700 uppercase">
-                                            {mergedProgress[`${mod.id}_detail`].method}
-                                        </p>
-                                        <p className="text-[8px] text-emerald-600/80">
-                                            {format(parseISO(mergedProgress[`${mod.id}_detail`].date), 'dd/MM/yyyy')}
-                                        </p>
+                                    <div className={cn(
+                                        "size-10 rounded-full flex items-center justify-center mb-2",
+                                        isCompleted ? "bg-emerald-500 text-white" : 
+                                        isLocked ? "bg-slate-300 text-slate-500" : 
+                                        mod.isElective ? "bg-amber-50 text-amber-500 border border-amber-200" : "bg-slate-100 text-slate-400"
+                                    )}>
+                                        {isCompleted ? <CheckCircle2 className="size-6" /> : 
+                                         isLocked ? <Lock className="size-5" /> : <Circle className="size-6" />}
                                     </div>
-                                )}
-                                {idx < modules.length - 1 && (
-                                    <div className="hidden sm:block absolute -right-4 top-1/2 -translate-y-1/2 z-10"><ArrowRight size={12} className="text-slate-300" /></div>
-                                )}
-                            </div>
-                        );
-                    })}
+                                    <p className="text-[10px] font-black uppercase leading-tight mb-1 px-1 line-clamp-2">{mod.label}</p>
+                                    <p className="text-[9px] text-muted-foreground">{mod.description}</p>
+                                    
+                                    {isCompleted && mergedProgress[`${mod.id}_detail`] && (
+                                        <div className="mt-2 pt-1 border-t border-emerald-200/50 w-full">
+                                            <p className="text-[8px] font-bold text-emerald-700 uppercase">
+                                                {mergedProgress[`${mod.id}_detail`].method}
+                                            </p>
+                                            <p className="text-[8px] text-emerald-600/80">
+                                                {format(parseISO(mergedProgress[`${mod.id}_detail`].date), 'dd/MM/yyyy')}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => scrollModules('right')}
+                        className="size-8 rounded-full shrink-0 bg-white hover:bg-primary/10 hover:text-primary border-slate-200 shadow-sm z-10"
+                        title="Rolar para direita"
+                    >
+                        <ChevronRight className="size-4" />
+                    </Button>
                 </div>
                 
                 {isAllDone && (

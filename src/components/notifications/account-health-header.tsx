@@ -6,18 +6,19 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { ShieldCheck, AlertTriangle, Activity, TrendingUp, Info, CheckCircle2, History, ChevronRight } from 'lucide-react';
 import { AccountHealth } from '@/domain/campaign-health/entities/account-health';
-import { generateSampleTimeline } from '@/domain/campaign-health/history/health-timeline';
+import { buildRealHealthTimeline } from '@/domain/campaign-health/history/health-timeline';
 import { PolicyMode } from '@/domain/campaign-health/policies/campaign-policy';
 
 interface AccountHealthHeaderProps {
   health: AccountHealth;
   policyMode: PolicyMode;
   onPolicyModeChange: (mode: PolicyMode) => void;
+  historyData?: any[];
 }
 
-export function AccountHealthHeader({ health, policyMode, onPolicyModeChange }: AccountHealthHeaderProps) {
+export function AccountHealthHeader({ health, policyMode, onPolicyModeChange, historyData = [] }: AccountHealthHeaderProps) {
   const [openModal, setOpenModal] = useState(false);
-  const timeline = generateSampleTimeline(health.score);
+  const timeline = buildRealHealthTimeline(historyData, health.score);
 
   const getBadgeStyle = (tier: string) => {
     switch (tier) {
@@ -60,7 +61,7 @@ export function AccountHealthHeader({ health, policyMode, onPolicyModeChange }: 
               <ShieldCheck className="size-6 text-primary" /> Central de Saúde das Campanhas
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Diagnóstico operacional de reputação da conta no WhatsApp e histórico de desempenho.
+              Diagnóstico operacional de reputação da conta no WhatsApp calculado a partir de dados reais.
             </DialogDescription>
           </DialogHeader>
 
@@ -78,9 +79,9 @@ export function AccountHealthHeader({ health, policyMode, onPolicyModeChange }: 
                     <Badge variant="outline" className={getBadgeStyle(health.tier)}>{health.tier.toUpperCase()}</Badge>
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {health.history.daysSinceLastRestriction > 90 
-                      ? `🟢 Operação estável há ${health.history.daysSinceLastRestriction} dias.` 
-                      : `⚠️ Restrição registrada nos últimos meses.`}
+                    {health.history.restrictionsCount === 0 
+                      ? `🟢 Operação estável sem restrições recentes (${health.history.totalCampaigns} disparo(s) no total).` 
+                      : `⚠️ ${health.history.restrictionsCount} restrição(ões) registrada(s).`}
                   </p>
                 </div>
               </div>
@@ -125,7 +126,7 @@ export function AccountHealthHeader({ health, policyMode, onPolicyModeChange }: 
                       <div className="font-bold text-slate-800 dark:text-slate-200">{item.title}</div>
                       {item.description && <div className="text-[11px] text-muted-foreground mt-0.5">{item.description}</div>}
                     </div>
-                    <Badge variant={item.points > 0 ? 'secondary' : 'destructive'} className="font-black text-xs shrink-0">
+                    <Badge variant={item.points > 0 ? 'secondary' : (item.points === 0 ? 'outline' : 'destructive')} className="font-black text-xs shrink-0">
                       {item.points > 0 ? `+${item.points}` : item.points} pts
                     </Badge>
                   </div>
@@ -133,14 +134,14 @@ export function AccountHealthHeader({ health, policyMode, onPolicyModeChange }: 
               </div>
             </div>
 
-            {/* Linha do Tempo Mensal (Histórico em 30-90 dias) */}
+            {/* Linha do Tempo Mensal (Histórico Real) */}
             <div className="space-y-3 pt-2 border-t">
               <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                <TrendingUp className="size-4 text-emerald-500" /> Tendência de Saúde (Últimos Meses)
+                <TrendingUp className="size-4 text-emerald-500" /> Tendência de Saúde (Histórico Recente)
               </h4>
               <div className="grid grid-cols-5 gap-2">
                 {timeline.records.map((rec) => (
-                  <div key={rec.monthLabel} className="p-2.5 rounded-lg border bg-slate-50 dark:bg-slate-800/40 text-center">
+                  <div key={`${rec.year}-${rec.monthLabel}`} className="p-2.5 rounded-lg border bg-slate-50 dark:bg-slate-800/40 text-center">
                     <div className="text-[10px] font-bold text-muted-foreground uppercase">{rec.monthLabel}</div>
                     <div className="text-sm font-black text-slate-900 dark:text-white mt-1">{rec.score} pts</div>
                     <div className="text-[9px] text-emerald-600 font-medium mt-0.5">{rec.campaignsCount} camp.</div>
@@ -153,7 +154,7 @@ export function AccountHealthHeader({ health, policyMode, onPolicyModeChange }: 
             <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-xs flex items-start gap-2">
               <AlertTriangle className="size-4 text-amber-600 shrink-0 mt-0.5" />
               <span>
-                <strong>Orientação do Oiko:</strong> O assistente calcula continuamente a reputação do número para garantir entregas com taxa máxima de conversão.
+                <strong>Dados em Tempo Real:</strong> A reputação é calculada dinamicamente a partir dos disparos e respostas gravados no Firestore.
               </span>
             </div>
           </div>

@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useFirebase } from '@/firebase';
 import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { PROXIMOS_PASSOS_OPTIONS } from './journey-status-config';
-import { Checkbox } from '@/components/ui/checkbox';
+import { addTimelineEvent } from '@/lib/timeline';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, CheckCircle2, Circle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -23,7 +23,7 @@ export function ProximosPassosChecklist({
   proximosPassosConcluidos = [],
   readOnly = false
 }: ProximosPassosChecklistProps) {
-  const { firestore } = useFirebase();
+  const { firestore, user: currentUser } = useFirebase();
   const { toast } = useToast();
   const [loadingKey, setLoadingKey] = useState<string | null>(null);
 
@@ -39,18 +39,36 @@ export function ProximosPassosChecklist({
     setLoadingKey(stepKey);
     const isCompleted = proximosPassosConcluidos.includes(stepKey);
     const userRef = doc(firestore, 'users', userId);
+    const option = PROXIMOS_PASSOS_OPTIONS.find(o => o.value === stepKey);
+    const label = option?.label || stepKey;
 
     try {
       if (isCompleted) {
         await updateDoc(userRef, {
           proximosPassosConcluidos: arrayRemove(stepKey)
         });
-        toast({ title: 'Status Atualizado', description: 'Etapa marcada como pendente.' });
+        await addTimelineEvent(userId, firestore, {
+          category: 'decision',
+          entityTitle: 'Próximos Passos & Conexão',
+          eventDescription: `REABRIU ETAPA: "${label}"`,
+          statusBadge: 'PENDENTE',
+          source: 'automatic',
+          authorId: currentUser?.uid,
+        });
+        toast({ title: 'Status Atualizado', description: 'Etapa marcada como pendente e registrada na Linha do Tempo.' });
       } else {
         await updateDoc(userRef, {
           proximosPassosConcluidos: arrayUnion(stepKey)
         });
-        toast({ title: 'Etapa Concluída! 🎉', description: 'Desejo de conexão marcado como concluído com sucesso.' });
+        await addTimelineEvent(userId, firestore, {
+          category: 'decision',
+          entityTitle: 'Próximos Passos & Conexão',
+          eventDescription: `CONCLUIU ETAPA: "${label}"`,
+          statusBadge: 'CONCLUÍDO',
+          source: 'automatic',
+          authorId: currentUser?.uid,
+        });
+        toast({ title: 'Etapa Concluída! 🎉', description: 'Desejo de conexão marcado como concluído e registrado na Linha do Tempo.' });
       }
     } catch (err: any) {
       console.error('Error toggling step:', err);

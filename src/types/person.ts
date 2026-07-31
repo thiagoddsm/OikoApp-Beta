@@ -68,9 +68,43 @@ export interface Person {
     interests?: string[];
   };
 
-  // Oiko legacy fields (can be deprecated or migrated)
+  // Oiko New Architecture Fields
+  situacaoCaminhada?: SituacaoCaminhada;
   photoURL?: string;
   role?: string; // Supervisor, Líder, etc.
   status?: 'active' | 'inactive' | 'pending';
   gc?: string; // Name or ID of the small group
 }
+
+export type SituacaoCaminhada = 
+  | 'VISITANTE'
+  | 'CONHECENDO'
+  | 'NOVO_CONVERTIDO'
+  | 'EM_INTEGRACAO'
+  | 'MEMBRO'
+  | 'LIDER'
+  | 'INATIVO';
+
+export interface Solicitacao {
+  id?: string;
+  tenantId?: string;
+  personId?: string;
+  intentType: 'VISITANDO' | 'GC' | 'BATISMO' | 'MEMBRESIA' | 'VOLUNTARIADO' | 'ACONSELHAMENTO' | 'ATUALIZACAO';
+  entryPoint?: string;
+  data?: Record<string, any>;
+  createdAt?: any;
+}
+
+export interface PersonProcess {
+  id?: string;
+  tenantId?: string;
+  personId: string;
+  processType: 'GC' | 'BATISMO' | 'VOLUNTARIADO' | 'MEMBRESIA' | 'ACONSELHAMENTO' | 'GERAL';
+  title: string;
+  currentStage: string;
+  status: 'ACTIVE' | 'COMPLETED' | 'CANCELED';
+  assignedTo?: string;
+  startedAt?: any;
+  updatedAt?: any;
+}
+

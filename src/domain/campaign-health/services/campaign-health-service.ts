@@ -22,15 +22,74 @@ export class CampaignHealthService {
    */
   static getAccountHealth(rawHistory?: Partial<RawHealthHistory>): AccountHealth {
     const history: RawHealthHistory = {
-      totalCampaigns: rawHistory?.totalCampaigns ?? 42,
-      restrictionsCount: rawHistory?.restrictionsCount ?? 1,
-      deliveryRate: rawHistory?.deliveryRate ?? 96.5,
-      replyRate: rawHistory?.replyRate ?? 24.2,
-      blockedContacts: rawHistory?.blockedContacts ?? 2,
-      daysSinceLastRestriction: rawHistory?.daysSinceLastRestriction ?? 14,
+      totalCampaigns: rawHistory?.totalCampaigns ?? 0,
+      restrictionsCount: rawHistory?.restrictionsCount ?? 0,
+      deliveryRate: rawHistory?.deliveryRate ?? 100,
+      replyRate: rawHistory?.replyRate ?? 0,
+      blockedContacts: rawHistory?.blockedContacts ?? 0,
+      daysSinceLastRestriction: rawHistory?.daysSinceLastRestriction ?? 365,
     };
 
     return evaluateAccountHealth(history);
+  }
+
+  /**
+   * Calcula a Saúde da Conta REAL a partir das coleções do Firestore
+   */
+  static computeHealthFromFirestore(historyData: any[], responsesData: any[]): AccountHealth {
+    if (!historyData || historyData.length === 0) {
+      return this.getAccountHealth({
+        totalCampaigns: 0,
+        restrictionsCount: 0,
+        deliveryRate: 100,
+        replyRate: 0,
+        blockedContacts: 0,
+        daysSinceLastRestriction: 365,
+      });
+    }
+
+    const totalCampaigns = historyData.length;
+    let totalSent = 0;
+    let totalSuccess = 0;
+    let totalErrors = 0;
+    let restrictionsCount = 0;
+    let lastRestrictionTime = 0;
+
+    historyData.forEach(item => {
+      const recipientCount = Number(item.recipientCount || item.totalRecipients || 0);
+      const successCount = Number(item.successCount || 0);
+      const errorCount = Number(item.errorCount || 0);
+
+      totalSent += recipientCount;
+      totalSuccess += successCount;
+      totalErrors += errorCount;
+
+      const isFailed = item.status === 'failed' || !!item.circuitBreakReason;
+      if (isFailed) {
+        restrictionsCount++;
+        let sentTime = item.sentAt?.toDate ? item.sentAt.toDate().getTime() : (item.sentAt ? new Date(item.sentAt).getTime() : 0);
+        if (sentTime > lastRestrictionTime) lastRestrictionTime = sentTime;
+      }
+    });
+
+    const deliveryRate = totalSent > 0 ? (totalSuccess / totalSent) * 100 : 100;
+
+    // Calcular Reply Rate real
+    const uniqueResponders = new Set((responsesData || []).map(r => r.from)).size;
+    const replyRate = totalSent > 0 ? Math.min(100, (uniqueResponders / Math.max(1, totalSent)) * 100) : 0;
+
+    const daysSinceLastRestriction = lastRestrictionTime > 0 
+      ? Math.max(0, Math.floor((Date.now() - lastRestrictionTime) / (1000 * 60 * 60 * 24)))
+      : 365;
+
+    return this.getAccountHealth({
+      totalCampaigns,
+      restrictionsCount,
+      deliveryRate: Math.round(deliveryRate * 10) / 10,
+      replyRate: Math.round(replyRate * 10) / 10,
+      blockedContacts: totalErrors,
+      daysSinceLastRestriction,
+    });
   }
 
   /**

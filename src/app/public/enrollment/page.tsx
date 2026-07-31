@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { VolunteeringProvider, useVolunteering } from '@/contexts/volunteering-context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { TenantProvider } from '@/contexts/tenant-context';
@@ -68,6 +69,11 @@ function Stepper({ currentStep }: { currentStep: number }) {
 }
 
 function EnrollmentForm() {
+    const searchParams = useSearchParams();
+    const intentParam = searchParams.get('intent');
+    const courseIdParam = searchParams.get('courseId');
+    const emailParam = searchParams.get('email');
+
     const { firestore } = useFirebase();
     const { events, reservations, rooms, strategicEvents, reservationCategories } = useEventsData();
     const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
@@ -93,6 +99,40 @@ function EnrollmentForm() {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
     const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+
+    // Auto-direcionamento direto para o Curso / Passo 4 (Turmas Disponíveis)
+    useEffect(() => {
+        if (emailParam && !emailInput) {
+            setEmailInput(emailParam);
+        }
+
+        if (!courses || courses.length === 0) return;
+
+        if (intentParam === 'membresia' || intentParam === 'membership') {
+            const target = courses.find((c: any) => c.isMembershipPrerequisite) || 
+                           courses.find((c: any) => (c.name || '').toLowerCase().includes('pertencer') || (c.name || '').toLowerCase().includes('membresia'));
+            if (target) {
+                setSelectedCategory('lumine');
+                setSelectedCourseId(target.id);
+                setCurrentStep(4);
+            }
+        } else if (intentParam === 'batismo' || intentParam === 'baptism') {
+            const target = courses.find((c: any) => c.isBaptismCourse) || 
+                           courses.find((c: any) => (c.name || '').toLowerCase().includes('batismo'));
+            if (target) {
+                setSelectedCategory('lumine');
+                setSelectedCourseId(target.id);
+                setCurrentStep(4);
+            }
+        } else if (courseIdParam) {
+            const target = courses.find((c: any) => c.id === courseIdParam);
+            if (target) {
+                setSelectedCategory('lumine');
+                setSelectedCourseId(target.id);
+                setCurrentStep(4);
+            }
+        }
+    }, [courses, intentParam, courseIdParam, emailParam]);
 
     // Step 4: Class Selection
     const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
@@ -1216,7 +1256,9 @@ export default function EnrollmentPage() {
         <main className="min-h-screen bg-[#F8F9FA] pb-24 selection:bg-primary/20">
             <TenantProvider>
                 <VolunteeringProvider>
-                    <EnrollmentForm />
+                    <Suspense fallback={<div className="flex justify-center p-20"><Loader2 className="animate-spin size-8 text-primary" /></div>}>
+                        <EnrollmentForm />
+                    </Suspense>
                 </VolunteeringProvider>
             </TenantProvider>
         </main>

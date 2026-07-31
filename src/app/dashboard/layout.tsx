@@ -42,6 +42,7 @@ import {
   LayoutTemplate,
   School,
   Wrench,
+  RefreshCw,
   Menu,
   BarChart2,
   Search,
@@ -103,6 +104,8 @@ const menuItems = [
       label: "Engajamento", 
       icon: Activity,
       subItems: [
+        { href: "/dashboard/engajamento/processos", label: "Processos Ativos", icon: RefreshCw, permissionId: 'dashboard' },
+        { href: "/dashboard/engajamento/tarefas", label: "Tarefas Pastorais", icon: CheckSquare, permissionId: 'dashboard' },
         { href: "/dashboard/engajamento/jornada", label: "Jornada", icon: Footprints, permissionId: 'dashboard' },
         { href: "/dashboard/engajamento/automacoes", label: "Automações", icon: Zap, permissionId: 'dashboard' },
       ]
