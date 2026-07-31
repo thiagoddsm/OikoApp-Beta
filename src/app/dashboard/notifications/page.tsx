@@ -2026,14 +2026,18 @@ function NotificationsHistory() {
     const [isRetrying, setIsRetrying] = useState(false);
 
     const handleRetry = async () => {
-        if (!selectedErrorItem || !selectedErrorItem.retryPayload) return;
+        if (!selectedErrorItem) return;
         setIsRetrying(true);
         try {
             const isResume = selectedErrorItem.status === 'sending';
             const payload = {
                 channel: 'whatsapp',
-                ...selectedErrorItem.retryPayload,
-                ...(isResume ? { resumeBroadcastId: selectedErrorItem.id } : {
+                ...(selectedErrorItem.retryPayload || {}),
+                message: selectedErrorItem.retryPayload?.message || selectedErrorItem.message,
+                ...(isResume ? { 
+                    resumeBroadcastId: selectedErrorItem.id,
+                    audience: selectedErrorItem.targetLabel || selectedErrorItem.retryPayload?.audience || 'all_members'
+                } : {
                     audience: 'specific_members',
                     targets: selectedErrorItem.failedTargets || []
                 })
@@ -2054,14 +2058,25 @@ function NotificationsHistory() {
             });
             const result = await response.json();
             
-            if (response.ok && (result.sentCount > 0 || result.background)) {
-                toast({ title: isResume ? "Retomada Iniciada!" : "Reenvio Iniciado!", description: result.message || "Acompanhe o progresso no histórico." });
+            if (response.ok && (result.sentCount > 0 || result.background || result.success)) {
+                toast({ 
+                    title: isResume ? "▶️ Retomada Iniciada!" : "🔄 Reenvio Iniciado!", 
+                    description: result.message || "Acompanhe o progresso no histórico." 
+                });
                 setSelectedErrorItem(null);
             } else {
-                toast({ variant: 'destructive', title: "Falha na Operação", description: result.error || "Erro ao conectar com servidor." });
+                toast({ 
+                    variant: 'destructive', 
+                    title: "Falha na Operação", 
+                    description: result.error || result.message || "Erro ao conectar com servidor." 
+                });
             }
         } catch (error) {
-            toast({ variant: 'destructive', title: "Erro de conexão", description: "Não foi possível comunicar com o servidor." });
+            toast({ 
+                variant: 'destructive', 
+                title: "Erro de conexão", 
+                description: "Não foi possível comunicar com o servidor." 
+            });
         } finally {
             setIsRetrying(false);
         }

@@ -76,24 +76,41 @@ export async function POST(request: NextRequest) {
     // 2. Montar a lista de destinatários
     const targetUsers: any[] = [];
     const targetGroups: string[] = []; // IDs de grupos do WhatsApp
+    
+    let broadcastId: string | null = body.resumeBroadcastId || null;
+    let existingBroadcastData: any = null;
 
-    if (targetNumber || audience === 'individual') {
-        const phone = (targetNumber || body.individualPhone || '').replace(/\D/g, '');
+    if (broadcastId) {
+        try {
+            const existingSnap = await db.collection("notifications_history").doc(broadcastId).get();
+            if (existingSnap.exists) {
+                existingBroadcastData = existingSnap.data();
+            }
+        } catch (e) {
+            console.error("Erro ao buscar histórico para resumeBroadcastId:", e);
+        }
+    }
+
+    const effectiveAudience = audience || body.audience || existingBroadcastData?.targetLabel || existingBroadcastData?.retryPayload?.audience;
+    const effectiveTargets = body.targets || existingBroadcastData?.retryPayload?.targets;
+    const effectiveUserIds = userIds || body.userIds || existingBroadcastData?.retryPayload?.userIds;
+    const effectiveMessage = message || existingBroadcastData?.message || existingBroadcastData?.retryPayload?.message || '';
+
+    if (targetNumber || effectiveAudience === 'individual') {
+        const phone = (targetNumber || body.individualPhone || existingBroadcastData?.retryPayload?.individualPhone || '').replace(/\D/g, '');
         if (phone) {
             targetUsers.push({ id: 'custom', name: 'Destinatário Teste', phone });
         }
-    } else if (audience === 'specific_groups' && body.groupIds && body.groupIds.length > 0) {
-        // Envio direto para grupos do WhatsApp (ID do grupo, ex: 12345@g.us)
-        body.groupIds.forEach((groupId: string) => targetGroups.push(groupId));
-    } else if (body.targets && Array.isArray(body.targets)) {
-        // NOVO: Alvos enviados diretamente pelo frontend (evita consulta ao Firestore se houver erro de credenciais)
-        body.targets.forEach((t: any) => {
+    } else if (effectiveAudience === 'specific_groups' && (body.groupIds || existingBroadcastData?.retryPayload?.groupIds)) {
+        const gIds = body.groupIds || existingBroadcastData?.retryPayload?.groupIds || [];
+        gIds.forEach((groupId: string) => targetGroups.push(groupId));
+    } else if (effectiveTargets && Array.isArray(effectiveTargets) && effectiveTargets.length > 0) {
+        effectiveTargets.forEach((t: any) => {
             if (t.phone) targetUsers.push({ id: t.id || 'direct', name: t.name || 'Membro', phone: t.phone });
         });
-    } else if (audience === 'specific_members' && userIds && userIds.length > 0) {
-        // Buscar usuários específicos por ID (Fallback se o admin estiver funcionando)
+    } else if (effectiveAudience === 'specific_members' && effectiveUserIds && effectiveUserIds.length > 0) {
         try {
-            const userPromises = userIds.map((id: string) => db.collection('users').doc(id).get());
+            const userPromises = effectiveUserIds.map((id: string) => db.collection('users').doc(id).get());
             const userSnaps = await Promise.all(userPromises);
             
             userSnaps.forEach(snap => {
@@ -109,7 +126,7 @@ export async function POST(request: NextRequest) {
                 error: `Erro ao acessar Firestore: ${e.message}. Tente selecionar os membros novamente ou verifique as credenciais do servidor.` 
             }, { status: 500 });
         }
-    } else if (audience === 'all_members') {
+    } else if (effectiveAudience === 'all_members' || effectiveAudience === 'membro' || effectiveAudience === 'custom' || !effectiveAudience) {
          try {
             const usersSnap = await db.collection('users').get();
             usersSnap.forEach(d => {
@@ -127,7 +144,33 @@ export async function POST(request: NextRequest) {
         return cleaned.length > 0 && !blacklistedNumbers.has(cleaned);
     });
 
-    if (filteredTargetUsers.length === 0 && targetGroups.length === 0) {
+    const alreadySentSet = new Set<string>();
+    let initialSentCount = 0;
+
+    if (existingBroadcastData) {
+        initialSentCount = Number(existingBroadcastData.successCount || 0);
+        const sentList = existingBroadcastData.sentTargets || [];
+        sentList.forEach((t: any) => {
+            if (t.phone) alreadySentSet.add(String(t.phone).replace(/\D/g, ''));
+        });
+    }
+
+    const pendingTargetUsers = broadcastId
+        ? filteredTargetUsers.filter(user => {
+            const cleaned = String(user.phone || '').replace(/\D/g, '');
+            return !alreadySentSet.has(cleaned);
+        })
+        : filteredTargetUsers;
+
+    if (pendingTargetUsers.length === 0 && targetGroups.length === 0) {
+        if (broadcastId) {
+            await db.collection("notifications_history").doc(broadcastId).update({
+                status: 'success',
+                progress: 100,
+                completedAt: Timestamp.now()
+            }).catch(() => {});
+            return NextResponse.json({ success: true, message: "Todos os destinatários deste disparo já receberam a mensagem." });
+        }
         return NextResponse.json({ success: false, message: "Nenhum destinatário válido encontrado (ou todos estão descadastrados)." });
     }
 
@@ -136,12 +179,18 @@ export async function POST(request: NextRequest) {
         new Promise(resolve => setTimeout(resolve, minMs + Math.random() * (maxMs - minMs)));
 
     // 4. Registrar broadcast no Firestore ANTES de começar a enviar
-    const summary = message || (rest.surveyName ? `[Enquete] ${rest.surveyName}` : rest.type === 'media' ? '[Mídia]' : '[Mensagem]');
-    const totalRecipients = filteredTargetUsers.length + targetGroups.length;
+    const summary = effectiveMessage || (rest.surveyName ? `[Enquete] ${rest.surveyName}` : rest.type === 'media' ? '[Mídia]' : '[Mensagem]');
+    const totalRecipients = existingBroadcastData?.recipientCount || (filteredTargetUsers.length + targetGroups.length);
 
-    let broadcastId: string | null = body.resumeBroadcastId || null;
-    let initialSentCount = 0;
-    let alreadySentSet = new Set<string>();
+    const fullRetryPayload = {
+        channel: 'whatsapp',
+        audience: effectiveAudience || 'custom',
+        message: effectiveMessage,
+        userIds: userIds || body.userIds || existingBroadcastData?.retryPayload?.userIds || null,
+        targets: filteredTargetUsers.length > 0 ? filteredTargetUsers : null,
+        groupIds: targetGroups.length > 0 ? targetGroups : null,
+        ...rest
+    };
 
     if (!broadcastId) {
         try {
@@ -156,8 +205,8 @@ export async function POST(request: NextRequest) {
                 status: 'sending',
                 progress: 0,
                 type: rest.type || 'text',
-                targetLabel: rest.audience || audience || 'custom',
-                retryPayload: { message, ...rest },
+                targetLabel: effectiveAudience || 'custom',
+                retryPayload: fullRetryPayload,
                 sentTargets: [],
             });
             broadcastId = historyRef.id;
@@ -166,16 +215,14 @@ export async function POST(request: NextRequest) {
         }
     } else {
         try {
-            const existingSnap = await db.collection("notifications_history").doc(broadcastId).get();
-            if (existingSnap.exists) {
-                const existingData = existingSnap.data();
-                initialSentCount = Number(existingData?.successCount || 0);
-                const sentList = existingData?.sentTargets || [];
-                sentList.forEach((t: any) => {
-                    if (t.phone) alreadySentSet.add(String(t.phone).replace(/\D/g, ''));
-                });
-            }
-        } catch (e) {}
+            await db.collection("notifications_history").doc(broadcastId).update({
+                status: 'sending',
+                updatedAt: Timestamp.now(),
+                retryPayload: fullRetryPayload
+            });
+        } catch (e) {
+            console.warn("Falha ao atualizar histórico de notificação:", e);
+        }
     }
 
     // 5. RATE-LIMITED BACKGROUND PROCESSING
@@ -184,10 +231,10 @@ export async function POST(request: NextRequest) {
         const whatsapp = await getWhatsAppClient({ server: safeServerUrl, key: apiKey });
 
         let sentCount = initialSentCount;
-        let errorCount = 0;
-        const errors: string[] = [];
-        const failedTargets: any[] = [];
-        const sentTargets: any[] = [];
+        let errorCount = Number(existingBroadcastData?.errorCount || 0);
+        const errors: string[] = [...(existingBroadcastData?.errors || [])];
+        const failedTargets: any[] = [...(existingBroadcastData?.failedTargets || [])];
+        const sentTargets: any[] = [...(existingBroadcastData?.sentTargets || [])];
         const sentMessages: { messageId: string, recipient: string, name?: string }[] = [];
         let messageIndex = initialSentCount;
 
@@ -285,7 +332,7 @@ export async function POST(request: NextRequest) {
         };
 
         // ===== ENVIAR PARA USUÁRIOS COM RATE LIMITING =====
-        for (const user of filteredTargetUsers) {
+        for (const user of pendingTargetUsers) {
             const userPhoneClean = String(user.phone || '').replace(/\D/g, '');
             if (alreadySentSet.has(userPhoneClean)) {
                 continue; // Pula os que já receberam neste mesmo disparo
@@ -298,14 +345,14 @@ export async function POST(request: NextRequest) {
             let userClassName = '';
             let userMissedLessonsText = 'Nenhuma falta';
             
-            if (message && (message.includes('{{turma}}') || message.includes('{turma}') || message.includes('{{faltas}}') || message.includes('{faltas}'))) {
+            if (effectiveMessage && (effectiveMessage.includes('{{turma}}') || effectiveMessage.includes('{turma}') || effectiveMessage.includes('{{faltas}}') || effectiveMessage.includes('{faltas}'))) {
                 try {
                     const classesSnap = await db.collection('classes').where('students', 'array-contains', user.id).get();
                     if (!classesSnap.empty) {
                         const userClass = classesSnap.docs[0].data();
                         userClassName = userClass.name || '';
                         
-                        if (message.includes('{{faltas}}') || message.includes('{faltas}')) {
+                        if (effectiveMessage.includes('{{faltas}}') || effectiveMessage.includes('{faltas}')) {
                             const attendance = userClass.attendance || [];
                             let lessonCounter = 0;
                             const missedLessons: string[] = [];
@@ -329,7 +376,7 @@ export async function POST(request: NextRequest) {
                 }
             }
 
-            const messageWithVariables = (message || '')
+            const messageWithVariables = (effectiveMessage || '')
                 .replace(/\{\{nome\}\}/gi, firstName)
                 .replace(/\{nome\}/gi, firstName)
                 .replace(/\{\{turma\}\}/gi, userClassName)
