@@ -291,6 +291,10 @@ export async function POST(request: NextRequest) {
             return messageBody;
         };
 
+        let consecutiveFailures = 0;
+        let circuitBroken = false;
+        let circuitBreakReason = '';
+
         // Helper: enviar uma mensagem e registrar resultado
         const sendOne = async (to: string, name: string, personalizedBody: string, originalTarget: any) => {
             try {
@@ -309,20 +313,59 @@ export async function POST(request: NextRequest) {
                 });
 
                 const isSuccess = response.status === 'success' || response.status === 200 || response.key || response.id || response.messageId || response.data?.id;
+                const errStr = JSON.stringify(response || {}).toLowerCase();
+
+                if (errStr.includes('not_connected') || errStr.includes('instância não conectada') || errStr.includes('unauthorized') || response.status === 401) {
+                    circuitBroken = true;
+                    circuitBreakReason = 'Instância do WhatsApp desconectada. Reconecte o WhatsApp no painel.';
+                    errorCount++;
+                    errors.push(`Interrompido para ${name}: Instância desconectada.`);
+                    failedTargets.push(originalTarget);
+                    return false;
+                }
+
+                if (errStr.includes('restricted') || errStr.includes('banned') || errStr.includes('bloqueado')) {
+                    circuitBroken = true;
+                    circuitBreakReason = 'Conta com restrição temporária do WhatsApp.';
+                    errorCount++;
+                    errors.push(`Interrompido para ${name}: Restrição na conta.`);
+                    failedTargets.push(originalTarget);
+                    return false;
+                }
+
                 if (isSuccess) {
+                    consecutiveFailures = 0;
                     sentCount++;
                     sentTargets.push({ id: originalTarget.id || 'direct', name, phone: originalTarget.phone || to });
                     const mId = response.messageId || response.id || response.key?.id || response.data?.id || (response.data && response.data[0]?.id);
                     if (mId) sentMessages.push({ messageId: mId, recipient: to, name });
+                    return true;
                 } else {
+                    consecutiveFailures++;
                     errorCount++;
                     errors.push(`Falha para ${name}: ${JSON.stringify(response)}`);
                     failedTargets.push(originalTarget);
+                    if (consecutiveFailures >= 5) {
+                        circuitBroken = true;
+                        circuitBreakReason = 'Múltiplas falhas consecutivas (5x). Envio pausado por segurança.';
+                    }
+                    return false;
                 }
             } catch (e: any) {
+                consecutiveFailures++;
                 errorCount++;
                 errors.push(`Erro para ${name}: ${e.message}`);
                 failedTargets.push(originalTarget);
+
+                const eLower = (e.message || '').toLowerCase();
+                if (eLower.includes('not_connected') || eLower.includes('unauthorized') || eLower.includes('401')) {
+                    circuitBroken = true;
+                    circuitBreakReason = 'Instância do WhatsApp desconectada.';
+                } else if (consecutiveFailures >= 5) {
+                    circuitBroken = true;
+                    circuitBreakReason = 'Múltiplas falhas consecutivas de conexão (5x). Envio pausado por segurança.';
+                }
+                return false;
             }
         };
 
@@ -334,14 +377,20 @@ export async function POST(request: NextRequest) {
                     successCount: sentCount,
                     errorCount: errorCount,
                     progress: Math.min(100, Math.round(((sentCount + errorCount) / totalRecipients) * 100)),
-                    status: 'sending',
+                    status: circuitBroken ? 'failed' : 'sending',
                     sentTargets: sentTargets,
+                    ...(circuitBreakReason ? { circuitBreakReason } : {})
                 });
             } catch {}
         };
 
         // ===== ENVIAR PARA USUÁRIOS COM RATE LIMITING =====
         for (const user of pendingTargetUsers) {
+            if (circuitBroken) {
+                console.warn(`[Circuit Breaker] Disparo interrompido: ${circuitBreakReason}`);
+                break;
+            }
+
             const userPhoneClean = String(user.phone || '').replace(/\D/g, '');
             if (alreadySentSet.has(userPhoneClean)) {
                 continue; // Pula os que já receberam neste mesmo disparo
@@ -398,6 +447,11 @@ export async function POST(request: NextRequest) {
             await sendOne(formattedPhone, user.name, personalizedBody, user);
             messageIndex++;
 
+            if (circuitBroken) {
+                console.warn(`[Circuit Breaker] Interrompendo loop por segurança: ${circuitBreakReason}`);
+                break;
+            }
+
             if (messageIndex > 0) {
                 if (deepSleepFrequency > 0 && messageIndex % deepSleepFrequency === 0) {
                     await updateProgress();
@@ -415,8 +469,12 @@ export async function POST(request: NextRequest) {
 
         // ===== ENVIAR PARA GRUPOS COM RATE LIMITING =====
         for (const groupId of targetGroups) {
+            if (circuitBroken) break;
+
             await sendOne(groupId, `Grupo ${groupId.split('@')[0]}`, parseSpintax(message || ''), groupId);
             messageIndex++;
+
+            if (circuitBroken) break;
 
             if (messageIndex > 0) {
                 if (deepSleepFrequency > 0 && messageIndex % deepSleepFrequency === 0) {
@@ -436,14 +494,19 @@ export async function POST(request: NextRequest) {
         // ===== FINALIZAR: atualizar status final =====
         if (broadcastId) {
             try {
+                const finalStatus = circuitBroken 
+                    ? 'failed' 
+                    : (errorCount > 0 ? (sentCount > 0 ? 'partial' : 'failed') : 'success');
+
                 await db.collection('notifications_history').doc(broadcastId).update({
                     successCount: sentCount,
                     errorCount: errorCount,
-                    progress: 100,
-                    status: errorCount > 0 ? (sentCount > 0 ? 'partial' : 'failed') : 'success',
+                    progress: Math.min(100, Math.round(((sentCount + errorCount) / totalRecipients) * 100)),
+                    status: finalStatus,
                     completedAt: Timestamp.now(),
                     errors: errors,
                     failedTargets: failedTargets,
+                    ...(circuitBreakReason ? { circuitBreakReason } : {})
                 });
             } catch (e) {
                 console.error("Erro ao atualizar status final:", e);
