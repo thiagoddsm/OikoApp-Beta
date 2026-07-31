@@ -139,39 +139,57 @@ export async function POST(request: NextRequest) {
     const summary = message || (rest.surveyName ? `[Enquete] ${rest.surveyName}` : rest.type === 'media' ? '[Mídia]' : '[Mensagem]');
     const totalRecipients = filteredTargetUsers.length + targetGroups.length;
 
-    let broadcastId: string | null = null;
-    try {
-        const historyRef = await db.collection("notifications_history").add({
-            sentAt: Timestamp.now(),
-            channel: 'whatsapp',
-            message: summary,
-            surveyName: rest.surveyName || null,
-            recipientCount: totalRecipients,
-            successCount: 0,
-            errorCount: 0,
-            status: 'sending', // Novo status: em andamento
-            progress: 0,
-            type: rest.type || 'text',
-            targetLabel: rest.audience || audience || 'custom',
-            retryPayload: { message, ...rest }, // Payload original para tentar novamente
-        });
-        broadcastId = historyRef.id;
-    } catch (e) {
-        console.warn("Falha ao registrar histórico de notificação:", e);
+    let broadcastId: string | null = body.resumeBroadcastId || null;
+    let initialSentCount = 0;
+    let alreadySentSet = new Set<string>();
+
+    if (!broadcastId) {
+        try {
+            const historyRef = await db.collection("notifications_history").add({
+                sentAt: Timestamp.now(),
+                channel: 'whatsapp',
+                message: summary,
+                surveyName: rest.surveyName || null,
+                recipientCount: totalRecipients,
+                successCount: 0,
+                errorCount: 0,
+                status: 'sending',
+                progress: 0,
+                type: rest.type || 'text',
+                targetLabel: rest.audience || audience || 'custom',
+                retryPayload: { message, ...rest },
+                sentTargets: [],
+            });
+            broadcastId = historyRef.id;
+        } catch (e) {
+            console.warn("Falha ao registrar histórico de notificação:", e);
+        }
+    } else {
+        try {
+            const existingSnap = await db.collection("notifications_history").doc(broadcastId).get();
+            if (existingSnap.exists) {
+                const existingData = existingSnap.data();
+                initialSentCount = Number(existingData?.successCount || 0);
+                const sentList = existingData?.sentTargets || [];
+                sentList.forEach((t: any) => {
+                    if (t.phone) alreadySentSet.add(String(t.phone).replace(/\D/g, ''));
+                });
+            }
+        } catch (e) {}
     }
 
     // 5. RATE-LIMITED BACKGROUND PROCESSING
-    // Retorna imediatamente para o navegador. Processamento continua no servidor.
     const processInBackground = async () => {
         const { getWhatsAppClient, formatWhatsAppNumber } = await import('@/lib/whatsapp');
         const whatsapp = await getWhatsAppClient({ server: safeServerUrl, key: apiKey });
 
-        let sentCount = 0;
+        let sentCount = initialSentCount;
         let errorCount = 0;
         const errors: string[] = [];
         const failedTargets: any[] = [];
+        const sentTargets: any[] = [];
         const sentMessages: { messageId: string, recipient: string, name?: string }[] = [];
-        let messageIndex = 0;
+        let messageIndex = initialSentCount;
 
         // Helper: processar texto com Spintax
         const parseSpintax = (text: string): string => {
@@ -219,16 +237,13 @@ export async function POST(request: NextRequest) {
 
         // Helper: enviar uma mensagem e registrar resultado
         const sendOne = async (to: string, name: string, personalizedBody: string, originalTarget: any) => {
-            // 1. Simular digitação (Chat State)
             try {
                 await whatsapp.sendMessage({
-                    type: 'text' as any, // fallback se a tipagem estrita não tiver presence
+                    type: 'text' as any,
                     body: { to, status: 'composing' } as any
                 });
-                await delay(2000, 5000); // 2 a 5 segundos de "digitação"
-            } catch (e) {
-                // Ignorar erro de presença para não quebrar o envio principal
-            }
+                await delay(2000, 5000);
+            } catch (e) {}
 
             const messageBody = buildMessageBody(to, personalizedBody);
             try {
@@ -240,6 +255,7 @@ export async function POST(request: NextRequest) {
                 const isSuccess = response.status === 'success' || response.status === 200 || response.key || response.id || response.messageId || response.data?.id;
                 if (isSuccess) {
                     sentCount++;
+                    sentTargets.push({ id: originalTarget.id || 'direct', name, phone: originalTarget.phone || to });
                     const mId = response.messageId || response.id || response.key?.id || response.data?.id || (response.data && response.data[0]?.id);
                     if (mId) sentMessages.push({ messageId: mId, recipient: to, name });
                 } else {
@@ -261,14 +277,20 @@ export async function POST(request: NextRequest) {
                 await db.collection('notifications_history').doc(broadcastId).update({
                     successCount: sentCount,
                     errorCount: errorCount,
-                    progress: Math.round(((sentCount + errorCount) / totalRecipients) * 100),
+                    progress: Math.min(100, Math.round(((sentCount + errorCount) / totalRecipients) * 100)),
                     status: 'sending',
+                    sentTargets: sentTargets,
                 });
             } catch {}
         };
 
         // ===== ENVIAR PARA USUÁRIOS COM RATE LIMITING =====
         for (const user of filteredTargetUsers) {
+            const userPhoneClean = String(user.phone || '').replace(/\D/g, '');
+            if (alreadySentSet.has(userPhoneClean)) {
+                continue; // Pula os que já receberam neste mesmo disparo
+            }
+
             const firstName = user.name 
                 ? (user.name.trim().split(' ')[0].charAt(0).toUpperCase() + user.name.trim().split(' ')[0].slice(1).toLowerCase())
                 : 'Membro';

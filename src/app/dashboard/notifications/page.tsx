@@ -2073,12 +2073,12 @@ function NotificationsHistory() {
                         <TableRow><TableCell colSpan={4} className="h-32 text-center text-muted-foreground italic text-xs">Nenhum disparo registrado.</TableCell></TableRow>
                     ) : (
                         history?.map((item: any) => {
-                            const isError = item.status === 'partial' || item.status === 'failed';
+                            const isActionable = item.status === 'partial' || item.status === 'failed' || item.status === 'sending';
                             return (
                             <TableRow 
                                 key={item.id} 
-                                className={cn(isError && "cursor-pointer hover:bg-red-50/50 transition-colors")}
-                                onClick={() => isError && setSelectedErrorItem(item)}
+                                className={cn(isActionable && "cursor-pointer hover:bg-slate-100/80 transition-colors")}
+                                onClick={() => isActionable && setSelectedErrorItem(item)}
                             >
                                 <TableCell className="text-[10px] font-bold">
                                     {item.sentAt ? format(item.sentAt.toDate(), 'dd/MM HH:mm') : '-'}
@@ -2134,6 +2134,22 @@ function NotificationsHistory() {
                                         ))}
                                     </ul>
                                 </ScrollArea>
+                            </div>
+                        )}
+
+                        {selectedErrorItem?.status === 'sending' && (
+                            <div className="space-y-3 pt-2">
+                                <Button 
+                                    onClick={handleRetry} 
+                                    disabled={isRetrying} 
+                                    className="w-full font-bold h-12 bg-primary hover:bg-primary/90 text-white shadow-md"
+                                >
+                                    {isRetrying ? <Loader2 className="animate-spin mr-2 size-4" /> : <Send className="mr-2 size-4" />}
+                                    Retomar Envio Pendente ({selectedErrorItem.successCount} / {selectedErrorItem.recipientCount} enviados)
+                                </Button>
+                                <p className="text-[11px] text-slate-500 text-center leading-relaxed">
+                                    O envio foi pausado devido ao desligamento ou reinício do servidor. Ao clicar em retomar, o servidor continuará a fila de onde parou.
+                                </p>
                             </div>
                         )}
 
