@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { 
   Loader2, Search, Filter, RefreshCw, Users, Waves, 
   GraduationCap, HandHelping, MessageSquare, Sparkles, CheckCircle2, 
-  ArrowRight, UserCheck, Calendar, ExternalLink
+  ArrowRight, UserCheck, Calendar, ExternalLink, FileText, ChevronDown, ChevronUp 
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useMembersData } from '@/hooks/useDomainData';
@@ -38,6 +38,7 @@ export default function GestaoProcessosPage() {
   const [selectedType, setSelectedType] = useState<ProcessType>('TODOS');
   const [statusFilter, setStatusFilter] = useState<'ACTIVE' | 'COMPLETED' | 'ALL'>('ACTIVE');
   const [searchTerm, setSearchTerm] = useState('');
+  const [expandedProcId, setExpandedProcId] = useState<string | null>(null);
 
   // Busca todos os processos da subcoleção "processos" no Firestore
   const processesQuery = useMemoFirebase(() => {
@@ -103,6 +104,10 @@ export default function GestaoProcessosPage() {
         description: e.message || "Não foi possível atualizar o processo.",
       });
     }
+  };
+
+  const toggleExpand = (procId: string) => {
+    setExpandedProcId(prev => prev === procId ? null : procId);
   };
 
   if (isLoading) {
@@ -198,6 +203,9 @@ export default function GestaoProcessosPage() {
             const personPhone = person?.phone || 'Sem contato';
             const typeConfig = PROCESS_TYPE_LABELS[proc.processType as ProcessType] || PROCESS_TYPE_LABELS.GERAL;
             const Icon = typeConfig.icon;
+            const isExpanded = expandedProcId === proc.id;
+            const details = proc.details || {};
+            const hasDetails = Object.keys(details).length > 0;
 
             return (
               <Card key={proc.id} className="border border-slate-200 rounded-2xl shadow-sm bg-white hover:shadow-md transition-all flex flex-col justify-between">
@@ -236,6 +244,51 @@ export default function GestaoProcessosPage() {
                       <span className="text-slate-500 font-medium">Etapa Atual:</span>
                       <span className="font-black text-slate-900 uppercase tracking-tight">{proc.currentStage}</span>
                     </div>
+
+                    {/* Botão para Ver Observações e Respostas */}
+                    <Button 
+                      type="button"
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => toggleExpand(proc.id)}
+                      className="w-full text-xs font-bold text-slate-600 hover:text-slate-900 justify-between h-8 px-2 bg-slate-50/50 rounded-lg border border-slate-100"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <FileText className="size-3.5 text-slate-400" />
+                        Ver Observações e Respostas
+                      </span>
+                      {isExpanded ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+                    </Button>
+
+                    {/* Painel Expansível */}
+                    {isExpanded && (
+                      <div className="p-3 bg-amber-50/60 rounded-xl border border-amber-200/60 text-xs space-y-2 animate-in fade-in duration-200">
+                        <p className="font-bold text-amber-900 uppercase text-[10px] border-b border-amber-200 pb-1">
+                          Respostas Enviadas pela Pessoa:
+                        </p>
+
+                        {details.observacoes && (
+                          <div>
+                            <span className="font-bold text-amber-800">Mensagem / Observação:</span>
+                            <p className="text-slate-700 mt-0.5 whitespace-pre-wrap">{details.observacoes}</p>
+                          </div>
+                        )}
+
+                        {details.comoConheceu && (
+                          <div>
+                            <span className="font-bold text-amber-800">Como conheceu:</span>
+                            <p className="text-slate-700">{details.comoConheceu}</p>
+                          </div>
+                        )}
+
+                        {!hasDetails && !details.observacoes && (
+                          <p className="text-amber-800 italic">
+                            Solicitação iniciada pelo Portal de Conexão. Sem mensagens adicionais gravadas.
+                          </p>
+                        )}
+                      </div>
+                    )}
+
                   </CardContent>
                 </div>
 

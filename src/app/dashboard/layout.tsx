@@ -106,6 +106,7 @@ const menuItems = [
       subItems: [
         { href: "/dashboard/engajamento/processos", label: "Processos Ativos", icon: RefreshCw, permissionId: 'dashboard' },
         { href: "/dashboard/engajamento/tarefas", label: "Tarefas Pastorais", icon: CheckSquare, permissionId: 'dashboard' },
+        { href: "/dashboard/events", label: "Inscrições de Eventos", icon: CalendarDays, permissionId: 'dashboard' },
         { href: "/dashboard/engajamento/jornada", label: "Jornada", icon: Footprints, permissionId: 'dashboard' },
         { href: "/dashboard/engajamento/automacoes", label: "Automações", icon: Zap, permissionId: 'dashboard' },
       ]

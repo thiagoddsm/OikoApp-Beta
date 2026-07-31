@@ -107,6 +107,26 @@ export default function TarefasPastoraisPage() {
     }
   };
 
+  const formatTaskDescription = (desc: string) => {
+    if (!desc) return '';
+    try {
+      const jsonMatch = desc.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        let cleanedText = desc.replace(jsonMatch[0], '').trim();
+        const parts: string[] = [];
+        if (cleanedText) parts.push(cleanedText);
+        if (parsed.observacoes) parts.push(`Observação: "${parsed.observacoes}"`);
+        if (parsed.comoConheceu) parts.push(`Como conheceu: ${parsed.comoConheceu}`);
+        if (parsed.atendimentoDesejado) parts.push(`Tipo de Atendimento: ${parsed.atendimentoDesejado}`);
+        return parts.join('\n');
+      }
+    } catch (e) {
+      // Ignora erro de sintaxe e mantém texto original
+    }
+    return desc;
+  };
+
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6">
       
@@ -217,7 +237,7 @@ export default function TarefasPastoraisPage() {
                 <CardContent className="p-5 pt-0 space-y-4 flex-1 flex flex-col justify-between">
                   <div className="space-y-2">
                     <p className="text-xs text-slate-600 font-medium whitespace-pre-wrap line-clamp-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                      {task.description}
+                      {formatTaskDescription(task.description)}
                     </p>
 
                     {task.createdAt && (
