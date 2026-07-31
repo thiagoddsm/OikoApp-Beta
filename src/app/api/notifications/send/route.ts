@@ -434,7 +434,13 @@ export async function POST(request: NextRequest) {
                 }
             }
 
-            const messageWithVariables = (effectiveMessage || '')
+            const versionsList: string[] = (rest.versions && Array.isArray(rest.versions) && rest.versions.length > 0)
+                ? rest.versions
+                : [effectiveMessage || ''];
+
+            const chosenMessage = versionsList[Math.floor(Math.random() * versionsList.length)];
+
+            const messageWithVariables = (chosenMessage || '')
                 .replace(/\{\{nome\}\}/gi, firstName)
                 .replace(/\{nome\}/gi, firstName)
                 .replace(/\{\{turma\}\}/gi, userClassName)

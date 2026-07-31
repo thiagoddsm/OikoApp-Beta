@@ -28,6 +28,12 @@ import { collection, query, orderBy, Timestamp, doc, where, limit, updateDoc } f
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { CampaignHealthService } from '@/domain/campaign-health/services/campaign-health-service';
+import { AccountHealthHeader } from '@/components/notifications/account-health-header';
+import { MessageVersionsEditor } from '@/components/notifications/message-versions-editor';
+import { CampaignSimulatorCard } from '@/components/notifications/campaign-simulator-card';
+import { CampaignMessageVersion } from '@/domain/campaign-health/entities/campaign';
+import { PolicyMode } from '@/domain/campaign-health/policies/campaign-policy';
 
 function useContactEnrichment(chats: any[]) {
     const { firestore } = useFirebase();
@@ -303,6 +309,31 @@ function WhatsappSender({ config }: { config: any }) {
     const [individualPhone, setIndividualPhone] = useState('');
     const [spreadsheetData, setSpreadsheetData] = useState('');
     const [importedContacts, setImportedContacts] = useState<{name: string, phone: string}[]>([]);
+    const [policyMode, setPolicyMode] = useState<PolicyMode>('conservative');
+    const [versions, setVersions] = useState<CampaignMessageVersion[]>([
+        { id: 'ver-a', label: 'Versão A (Original)', text: '', approved: true }
+    ]);
+    const [delayMin, setDelayMin] = useState(25);
+    const [delayMax, setDelayMax] = useState(45);
+    const [microPauseFrequency, setMicroPauseFrequency] = useState(10);
+    const [microPauseMin, setMicroPauseMin] = useState(30);
+    const [microPauseMax, setMicroPauseMax] = useState(60);
+    const [deepSleepFrequency, setDeepSleepFrequency] = useState(30);
+    const [deepSleepMin, setDeepSleepMin] = useState(180);
+    const [deepSleepMax, setDeepSleepMax] = useState(300);
+
+    useEffect(() => {
+        if (config) {
+            if (config.delayMin !== undefined) setDelayMin(Number(config.delayMin));
+            if (config.delayMax !== undefined) setDelayMax(Number(config.delayMax));
+            if (config.microPauseFrequency !== undefined) setMicroPauseFrequency(Number(config.microPauseFrequency));
+            if (config.microPauseMin !== undefined) setMicroPauseMin(Number(config.microPauseMin));
+            if (config.microPauseMax !== undefined) setMicroPauseMax(Number(config.microPauseMax));
+            if (config.deepSleepFrequency !== undefined) setDeepSleepFrequency(Number(config.deepSleepFrequency));
+            if (config.deepSleepMin !== undefined) setDeepSleepMin(Number(config.deepSleepMin));
+            if (config.deepSleepMax !== undefined) setDeepSleepMax(Number(config.deepSleepMax));
+        }
+    }, [config]);
     
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -697,6 +728,57 @@ function WhatsappSender({ config }: { config: any }) {
         };
     }, [targetAudience, individualPhone, users, selectedUsersList, importedContacts, selectedGroupIds, blacklistedSet, config, targetAudienceUsers]);
 
+    const accountHealth = useMemo(() => {
+        return CampaignHealthService.getAccountHealth({
+            restrictionsCount: 1,
+            daysSinceLastRestriction: 14,
+            deliveryRate: 96.5,
+            replyRate: 24.2
+        });
+    }, []);
+
+    const campaignAnalysis = useMemo(() => {
+        const recipients = targetAudienceUsers?.map((u: any) => ({
+            id: u.id || u.phone,
+            name: u.name || 'Membro',
+            phone: u.phone || '',
+            isNewChat: !u.lastMessageAt && !u.hasReplied
+        })) || [];
+
+        const activeVersions = versions.length > 0 && versions[0].text.trim()
+            ? versions
+            : [{ id: 'ver-a', label: 'Versão A (Original)', text: message || '', approved: true }];
+
+        return CampaignHealthService.analyzeCampaign({
+            title: 'Nova Campanha',
+            recipients,
+            versions: activeVersions,
+            hasLinks: (message || '').includes('http://') || (message || '').includes('https://'),
+            type: msgType as any,
+            channel: 'whatsapp',
+            requestedDelayMinSeconds: delayMin,
+            requestedDelayMaxSeconds: delayMax
+        }, accountHealth);
+    }, [targetAudienceUsers, versions, message, msgType, delayMin, delayMax, accountHealth]);
+
+    const handleApplyRecommendations = () => {
+        setDelayMin(campaignAnalysis.recommendedPolicy.delayMinSeconds);
+        setDelayMax(campaignAnalysis.recommendedPolicy.delayMaxSeconds);
+        setMicroPauseFrequency(campaignAnalysis.recommendedPolicy.microPauseFrequency);
+        setMicroPauseMin(campaignAnalysis.recommendedPolicy.microPauseMinSeconds);
+        setMicroPauseMax(campaignAnalysis.recommendedPolicy.microPauseMaxSeconds);
+        setDeepSleepFrequency(campaignAnalysis.recommendedPolicy.deepSleepFrequency);
+        setDeepSleepMin(campaignAnalysis.recommendedPolicy.deepSleepMinSeconds);
+        setDeepSleepMax(campaignAnalysis.recommendedPolicy.deepSleepMaxSeconds);
+
+        if (versions.length < 3 && message) {
+            CampaignHealthService.generateMessageVariations(message, 3).then(gen => {
+                setVersions(gen.map(g => ({ ...g, approved: true })));
+            });
+        }
+        toast({ title: "✨ Recomendações Aplicadas!", description: "Parâmetros de disparo otimizados com sucesso." });
+    };
+
     const handleAddUser = (userId: string) => {
         setSelectedUserIds(prev => [...prev, userId]);
         setSearchTerm('');
@@ -840,6 +922,16 @@ function WhatsappSender({ config }: { config: any }) {
 
     return (
         <div className="space-y-6 text-slate-900">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl border bg-slate-50 dark:bg-slate-900/60 shadow-xs">
+                <div>
+                    <h3 className="font-black text-sm uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
+                        <Megaphone className="size-4 text-primary" /> Central de Disparos Institucionais
+                    </h3>
+                    <p className="text-xs text-muted-foreground">Configure os parâmetros da campanha com a orientação do Assistente Inteligente.</p>
+                </div>
+                <AccountHealthHeader health={accountHealth} policyMode={policyMode} onPolicyModeChange={setPolicyMode} />
+            </div>
+
             <form onSubmit={handleSend} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
@@ -1443,46 +1535,25 @@ function WhatsappSender({ config }: { config: any }) {
                     </div>
                 )}
 
-                {estimation.targetCount > 0 && (
-                    <div className="p-4 rounded-xl border-2 border-primary/10 bg-primary/5 space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                        <div className="flex items-center gap-2 text-primary">
-                            <ShieldCheck className="size-5 shrink-0" />
-                            <h4 className="font-black text-xs uppercase tracking-wider">Estimativa de Envio Seguro (Anti-Ban)</h4>
-                        </div>
-                        <p className="text-xs text-muted-foreground leading-relaxed">
-                            Este disparo para <span className="font-bold text-foreground">{estimation.targetCount} destinatário(s)</span> levará aproximadamente{" "}
-                            <span className="font-bold text-primary">
-                                {estimation.hours > 0 ? `${estimation.hours}h ` : ""}
-                                {estimation.minutes > 0 ? `${estimation.minutes}min ` : ""}
-                                {estimation.hours === 0 && estimation.minutes === 0 ? `${estimation.seconds}s` : ""}
-                            </span>{" "}
-                            para ser concluído com segurança.
-                        </p>
-                        {estimation.blacklistedCount > 0 && (
-                            <div className="flex items-center gap-1.5 text-[10px] text-amber-600 font-bold bg-amber-50 border border-amber-200/50 px-2 py-1 rounded-md mt-1 w-fit">
-                                <Info size={12} className="shrink-0" />
-                                <span>{estimation.blacklistedCount} contato(s) da blacklist/opt-out serão ignorados.</span>
-                            </div>
-                        )}
-                    </div>
+                {/* Editor de Variações de Texto (Versão A, B, C...) */}
+                {msgType !== 'contact' && msgType !== 'media' && (
+                    <MessageVersionsEditor
+                        originalText={message}
+                        versions={versions}
+                        onChangeVersions={setVersions}
+                    />
                 )}
 
-                {estimation.targetCount === 0 && estimation.blacklistedCount > 0 && (
-                    <div className="p-4 rounded-xl border-2 border-red-200 bg-red-50 space-y-2 animate-in fade-in duration-300">
-                        <div className="flex items-center gap-2 text-red-700">
-                            <XCircle className="size-5 shrink-0" />
-                            <h4 className="font-black text-xs uppercase tracking-wider">Todos os Destinatários Blacklisted</h4>
-                        </div>
-                        <p className="text-xs text-red-600 font-medium">
-                            Todos os {estimation.blacklistedCount} contato(s) selecionados solicitaram a remoção (Opt-Out) e não receberão a mensagem.
-                        </p>
-                    </div>
-                )}
-
-                <Button type="submit" disabled={isLoading} className="w-full h-12 font-black shadow-xl">
-                    {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}
-                    Disparar WhatsApp
-                </Button>
+                {/* Card de Diagnóstico em Tempo Real e Simulador Inteligente (What-If) */}
+                <CampaignSimulatorCard
+                    analysis={campaignAnalysis}
+                    onApplyRecommendations={handleApplyRecommendations}
+                    onConfirmSend={() => {
+                        const fakeEvent = { preventDefault: () => {} } as any;
+                        handleSend(fakeEvent);
+                    }}
+                    isSending={isLoading}
+                />
             </form>
         </div>
     );

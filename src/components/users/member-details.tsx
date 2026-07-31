@@ -7,6 +7,7 @@ import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 import { getCaminhadaInicioLabel, getProximoPassoLabel } from './journey-status-config';
+import { ProximosPassosChecklist } from './proximos-passos-checklist';
 
 interface DetailItemProps {
   icon: React.ComponentType<any>;
@@ -100,14 +101,16 @@ export function MemberDetails({ user }: MemberDetailsProps) {
                     {user.statusArrolamento && (
                         <DetailItem icon={Church} label="Status de Arrolamento" value={user.statusArrolamento} />
                     )}
-                    <DetailItem 
-                        icon={Target} 
-                        label="Desejos de Conexão / Próximos Passos" 
-                        value={
-                            Array.isArray(user.proximosPassos) && user.proximosPassos.length > 0
-                                ? user.proximosPassos.map(getProximoPassoLabel)
-                                : (Array.isArray(user.decisao) && user.decisao.length > 0 ? user.decisao.map(getProximoPassoLabel) : null)
-                        } 
+                </div>
+
+                <div className="mt-6 pt-4 border-t border-dashed">
+                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block mb-2">
+                        Desejos de Conexão / Próximos Passos (Clique para Concluir)
+                    </span>
+                    <ProximosPassosChecklist
+                        userId={user.id}
+                        proximosPassos={user.proximosPassos || user.decisao}
+                        proximosPassosConcluidos={user.proximosPassosConcluidos}
                     />
                 </div>
             </section>

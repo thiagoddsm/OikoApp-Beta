@@ -95,6 +95,7 @@ const menuItems = [
       subItems: [
         { href: "/dashboard/people/journey", label: "Integração", icon: Footprints, permissionId: 'pessoas_journey' },
         { href: "/dashboard/people/list", label: "Lista de Pessoas", icon: Users2, permissionId: 'pessoas_list' },
+        { href: "/dashboard/people/reports", label: "Relatórios", icon: BarChart2, permissionId: 'pessoas_list' },
         { href: "/dashboard/people/settings", label: "Configurações", icon: Settings, permissionId: 'pessoas_settings' },
       ]
     },
