@@ -2031,6 +2031,7 @@ function NotificationsHistory() {
         try {
             const isResume = selectedErrorItem.status === 'sending';
             const payload = {
+                channel: 'whatsapp',
                 ...selectedErrorItem.retryPayload,
                 ...(isResume ? { resumeBroadcastId: selectedErrorItem.id } : {
                     audience: 'specific_members',
