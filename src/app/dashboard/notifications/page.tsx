@@ -2014,7 +2014,7 @@ function WhatsappResponses() {
 }
 
 function NotificationsHistory() {
-    const { firestore } = useFirebase();
+    const { firestore, user } = useFirebase();
     const { toast } = useToast();
     const historyQuery = useMemoFirebase(() => 
         firestore ? query(collection(firestore, 'notifications_history'), orderBy('sentAt', 'desc'), limit(50)) : null,
@@ -2026,27 +2026,38 @@ function NotificationsHistory() {
     const [isRetrying, setIsRetrying] = useState(false);
 
     const handleRetry = async () => {
-        if (!selectedErrorItem || !selectedErrorItem.retryPayload || !selectedErrorItem.failedTargets) return;
+        if (!selectedErrorItem || !selectedErrorItem.retryPayload) return;
         setIsRetrying(true);
         try {
+            const isResume = selectedErrorItem.status === 'sending';
             const payload = {
                 ...selectedErrorItem.retryPayload,
-                audience: 'specific_members', // Forçamos enviar apenas para os selecionados
-                targets: selectedErrorItem.failedTargets
+                ...(isResume ? { resumeBroadcastId: selectedErrorItem.id } : {
+                    audience: 'specific_members',
+                    targets: selectedErrorItem.failedTargets || []
+                })
             };
+
+            let idToken = '';
+            try {
+                if (user) idToken = await user.getIdToken();
+            } catch (e) {}
 
             const response = await fetch('/api/notifications/send', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+                },
                 body: JSON.stringify(payload),
             });
             const result = await response.json();
             
             if (response.ok && (result.sentCount > 0 || result.background)) {
-                toast({ title: "Reenvio Iniciado!", description: "Acompanhe no histórico um novo registro para esta tentativa." });
+                toast({ title: isResume ? "Retomada Iniciada!" : "Reenvio Iniciado!", description: result.message || "Acompanhe o progresso no histórico." });
                 setSelectedErrorItem(null);
             } else {
-                toast({ variant: 'destructive', title: "Falha no Reenvio", description: result.error || "Erro ao reenviar." });
+                toast({ variant: 'destructive', title: "Falha na Operação", description: result.error || "Erro ao conectar com servidor." });
             }
         } catch (error) {
             toast({ variant: 'destructive', title: "Erro de conexão", description: "Não foi possível comunicar com o servidor." });

@@ -9,10 +9,35 @@ export async function getPublicFormOptions() {
         const db = getAdminDb();
 
         const cellsSnap = await db.collection('cells').get();
-        const cells = cellsSnap.docs.map(doc => ({ id: doc.id, nome: doc.data().nome }));
+        const usersSnap = await db.collection('users').get();
+        
+        const usersMap = new Map<string, string>();
+        usersSnap.forEach(uDoc => {
+            usersMap.set(uDoc.id, uDoc.data().name || '');
+        });
+
+        const cells = cellsSnap.docs.map(doc => {
+            const data = doc.data();
+            let leaderName = data.leaderName || '';
+            if (!leaderName && data.leaderId) {
+                leaderName = usersMap.get(data.leaderId) || '';
+            }
+            if (!leaderName && Array.isArray(data.leaders) && data.leaders.length > 0) {
+                const firstLeaderId = typeof data.leaders[0] === 'string' ? data.leaders[0] : data.leaders[0]?.id;
+                if (firstLeaderId) leaderName = usersMap.get(firstLeaderId) || '';
+            }
+
+            return {
+                id: doc.id,
+                nome: data.nome || data.name || 'Célula sem nome',
+                leaderName: leaderName ? formatName(leaderName) : ''
+            };
+        }).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
 
         const areasSnap = await db.collection('areas_of_service').get();
-        const areas = areasSnap.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
+        const areas = areasSnap.docs
+            .map(doc => ({ id: doc.id, name: doc.data().name }))
+            .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
 
         return { cells, areas };
     } catch (e) {
@@ -43,6 +68,7 @@ export async function verifyEmailRegistered(email: string) {
                 cpf: userData.cpf || '',
                 dataNascimento: userData.dataNascimento || '',
                 estadoCivil: userData.estadoCivil || '',
+                dataCasamento: userData.dataCasamento || '',
                 sexo: userData.sexo || userData.gender || '',
                 escolaridade: userData.escolaridade || '',
                 profissao: userData.profissao || '',
@@ -50,6 +76,11 @@ export async function verifyEmailRegistered(email: string) {
                 addressStreet: userData.address?.street || '',
                 conjuge: userData.conjuge || '',
                 temFilhos: userData.temFilhos || 'nao',
+                filhosList: Array.isArray(userData.filhosList) ? userData.filhosList : (
+                    Array.isArray(userData.familyMembers)
+                        ? userData.familyMembers.filter((m: any) => m.relation === 'Filho(a)').map((m: any) => ({ name: m.name || '', dataNascimento: m.birthDate || m.dataNascimento || '' }))
+                        : []
+                ),
                 idadeFilhos: userData.idadeFilhos || '',
                 comoConheceu: userData.comoConheceu || '',
                 nomeConvidou: userData.nomeConvidou || '',
@@ -80,6 +111,7 @@ export async function savePublicRegistration(data: {
     cpf?: string;
     dataNascimento?: string;
     estadoCivil?: string;
+    dataCasamento?: string;
     sexo?: string;
     escolaridade?: string;
     profissao?: string;
@@ -87,6 +119,7 @@ export async function savePublicRegistration(data: {
     addressStreet?: string;
     conjuge?: string;
     temFilhos?: string;
+    filhosList?: { name: string; dataNascimento?: string }[];
     idadeFilhos?: string;
     comoConheceu?: string;
     nomeConvidou?: string;
@@ -117,6 +150,10 @@ export async function savePublicRegistration(data: {
             }
         }
 
+        const validFilhos = Array.isArray(data.filhosList) 
+            ? data.filhosList.filter(f => f.name.trim()).map(f => ({ name: formatName(f.name), dataNascimento: f.dataNascimento || '' }))
+            : [];
+
         const userData: any = {
             name: formatName(data.name),
             email: emailClean,
@@ -124,6 +161,7 @@ export async function savePublicRegistration(data: {
             cpf: data.cpf || '',
             dataNascimento: data.dataNascimento || '',
             estadoCivil: data.estadoCivil || '',
+            dataCasamento: data.estadoCivil === 'casado' ? (data.dataCasamento || '') : '',
             gender: cleanSexo,
             sexo: cleanSexo,
             escolaridade: data.escolaridade || '',
@@ -136,8 +174,9 @@ export async function savePublicRegistration(data: {
                 street: data.addressStreet || '',
                 cep: data.addressCep || ''
             },
-            conjuge: data.conjuge ? formatName(data.conjuge) : null,
+            conjuge: data.estadoCivil === 'casado' && data.conjuge ? formatName(data.conjuge) : null,
             temFilhos: data.temFilhos || 'nao',
+            filhosList: validFilhos,
             idadeFilhos: data.idadeFilhos || '',
             comoConheceu: data.comoConheceu || '',
             nomeConvidou: data.nomeConvidou ? formatName(data.nomeConvidou) : '',
@@ -162,8 +201,12 @@ export async function savePublicRegistration(data: {
             const oldDoc = await docRef.get();
             const oldData = oldDoc.exists ? oldDoc.data() || {} : {};
 
-            const updatedFamilyMembers = [...(oldData.familyMembers || [])];
-            if (data.conjuge) {
+            let updatedFamilyMembers = [...(oldData.familyMembers || [])];
+            // Remover filhos anteriores do familyMembers
+            updatedFamilyMembers = updatedFamilyMembers.filter((m: any) => m.relation !== 'Filho(a)');
+            
+            // Adicionar Cônjuge
+            if (data.estadoCivil === 'casado' && data.conjuge) {
                 const conjugeClean = formatName(data.conjuge);
                 const conjugeIndex = updatedFamilyMembers.findIndex((m: any) => m.relation === 'Cônjuge');
                 if (conjugeIndex > -1) {
@@ -182,6 +225,17 @@ export async function savePublicRegistration(data: {
                 if (conjugeIndex > -1) {
                     updatedFamilyMembers.splice(conjugeIndex, 1);
                 }
+            }
+
+            // Adicionar filhos atualizados
+            if (data.temFilhos === 'sim') {
+                validFilhos.forEach(f => {
+                    updatedFamilyMembers.push({
+                        name: f.name,
+                        relation: 'Filho(a)',
+                        birthDate: f.dataNascimento || null
+                    });
+                });
             }
             
             const mergedData = {
@@ -213,10 +267,16 @@ export async function savePublicRegistration(data: {
                 supervisorId: ''
             };
             userData.tags = [];
-            userData.familyMembers = data.conjuge ? [{
-                name: formatName(data.conjuge),
-                relation: 'Cônjuge'
-            }] : [];
+            const newFamilyMembers: any[] = [];
+            if (data.estadoCivil === 'casado' && data.conjuge) {
+                newFamilyMembers.push({ name: formatName(data.conjuge), relation: 'Cônjuge' });
+            }
+            if (data.temFilhos === 'sim') {
+                validFilhos.forEach(f => {
+                    newFamilyMembers.push({ name: f.name, relation: 'Filho(a)', birthDate: f.dataNascimento || null });
+                });
+            }
+            userData.familyMembers = newFamilyMembers;
 
             const newDocRef = await db.collection('users').add(userData);
             return { success: true, userId: newDocRef.id, action: 'created' };
