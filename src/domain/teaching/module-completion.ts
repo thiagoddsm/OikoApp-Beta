@@ -89,10 +89,6 @@ export function evaluateTheoflixRequirement(params: ModuleCompletionParams): boo
       return true;
     }
 
-    if (moduleTheoflixId && attCourseId === moduleTheoflixId.toLowerCase()) {
-      return true;
-    }
-
     const attEpTitle = (att.episodeTitle || '').toLowerCase().trim();
     if (currentModTitle && attEpTitle && (currentModTitle.includes(attEpTitle) || attEpTitle.includes(currentModTitle))) {
       return true;
@@ -121,6 +117,8 @@ export function evaluateTheoflixRequirement(params: ModuleCompletionParams): boo
     if (!tId) return false;
     const currentMod = modules[modIndex] as any;
     const targetSyllabusId = currentMod?.id;
+    const modIdxStr1 = modIndex.toString();
+    const modIdxStr2 = (modIndex + 1).toString();
 
     const requiredVideoIds = currentMod?.theoflixRequiredVideoIds as string[] | undefined;
     if (requiredVideoIds && requiredVideoIds.length > 0) {
@@ -129,21 +127,25 @@ export function evaluateTheoflixRequirement(params: ModuleCompletionParams): boo
 
       return requiredVideoIds.every(vId => {
         const isAttDone = attMap?.[vId] === true || attMap?.[`module${parseInt(vId) + 1}`] === true;
-        const isProgDone = progMap && typeof progMap === 'object' && (progMap[vId] === true || Object.keys(progMap).some(k => k.includes(vId)));
+        const isProgDone = progMap && typeof progMap === 'object' && (
+          progMap[vId] === true || 
+          progMap[vId]?.completed === true || 
+          (currentMod?.youtubeId && progMap[currentMod.youtubeId]?.completed === true)
+        );
         return isAttDone || isProgDone;
       });
     }
 
     const attMap = studentJourney?.theoflixAttendance?.[tId] || studentJourney?.theoflixAttendance?.[tId.toLowerCase()];
-    if (attMap) {
+    if (attMap && typeof attMap === 'object') {
       if (targetSyllabusId && attMap[targetSyllabusId] === true) return true;
-      if (moduleTheoflixId && attMap[moduleTheoflixId] === true) return true;
+      if (attMap[modIdxStr1] === true || attMap[`module${modIndex + 1}`] === true) return true;
     }
 
     const progMap = studentJourney?.theoflixProgress?.[tId] || studentJourney?.theoflixProgress?.[tId.toLowerCase()];
     if (progMap && typeof progMap === 'object') {
-      if (targetSyllabusId && progMap[targetSyllabusId] === true) return true;
-      if (moduleTheoflixId && progMap[moduleTheoflixId] === true) return true;
+      if (targetSyllabusId && (progMap[targetSyllabusId] === true || progMap[targetSyllabusId]?.completed === true)) return true;
+      if (progMap[modIdxStr1] === true || progMap[modIdxStr1]?.completed === true || progMap[`module${modIndex + 1}`] === true) return true;
     }
     return false;
   });
