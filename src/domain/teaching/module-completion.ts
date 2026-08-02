@@ -126,7 +126,8 @@ export function evaluateTheoflixRequirement(params: ModuleCompletionParams): boo
       const progMap = studentJourney?.theoflixProgress?.[tId] || studentJourney?.theoflixProgress?.[tId.toLowerCase()];
 
       return requiredVideoIds.every(vId => {
-        const isAttDone = attMap?.[vId] === true || attMap?.[`module${parseInt(vId) + 1}`] === true;
+        const modNumStr = (parseInt(vId) + 1).toString();
+        const isAttDone = attMap?.[modNumStr] === true || attMap?.[`module${modNumStr}`] === true;
         const isProgDone = progMap && typeof progMap === 'object' && (
           progMap[vId] === true || 
           progMap[vId]?.completed === true || 
@@ -190,7 +191,7 @@ export function getModuleCompletion(params: ModuleCompletionParams): ModuleCompl
   const isPresentAttendance = Boolean(regularAttendance && Array.isArray(regularAttendance.presentStudentIds) && regularAttendance.presentStudentIds.includes(params.studentId));
   
   const isRegularDone = Boolean(isPresentAttendance || isOnlineAttendance);
-  const isOnlineDone = Boolean(isTheoflixEadDone || (isOnlineAttendance && !isPresentAttendance));
+  const isOnlineDone = Boolean(!isPresentAttendance && (isTheoflixEadDone || isOnlineAttendance));
 
   return {
     isDone: !!(isRegularDone || repositionAttendance || isTheoflixEadDone || isManualDone),
