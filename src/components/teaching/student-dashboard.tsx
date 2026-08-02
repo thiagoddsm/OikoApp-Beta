@@ -11,7 +11,8 @@ import {
 
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { useFirebase } from '@/firebase';
+import { useFirebase, useMemoFirebase, useCollection } from '@/firebase';
+import { collection, query, where } from 'firebase/firestore';
 import { useVolunteering, type Class } from '@/contexts/volunteering-context';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -84,7 +85,46 @@ function resolveClassSchedule(cls: Class): { dateStr: string; isExtra: boolean; 
 }
 
 type SessionStatus = 'present' | 'online' | 'makeup' | 'absent' | 'future' | 'pending';
-function getStudentStatus(dateStr: string, cls: Class, userId: string, today: Date): SessionStatus {
+
+function getModuleIndexForDate(dateStr: string, cls: Class, syllabus: any[]): number {
+  if (!dateStr || !cls) return -1;
+  const cleanDateStr = dateStr.split('T')[0];
+
+  if (cls.extraSessions && Array.isArray(cls.extraSessions)) {
+    const extra = cls.extraSessions.find((s: any) => s.date === cleanDateStr || `${s.date}T${s.startTime}` === dateStr);
+    if (extra && extra.syllabusId) {
+      const idx = (syllabus || []).findIndex(item => item.id === extra.syllabusId);
+      if (idx !== -1) return idx;
+    }
+  }
+
+  if (cls.scheduleOverrides && cls.scheduleOverrides[cleanDateStr]) {
+    const override = cls.scheduleOverrides[cleanDateStr];
+    if (override.syllabusId) {
+      const idx = (syllabus || []).findIndex(item => item.id === override.syllabusId);
+      if (idx !== -1) return idx;
+    }
+  }
+
+  const schedule = resolveClassSchedule(cls);
+  const foundIndex = schedule.findIndex(s => s.dateStr.split('T')[0] === cleanDateStr);
+  if (foundIndex !== -1 && foundIndex < (syllabus || []).length) {
+    return foundIndex;
+  }
+
+  return -1;
+}
+
+function getStudentStatus(
+  dateStr: string,
+  cls: Class,
+  userId: string,
+  today: Date,
+  allClasses: Class[] = [],
+  quizAttempts: any[] = [],
+  course: any = null,
+  sessionIndex: number = -1
+): SessionStatus {
   const sessionDate = startOfDay(safeParseISO(dateStr));
   if (isNaN(sessionDate.getTime())) return 'pending';
   if (isBefore(today, sessionDate)) return 'future';
@@ -96,6 +136,37 @@ function getStudentStatus(dateStr: string, cls: Class, userId: string, today: Da
 
   // reposição nativa
   if (att?.repositions?.some((r: any) => r.studentId === userId)) return 'makeup';
+
+  // 1. Checar reposição presencial/online em outra turma do mesmo curso
+  if (course) {
+    const modIndex = sessionIndex !== -1 ? sessionIndex : getModuleIndexForDate(dateStr, cls, course.syllabus || []);
+    const otherClasses = (allClasses || []).filter(c => c.id !== cls.id && c.courseId === cls.courseId);
+    for (const otherClass of otherClasses) {
+      const foundAtt = otherClass.attendance?.find((a: any) => {
+        const isP = a.presentStudentIds?.includes(userId) || a.onlineStudentIds?.includes(userId);
+        const isR = a.repositions?.some((r: any) => r.studentId === userId);
+        return isP || isR;
+      });
+      if (foundAtt) return 'makeup';
+    }
+  }
+
+  // 2. Checar quiz / avaliação online aprovada no TheoFlix para esta aula
+  const modIndex = sessionIndex !== -1 ? sessionIndex : (course ? getModuleIndexForDate(dateStr, cls, course.syllabus || []) : -1);
+  if (quizAttempts && quizAttempts.length > 0) {
+    const hasQuiz = quizAttempts.some((qAtt: any) => {
+      if (qAtt.userId !== userId && qAtt.userEmail !== userId) return false;
+      if (qAtt.approved === false) return false;
+      if (qAtt.moduleIndex === modIndex || qAtt.episodeIndex === modIndex) return true;
+      
+      const qCourse = (qAtt.courseId || '').toLowerCase();
+      const isCourseMatch = qCourse === (cls.courseId || '').toLowerCase() || qCourse === 'crescer' || qCourse === 'discipular';
+      if (!isCourseMatch) return false;
+      if (modIndex === 0) return true; // Aula 1 concluida EAD
+      return false;
+    });
+    if (hasQuiz) return 'online';
+  }
 
   // reposição via extraSession deste módulo
   const repoSessions = (cls.extraSessions || []).filter((s: any) => s.isRepositionOnly);
@@ -139,9 +210,12 @@ interface ClassAttendanceCardProps {
   courseName: string;
   userId: string;
   today: Date;
+  allClasses?: Class[];
+  quizAttempts?: any[];
+  course?: any;
 }
 
-function ClassAttendanceCard({ cls, courseName, userId, today }: ClassAttendanceCardProps) {
+function ClassAttendanceCard({ cls, courseName, userId, today, allClasses = [], quizAttempts = [], course = null }: ClassAttendanceCardProps) {
   const [expanded, setExpanded] = useState(false);
 
   const schedule = useMemo(() => resolveClassSchedule(cls), [cls]);
@@ -159,11 +233,11 @@ function ClassAttendanceCard({ cls, courseName, userId, today }: ClassAttendance
   );
 
   const sessionStatuses = useMemo(() =>
-    pastSessions.map(s => ({
+    pastSessions.map((s, idx) => ({
       ...s,
-      status: getStudentStatus(s.dateStr, cls, userId, today)
+      status: getStudentStatus(s.dateStr, cls, userId, today, allClasses, quizAttempts, course, idx)
     })),
-    [pastSessions, cls, userId, today]
+    [pastSessions, cls, userId, today, allClasses, quizAttempts, course]
   );
 
   const presentCount = sessionStatuses.filter(s => s.status === 'present' || s.status === 'online' || s.status === 'makeup').length;
@@ -355,12 +429,15 @@ function ClassAttendanceCard({ cls, courseName, userId, today }: ClassAttendance
   );
 }
 
-// ─── main component ───────────────────────────────────────────────────────────
-
 export function StudentDashboard() {
-  const { user } = useFirebase();
-    const { users } = useMembersData();
-    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+  const { user, firestore } = useFirebase();
+  const { users } = useMembersData();
+  const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+
+  const attemptsQuery = useMemoFirebase(() => 
+      firestore && user ? query(collection(firestore, 'theoflix_quiz_attempts'), where('userId', '==', user.uid)) : null,
+  [firestore, user]);
+  const { data: quizAttempts } = useCollection<any>(attemptsQuery);
 
   const { isLoading } = useVolunteering();
   const today = useMemo(() => startOfDay(new Date()), []);
@@ -549,6 +626,9 @@ export function StudentDashboard() {
                 courseName={courseMap.get(cls.courseId)?.name || 'Curso'}
                 userId={user.uid}
                 today={today}
+                allClasses={classes || []}
+                quizAttempts={quizAttempts || []}
+                course={courseMap.get(cls.courseId) || null}
               />
             ))}
           </div>

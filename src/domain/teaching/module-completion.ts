@@ -63,18 +63,23 @@ export function evaluateTheoflixRequirement(params: ModuleCompletionParams): boo
   const targetTheoflixIds = [
     course?.id,
     course?.linkedTheoflixId,
-    moduleTheoflixId
-  ].filter(Boolean) as string[];
+    course?.name,
+    course?.ebdTrack,
+    moduleTheoflixId,
+    'crescer',
+    'discipular'
+  ].filter(Boolean).map(id => String(id).toLowerCase().trim());
 
   const currentModTitle = (modules[modIndex]?.title || '').toLowerCase().trim();
+  const currentModDesc = (modules[modIndex]?.description || '').toLowerCase().trim();
 
   // A. Checar Quizzes Aprovados
   const hasApprovedQuiz = targetTheoflixIds.length > 0 && quizAttempts?.some((att: any) => {
     const matchesUser = att.userId === studentId || (att.userEmail && studentEmail && att.userEmail.toLowerCase() === studentEmail.toLowerCase());
     if (!matchesUser || att.approved === false) return false;
 
-    const attCourseId = (att.courseId || '').toLowerCase();
-    const matchesCourse = targetTheoflixIds.some(id => id && attCourseId === id.toLowerCase());
+    const attCourseId = (att.courseId || '').toLowerCase().trim();
+    const matchesCourse = targetTheoflixIds.some(id => id && (attCourseId === id || id.includes(attCourseId) || attCourseId.includes(id)));
     if (!matchesCourse) return false;
 
     const attSyllabusId = att.syllabusId || att.episodeSyllabusId;
@@ -89,7 +94,22 @@ export function evaluateTheoflixRequirement(params: ModuleCompletionParams): boo
     }
 
     const attEpTitle = (att.episodeTitle || '').toLowerCase().trim();
-    if (currentModTitle && attEpTitle && currentModTitle === attEpTitle) {
+    if (currentModTitle && attEpTitle && (currentModTitle.includes(attEpTitle) || attEpTitle.includes(currentModTitle))) {
+      return true;
+    }
+
+    if (currentModDesc && attEpTitle && currentModDesc.includes(attEpTitle)) {
+      return true;
+    }
+
+    // Match por indice de aula (ex: Aula 1 -> modIndex 0)
+    if (att.episodeIndex !== undefined && Number(att.episodeIndex) === modIndex) {
+      return true;
+    }
+    if (att.moduleIndex !== undefined && Number(att.moduleIndex) === modIndex) {
+      return true;
+    }
+    if (modIndex === 0 && (attEpTitle.includes('aula 1') || attEpTitle.includes('aula 01') || attEpTitle.includes('ponto de partida') || attEpTitle.includes('identidade'))) {
       return true;
     }
 

@@ -354,8 +354,11 @@ function TheoFlixContent() {
           setQuizFeedback(finalFeedback);
           setQuizSubmitted(true);
 
-          // Save attempt to firestore
+          // Save attempt to firestore and sync online attendance
           if (user && firestore && selectedCourse) {
+              const matchedSyllabusId = (currentEpisode as any)?.syllabusId || (currentEpisode as any)?.id;
+              const epIdx = selectedCourse.episodes?.findIndex((e: any) => e.title === currentEpisode.title) ?? 0;
+
               addDocumentNonBlocking(collection(firestore, 'theoflix_quiz_attempts'), {
                   userId: user.uid,
                   userName: userData?.name || user.displayName || user.email || 'Aluno',
@@ -364,6 +367,9 @@ function TheoFlixContent() {
                   courseTitle: selectedCourse.title,
                   episodeId: currentEpisode.youtubeId || currentEpisode.title.replace(/\s+/g, '_'),
                   episodeTitle: currentEpisode.title,
+                  syllabusId: matchedSyllabusId || null,
+                  episodeIndex: epIdx !== -1 ? epIdx : 0,
+                  moduleIndex: epIdx !== -1 ? epIdx : 0,
                   score,
                   minScore,
                   approved: true,
@@ -375,6 +381,26 @@ function TheoFlixContent() {
                   aiFeedback: finalFeedback || null,
                   submittedAt: new Date().toISOString()
               });
+
+              try {
+                  const studentClass = classes.find((c: any) => c.students?.includes(user.uid) && (c.courseId === selectedCourse.id || c.courseId === (selectedCourse as any).linkedPhysicalCourseId));
+                  if (studentClass && studentClass.attendance) {
+                      const updatedAtt = [...studentClass.attendance];
+                      const targetAttIndex = epIdx !== -1 && updatedAtt[epIdx] ? epIdx : 0;
+                      if (updatedAtt[targetAttIndex]) {
+                          const existingOnline = updatedAtt[targetAttIndex].onlineStudentIds || [];
+                          if (!existingOnline.includes(user.uid)) {
+                              updatedAtt[targetAttIndex] = {
+                                  ...updatedAtt[targetAttIndex],
+                                  onlineStudentIds: [...existingOnline, user.uid]
+                              };
+                               updateDocumentNonBlocking(doc(firestore, 'classes', studentClass.id), { attendance: updatedAtt });
+                          }
+                      }
+                  }
+              } catch (e) {
+                  console.error("Erro ao sincronizar chamada online:", e);
+              }
           }
 
           toast({ title: "Respostas enviadas!", description: "Sua aula foi marcada como assistida." });
