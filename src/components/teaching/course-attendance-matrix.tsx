@@ -564,7 +564,11 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                                                     
                                                     if (status.isDone) {
                                                         if (status.isRepo) {
-                                                            const repoClass = courseClasses.find(c => c.attendance?.some(att => att.date === status.data?.date && att.repositions?.some(r => r.studentId === student.id)));
+                                                            const repoClass = courseClasses.find(c => c.attendance?.some(att => att.date === status.data?.date && (
+                                                                att.repositions?.some(r => r.studentId === student.id) ||
+                                                                att.presentStudentIds?.includes(student.id) ||
+                                                                att.onlineStudentIds?.includes(student.id)
+                                                            )));
                                                             let originalDate = "Não definida";
                                                             if (studentClass) {
                                                                 const ownClassAtt = studentClass.attendance?.find(a => 

@@ -45,7 +45,9 @@ export function evaluateRepositionRequirement(params: ModuleCompletionParams, ha
   for (const otherClass of otherClasses) {
     const foundAtt = otherClass.attendance?.find((att: any) => {
       if (getModuleIndexForDate(att.date, otherClass, course?.syllabus || []) === modIndex) {
-        return att.repositions?.some((r: any) => r.studentId === studentId);
+        const isPresentInOther = att.presentStudentIds?.includes(studentId) || att.onlineStudentIds?.includes(studentId);
+        const isExplicitRepo = att.repositions?.some((r: any) => r.studentId === studentId);
+        return isPresentInOther || isExplicitRepo;
       }
       return false;
     });

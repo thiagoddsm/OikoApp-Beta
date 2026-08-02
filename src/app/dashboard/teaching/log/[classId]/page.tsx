@@ -311,7 +311,11 @@ function PedagogicalLogPageContent() {
             }
 
             const existingAttendance = classData?.attendance || [];
-            const repositions = makeupStudentIds.map(studentId => ({
+            const enrolledSet = new Set(classData?.students || []);
+            const externalPresentIds = [...presentStudents, ...onlineStudents].filter(id => !enrolledSet.has(id));
+            const allRepoIds = Array.from(new Set([...makeupStudentIds, ...externalPresentIds]));
+
+            const repositions = allRepoIds.map(studentId => ({
                 studentId,
                 date: selectedDate,
                 dateStr: selectedDate,
