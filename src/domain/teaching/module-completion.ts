@@ -184,9 +184,11 @@ export function getModuleCompletion(params: ModuleCompletionParams): ModuleCompl
   const isTheoflixEadDone = evaluateTheoflixRequirement(params);
   const isManualDone = evaluateManualApprovalRequirement(params);
 
-  const isRegularDone = Boolean(regularAttendance);
-  const isOnlineAttendance = Boolean(regularAttendance?.isOnline);
-  const isOnlineDone = Boolean(isTheoflixEadDone || isOnlineAttendance);
+  const isOnlineAttendance = Boolean(regularAttendance && Array.isArray(regularAttendance.onlineStudentIds) && regularAttendance.onlineStudentIds.includes(params.studentId));
+  const isPresentAttendance = Boolean(regularAttendance && Array.isArray(regularAttendance.presentStudentIds) && regularAttendance.presentStudentIds.includes(params.studentId));
+  
+  const isRegularDone = Boolean(isPresentAttendance || isOnlineAttendance);
+  const isOnlineDone = Boolean(isTheoflixEadDone || (isOnlineAttendance && !isPresentAttendance));
 
   return {
     isDone: !!(isRegularDone || repositionAttendance || isTheoflixEadDone || isManualDone),
