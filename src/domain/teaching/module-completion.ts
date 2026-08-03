@@ -140,12 +140,20 @@ export function evaluateTheoflixRequirement(params: ModuleCompletionParams): boo
     const attMap = studentJourney?.theoflixAttendance?.[tId] || studentJourney?.theoflixAttendance?.[tId.toLowerCase()];
     if (attMap && typeof attMap === 'object') {
       if (targetSyllabusId && attMap[targetSyllabusId] === true) return true;
+      // Fase 2: verificar por youtubeId estável (prioridade sobre índice numérico)
+      const episodeYoutubeId = (currentMod as any)?.youtubeId;
+      if (episodeYoutubeId && attMap[episodeYoutubeId] === true) return true;
+      // Fallback legado: índice numérico (mantido até migração completa dos dados — Fase 3)
       if (attMap[modIdxStr1] === true || attMap[`module${modIndex + 1}`] === true) return true;
     }
 
     const progMap = studentJourney?.theoflixProgress?.[tId] || studentJourney?.theoflixProgress?.[tId.toLowerCase()];
     if (progMap && typeof progMap === 'object') {
       if (targetSyllabusId && (progMap[targetSyllabusId] === true || progMap[targetSyllabusId]?.completed === true)) return true;
+      // Fase 2: verificar por youtubeId estável no progresso
+      const episodeYoutubeId = (currentMod as any)?.youtubeId;
+      if (episodeYoutubeId && (progMap[episodeYoutubeId] === true || progMap[episodeYoutubeId]?.completed === true)) return true;
+      // Fallback legado: índice numérico
       if (progMap[modIdxStr1] === true || progMap[modIdxStr1]?.completed === true || progMap[`module${modIndex + 1}`] === true) return true;
     }
     return false;

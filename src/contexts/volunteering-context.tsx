@@ -745,7 +745,7 @@ interface VolunteeringContextType {
   approveEnrollmentRequest: (requestId: string, classId: string) => Promise<void>;
   updateEnrollmentRequest: (requestId: string, data: any) => Promise<void>;
   deleteEnrollmentRequest: (requestId: string) => Promise<void>;
-  markAttendanceByTheoflix: (userId: string, courseId: string, episodeIndex: number, lessonNotes?: string) => Promise<void>;
+  markAttendanceByTheoflix: (userId: string, courseId: string, episodeIndex: number, lessonNotes?: string, episodeYoutubeId?: string) => Promise<void>;
   saveSchedule: (data: any) => Promise<void>;
   deleteSchedule: (id: string) => Promise<void>;
 }
@@ -1125,12 +1125,15 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
     },
     updateEnrollmentRequest: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'enrollment_requests', id), data); },
     deleteEnrollmentRequest: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'enrollment_requests', id)); },
-    markAttendanceByTheoflix: async (userId: string, theoflixCourseId: string, episodeIndex: number, lessonNotes?: string) => {
+    markAttendanceByTheoflix: async (userId: string, theoflixCourseId: string, episodeIndex: number, lessonNotes?: string, episodeYoutubeId?: string) => {
       // 1. Gravar APENAS a evidencia do fato de baixo nivel (video assistido) no documento do usuario
       if (firestore && userId) {
         const userRef = doc(firestore, 'users', userId);
         await updateDocumentNonBlocking(userRef, {
+          // Legado: índice numérico (mantido para compatibilidade com dados existentes)
           [`journey.theoflixAttendance.${theoflixCourseId}.${episodeIndex}`]: true,
+          // Novo (Fase 1): chave estável por youtubeId — resistente a reordenações de episódios
+          ...(episodeYoutubeId && { [`journey.theoflixAttendance.${theoflixCourseId}.${episodeYoutubeId}`]: true }),
           [`journey.lumineProgress.${theoflixCourseId}.${episodeIndex}`]: true
         });
       }

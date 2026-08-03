@@ -119,13 +119,25 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
 
     const modules = useMemo(() => {
         if (course?.syllabus && course.syllabus.length > 0) {
-            return course.syllabus.map((s, index) => ({
-                id: (index + 1).toString(),
-                title: s.title,
-                type: index === course.syllabus!.length - 1 && isMembership ? 'Eletivo' : 'Obrigatório',
-                week: (index + 1).toString(),
-                theoflixCourseId: (s as any).theoflixCourseId
-            }));
+            return course.syllabus.map((s: any, index) => {
+                // Fase 2: enriquecer com youtubeId do episódio TheoFlix correspondente.
+                // Usa o índice posicional assumindo ordem 1-to-1 entre syllabus e episódios do TheoFlix.
+                const theoflixCourseId = s.theoflixCourseId || course.linkedTheoflixId || course.id;
+                const theoflixCourse = theoflixCourses?.find((tc: any) => tc.id === theoflixCourseId);
+                const episodeYoutubeId = theoflixCourse?.episodes?.[index]?.youtubeId;
+
+                return {
+                    // Spread completo: preserva s.id (UUID), s.theoflixRequiredVideoIds,
+                    // s.description e todos os campos do syllabus para que module-completion.ts
+                    // possa comparar UUID vs UUID em vez de UUID vs índice sequencial.
+                    ...s,
+                    id: s.id || (index + 1).toString(), // UUID tem prioridade; fallback para syllabus sem UUID
+                    type: index === course.syllabus!.length - 1 && isMembership ? 'Eletivo' : 'Obrigatório',
+                    week: (index + 1).toString(),
+                    // youtubeId estável para leitura do theoflixAttendance (Fase 2)
+                    ...(episodeYoutubeId && { youtubeId: episodeYoutubeId }),
+                };
+            });
         }
         if (isMembership) {
             return [

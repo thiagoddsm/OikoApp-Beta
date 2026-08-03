@@ -294,7 +294,8 @@ function TheoFlixContent() {
     });
 
     if (episodeIndex > -1) {
-        markAttendanceByTheoflix(user.uid, selectedCourse.id, episodeIndex, lessonNotes);
+        // Fase 1: passar youtubeId para dupla escrita (índice legado + youtubeId estável)
+        markAttendanceByTheoflix(user.uid, selectedCourse.id, episodeIndex, lessonNotes, currentEpisode.youtubeId);
     }
     setLessonNotes('');
     setQuizSubmitted(false);
