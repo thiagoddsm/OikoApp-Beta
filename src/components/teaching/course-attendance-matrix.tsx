@@ -225,7 +225,16 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
 
     // Função utilitária para checar conclusão de módulo por aluno chamando o serviço puro de domínio
     const getModuleStatus = (student: any, modParam: number | string) => {
-        const modIndex = typeof modParam === 'number' ? modParam : (parseInt(modParam) - 1);
+        let modIndex = -1;
+        if (typeof modParam === 'number') {
+            modIndex = modParam;
+        } else {
+            modIndex = modules.findIndex(m => m.id === modParam);
+            if (modIndex === -1 && !isNaN(parseInt(modParam))) {
+                modIndex = parseInt(modParam) - 1;
+            }
+        }
+        if (modIndex < 0) modIndex = 0;
         const modId = modules[modIndex]?.id || (modIndex + 1).toString();
 
         return getModuleCompletion({
