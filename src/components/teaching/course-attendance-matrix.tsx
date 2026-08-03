@@ -433,14 +433,14 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                                     </div>
                                 </TableHead>
                                 {useModuleView ? (
-                                    modules.map((mod) => (
+                                    modules.map((mod, modIdx) => (
                                         <TableHead key={mod.id} className="text-center min-w-[180px] py-4 relative group/header">
                                             <div className="flex flex-col items-center gap-1.5">
                                                 <span className={cn(
                                                     "text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter",
                                                     mod.type === 'Eletivo' ? "bg-amber-100 text-amber-700" : "bg-primary/10 text-primary"
                                                 )}>
-                                                    {mod.type === 'Eletivo' ? 'Eletivo' : `Módulo ${mod.id}`}
+                                                    {mod.type === 'Eletivo' ? 'Eletivo' : `Módulo ${modIdx + 1}`}
                                                 </span>
                                                 <div className="flex items-center justify-center gap-1.5 w-full px-2">
                                                     <span className="font-bold text-slate-900 leading-none text-xs truncate">
