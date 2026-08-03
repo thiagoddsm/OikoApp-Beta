@@ -1167,8 +1167,10 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
         let targetSyllabusIndex = -1;
         
         const hybridIndex = syllabus.findIndex((mod: any) => 
-            mod.theoflixCourseId === theoflixCourseId && 
-            mod.theoflixRequiredVideoIds?.includes(episodeIdxStr)
+            mod.theoflixCourseId === theoflixCourseId && (
+              (episodeYoutubeId && mod.theoflixRequiredVideoIds?.includes(episodeYoutubeId)) ||
+              mod.theoflixRequiredVideoIds?.includes(episodeIdxStr)
+            )
         );
 
         if (hybridIndex !== -1) {

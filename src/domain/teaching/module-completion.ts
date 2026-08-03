@@ -126,8 +126,19 @@ export function evaluateTheoflixRequirement(params: ModuleCompletionParams): boo
       const progMap = studentJourney?.theoflixProgress?.[tId] || studentJourney?.theoflixProgress?.[tId.toLowerCase()];
 
       return requiredVideoIds.every(vId => {
+        const isYoutubeId = !/^\d+$/.test(vId);
+        if (isYoutubeId) {
+          const isAttDone = attMap?.[vId] === true;
+          const isProgDone = progMap && typeof progMap === 'object' && (
+            progMap[vId] === true || 
+            progMap[vId]?.completed === true
+          );
+          return isAttDone || isProgDone;
+        }
+
+        // Fallback legado para índices numéricos ("0", "1", etc)
         const modNumStr = (parseInt(vId) + 1).toString();
-        const isAttDone = attMap?.[modNumStr] === true || attMap?.[`module${modNumStr}`] === true;
+        const isAttDone = attMap?.[vId] === true || attMap?.[modNumStr] === true || attMap?.[`module${modNumStr}`] === true;
         const isProgDone = progMap && typeof progMap === 'object' && (
           progMap[vId] === true || 
           progMap[vId]?.completed === true || 

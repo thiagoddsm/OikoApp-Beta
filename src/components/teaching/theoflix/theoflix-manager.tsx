@@ -368,7 +368,7 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                                             {(formCourse.episodes || []).map((ep, idx) => (
                                                 <Card key={idx} className="p-4 rounded-2xl border-2 bg-muted/5 flex flex-col gap-4 relative group transition-all hover:border-primary/30">
                                                     <div className="space-y-1.5">
-                                                        <Label className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Título da Aula {idx + 1}</Label>
+                                                        <Label className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Título do Vídeo {idx + 1}</Label>
                                                         <Input className="h-10 text-sm bg-white font-bold" value={ep.title} onChange={e => { const n = [...formCourse.episodes!]; n[idx].title = e.target.value; setFormCourse(p => ({...p, episodes: n})); }} />
                                                     </div>
                                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

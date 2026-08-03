@@ -212,7 +212,7 @@ export function CourseSyllabusManager({ course }: CourseSyllabusManagerProps) {
                         <Label className="text-[10px] font-black uppercase text-indigo-700">Selecione as aulas requeridas:</Label>
                         <div className="max-h-32 overflow-y-auto space-y-1.5 pr-2">
                             {selectedTfCourse.episodes.map((ep: any, idx: number) => {
-                                const videoIdStr = idx.toString();
+                                const videoIdStr = ep.youtubeId || idx.toString();
                                 const isChecked = formSelectedVideos.includes(videoIdStr);
                                 return (
                                     <div key={idx} className="flex items-start space-x-2 p-1.5 hover:bg-indigo-100/50 rounded transition-colors cursor-pointer" onClick={() => toggleVideoSelection(videoIdStr, !isChecked)}>
