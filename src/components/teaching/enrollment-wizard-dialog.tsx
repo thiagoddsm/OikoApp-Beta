@@ -225,7 +225,7 @@ export function AcademicEnrollmentWizard({
       if (isPaidCourse && finalTuition > 0 && !isScholarship) {
         const scAny = selectedCourse as any;
         const isDisCourse = (scAny?.schoolId || scAny?.ministry || '').toLowerCase().includes('dis') || (selectedCourse?.name || '').toLowerCase().includes('libras');
-        const isAsaasCourse = scAny?.billingMethod === 'asaas';
+        const isAsaasCourse = scAny?.billingMethod !== 'manual';
 
         let asaasCustomerId: string | null = null;
         let asaasPaymentData: any = null;

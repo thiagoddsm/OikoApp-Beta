@@ -1089,7 +1089,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
             const installments = req.installments ? Number(req.installments) : (finConfig?.installments ? Number(finConfig.installments) : 1);
             const dueDayNumber = finConfig?.dueDay ? Number(finConfig.dueDay) : 10;
             const installmentAmount = totalAmount / Math.max(installments, 1);
-            const isAsaasCourse = cData.billingMethod === 'asaas';
+            const isAsaasCourse = cData.billingMethod !== 'manual';
 
             let asaasCustomerId: string | null = null;
             let asaasPaymentData: any = null;
