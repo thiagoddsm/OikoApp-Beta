@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import Link from 'next/link';
-import { EnrollmentDialog } from './enrollment-dialog';
+import { AcademicEnrollmentWizard } from './enrollment-wizard-dialog';
 import { ImportEnrollmentsDialog } from './import-enrollments-dialog';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
@@ -326,10 +326,10 @@ export function StudentsManagement({ filterCourseIds, defaultCourseId }: Student
         </AlertDialogContent>
       </AlertDialog>
       
-      <EnrollmentDialog 
+      <AcademicEnrollmentWizard 
         open={isEnrollmentOpen} 
         onOpenChange={setEnrollmentOpen} 
-        initialCourseId={defaultCourseId || (filterCourseIds && filterCourseIds.length > 0 ? filterCourseIds[0] : null)}
+        defaultCourseId={defaultCourseId || (filterCourseIds && filterCourseIds.length > 0 ? filterCourseIds[0] : undefined)}
       />
       <ImportEnrollmentsDialog open={isImportOpen} onOpenChange={setImportOpen} />
       </>

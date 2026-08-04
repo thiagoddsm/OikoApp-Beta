@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -15,7 +15,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, UserPlus, CheckCircle2, ArrowRight, ArrowLeft, GraduationCap, DollarSign, Calendar, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Loader2, UserPlus, CheckCircle2, ArrowRight, ArrowLeft, GraduationCap, DollarSign, Calendar, AlertTriangle, ShieldCheck, Search } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useMembersData, useCoursesData } from '@/hooks/useDomainData';
 import { useTeachingPrograms } from '@/hooks/useTeachingPrograms';
@@ -47,7 +48,8 @@ export function AcademicEnrollmentWizard({
   const [step, setStep] = useState<number>(1);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  // Form State
+  // Student Search State
+  const [studentSearchQuery, setStudentSearchQuery] = useState<string>('');
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [isNewStudent, setIsNewStudent] = useState<boolean>(false);
   const [newStudentName, setNewStudentName] = useState<string>('');
@@ -85,6 +87,16 @@ export function AcademicEnrollmentWizard({
     return users.find(u => u.id === selectedStudentId);
   }, [users, selectedStudentId]);
 
+  const filteredUsers = useMemo(() => {
+    if (!studentSearchQuery.trim()) return users.slice(0, 30);
+    const q = studentSearchQuery.toLowerCase();
+    return users.filter(u => 
+      u.name?.toLowerCase().includes(q) ||
+      u.email?.toLowerCase().includes(q) ||
+      u.cpf?.includes(q)
+    ).slice(0, 50);
+  }, [users, studentSearchQuery]);
+
   const selectedCourse = useMemo(() => {
     return courses.find(c => c.id === courseId);
   }, [courses, courseId]);
@@ -92,6 +104,16 @@ export function AcademicEnrollmentWizard({
   const selectedClass = useMemo(() => {
     return classes.find(c => c.id === classId);
   }, [classes, classId]);
+
+  // Auto-fill finance fields from course's financeConfig when course changes
+  useEffect(() => {
+    const cfg = (selectedCourse as any)?.financeConfig;
+    if (!cfg) return;
+    if (cfg.isPaid !== undefined) setIsPaidCourse(cfg.isPaid);
+    if (cfg.totalAmount)   setTuitionValue(cfg.totalAmount);
+    if (cfg.installments)  setInstallments(cfg.installments);
+    if (cfg.dueDay)        setDueDay(cfg.dueDay);
+  }, [selectedCourse]);
 
   // Prerequisite Check
   const prerequisiteStatus = useMemo(() => {
@@ -199,10 +221,63 @@ export function AcademicEnrollmentWizard({
         batch.set(classRef, { students: updatedStudents }, { merge: true });
       }
 
-      // 4. Generate Tuition Fees if paid course
+      // 4. Generate Tuition Fees & Asaas Invoice if paid course
       if (isPaidCourse && finalTuition > 0 && !isScholarship) {
         const scAny = selectedCourse as any;
         const isDisCourse = (scAny?.schoolId || scAny?.ministry || '').toLowerCase().includes('dis') || (selectedCourse?.name || '').toLowerCase().includes('libras');
+        const isAsaasCourse = scAny?.billingMethod === 'asaas';
+
+        let asaasCustomerId: string | null = null;
+        let asaasPaymentData: any = null;
+
+        // Se o curso for faturado pelo Asaas, gera a cobrança na API do Asaas
+        if (isAsaasCourse) {
+          try {
+            // 1. Cria ou busca cliente no Asaas
+            const custRes = await fetch('/api/asaas/customers', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                name: studentName,
+                email: studentEmail,
+                cpfCnpj: isNewStudent ? newStudentCpf : undefined,
+                userId: studentId,
+              })
+            });
+
+            if (custRes.ok) {
+              const custJson = await custRes.json();
+              asaasCustomerId = custJson.customerId;
+
+              // Data de vencimento da primeira parcela
+              const firstCompDate = new Date();
+              const firstDueDateStr = `${firstCompDate.getFullYear()}-${String(firstCompDate.getMonth() + 1).padStart(2, '0')}-${String(dueDay).padStart(2, '0')}`;
+
+              // 2. Cria cobrança / parcelamento no Asaas
+              const payRes = await fetch('/api/asaas/payments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  customerId: asaasCustomerId,
+                  billingType: scAny?.financeConfig?.paymentMethod === 'boleto' ? 'BOLETO' : 'PIX',
+                  value: finalTuition * installments,
+                  dueDate: firstDueDateStr,
+                  description: `Matrícula: ${selectedCourse?.name || 'Curso'} - ${studentName}`,
+                  externalReference: enrollmentId,
+                  installmentCount: installments > 1 ? installments : undefined,
+                })
+              });
+
+              if (payRes.ok) {
+                asaasPaymentData = await payRes.json();
+              } else {
+                console.warn('[Wizard Asaas] Não foi possível gerar fatura na API Asaas (verifique chaves)');
+              }
+            }
+          } catch (asaasErr) {
+            console.error('[Wizard Asaas] Erro ao integrar com Asaas:', asaasErr);
+          }
+        }
 
         for (let i = 1; i <= installments; i++) {
           const feeId = `fee_${enrollmentId}_${i}`;
@@ -223,7 +298,11 @@ export function AcademicEnrollmentWizard({
             amount: finalTuition,
             competence,
             dueDate: dueDateStr,
-            status: 'em_aberto'
+            status: 'em_aberto',
+            ...(asaasCustomerId ? { asaasCustomerId } : {}),
+            ...(asaasPaymentData?.id ? { asaasPaymentId: asaasPaymentData.id } : {}),
+            ...(asaasPaymentData?.invoiceUrl ? { invoiceUrl: asaasPaymentData.invoiceUrl } : {}),
+            ...(asaasPaymentData?.bankSlipUrl ? { bankSlipUrl: asaasPaymentData.bankSlipUrl } : {}),
           };
           const feeRef = doc(firestore, 'tuition_fees', feeId);
           batch.set(feeRef, fee, { merge: true });
@@ -309,19 +388,62 @@ export function AcademicEnrollmentWizard({
 
             {!isNewStudent ? (
               <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase text-slate-500">Selecionar Aluno da Base</Label>
-                <Select value={selectedStudentId} onValueChange={setSelectedStudentId}>
-                  <SelectTrigger className="h-11">
-                    <SelectValue placeholder="Busque pelo nome ou email do aluno..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {users.map(u => (
-                      <SelectItem key={u.id} value={u.id}>
-                        {u.name} ({u.email || u.cpf || 'Sem email'})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label className="text-xs font-bold uppercase text-slate-500">Buscar Aluno da Base</Label>
+                <div className="relative">
+                  <Input
+                    placeholder="Digite o nome, email ou CPF do aluno..."
+                    value={studentSearchQuery}
+                    onChange={e => setStudentSearchQuery(e.target.value)}
+                    className="h-10 text-xs pl-9 pr-4"
+                  />
+                  <Search className="size-4 absolute left-3 top-3 text-slate-400" />
+                  {studentSearchQuery && (
+                    <button
+                      onClick={() => setStudentSearchQuery('')}
+                      className="absolute right-3 top-3 text-xs text-slate-400 hover:text-slate-600 font-bold"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                {/* Lista filtrada de alunos */}
+                <div className="max-h-48 overflow-y-auto border rounded-xl divide-y bg-white dark:bg-slate-900 mt-2 shadow-inner">
+                  {filteredUsers.map(u => {
+                    const isSelected = selectedStudentId === u.id;
+                    return (
+                      <div
+                        key={u.id}
+                        onClick={() => {
+                          setSelectedStudentId(u.id);
+                        }}
+                        className={cn(
+                          "flex items-center justify-between p-2.5 cursor-pointer transition-colors text-xs hover:bg-indigo-50/50 dark:hover:bg-slate-800",
+                          isSelected ? "bg-indigo-50 dark:bg-indigo-950/40 border-l-4 border-l-indigo-600 font-semibold" : ""
+                        )}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <div className={cn("size-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white uppercase", isSelected ? "bg-indigo-600" : "bg-slate-400")}>
+                            {u.name?.slice(0, 2) || 'AL'}
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-800 dark:text-slate-200">{u.name}</p>
+                            <p className="text-[10px] text-slate-500">{u.email || u.cpf || 'Sem e-mail cadastrado'}</p>
+                          </div>
+                        </div>
+                        {isSelected && (
+                          <CheckCircle2 className="size-4 text-indigo-600 shrink-0" />
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {filteredUsers.length === 0 && (
+                    <div className="p-4 text-center text-xs text-slate-400 italic">
+                      Nenhum aluno encontrado para "{studentSearchQuery}".
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="space-y-3">

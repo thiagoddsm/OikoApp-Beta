@@ -24,6 +24,7 @@ import { CourseAttendanceMatrix } from '@/components/teaching/course-attendance-
 import { CourseSyllabusManager } from '@/components/teaching/course-syllabus-manager';
 import { CourseReports } from '@/components/teaching/course-reports';
 import { TeachingTutorialTab } from '@/components/teaching/teaching-tutorial-tab';
+import { CourseFinanceHub } from '@/components/teaching/finance/course-finance-hub';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -241,6 +242,11 @@ function CourseDetailPageContent() {
                                 <TabsTrigger value="classes">Turmas</TabsTrigger>
                                 <TabsTrigger value="teachers">Professores</TabsTrigger>
                                 <TabsTrigger value="syllabus">Ementa</TabsTrigger>
+                                {(course as any).billingMethod && (course as any).billingMethod !== 'manual' && (
+                                    <TabsTrigger value="finance" className="flex items-center gap-1.5">
+                                        <span className="text-emerald-600">💰</span> Financeiro
+                                    </TabsTrigger>
+                                )}
                                 <TabsTrigger value="reports"><BarChart3 className="mr-2 size-4"/>Relatórios</TabsTrigger>
                                 <TabsTrigger value="tutorial"><HelpCircle className="mr-2 size-4"/>Tutoriais</TabsTrigger>
                             </TabsList>
@@ -272,6 +278,10 @@ function CourseDetailPageContent() {
 
                         <TabsContent value="syllabus" className="mt-0 animate-in slide-in-from-left-4 duration-300">
                             <CourseSyllabusManager course={course} />
+                        </TabsContent>
+
+                        <TabsContent value="finance" className="mt-0 animate-in slide-in-from-left-4 duration-300">
+                            <CourseFinanceHub courseId={course.id} courseName={course.name} course={course} />
                         </TabsContent>
 
                         <TabsContent value="reports" className="mt-0 animate-in slide-in-from-left-4 duration-300">

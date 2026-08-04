@@ -141,6 +141,7 @@ function EnrollmentForm() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [cpfCnpj, setCpfCnpj] = useState('');
     const [paymentMethod, setPaymentMethod] = useState<'PIX' | 'BOLETO' | 'CREDIT_CARD' | 'UNDEFINED'>('PIX');
+    const [installments, setInstallments] = useState<number>(1);
     const [chargeType, setChargeType] = useState<'UNIQUE' | 'SUBSCRIPTION'>('UNIQUE');
     const [companionName, setCompanionName] = useState('');
     const [billingResult, setBillingResult] = useState<any>(null);
@@ -1052,6 +1053,68 @@ function EnrollmentForm() {
                                     </>
                                 )}
                             </div>
+
+                            {/* Bloco de Faturamento para Cursos Pagos */}
+                            {selectedCategory !== 'eventos' && selectedCourse && (
+                                <div className="space-y-4 p-5 bg-white/5 rounded-2xl border border-white/10">
+                                    <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between">
+                                        <span>💳 Informações de Pagamento</span>
+                                        <span className="text-emerald-400 font-extrabold text-sm">
+                                            R$ {((selectedCourse as any)?.financeConfig?.totalAmount || 100).toFixed(2).replace('.', ',')}
+                                        </span>
+                                    </h4>
+
+                                    {/* Opções de Forma de Pagamento */}
+                                    <div className="grid grid-cols-2 gap-2 pt-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => setPaymentMethod('PIX')}
+                                            className={cn(
+                                                "p-3 rounded-xl border text-left text-xs transition-all flex flex-col justify-between h-20",
+                                                paymentMethod === 'PIX' ? "border-emerald-400 bg-emerald-400/10 text-white font-bold" : "border-white/10 bg-white/5 text-slate-400"
+                                            )}
+                                        >
+                                            <span>⚡ PIX / Boleto</span>
+                                            <span className="text-[10px] text-emerald-400">À Vista sem juros</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setPaymentMethod('CREDIT_CARD')}
+                                            className={cn(
+                                                "p-3 rounded-xl border text-left text-xs transition-all flex flex-col justify-between h-20",
+                                                paymentMethod === 'CREDIT_CARD' ? "border-indigo-400 bg-indigo-400/10 text-white font-bold" : "border-white/10 bg-white/5 text-slate-400"
+                                            )}
+                                        >
+                                            <span>💳 Cartão de Crédito</span>
+                                            <span className="text-[10px] text-indigo-300">Parcelado no cartão</span>
+                                        </button>
+                                    </div>
+
+                                    {/* Se for Cartão Parcelado: seletor de parcelas com repasse de juros */}
+                                    {paymentMethod === 'CREDIT_CARD' && (
+                                        <div className="space-y-2 pt-2 border-t border-white/10">
+                                            <Label className="text-[10px] font-black uppercase text-slate-400">Selecione as parcelas (com repasse de taxa):</Label>
+                                            <select
+                                                value={installments}
+                                                onChange={(e) => setInstallments(Number(e.target.value))}
+                                                className="w-full rounded-xl bg-slate-800 border border-white/20 text-white text-xs h-11 px-3"
+                                            >
+                                                {Array.from({ length: (selectedCourse as any)?.financeConfig?.installments || 6 }, (_, i) => i + 1).map(n => {
+                                                    const baseVal = Number((selectedCourse as any)?.financeConfig?.totalAmount || 100);
+                                                    const rate = 0.0299; // 2.99% a.m.
+                                                    const totalWithInterest = n > 1 ? baseVal * Math.pow(1 + rate, n) : baseVal;
+                                                    const perInst = totalWithInterest / n;
+                                                    return (
+                                                        <option key={n} value={n}>
+                                                            {n}x de R$ {perInst.toFixed(2).replace('.', ',')} {n > 1 ? `(Total R$ ${totalWithInterest.toFixed(2).replace('.', ',')})` : 'à vista'}
+                                                        </option>
+                                                    );
+                                                })}
+                                            </select>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             {selectedCategory === 'eventos' && (
                                 <div className="space-y-6">

@@ -15,6 +15,7 @@ import { VolunteeringProvider } from '@/contexts/volunteering-context';
 import { WaveAdminDashboard } from '@/components/teaching/wave/admin-dashboard';
 import { DisAdminDashboard } from '@/components/teaching/dis/dis-admin-dashboard';
 import { WaveFinanceDashboard } from '@/components/teaching/wave/wave-finance-dashboard';
+import { CourseFinanceHub } from '@/components/teaching/finance/course-finance-hub';
 import { StudentsManagement } from '@/components/teaching/students-management';
 import { ClassFormDialog } from '@/components/teaching/class-form-dialog';
 import { HierarchicalMaterialsManager } from '@/components/teaching/materials/hierarchical-materials-manager';
@@ -313,7 +314,15 @@ export default function ProgramDetailPage() {
 
             {capabilities.includes('financial') && (
               <TabsContent value="financial">
-                <WaveFinanceDashboard />
+                {program.slug === 'wave' ? (
+                  <WaveFinanceDashboard />
+                ) : (
+                  <CourseFinanceHub 
+                    courseId={primaryCourseId || program.id} 
+                    courseName={programCourses[0]?.name || program.name} 
+                    course={programCourses[0]} 
+                  />
+                )}
               </TabsContent>
             )}
 

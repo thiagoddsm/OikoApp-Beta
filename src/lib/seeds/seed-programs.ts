@@ -68,6 +68,22 @@ export const INITIAL_IBM_PROGRAMS: TeachingProgram[] = [
     order: 4
   },
   {
+    id: 'twogether',
+    module: 'teaching',
+    slug: 'twogether',
+    name: 'Twogether',
+    description: 'Formação e aconselhamento para casais, noivos e namorados da IBM',
+    icon: 'HeartHandshake',
+    color: '#f43f5e',
+    capabilities: [
+      'financial',
+      'materials',
+      'certificates'
+    ],
+    attendanceMode: 'manual',
+    order: 5
+  },
+  {
     id: 'theoflix',
     module: 'teaching',
     slug: 'theoflix',
@@ -82,6 +98,6 @@ export const INITIAL_IBM_PROGRAMS: TeachingProgram[] = [
       'materials'
     ],
     attendanceMode: 'automatic',
-    order: 5
+    order: 6
   }
 ];

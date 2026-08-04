@@ -54,6 +54,9 @@ export function EnrollmentForm({ initialCourseId }: { initialCourseId?: string }
         classes.filter(cls => cls.courseId === formData.courseId),
     [classes, formData.courseId]);
 
+    const [paymentChoice, setPaymentChoice] = useState<'pix' | 'credit_card'>('pix');
+    const [selectedInstallments, setSelectedInstallments] = useState<number>(1);
+
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
@@ -64,6 +67,24 @@ export function EnrollmentForm({ initialCourseId }: { initialCourseId?: string }
         setStep(2);
     };
 
+    // Configuração financeira do curso selecionado
+    const finConfig = (selectedCourse as any)?.financeConfig;
+    const isCoursePaid = finConfig?.isPaid ?? true;
+    const baseTotalAmount = finConfig?.totalAmount ? Number(finConfig.totalAmount) : 100;
+    const maxInstallments = finConfig?.installments ? Number(finConfig.installments) : 1;
+
+    // Cálculo com repasse de juros no cartão (taxa padrão de 2.99% a.m. repassada ao cliente)
+    const cardInterestRateMonthly = 0.0299;
+    const calculateCardInstallments = (count: number) => {
+        if (count <= 1) return { perInstallment: baseTotalAmount, total: baseTotalAmount };
+        // Fator de juros compostos repassados
+        const totalWithInterest = baseTotalAmount * Math.pow(1 + cardInterestRateMonthly, count);
+        return {
+            perInstallment: totalWithInterest / count,
+            total: totalWithInterest
+        };
+    };
+
     const handleSubmit = async () => {
         if (!formData.name || !formData.email || !formData.phone || !formData.courseId) {
             toast({ variant: 'destructive', title: 'Campos obrigatórios', description: 'Por favor, preencha todos os seus dados.' });
@@ -72,6 +93,8 @@ export function EnrollmentForm({ initialCourseId }: { initialCourseId?: string }
 
         setIsSubmitting(true);
         try {
+            const cardCalc = calculateCardInstallments(selectedInstallments);
+
             await addDoc(collection(firestore!, 'enrollment_requests'), {
                 name: formData.name,
                 email: formData.email,
@@ -79,10 +102,16 @@ export function EnrollmentForm({ initialCourseId }: { initialCourseId?: string }
                 courseId: formData.courseId,
                 classId: formData.classId,
                 status: 'pending',
+                paymentInfo: {
+                    type: paymentChoice,
+                    installments: paymentChoice === 'credit_card' ? selectedInstallments : 1,
+                    totalValue: paymentChoice === 'credit_card' ? cardCalc.total : baseTotalAmount,
+                    passedInterestToCustomer: paymentChoice === 'credit_card' && selectedInstallments > 1
+                },
                 createdAt: new Date() as any,
             });
             setSubmitted(true);
-            toast({ title: "Solicitação Enviada!", description: "Em breve entraremos em contato para confirmar sua vaga." });
+            toast({ title: "Inscrição Efetuada! 🎉", description: "Sua vaga foi reservada com sucesso." });
         } catch (error) {
             toast({ variant: 'destructive', title: "Erro ao enviar", description: "Tente novamente em instantes." });
         } finally {
@@ -96,10 +125,18 @@ export function EnrollmentForm({ initialCourseId }: { initialCourseId?: string }
                 <div className="size-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
                     <CheckCircle size={40} />
                 </div>
-                <CardTitle className="text-2xl font-black italic tracking-tighter uppercase mb-2">Inscrição Recebida!</CardTitle>
+                <CardTitle className="text-2xl font-black italic tracking-tighter uppercase mb-2">Inscrição Confirmada!</CardTitle>
                 <CardDescription className="text-base font-medium leading-relaxed">
-                    Olá <strong>{formData.name}</strong>, recebemos seu interesse no curso <strong>{selectedCourse?.name}</strong>. 
-                    Nossa equipe pedagógica analisará sua solicitação e entrará em contato via WhatsApp.
+                    Olá <strong>{formData.name}</strong>, sua vaga no curso <strong>{selectedCourse?.name}</strong> foi registrada com sucesso.
+                    {paymentChoice === 'pix' ? (
+                        <span className="block mt-2 font-bold text-emerald-700 bg-emerald-50 p-3 rounded-xl border border-emerald-200">
+                            ⚡ Pagamento via PIX selecionado. Enviaremos a chave PIX no seu WhatsApp!
+                        </span>
+                    ) : (
+                        <span className="block mt-2 font-bold text-indigo-700 bg-indigo-50 p-3 rounded-xl border border-indigo-200">
+                            💳 Pagamento parcelado no Cartão de Crédito em {selectedInstallments}x de R$ {calculateCardInstallments(selectedInstallments).perInstallment.toFixed(2).replace('.', ',')}.
+                        </span>
+                    )}
                 </CardDescription>
                 <Button className="mt-8 w-full h-12 font-black uppercase tracking-widest" variant="outline" onClick={() => window.location.reload()}>
                     Fazer outra inscrição
@@ -122,6 +159,9 @@ export function EnrollmentForm({ initialCourseId }: { initialCourseId?: string }
                     <div className={cn("h-1.5 flex-1 rounded-full transition-all duration-500", step >= 1 ? "bg-primary" : "bg-slate-100/20")} />
                     <div className={cn("h-1.5 flex-1 rounded-full transition-all duration-500", step >= 2 ? "bg-primary" : "bg-slate-100/20")} />
                     <div className={cn("h-1.5 flex-1 rounded-full transition-all duration-500", step >= 3 ? "bg-primary" : "bg-slate-100/20")} />
+                    {isCoursePaid && (
+                        <div className={cn("h-1.5 flex-1 rounded-full transition-all duration-500", step >= 4 ? "bg-primary" : "bg-slate-100/20")} />
+                    )}
                 </div>
             </div>
 
@@ -228,11 +268,119 @@ export function EnrollmentForm({ initialCourseId }: { initialCourseId?: string }
                         </div>
 
                         <div className="pt-6 flex flex-col gap-3">
-                            <Button size="lg" className="w-full h-14 font-black uppercase tracking-widest text-base shadow-xl shadow-primary/20" onClick={handleSubmit} disabled={isSubmitting}>
-                                {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : null}
-                                Finalizar Inscrição
-                            </Button>
+                            {isCoursePaid ? (
+                                <Button size="lg" className="w-full h-14 font-black uppercase tracking-widest text-base shadow-xl shadow-primary/20" onClick={() => setStep(4)}>
+                                    Avançar para Pagamento <ArrowRight className="ml-2 size-5" />
+                                </Button>
+                            ) : (
+                                <Button size="lg" className="w-full h-14 font-black uppercase tracking-widest text-base shadow-xl shadow-primary/20" onClick={handleSubmit} disabled={isSubmitting}>
+                                    {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : null}
+                                    Finalizar Inscrição Gratuita
+                                </Button>
+                            )}
                             <Button variant="ghost" className="w-full text-xs font-bold" onClick={() => setStep(2)}><ArrowLeft className="mr-2 size-3" /> Voltar</Button>
+                        </div>
+                    </div>
+                )}
+
+                {/* PASSO 4: PAGAMENTO E CONDIÇÕES */}
+                {step === 4 && isCoursePaid && (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+                        <div className="flex items-center gap-2 text-primary font-black uppercase text-xs tracking-widest mb-4">
+                            💳 4. Forma de Pagamento
+                        </div>
+
+                        {/* Valor base do curso */}
+                        <div className="p-4 bg-slate-900 text-white rounded-2xl flex items-center justify-between">
+                            <div>
+                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Investimento do Curso</p>
+                                <p className="text-xl font-black italic tracking-tighter uppercase">{selectedCourse?.name}</p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-2xl font-black text-emerald-400">R$ {baseTotalAmount.toFixed(2).replace('.', ',')}</p>
+                            </div>
+                        </div>
+
+                        {/* Seleção de método */}
+                        <div className="space-y-3">
+                            <Label className="text-xs font-bold uppercase text-slate-600">Escolha como prefere pagar:</Label>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setPaymentChoice('pix')}
+                                    className={cn(
+                                        "p-4 rounded-2xl border-2 text-left transition-all flex flex-col justify-between h-28",
+                                        paymentChoice === 'pix' ? "border-emerald-600 bg-emerald-50/50" : "border-slate-200"
+                                    )}
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-lg">⚡</span>
+                                        {paymentChoice === 'pix' && <CheckCircle size={16} className="text-emerald-600" />}
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-sm text-slate-900">PIX / Boleto</p>
+                                        <p className="text-[10px] text-emerald-700 font-semibold">À Vista sem juros</p>
+                                    </div>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setPaymentChoice('credit_card')}
+                                    className={cn(
+                                        "p-4 rounded-2xl border-2 text-left transition-all flex flex-col justify-between h-28",
+                                        paymentChoice === 'credit_card' ? "border-indigo-600 bg-indigo-50/50" : "border-slate-200"
+                                    )}
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-lg">💳</span>
+                                        {paymentChoice === 'credit_card' && <CheckCircle size={16} className="text-indigo-600" />}
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-sm text-slate-900">Cartão de Crédito</p>
+                                        <p className="text-[10px] text-indigo-700 font-semibold">Parcelado no cartão</p>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Opções de parcelamento do cartão com repasse de juros */}
+                        {paymentChoice === 'credit_card' && (
+                            <div className="p-4 bg-indigo-50/60 rounded-2xl border border-indigo-200 space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-xs font-bold text-indigo-900 uppercase">Selecione o número de parcelas:</Label>
+                                    <span className="text-[10px] bg-indigo-200 text-indigo-800 px-2 py-0.5 rounded-full font-bold">Com Repasse de Taxas</span>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    {Array.from({ length: Math.max(maxInstallments, 6) }, (_, i) => i + 1).map(count => {
+                                        const calc = calculateCardInstallments(count);
+                                        const isSelected = selectedInstallments === count;
+                                        return (
+                                            <button
+                                                key={count}
+                                                type="button"
+                                                onClick={() => setSelectedInstallments(count)}
+                                                className={cn(
+                                                    "p-2.5 rounded-xl border text-left flex items-center justify-between text-xs transition-all",
+                                                    isSelected ? "border-indigo-600 bg-indigo-600 text-white font-bold" : "border-indigo-200 bg-white text-slate-700 hover:border-indigo-400"
+                                                )}
+                                            >
+                                                <span>{count}x de R$ {calc.perInstallment.toFixed(2).replace('.', ',')}</span>
+                                                {count > 1 && <span className={cn("text-[9px]", isSelected ? "text-indigo-200" : "text-slate-400")}>Total: R$ {calc.total.toFixed(2).replace('.', ',')}</span>}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="pt-4 flex flex-col gap-3">
+                            <Button size="lg" className="w-full h-14 font-black uppercase tracking-widest text-base shadow-xl shadow-primary/20 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleSubmit} disabled={isSubmitting}>
+                                {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : null}
+                                Confirmar e Concluir Inscrição
+                            </Button>
+                            <Button variant="ghost" className="w-full text-xs font-bold" onClick={() => setStep(3)}><ArrowLeft className="mr-2 size-3" /> Voltar aos dados</Button>
                         </div>
                     </div>
                 )}
@@ -240,3 +388,4 @@ export function EnrollmentForm({ initialCourseId }: { initialCourseId?: string }
         </Card>
     );
 }
+

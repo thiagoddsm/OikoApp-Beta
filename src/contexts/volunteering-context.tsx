@@ -4,7 +4,7 @@
 import React, { createContext, useContext, ReactNode, useMemo, useEffect } from 'react';
 import { format, addWeeks, addMonths, parseISO } from 'date-fns';
 import { useFirebase, useCollection, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, useDoc } from '@/firebase';
-import { collection, query, doc, Timestamp, addDoc, where, getDoc, getDocs } from 'firebase/firestore';
+import { collection, query, doc, Timestamp, addDoc, where, getDoc, getDocs, setDoc } from 'firebase/firestore';
 import { useTenant } from '@/contexts/tenant-context';
 
 export type User = {
@@ -1070,7 +1070,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
       }
       await updateDocumentNonBlocking(doc(firestore!, 'enrollment_requests', requestId), { status: 'approved', classId });
 
-      // Se for um curso do DIS / Libras, gerar automaticamente o registro de mensalidade
+      // Gera automaticamente o registro de mensalidade/cobrança no tuition_fees (e dis_payments se for DIS)
       try {
         const courseSnap = await getDoc(doc(firestore!, 'courses', req.courseId));
         if (courseSnap.exists()) {
@@ -1078,49 +1078,114 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
           const cName = (cData.name || '').toLowerCase();
           const cSchool = (cData.schoolId || '').toLowerCase();
           const cMin = (cData.ministryName || cData.ministry || '').toLowerCase();
+          const isDisCourse = cSchool === 'dis' || cMin === 'dis' || cName.includes('libras');
 
-          if (cSchool === 'dis' || cMin === 'dis' || cName.includes('libras')) {
-            // Busca o plano cadastrado no DIS (dis_plans)
-            let disPrice = 85;
-            let dueDayNumber = 5;
-            try {
-              const plansSnap = await getDocs(collection(firestore!, 'dis_plans'));
-              if (!plansSnap.empty) {
-                const planData = plansSnap.docs[0].data();
-                if (planData.price) disPrice = Number(planData.price);
-                if (planData.dueDateDay) dueDayNumber = Number(planData.dueDateDay);
+          const finConfig = cData.financeConfig;
+          const isPaid = finConfig?.isPaid ?? true;
+
+          if (isPaid) {
+            const totalAmount = finConfig?.totalAmount ? Number(finConfig.totalAmount) : 100;
+            const installments = finConfig?.installments ? Number(finConfig.installments) : 1;
+            const dueDayNumber = finConfig?.dueDay ? Number(finConfig.dueDay) : 10;
+            const installmentAmount = totalAmount / Math.max(installments, 1);
+            const isAsaasCourse = cData.billingMethod === 'asaas';
+
+            let asaasCustomerId: string | null = null;
+            let asaasPaymentData: any = null;
+
+            // Se for faturado pelo Asaas, gera a fatura via API
+            if (isAsaasCourse) {
+              try {
+                const custRes = await fetch('/api/asaas/customers', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    name: req.name,
+                    email: req.email,
+                    phone: req.phone,
+                    userId: studentId,
+                  })
+                });
+
+                if (custRes.ok) {
+                  const custJson = await custRes.json();
+                  asaasCustomerId = custJson.customerId;
+
+                  const firstCompDate = new Date();
+                  const firstDueDateStr = `${firstCompDate.getFullYear()}-${String(firstCompDate.getMonth() + 1).padStart(2, '0')}-${String(dueDayNumber).padStart(2, '0')}`;
+
+                  const payRes = await fetch('/api/asaas/payments', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      customerId: asaasCustomerId,
+                      billingType: finConfig?.paymentMethod === 'boleto' ? 'BOLETO' : 'PIX',
+                      value: totalAmount,
+                      dueDate: firstDueDateStr,
+                      description: `Matrícula: ${cData.name || 'Curso'} - ${req.name}`,
+                      externalReference: requestId,
+                      installmentCount: installments > 1 ? installments : undefined,
+                    })
+                  });
+
+                  if (payRes.ok) {
+                    asaasPaymentData = await payRes.json();
+                  }
+                }
+              } catch (asaasErr) {
+                console.error('[Aprovação Asaas] Erro ao integrar com Asaas:', asaasErr);
               }
-            } catch (errP) {
-              console.error('Erro ao ler dis_plans:', errP);
             }
 
-            const today = new Date();
-            // Mês subsequente no dia cadastrado no plano
-            const nextMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, dueDayNumber);
-            const year = nextMonthDate.getFullYear();
-            const month = String(nextMonthDate.getMonth() + 1).padStart(2, '0');
-            const day = String(nextMonthDate.getDate()).padStart(2, '0');
-            
-            const competence = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-            const dueDateStr = `${year}-${month}-${day}`; // ex: 2026-08-05
+            // Grava as parcelas universais na coleção tuition_fees
+            for (let i = 1; i <= installments; i++) {
+              const feeId = `fee_${requestId}_${i}`;
+              const compDate = new Date();
+              compDate.setMonth(compDate.getMonth() + (i - 1));
+              const competence = `${compDate.getFullYear()}-${String(compDate.getMonth() + 1).padStart(2, '0')}`;
+              
+              const dueDateDate = new Date(compDate.getFullYear(), compDate.getMonth() + (isDisCourse ? 1 : 0), dueDayNumber);
+              const dueDateStr = `${dueDateDate.getFullYear()}-${String(dueDateDate.getMonth() + 1).padStart(2, '0')}-${String(dueDayNumber).padStart(2, '0')}`;
 
-            await addDoc(collection(firestore!, 'dis_payments'), {
-              userId: studentId,
-              studentName: req.name,
-              courseId: req.courseId,
-              courseName: cData.name || 'Curso de Libras',
-              classId: classId,
-              className: targetClass.name || '',
-              amount: disPrice,
-              competence: competence,
-              dueDate: dueDateStr,
-              status: 'em_aberto',
-              createdAt: Timestamp.now()
-            });
+              await setDoc(doc(firestore!, 'tuition_fees', feeId), {
+                id: feeId,
+                enrollmentId: requestId,
+                courseId: req.courseId,
+                studentId,
+                studentName: req.name,
+                courseName: cData.name || 'Curso',
+                amount: installmentAmount,
+                competence,
+                dueDate: dueDateStr,
+                status: 'em_aberto',
+                createdAt: Timestamp.now(),
+                ...(asaasCustomerId ? { asaasCustomerId } : {}),
+                ...(asaasPaymentData?.id ? { asaasPaymentId: asaasPaymentData.id } : {}),
+                ...(asaasPaymentData?.invoiceUrl ? { invoiceUrl: asaasPaymentData.invoiceUrl } : {}),
+                ...(asaasPaymentData?.bankSlipUrl ? { bankSlipUrl: asaasPaymentData.bankSlipUrl } : {}),
+              }, { merge: true });
+
+              // Se for DIS, grava também no dis_payments legado
+              if (isDisCourse && i === 1) {
+                await addDoc(collection(firestore!, 'dis_payments'), {
+                  userId: studentId,
+                  studentName: req.name,
+                  courseId: req.courseId,
+                  courseName: cData.name || 'Curso de Libras',
+                  classId,
+                  className: targetClass.name || '',
+                  amount: installmentAmount,
+                  competence,
+                  dueDate: dueDateStr,
+                  status: 'em_aberto',
+                  createdAt: Timestamp.now()
+                });
+              }
+            }
           }
         }
       } catch (finErr) {
-        console.error('Erro ao gerar mensalidade automática do DIS:', finErr);
+        console.error('Erro ao gerar mensalidade automática na aprovação:', finErr);
       }
     },
     updateEnrollmentRequest: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'enrollment_requests', id), data); },

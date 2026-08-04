@@ -72,13 +72,19 @@ export function MensalidadesManager({
     try {
       const dbStatus = editStatus === 'pago' ? 'paid' : editStatus === 'em_aberto' ? 'pending' : editStatus;
       
-      if (updateDisPayment && editingFee.id) {
-        await updateDisPayment(editingFee.id, {
-          amount: numericAmount,
-          dueDate: editDueDate,
-          status: dbStatus,
-          paidAt: editStatus === 'pago' ? new Date().toISOString() : null
-        });
+      const isDisFee = (editingFee.courseName || '').toLowerCase().includes('dis') || (editingFee.courseName || '').toLowerCase().includes('libras');
+
+      if (isDisFee && updateDisPayment && editingFee.id) {
+        try {
+          await updateDisPayment(editingFee.id, {
+            amount: numericAmount,
+            dueDate: editDueDate,
+            status: dbStatus,
+            paidAt: editStatus === 'pago' ? new Date().toISOString() : null
+          });
+        } catch (e) {
+          // Ignora se não existir no dis_payments
+        }
       }
 
       if (firestore) {
@@ -105,8 +111,14 @@ export function MensalidadesManager({
     if (!confirm(`Deseja realmente EXCLUIR a cobrança de R$ ${fee.amount.toFixed(2)} de ${fee.studentName}?`)) return;
 
     try {
-      if (deleteDisPayment && fee.id) {
-        await deleteDisPayment(fee.id);
+      const isDisFee = (fee.courseName || '').toLowerCase().includes('dis') || (fee.courseName || '').toLowerCase().includes('libras');
+      
+      if (isDisFee && deleteDisPayment && fee.id) {
+        try {
+          await deleteDisPayment(fee.id);
+        } catch (e) {
+          // Ignora se não existir no dis_payments
+        }
       }
       if (firestore) {
         const feeRef = doc(firestore, 'tuition_fees', fee.id);
@@ -147,11 +159,18 @@ export function MensalidadesManager({
 
       try {
         const dbStatus = targetNextStatus === 'pago' ? 'paid' : 'pending';
-        if (updateDisPayment && feeId) {
-          await updateDisPayment(feeId, { 
-            status: dbStatus,
-            paidAt: targetNextStatus === 'pago' ? new Date().toISOString() : null
-          });
+        const targetFee = feeList.find(f => f.id === feeId);
+        const isDisFee = (targetFee?.courseName || '').toLowerCase().includes('dis') || (targetFee?.courseName || '').toLowerCase().includes('libras');
+
+        if (isDisFee && updateDisPayment && feeId) {
+          try {
+            await updateDisPayment(feeId, { 
+              status: dbStatus,
+              paidAt: targetNextStatus === 'pago' ? new Date().toISOString() : null
+            });
+          } catch (e) {
+            // Ignora se o ID não existir em dis_payments
+          }
         }
         if (firestore) {
           const feeRef = doc(firestore, 'tuition_fees', feeId);
