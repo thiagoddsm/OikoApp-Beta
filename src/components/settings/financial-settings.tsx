@@ -14,7 +14,7 @@ import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, doc, setDoc, query, orderBy, limit, getDocs } from 'firebase/firestore';
 
 export function FinancialSettings() {
-  const { firestore } = useFirebase();
+  const { firestore, user } = useFirebase();
   const { toast } = useToast();
   const { tenantId } = useChurch();
   
