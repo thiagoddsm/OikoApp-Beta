@@ -62,9 +62,11 @@ async function getAsaasCredentials(tenantId?: string): Promise<{ apiKey: string;
       if (tenantSnap.exists) {
         const tenantData = tenantSnap.data();
         if (tenantData?.asaasApiKey) {
+          const decryptedKey = decrypt(tenantData.asaasApiKey);
+          const isProd = decryptedKey.startsWith('$aact_prod_');
           return {
-            apiKey: decrypt(tenantData.asaasApiKey),
-            baseUrl: tenantData.asaasBaseUrl || (tenantData.asaasEnv === 'sandbox' ? 'https://sandbox.asaas.com/api/v3' : 'https://api.asaas.com/v3')
+            apiKey: decryptedKey,
+            baseUrl: isProd ? 'https://api.asaas.com/v3' : (tenantData.asaasBaseUrl || (tenantData.asaasEnv === 'sandbox' ? 'https://sandbox.asaas.com/api/v3' : 'https://api.asaas.com/v3'))
           };
         }
       }
@@ -76,9 +78,11 @@ async function getAsaasCredentials(tenantId?: string): Promise<{ apiKey: string;
     if (snap.exists) {
       const data = snap.data()!;
       if (data.asaasApiKey) {
+        const decryptedKey = decrypt(data.asaasApiKey);
+        const isProd = decryptedKey.startsWith('$aact_prod_');
         return {
-          apiKey: decrypt(data.asaasApiKey),
-          baseUrl: data.asaasBaseUrl || 'https://api.asaas.com/v3'
+          apiKey: decryptedKey,
+          baseUrl: isProd ? 'https://api.asaas.com/v3' : (data.asaasBaseUrl || 'https://api.asaas.com/v3')
         };
       }
     }
@@ -87,7 +91,8 @@ async function getAsaasCredentials(tenantId?: string): Promise<{ apiKey: string;
   }
 
   const envKey = process.env.ASAAS_API_KEY || '';
-  const envUrl = process.env.ASAAS_BASE_URL || 'https://api.asaas.com/v3';
+  const isProd = envKey.startsWith('$aact_prod_');
+  const envUrl = isProd ? 'https://api.asaas.com/v3' : (process.env.ASAAS_BASE_URL || 'https://api.asaas.com/v3');
 
   return {
     apiKey: envKey,

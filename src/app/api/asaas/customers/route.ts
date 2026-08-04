@@ -6,8 +6,9 @@ export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
-    const { context, errorResponse } = await requireAuth(request, ['admin', 'finance']);
-    if (errorResponse) return errorResponse;
+    const authResult = await requireAuth(request);
+    if (authResult.errorResponse) return authResult.errorResponse;
+    const context = authResult.context!;
 
     const { name, cpfCnpj, email, phone, userId } = await request.json();
 

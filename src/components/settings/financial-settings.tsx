@@ -189,9 +189,8 @@ export function FinancialSettings() {
     const member = members.find(m => m.id === selectedMemberId);
 
     try {
-      const customerRes = await fetch('/api/asaas/customers', {
+      const customerRes = await authFetch('/api/asaas/customers', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: member.name,
           email: member.email || 'financeiro@ibmanha.com.br',
@@ -208,19 +207,9 @@ export function FinancialSettings() {
       const customerId = customerData.customerId;
 
       const dueDate = new Date();
-      dueDate.setDate(dueDate.getDate() + dueDays);
+      dueDate.setDate(dueDate.getDate() + (dueDays || 3));
       const dueDateStr = dueDate.toISOString().split('T')[0];
 
-      // Se for formato assinatura, chama o endpoint de subscriptions
-      const isSubscription = chargeType === 'SUBSCRIPTION';
-      const endpoint = isSubscription ? '/api/asaas/subscriptions' : '/api/asaas/payments';
-
-      const paymentRes = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customerId,
-          billingType,
           value: amount,
           dueDate: dueDateStr,
           description: `${isSubscription ? 'Assinatura' : 'Cobrança'} de Teste Oiko — ${member.name}`,
