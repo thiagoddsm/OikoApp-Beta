@@ -1096,9 +1096,13 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
             // Se for faturado pelo Asaas, gera a fatura via API
             if (isAsaasCourse) {
               try {
+                const token = await user?.getIdToken();
+                const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+                if (token) headers['Authorization'] = `Bearer ${token}`;
+
                 const custRes = await fetch('/api/asaas/customers', {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
+                  headers,
                   body: JSON.stringify({
                     name: req.name,
                     email: req.email,
@@ -1116,7 +1120,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
 
                   const payRes = await fetch('/api/asaas/payments', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers,
                     body: JSON.stringify({
                       customerId: asaasCustomerId,
                       billingType: finConfig?.paymentMethod === 'boleto' ? 'BOLETO' : 'PIX',

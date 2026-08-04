@@ -233,10 +233,16 @@ export function AcademicEnrollmentWizard({
         // Se o curso for faturado pelo Asaas, gera a cobrança na API do Asaas
         if (isAsaasCourse) {
           try {
+            const token = await currentUser.getIdToken();
+            const headers = {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            };
+
             // 1. Cria ou busca cliente no Asaas
             const custRes = await fetch('/api/asaas/customers', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers,
               body: JSON.stringify({
                 name: studentName,
                 email: studentEmail,
@@ -256,7 +262,7 @@ export function AcademicEnrollmentWizard({
               // 2. Cria cobrança / parcelamento no Asaas
               const payRes = await fetch('/api/asaas/payments', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify({
                   customerId: asaasCustomerId,
                   billingType: scAny?.financeConfig?.paymentMethod === 'boleto' ? 'BOLETO' : 'PIX',
