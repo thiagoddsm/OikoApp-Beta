@@ -210,6 +210,14 @@ export function FinancialSettings() {
       dueDate.setDate(dueDate.getDate() + (dueDays || 3));
       const dueDateStr = dueDate.toISOString().split('T')[0];
 
+      const isSubscription = chargeType === 'SUBSCRIPTION';
+      const endpoint = isSubscription ? '/api/asaas/subscriptions' : '/api/asaas/payments';
+
+      const paymentRes = await authFetch(endpoint, {
+        method: 'POST',
+        body: JSON.stringify({
+          customerId,
+          billingType,
           value: amount,
           dueDate: dueDateStr,
           description: `${isSubscription ? 'Assinatura' : 'Cobrança'} de Teste Oiko — ${member.name}`,
