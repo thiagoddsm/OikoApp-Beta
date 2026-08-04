@@ -493,6 +493,73 @@ function EnrollmentForm() {
             if (!selectedCourseId) return;
             setIsSubmitting(true);
             try {
+                const finalEmail = emailInput.toLowerCase().trim();
+                let finalName = mode === 'new' ? formData.name : undefined;
+                let finalPhone = mode === 'new' ? formData.phone : undefined;
+                let userId = foundUser?.userId;
+                let finalCpf = cpfCnpj;
+
+                if (userId && firestore) {
+                    const { doc, getDoc } = await import('firebase/firestore');
+                    const userDoc = await getDoc(doc(firestore, 'users', userId));
+                    if (userDoc.exists()) {
+                        const realData = userDoc.data();
+                        finalName = finalName || realData.name;
+                        finalPhone = finalPhone || realData.phone;
+                        if (!finalCpf) {
+                            finalCpf = realData.cpfCnpj || realData.cpf || realData.cnpj || '';
+                        }
+                    }
+                }
+
+                if (!finalName) finalName = 'Aluno IBM';
+
+                const coursePrice = (selectedCourse as any)?.financeConfig?.totalAmount || 0;
+                const isPaid = coursePrice > 0;
+
+                let asaasCharge: any = null;
+
+                if (isPaid) {
+                    // 1. Criar/Buscar Cliente no Asaas
+                    const customerRes = await fetch('/api/asaas/customers', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            name: finalName,
+                            email: finalEmail,
+                            phone: finalPhone || '',
+                            cpfCnpj: finalCpf.replace(/\D/g, ''),
+                            userId: userId || undefined,
+                        }),
+                    });
+
+                    if (customerRes.ok) {
+                        const { customerId } = await customerRes.json();
+
+                        const tomorrow = new Date();
+                        tomorrow.setDate(tomorrow.getDate() + 1);
+                        const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+                        const paymentRes = await fetch('/api/asaas/payments', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                customerId,
+                                billingType: paymentMethod,
+                                value: coursePrice,
+                                dueDate: tomorrowStr,
+                                description: `Inscrição Curso: ${selectedCourse?.name || 'Curso'} - ${finalName}`,
+                                externalReference: userId || undefined,
+                                ...(paymentMethod === 'CREDIT_CARD' && installments > 1 ? { installmentCount: installments } : {})
+                            }),
+                        });
+
+                        if (paymentRes.ok) {
+                            asaasCharge = await paymentRes.json();
+                        }
+                    }
+                }
+
                 const result = await submitEnrollmentRequest({
                     userId: foundUser?.userId,
                     name: mode === 'new' ? formData.name : undefined,
@@ -506,10 +573,23 @@ function EnrollmentForm() {
                     throw new Error(result.error);
                 }
 
+                if (isPaid && asaasCharge) {
+                    setBillingResult({
+                        isPaid: true,
+                        paymentMethod,
+                        value: coursePrice,
+                        invoiceUrl: asaasCharge.invoiceUrl || '',
+                        bankSlipUrl: asaasCharge.bankSlipUrl || '',
+                        pixQrCodeImage: asaasCharge.pixQrCodeImage || '',
+                        pixCopyPaste: asaasCharge.pixCopyPaste || '',
+                    });
+                }
+
                 setIsSuccess(true);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
-            } catch (error) {
-                toast({ variant: 'destructive', title: "Erro ao processar", description: "Não foi possível enviar sua inscrição." });
+            } catch (error: any) {
+                console.error('Erro ao enviar inscrição:', error);
+                toast({ variant: 'destructive', title: "Erro ao processar", description: error.message || "Não foi possível enviar sua inscrição." });
             } finally {
                 setIsSubmitting(false);
             }
