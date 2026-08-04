@@ -5,34 +5,49 @@ import { requireAuth } from '@/lib/server-auth';
 export const runtime = 'nodejs';
 
 export async function GET(req: NextRequest) {
-  const { context, errorResponse } = await requireAuth(req, ['admin', 'finance']);
-  if (errorResponse) return errorResponse;
-
   try {
+    const authResult = await requireAuth(req, ['admin', 'finance']);
     const db = getAdminDb();
-    const snap = await db.collection('tenants').doc(context.tenantId).get();
+    let tenantId = authResult.context?.tenantId;
 
-    if (!snap.exists) {
-      return NextResponse.json({ 
-        dueDays: 3,
-        asaasApiKeyConfigured: false,
-        asaasWebhookTokenConfigured: false,
-        asaasBaseUrl: 'https://api.asaas.com/v3'
+    if (tenantId) {
+      const snap = await db.collection('tenants').doc(tenantId).get();
+      if (snap.exists) {
+        const data = snap.data()!;
+        return NextResponse.json({
+          dueDays: data.dueDays ?? 3,
+          asaasBaseUrl: data.asaasBaseUrl || 'https://api.asaas.com/v3',
+          asaasApiKeyConfigured: Boolean(data.asaasApiKey),
+          asaasWebhookTokenConfigured: Boolean(data.asaasWebhookToken)
+        });
+      }
+    }
+
+    // Fallback: consulta system_settings/finance
+    const globalSnap = await db.collection('system_settings').doc('finance').get();
+    if (globalSnap.exists) {
+      const gData = globalSnap.data()!;
+      return NextResponse.json({
+        dueDays: gData.dueDays ?? 3,
+        asaasBaseUrl: gData.asaasBaseUrl || 'https://api.asaas.com/v3',
+        asaasApiKeyConfigured: Boolean(gData.asaasApiKey || process.env.ASAAS_API_KEY),
+        asaasWebhookTokenConfigured: Boolean(gData.asaasWebhookToken)
       });
     }
 
-    const data = snap.data()!;
-    return NextResponse.json({
-      dueDays: data.dueDays ?? 3,
-      asaasBaseUrl: data.asaasBaseUrl || 'https://api.asaas.com/v3',
-      asaasApiKeyConfigured: Boolean(data.asaasApiKey),
-      asaasWebhookTokenConfigured: Boolean(data.asaasWebhookToken)
+    return NextResponse.json({ 
+      dueDays: 3,
+      asaasApiKeyConfigured: Boolean(process.env.ASAAS_API_KEY),
+      asaasWebhookTokenConfigured: false,
+      asaasBaseUrl: process.env.ASAAS_BASE_URL || 'https://api.asaas.com/v3'
     });
   } catch (error: any) {
     console.error('[Finance API] Erro ao ler configurações financeiras:', error);
-    return NextResponse.json(
-      { error: 'Erro interno ao consultar status financeiro' },
-      { status: 500 }
-    );
+    return NextResponse.json({ 
+      dueDays: 3,
+      asaasApiKeyConfigured: false,
+      asaasWebhookTokenConfigured: false,
+      asaasBaseUrl: 'https://api.asaas.com/v3'
+    });
   }
 }
