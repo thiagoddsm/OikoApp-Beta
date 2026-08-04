@@ -129,7 +129,7 @@ export function CourseFinanceHub({ courseId, courseName, course }: CourseFinance
               Configuração Financeira do Curso
             </CardTitle>
             <CardDescription className="text-xs mt-0.5">
-              Defina o valor, parcelas e forma de pagamento padrão. Esses valores são usados como sugestão no Wizard de Matrícula.
+              Defina o valor do curso, o parcelamento máximo permitido para os alunos, vencimento e forme de pagamento padrão.
             </CardDescription>
           </div>
           {!editingConfig && (
@@ -152,7 +152,7 @@ export function CourseFinanceHub({ courseId, courseName, course }: CourseFinance
                 <>
                   <Badge variant="outline" className="font-bold text-indigo-700 border-indigo-300">
                     R$ {Number(totalAmount).toFixed(2).replace('.', ',')}
-                    {Number(installments) > 1 ? ` em ${installments}x de R$ ${installmentValue.replace('.', ',')}` : ''}
+                    {Number(installments) > 1 ? ` (Permite até ${installments}x)` : ' (À vista)'}
                   </Badge>
                   <Badge variant="outline" className="font-bold text-slate-600">
                     {recurrenceLabel[recurrence] ?? recurrence}
@@ -193,7 +193,7 @@ export function CourseFinanceHub({ courseId, courseName, course }: CourseFinance
 
                   {/* Valor total */}
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-bold">Valor Total (R$)</Label>
+                    <Label className="text-xs font-bold">Valor Total do Curso (R$)</Label>
                     <Input
                       type="number"
                       min={0}
@@ -207,13 +207,13 @@ export function CourseFinanceHub({ courseId, courseName, course }: CourseFinance
 
                   {/* Parcelas */}
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-bold">Parcelas</Label>
+                    <Label className="text-xs font-bold">Parcelamento Máximo Permitido</Label>
                     <Select value={installments} onValueChange={setInstallments}>
                       <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {[1,2,3,4,5,6,8,10,12].map(n => (
                           <SelectItem key={n} value={n.toString()}>
-                            {n === 1 ? 'À vista' : `${n}x de R$ ${(Number(totalAmount)/n).toFixed(2).replace('.', ',')}`}
+                            {n === 1 ? 'Apenas À vista (1x)' : `Permitir até ${n}x (mínimo R$ ${(Number(totalAmount)/n).toFixed(2).replace('.', ',')}/mês)`}
                           </SelectItem>
                         ))}
                       </SelectContent>

@@ -1085,7 +1085,8 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
 
           if (isPaid) {
             const totalAmount = finConfig?.totalAmount ? Number(finConfig.totalAmount) : 100;
-            const installments = finConfig?.installments ? Number(finConfig.installments) : 1;
+            // Se o aluno escolheu a qtd de parcelas na inscrição pública, usa a escolha do aluno. Senão usa o padrão do curso.
+            const installments = req.installments ? Number(req.installments) : (finConfig?.installments ? Number(finConfig.installments) : 1);
             const dueDayNumber = finConfig?.dueDay ? Number(finConfig.dueDay) : 10;
             const installmentAmount = totalAmount / Math.max(installments, 1);
             const isAsaasCourse = cData.billingMethod === 'asaas';

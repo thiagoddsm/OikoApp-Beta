@@ -566,7 +566,9 @@ function EnrollmentForm() {
                     email: emailInput.toLowerCase().trim(),
                     phone: mode === 'new' ? formData.phone : undefined,
                     courseId: selectedCourseId,
-                    classId: selectedClassId || undefined
+                    classId: selectedClassId || undefined,
+                    paymentMethod,
+                    installments: paymentMethod === 'CREDIT_CARD' ? installments : 1,
                 });
 
                 if (result?.error) {

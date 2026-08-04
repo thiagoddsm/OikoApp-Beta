@@ -61,6 +61,8 @@ export async function submitEnrollmentRequest(data: {
     phone?: string;
     courseId: string;
     classId?: string;
+    paymentMethod?: string;
+    installments?: number;
 }) {
     try {
         const db = getAdminDb();
@@ -90,6 +92,8 @@ export async function submitEnrollmentRequest(data: {
             phone: finalPhone || '',
             courseId: data.courseId,
             classId: data.classId || '',
+            paymentMethod: data.paymentMethod || 'PIX',
+            installments: data.installments || 1,
             status: 'pending',
             createdAt: Timestamp.now()
         });
