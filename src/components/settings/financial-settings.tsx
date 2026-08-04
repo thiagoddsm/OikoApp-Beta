@@ -58,12 +58,23 @@ export function FinancialSettings() {
 
   const { data: recentPayments, isLoading: loadingLogs } = useCollection<any>(logsQuery);
 
+  // Helper de fetch autenticado
+  const authFetch = async (url: string, options: RequestInit = {}) => {
+    const token = user ? await user.getIdToken() : '';
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(options.headers as Record<string, string> || {}),
+    };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    return fetch(url, { ...options, headers });
+  };
+
   // Carregar dados (membros e configs)
   useEffect(() => {
     const init = async () => {
       if (!firestore) return;
       try {
-        const configRes = await fetch('/api/finance/status').then(r => r.json()).catch(() => null);
+        const configRes = await authFetch('/api/finance/status').then(r => r.json()).catch(() => null);
         if (configRes) {
           setDueDays(configRes.dueDays || 3);
           setAsaasBaseUrl(configRes.asaasBaseUrl || 'https://api.asaas.com/v3');
@@ -90,7 +101,7 @@ export function FinancialSettings() {
       }
     };
     init();
-  }, [firestore]);
+  }, [firestore, user]);
 
   // Preencher CPF se o membro selecionado já possuir no cadastro
   useEffect(() => {
@@ -121,6 +132,16 @@ export function FinancialSettings() {
       // Salva a chave se o usuário digitou algo e não é a máscara de bolinhas
       if (asaasApiKey && !asaasApiKey.includes('•') && !asaasApiKey.includes('...')) {
         payload.asaasApiKey = asaasApiKey;
+
+        // Tenta salvar via API criptografada para o Tenant
+        await authFetch('/api/asaas/config', {
+          method: 'POST',
+          body: JSON.stringify({
+            apiKey: asaasApiKey,
+            webhookToken: asaasWebhookToken,
+            asaasEnv: asaasBaseUrl.includes('sandbox') ? 'sandbox' : 'production'
+          })
+        });
       }
 
       await setDoc(configRef, payload, { merge: true });
@@ -131,7 +152,7 @@ export function FinancialSettings() {
       });
 
       // Recarrega status atualizado
-      const configRes = await fetch('/api/finance/status').then(r => r.json()).catch(() => null);
+      const configRes = await authFetch('/api/finance/status').then(r => r.json()).catch(() => null);
       if (configRes) {
         setIsKeyConfigured(configRes.asaasApiKeyConfigured);
         if (configRes.asaasApiKeyConfigured) {
