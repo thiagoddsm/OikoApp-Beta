@@ -1089,7 +1089,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
             const installments = req.installments ? Number(req.installments) : (finConfig?.installments ? Number(finConfig.installments) : 1);
             const dueDayNumber = finConfig?.dueDay ? Number(finConfig.dueDay) : 10;
             const installmentAmount = totalAmount / Math.max(installments, 1);
-            const isAsaasCourse = cData.billingMethod !== 'manual';
+            const isAsaasCourse = cData?.billingMethod !== 'manual_only' && cData?.billingMethod !== 'none';
 
             let asaasCustomerId: string | null = null;
             let asaasPaymentData: any = null;
@@ -1116,8 +1116,17 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
                   const custJson = await custRes.json();
                   asaasCustomerId = custJson.customerId;
 
-                  const firstCompDate = new Date();
-                  const firstDueDateStr = `${firstCompDate.getFullYear()}-${String(firstCompDate.getMonth() + 1).padStart(2, '0')}-${String(dueDayNumber).padStart(2, '0')}`;
+                  const now = new Date();
+                  let targetYear = now.getFullYear();
+                  let targetMonth = now.getMonth();
+                  if (now.getDate() >= dueDayNumber) {
+                    targetMonth += 1;
+                    if (targetMonth > 11) {
+                      targetMonth = 0;
+                      targetYear += 1;
+                    }
+                  }
+                  const firstDueDateStr = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}-${String(dueDayNumber).padStart(2, '0')}`;
 
                   const payRes = await fetch('/api/asaas/payments', {
                     method: 'POST',

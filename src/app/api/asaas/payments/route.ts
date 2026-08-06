@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(lockResult.previousResult || { message: 'Pagamento já processado previamente.' });
       }
     }
+    const body = await request.json();
     const {
       customerId,
       billingType,
@@ -30,8 +31,12 @@ export async function POST(request: NextRequest) {
       externalReference,
       installmentCount,
       installmentValue,
-      tenantId,
-    } = await request.json();
+    } = body;
+
+    // Bug fix: usar tenantId do contexto JWT autenticado como fonte primária.
+    // O body pode omitir o tenantId (wizard e approveEnrollmentRequest não o enviavam),
+    // fazendo getAsaasCredentials(undefined) pular a API key do tenant da igreja.
+    const tenantId = body.tenantId || context.tenantId;
 
     if (!customerId || !billingType || !value || !dueDate) {
       return NextResponse.json(

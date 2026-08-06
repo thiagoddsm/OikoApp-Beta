@@ -225,12 +225,12 @@ export function AcademicEnrollmentWizard({
       if (isPaidCourse && finalTuition > 0 && !isScholarship) {
         const scAny = selectedCourse as any;
         const isDisCourse = (scAny?.schoolId || scAny?.ministry || '').toLowerCase().includes('dis') || (selectedCourse?.name || '').toLowerCase().includes('libras');
-        const isAsaasCourse = scAny?.billingMethod !== 'manual';
+        // Se o curso for pago e não for explicitamente desativado, gera a cobrança na API do Asaas
+        const isAsaasCourse = scAny?.billingMethod !== 'manual_only' && scAny?.billingMethod !== 'none';
 
         let asaasCustomerId: string | null = null;
         let asaasPaymentData: any = null;
 
-        // Se o curso for faturado pelo Asaas, gera a cobrança na API do Asaas
         if (isAsaasCourse) {
           try {
             const token = await currentUser.getIdToken();
@@ -255,9 +255,18 @@ export function AcademicEnrollmentWizard({
               const custJson = await custRes.json();
               asaasCustomerId = custJson.customerId;
 
-              // Data de vencimento da primeira parcela
-              const firstCompDate = new Date();
-              const firstDueDateStr = `${firstCompDate.getFullYear()}-${String(firstCompDate.getMonth() + 1).padStart(2, '0')}-${String(dueDay).padStart(2, '0')}`;
+              // Data de vencimento da primeira parcela (garantindo data futura se já passou o dia do mês atual)
+              const now = new Date();
+              let targetYear = now.getFullYear();
+              let targetMonth = now.getMonth();
+              if (now.getDate() >= dueDay) {
+                targetMonth += 1;
+                if (targetMonth > 11) {
+                  targetMonth = 0;
+                  targetYear += 1;
+                }
+              }
+              const firstDueDateStr = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}-${String(dueDay).padStart(2, '0')}`;
 
               // 2. Cria cobrança / parcelamento no Asaas
               const payRes = await fetch('/api/asaas/payments', {

@@ -169,7 +169,10 @@ export async function findOrCreateCustomer(data: {
   
   if (cleanCpfCnpj) {
     const searchResult = await asaasRequest<AsaasListResponse<AsaasCustomer>>(
-      `/customers?cpfCnpj=${cleanCpfCnpj}&limit=1`
+      `/customers?cpfCnpj=${cleanCpfCnpj}&limit=1`,
+      'GET',
+      undefined,
+      data.tenantId // Bug fix: passar tenantId para usar a API key correta do tenant
     );
     if (searchResult.data && searchResult.data.length > 0) {
       return searchResult.data[0];
@@ -180,7 +183,10 @@ export async function findOrCreateCustomer(data: {
 
   if (hasValidRef) {
     const searchResultRef = await asaasRequest<AsaasListResponse<AsaasCustomer>>(
-      `/customers?externalReference=${encodeURIComponent(data.externalReference!)}&limit=1`
+      `/customers?externalReference=${encodeURIComponent(data.externalReference!)}&limit=1`,
+      'GET',
+      undefined,
+      data.tenantId // Bug fix: passar tenantId para usar a API key correta do tenant
     );
 
     if (searchResultRef.data && searchResultRef.data.length > 0) {
