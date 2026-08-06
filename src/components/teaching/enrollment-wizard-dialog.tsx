@@ -22,6 +22,7 @@ import { useMembersData, useCoursesData } from '@/hooks/useDomainData';
 import { useTeachingPrograms } from '@/hooks/useTeachingPrograms';
 import { useFirebase, setDocumentNonBlocking } from '@/firebase';
 import { doc, collection, writeBatch } from 'firebase/firestore';
+import { useTenant } from '@/contexts/tenant-context';
 import { AcademicEnrollment, AcademicEvent } from '@/lib/programs/enrollment-types';
 import { TuitionFee } from '@/lib/finance/financial-plan-types';
 import { checkCoursePrerequisitesSatisfied } from '@/lib/services/progression-engine';
@@ -39,6 +40,7 @@ export function AcademicEnrollmentWizard({
   defaultProgramId,
   defaultCourseId
 }: AcademicEnrollmentWizardProps) {
+  const { tenantId } = useTenant();
   const { firestore, user: currentUser } = useFirebase();
   const { toast } = useToast();
   const { users } = useMembersData();
@@ -51,6 +53,7 @@ export function AcademicEnrollmentWizard({
   // Student Search State
   const [studentSearchQuery, setStudentSearchQuery] = useState<string>('');
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
+  const [selectedStudentCpf, setSelectedStudentCpf] = useState<string>('');
   const [isNewStudent, setIsNewStudent] = useState<boolean>(false);
   const [newStudentName, setNewStudentName] = useState<string>('');
   const [newStudentEmail, setNewStudentEmail] = useState<string>('');
@@ -225,73 +228,82 @@ export function AcademicEnrollmentWizard({
       if (isPaidCourse && finalTuition > 0 && !isScholarship) {
         const scAny = selectedCourse as any;
         const isDisCourse = (scAny?.schoolId || scAny?.ministry || '').toLowerCase().includes('dis') || (selectedCourse?.name || '').toLowerCase().includes('libras');
-        // Se o curso for pago e não for explicitamente desativado, gera a cobrança na API do Asaas
         const isAsaasCourse = scAny?.billingMethod !== 'manual_only' && scAny?.billingMethod !== 'none';
 
         let asaasCustomerId: string | null = null;
         let asaasPaymentData: any = null;
 
+        // Obter CPF do aluno (seja novo ou existente)
+        const studentCpf = isNewStudent
+          ? newStudentCpf.replace(/\D/g, '')
+          : (selectedStudentCpf || selectedStudent?.cpf || (selectedStudent as any)?.cpfCnpj || '').replace(/\D/g, '');
+
         if (isAsaasCourse) {
-          try {
-            const token = await currentUser.getIdToken();
-            const headers = {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            };
-
-            // 1. Cria ou busca cliente no Asaas
-            const custRes = await fetch('/api/asaas/customers', {
-              method: 'POST',
-              headers,
-              body: JSON.stringify({
-                name: studentName,
-                email: studentEmail,
-                cpfCnpj: isNewStudent ? newStudentCpf : undefined,
-                userId: studentId,
-              })
-            });
-
-            if (custRes.ok) {
-              const custJson = await custRes.json();
-              asaasCustomerId = custJson.customerId;
-
-              // Data de vencimento da primeira parcela (garantindo data futura se já passou o dia do mês atual)
-              const now = new Date();
-              let targetYear = now.getFullYear();
-              let targetMonth = now.getMonth();
-              if (now.getDate() >= dueDay) {
-                targetMonth += 1;
-                if (targetMonth > 11) {
-                  targetMonth = 0;
-                  targetYear += 1;
-                }
-              }
-              const firstDueDateStr = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}-${String(dueDay).padStart(2, '0')}`;
-
-              // 2. Cria cobrança / parcelamento no Asaas
-              const payRes = await fetch('/api/asaas/payments', {
-                method: 'POST',
-                headers,
-                body: JSON.stringify({
-                  customerId: asaasCustomerId,
-                  billingType: scAny?.financeConfig?.paymentMethod === 'boleto' ? 'BOLETO' : 'PIX',
-                  value: finalTuition * installments,
-                  dueDate: firstDueDateStr,
-                  description: `Matrícula: ${selectedCourse?.name || 'Curso'} - ${studentName}`,
-                  externalReference: enrollmentId,
-                  installmentCount: installments > 1 ? installments : undefined,
-                })
-              });
-
-              if (payRes.ok) {
-                asaasPaymentData = await payRes.json();
-              } else {
-                console.warn('[Wizard Asaas] Não foi possível gerar fatura na API Asaas (verifique chaves)');
-              }
-            }
-          } catch (asaasErr) {
-            console.error('[Wizard Asaas] Erro ao integrar com Asaas:', asaasErr);
+          if (!studentCpf) {
+            throw new Error('CPF/CNPJ do aluno é obrigatório para emissão de faturas no Asaas. Por favor, informe o CPF no campo do aluno.');
           }
+
+          const token = await currentUser.getIdToken();
+          const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          };
+
+          // 1. Cria ou busca cliente no Asaas
+          const custRes = await fetch('/api/asaas/customers', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              name: studentName,
+              email: studentEmail,
+              cpfCnpj: studentCpf,
+              userId: studentId,
+              tenantId
+            })
+          });
+
+          const custJson = await custRes.json().catch(() => ({}));
+          if (!custRes.ok) {
+            throw new Error(`Asaas (Cliente): ${custJson.error || custJson.message || 'Falha ao registrar cliente no Asaas.'}`);
+          }
+
+          asaasCustomerId = custJson.customerId;
+
+          // Data de vencimento da primeira parcela (garantindo data futura se já passou o dia do mês atual)
+          const now = new Date();
+          let targetYear = now.getFullYear();
+          let targetMonth = now.getMonth();
+          if (now.getDate() >= dueDay) {
+            targetMonth += 1;
+            if (targetMonth > 11) {
+              targetMonth = 0;
+              targetYear += 1;
+            }
+          }
+          const firstDueDateStr = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}-${String(dueDay).padStart(2, '0')}`;
+
+          // 2. Cria cobrança / parcelamento no Asaas
+          const payRes = await fetch('/api/asaas/payments', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              customerId: asaasCustomerId,
+              billingType: scAny?.financeConfig?.paymentMethod === 'boleto' ? 'BOLETO' : 'PIX',
+              value: finalTuition * installments,
+              dueDate: firstDueDateStr,
+              description: `Matrícula: ${selectedCourse?.name || 'Curso'} - ${studentName}`,
+              externalReference: enrollmentId,
+              installmentCount: installments > 1 ? installments : undefined,
+              tenantId
+            })
+          });
+
+          const payJson = await payRes.json().catch(() => ({}));
+          if (!payRes.ok) {
+            throw new Error(`Asaas (Fatura): ${payJson.error || payJson.message || 'Falha ao gerar cobrança no Asaas.'}`);
+          }
+
+          asaasPaymentData = payJson;
         }
 
         for (let i = 1; i <= installments; i++) {
@@ -431,6 +443,7 @@ export function AcademicEnrollmentWizard({
                         key={u.id}
                         onClick={() => {
                           setSelectedStudentId(u.id);
+                          setSelectedStudentCpf(u.cpf || (u as any).cpfCnpj || '');
                         }}
                         className={cn(
                           "flex items-center justify-between p-2.5 cursor-pointer transition-colors text-xs hover:bg-indigo-50/50 dark:hover:bg-slate-800",
@@ -443,7 +456,7 @@ export function AcademicEnrollmentWizard({
                           </div>
                           <div>
                             <p className="font-bold text-slate-800 dark:text-slate-200">{u.name}</p>
-                            <p className="text-[10px] text-slate-500">{u.email || u.cpf || 'Sem e-mail cadastrado'}</p>
+                            <p className="text-[10px] text-slate-500">{u.email || u.cpf || (u as any).cpfCnpj || 'Sem e-mail cadastrado'}</p>
                           </div>
                         </div>
                         {isSelected && (
@@ -459,6 +472,18 @@ export function AcademicEnrollmentWizard({
                     </div>
                   )}
                 </div>
+
+                {selectedStudentId && (
+                  <div className="space-y-1 pt-2 border-t mt-2">
+                    <Label className="text-xs font-bold text-slate-600">CPF do Aluno (Obrigatório para Asaas) *</Label>
+                    <Input
+                      placeholder="000.000.000-00"
+                      value={selectedStudentCpf}
+                      onChange={e => setSelectedStudentCpf(e.target.value)}
+                      className="h-9 text-xs"
+                    />
+                  </div>
+                )}
               </div>
             ) : (
               <div className="space-y-3">
