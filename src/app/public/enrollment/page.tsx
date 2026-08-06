@@ -286,6 +286,15 @@ function EnrollmentForm() {
         }
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };    const handleFinalSubmit = async () => {
+        // Obter token do Firebase Auth (logado ou anônimo) para o cabeçalho Authorization
+        const { getAuth } = await import('firebase/auth');
+        const auth = getAuth();
+        const token = auth.currentUser ? await auth.currentUser.getIdToken() : '';
+        const authHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (token) {
+            authHeaders['Authorization'] = `Bearer ${token}`;
+        }
+
         if (selectedCategory === 'eventos') {
             if (!selectedEventId || !selectedEvent) return;
 
@@ -354,15 +363,6 @@ function EnrollmentForm() {
                 }
 
                 let asaasCharge: any = null;
-
-                // Obter token do Firebase Auth (logado ou anônimo) para o cabeçalho Authorization
-                const { getAuth } = await import('firebase/auth');
-                const auth = getAuth();
-                const token = auth.currentUser ? await auth.currentUser.getIdToken() : '';
-                const authHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
-                if (token) {
-                    authHeaders['Authorization'] = `Bearer ${token}`;
-                }
 
                 if (isPaid) {
                     // 1. Criar/Buscar Cliente no Asaas
