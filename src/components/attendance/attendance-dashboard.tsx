@@ -51,6 +51,10 @@ interface AttendanceRecord {
     adultos: number;
     criancas: number;
     salaVip?: number;
+    conversoes?: number;
+    reconciliacoes?: number;
+    clima?: string;
+    observacoes?: string;
     teveApelo?: boolean;
     teveCeia?: boolean;
     serieMensagem?: string;
@@ -84,6 +88,9 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export function AttendanceDashboard({ registros, loading }: AttendanceDashboardProps) {
+  const [viewMode, setViewMode] = useState<'ampla' | 'individual'>('ampla');
+  const [selectedRecordId, setSelectedRecordId] = useState<string>('');
+
   const [filtroDataInicio, setFiltroDataInicio] = useState('');
   const [filtroDataFim, setFiltroDataFim] = useState('');
   const [filtroHorario, setFiltroHorario] = useState('todos');
@@ -134,11 +141,11 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
     try {
       if (filtroDataInicio) {
         const startTimestamp = new Date(filtroDataInicio + 'T00:00:00').getTime() / 1000;
-        filtrados = filtrados.filter(r => r.data.seconds >= startTimestamp);
+        filtrados = filtrados.filter(r => r.data?.seconds && r.data.seconds >= startTimestamp);
       }
       if (filtroDataFim) {
         const endTimestamp = new Date(filtroDataFim + 'T23:59:59').getTime() / 1000;
-        filtrados = filtrados.filter(r => r.data.seconds <= endTimestamp);
+        filtrados = filtrados.filter(r => r.data?.seconds && r.data.seconds <= endTimestamp);
       }
     } catch (e) {
       console.error("Erro ao filtrar data:", e);
@@ -162,12 +169,24 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
         filtrados = filtrados.filter(r => (r.apresentacaoBebe || false) === (filtroBebe === 'sim'));
     }
     
-    return filtrados.sort((a, b) => a.data.seconds - b.data.seconds);
+    return filtrados.sort((a, b) => (a.data?.seconds || 0) - (b.data?.seconds || 0));
   }, [registros, filtroDataInicio, filtroDataFim, filtroHorario, filtroSerie, filtroFeriado, filtroJogo, filtroBebe]);
 
+  // Culto Selecionado para Análise Individual
+  const selectedRecord = useMemo(() => {
+    if (!registrosFiltrados.length) return null;
+    if (selectedRecordId) {
+      return registrosFiltrados.find(r => r.id === selectedRecordId) || registrosFiltrados[registrosFiltrados.length - 1];
+    }
+    return registrosFiltrados[registrosFiltrados.length - 1];
+  }, [registrosFiltrados, selectedRecordId]);
+
   const stats = useMemo(() => {
-      const totalAdultos = registrosFiltrados.reduce((acc, r) => acc + r.adultos, 0);
+      const totalAdultos = registrosFiltrados.reduce((acc, r) => acc + (r.adultos || 0), 0);
       const totalCriancas = registrosFiltrados.reduce((acc, r) => acc + (r.criancas || 0), 0);
+      const totalSalaVip = registrosFiltrados.reduce((acc, r) => acc + (r.salaVip || 0), 0);
+      const totalConversoes = registrosFiltrados.reduce((acc, r) => acc + (r.conversoes || 0), 0);
+      const totalReconciliacoes = registrosFiltrados.reduce((acc, r) => acc + (r.reconciliacoes || 0), 0);
       
       const totalGeral = totalAdultos + totalCriancas;
       const count = registrosFiltrados.length;
@@ -176,16 +195,24 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
           count: count,
           totalAdultos: totalAdultos,
           totalCriancas: totalCriancas,
-          mediaGeral: count > 0 ? Math.round(totalGeral / count) : 0
+          totalSalaVip,
+          totalConversoes,
+          totalReconciliacoes,
+          mediaGeral: count > 0 ? Math.round(totalGeral / count) : 0,
+          mediaVip: count > 0 ? Math.round(totalSalaVip / count) : 0
       }
   }, [registrosFiltrados]);
 
   const frequenciaAoLongoDoTempoData = useMemo(() => {
      return registrosFiltrados.map(r => ({
-         date: new Date(r.data.seconds * 1000).toLocaleDateString('pt-BR', { timeZone: 'UTC' }),
-         Adultos: r.adultos,
+         id: r.id,
+         date: new Date((r.data?.seconds || 0) * 1000).toLocaleDateString('pt-BR', { timeZone: 'UTC' }),
+         Adultos: r.adultos || 0,
          Crianças: r.criancas || 0,
-         Total: r.adultos + (r.criancas || 0)
+         SalaVip: r.salaVip || 0,
+         Conversões: r.conversoes || 0,
+         Reconciliações: r.reconciliacoes || 0,
+         Total: (r.adultos || 0) + (r.criancas || 0)
      }));
   }, [registrosFiltrados]);
 
@@ -388,6 +415,168 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
         }
       `}} />
 
+      {/* Barra de Seleção de Modo de Visão */}
+      <div className="flex flex-wrap items-center justify-between gap-4 p-2 bg-slate-100 dark:bg-slate-900 rounded-2xl print-hidden">
+        <div className="flex items-center gap-1 bg-white dark:bg-slate-800 p-1 rounded-xl shadow-sm border">
+          <button
+            type="button"
+            onClick={() => setViewMode('ampla')}
+            className={cn(
+              "px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2",
+              viewMode === 'ampla' 
+                ? "bg-indigo-600 text-white shadow-sm" 
+                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            )}
+          >
+            <TrendingUp className="size-3.5" />
+            <span>📊 Visão Ampla (Global)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('individual')}
+            className={cn(
+              "px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2",
+              viewMode === 'individual' 
+                ? "bg-indigo-600 text-white shadow-sm" 
+                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            )}
+          >
+            <Sparkles className="size-3.5" />
+            <span>🔍 Análise Individual do Culto</span>
+          </button>
+        </div>
+
+        {/* Seletor Rápido de Culto em Modo Individual */}
+        {viewMode === 'individual' && registrosFiltrados.length > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-600 dark:text-slate-400">Selecionar Culto:</span>
+            <select
+              value={selectedRecord?.id || ''}
+              onChange={(e) => setSelectedRecordId(e.target.value)}
+              className="h-9 px-3 rounded-xl bg-white dark:bg-slate-800 border text-xs font-black text-slate-800 dark:text-white shadow-sm outline-none"
+            >
+              {registrosFiltrados.map((r) => {
+                const dateStr = new Date((r.data?.seconds || 0) * 1000).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+                return (
+                  <option key={r.id} value={r.id}>
+                    {dateStr} — {r.horario.split(' - ')[1] || r.horario} ({(r.adultos || 0) + (r.criancas || 0)} pessoas)
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+        )}
+      </div>
+
+      {/* ── MODO INDIVIDUAL: RAIO-X DO CULTO SELECIONADO ────────────────────── */}
+      {viewMode === 'individual' && selectedRecord && (
+        <Card className="border-2 border-indigo-200 bg-gradient-to-br from-indigo-50/50 via-white to-slate-50 dark:from-indigo-950/20 dark:to-slate-900 p-6 shadow-lg rounded-[2rem]">
+          <CardHeader className="px-0 pt-0 border-b pb-4 flex flex-row items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <Badge className="bg-indigo-600 text-white font-extrabold uppercase text-[10px] tracking-widest">
+                  {selectedRecord.horario}
+                </Badge>
+                <span className="text-xs font-bold text-slate-500">
+                  🗓️ {new Date((selectedRecord.data?.seconds || 0) * 1000).toLocaleDateString('pt-BR', { timeZone: 'UTC', weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
+                </span>
+              </div>
+              <h2 className="text-2xl font-black italic tracking-tighter uppercase text-slate-900 dark:text-white mt-1">
+                {selectedRecord.serieMensagem ? `Série: "${selectedRecord.serieMensagem}"` : 'Culto de Celebração'}
+              </h2>
+            </div>
+            <div className="text-right">
+              <div className="text-3xl font-black text-indigo-600">
+                {(selectedRecord.adultos || 0) + (selectedRecord.criancas || 0)}
+              </div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Geral de Presentes</p>
+            </div>
+          </CardHeader>
+
+          <CardContent className="px-0 pt-6 space-y-6">
+            {/* Grid 4 Colunas de Métricas do Culto */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border shadow-sm space-y-1">
+                <span className="text-[10px] font-black uppercase text-slate-400">Adultos</span>
+                <p className="text-2xl font-black text-emerald-600">{selectedRecord.adultos || 0}</p>
+                <p className="text-[10px] text-slate-500">Público principal</p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border shadow-sm space-y-1">
+                <span className="text-[10px] font-black uppercase text-slate-400">Crianças</span>
+                <p className="text-2xl font-black text-amber-500">{selectedRecord.criancas || 0}</p>
+                <p className="text-[10px] text-slate-500">Ministério infantil</p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border shadow-sm space-y-1">
+                <span className="text-[10px] font-black uppercase text-slate-400">🏛️ Sala VIP / Visitantes</span>
+                <p className="text-2xl font-black text-purple-600">{selectedRecord.salaVip || 0}</p>
+                <p className="text-[10px] text-slate-500">Primeira vez na igreja</p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border shadow-sm space-y-1">
+                <span className="text-[10px] font-black uppercase text-slate-400">✝️ Conversões & Reconciliações</span>
+                <p className="text-2xl font-black text-sky-600">
+                  {(selectedRecord.conversoes || 0) + (selectedRecord.reconciliacoes || 0)}
+                </p>
+                <p className="text-[10px] text-slate-500">
+                  {selectedRecord.conversoes || 0} conv. / {selectedRecord.reconciliacoes || 0} reconc.
+                </p>
+              </div>
+            </div>
+
+            {/* Painel de Contexto Litúrgico & Fatores do Culto */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-5 rounded-2xl bg-white dark:bg-slate-800 border shadow-sm space-y-3">
+                <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                  <Sparkles className="size-4 text-indigo-500" /> Liturgia & Momentos Chave
+                </h4>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Badge variant={selectedRecord.teveApelo ? "default" : "outline"} className={selectedRecord.teveApelo ? "bg-purple-600 text-white font-bold" : "text-slate-400"}>
+                    {selectedRecord.teveApelo ? '✨ Teve Apelo' : 'Sem Apelo'}
+                  </Badge>
+                  <Badge variant={selectedRecord.teveCeia ? "default" : "outline"} className={selectedRecord.teveCeia ? "bg-emerald-600 text-white font-bold" : "text-slate-400"}>
+                    {selectedRecord.teveCeia ? '🍷 Celebração da Ceia' : 'Sem Ceia'}
+                  </Badge>
+                  <Badge variant={selectedRecord.apresentacaoBebe ? "default" : "outline"} className={selectedRecord.apresentacaoBebe ? "bg-sky-600 text-white font-bold" : "text-slate-400"}>
+                    {selectedRecord.apresentacaoBebe ? '👶 Apresentação de Bebê' : 'Sem Apresentação'}
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-white dark:bg-slate-800 border shadow-sm space-y-3">
+                <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                  ☀️ Clima & Fatores Externos
+                </h4>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {selectedRecord.clima && (
+                    <Badge variant="secondary" className="font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                      Clima: {selectedRecord.clima}
+                    </Badge>
+                  )}
+                  <Badge variant={selectedRecord.feriadoProximo ? "destructive" : "outline"} className={selectedRecord.feriadoProximo ? "font-bold" : "text-slate-400"}>
+                    {selectedRecord.feriadoProximo ? '🏖️ Feriado Próximo' : 'Sem Feriado'}
+                  </Badge>
+                  <Badge variant={selectedRecord.jogoFutebol ? "destructive" : "outline"} className={selectedRecord.jogoFutebol ? "font-bold" : "text-slate-400"}>
+                    {selectedRecord.jogoFutebol ? '⚽ Jogo no Horário' : 'Sem Jogo'}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+
+            {/* Observações Adicionais */}
+            {selectedRecord.observacoes && (
+              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-slate-700 dark:text-slate-300 space-y-1">
+                <span className="font-black text-amber-700 dark:text-amber-400 uppercase tracking-widest text-[10px]">
+                  📝 Observações Adicionais do Culto:
+                </span>
+                <p className="leading-relaxed font-medium italic">{selectedRecord.observacoes}</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Painel de Filtros */}
       <Card className="shadow-sm border bg-white print-hidden">
         <CardHeader className="pb-3 flex flex-row items-center justify-between">
@@ -470,10 +659,10 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
       </Card>
       
       {/* Cards de Métricas */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
         <Card className="shadow-sm border bg-white">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Cultos Registrados</CardTitle>
+            <CardTitle className="text-[11px] font-bold uppercase text-muted-foreground">Cultos</CardTitle>
             <Calendar className="size-4 text-blue-600 print-hidden" />
           </CardHeader>
           <CardContent>
@@ -484,7 +673,7 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
 
         <Card className="shadow-sm border bg-white">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Total de Adultos</CardTitle>
+            <CardTitle className="text-[11px] font-bold uppercase text-muted-foreground">Adultos</CardTitle>
             <Users className="size-4 text-emerald-600 print-hidden" />
           </CardHeader>
           <CardContent>
@@ -495,7 +684,7 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
 
         <Card className="shadow-sm border bg-white">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Total de Crianças</CardTitle>
+            <CardTitle className="text-[11px] font-bold uppercase text-muted-foreground">Crianças</CardTitle>
             <Baby className="size-4 text-amber-600 print-hidden" />
           </CardHeader>
           <CardContent>
@@ -506,12 +695,34 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
 
         <Card className="shadow-sm border bg-white">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Média Geral por Culto</CardTitle>
+            <CardTitle className="text-[11px] font-bold uppercase text-muted-foreground">Média / Culto</CardTitle>
             <FlameKindling className="size-4 text-indigo-600 print-hidden" />
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-black text-indigo-600">{(stats.totalAdultos + stats.totalCriancas > 0) ? stats.mediaGeral : 0}</p>
-            <p className="text-[10px] text-muted-foreground mt-1">Adultos + Crianças por celebração</p>
+            <p className="text-[10px] text-muted-foreground mt-1">Adultos + Crianças</p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm border bg-white">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-[11px] font-bold uppercase text-muted-foreground">🏛️ Sala VIP</CardTitle>
+            <Sparkles className="size-4 text-purple-600 print-hidden" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-black text-purple-600">{stats.totalSalaVip.toLocaleString('pt-BR')}</p>
+            <p className="text-[10px] text-muted-foreground mt-1">Visitantes recepcionados</p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm border bg-white">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-[11px] font-bold uppercase text-muted-foreground">✝️ Decisões</CardTitle>
+            <Award className="size-4 text-sky-600 print-hidden" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-black text-sky-600">{(stats.totalConversoes + stats.totalReconciliacoes).toLocaleString('pt-BR')}</p>
+            <p className="text-[10px] text-muted-foreground mt-1">{stats.totalConversoes} conv. / {stats.totalReconciliacoes} reconc.</p>
           </CardContent>
         </Card>
       </div>
@@ -541,6 +752,9 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
                     <Line type="monotone" dataKey="Total" stroke="#4f46e5" strokeWidth={3} name="Total de Pessoas" activeDot={{ r: 8 }} />
                     <Line type="monotone" dataKey="Adultos" stroke="#10b981" strokeWidth={2} name="Adultos" />
                     <Line type="monotone" dataKey="Crianças" stroke="#f59e0b" strokeWidth={2} name="Crianças" />
+                    <Line type="monotone" dataKey="SalaVip" stroke="#a855f7" strokeWidth={1.5} name="Sala VIP (Visitantes)" />
+                    <Line type="monotone" dataKey="Conversões" stroke="#0284c7" strokeWidth={1.5} name="Conversões" />
+                    <Line type="monotone" dataKey="Reconciliações" stroke="#ec4899" strokeWidth={1.5} name="Reconciliações" />
                  </LineChart>
               </ResponsiveContainer>
             </CardContent>
