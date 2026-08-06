@@ -13,8 +13,8 @@ import { Label } from '@/components/ui/label';
 import { TuitionFee } from '@/lib/finance/financial-plan-types';
 import { useToast } from '@/hooks/use-toast';
 import { useVolunteering } from '@/contexts/volunteering-context';
-import { useFirebase, setDocumentNonBlocking } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useFirebase, deleteDocumentNonBlocking } from '@/firebase';
+import { doc, deleteDoc } from 'firebase/firestore';
 
 interface MensalidadesManagerProps {
   fees?: TuitionFee[];
@@ -110,6 +110,9 @@ export function MensalidadesManager({
   const handleDeleteFee = async (fee: TuitionFee) => {
     if (!confirm(`Deseja realmente EXCLUIR a cobrança de R$ ${fee.amount.toFixed(2)} de ${fee.studentName}?`)) return;
 
+    // Atualiza estado local imediatamente para refletir na UI sem delay
+    setFeeList(prev => prev.filter(f => f.id !== fee.id));
+
     try {
       const isDisFee = (fee.courseName || '').toLowerCase().includes('dis') || (fee.courseName || '').toLowerCase().includes('libras');
       
@@ -120,14 +123,16 @@ export function MensalidadesManager({
           // Ignora se não existir no dis_payments
         }
       }
-      if (firestore) {
+      if (firestore && fee.id) {
         const feeRef = doc(firestore, 'tuition_fees', fee.id);
-        await setDocumentNonBlocking(feeRef, { status: 'cancelado' }, { merge: true });
+        await deleteDoc(feeRef);
       }
-      toast({ title: 'Cobrança Excluída 🗑️', description: `A cobrança de ${fee.studentName} foi removida.` });
+      toast({ title: 'Cobrança Excluída 🗑️', description: `A cobrança de ${fee.studentName} foi removida com sucesso.` });
     } catch (err: any) {
       console.error(err);
       toast({ variant: 'destructive', title: 'Erro ao Excluir', description: err.message });
+      // Rollback se falhar
+      setFeeList(fees);
     }
   };
 
