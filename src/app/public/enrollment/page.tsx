@@ -520,6 +520,19 @@ function EnrollmentForm() {
                 let asaasCharge: any = null;
 
                 if (isPaid) {
+                    const cleanCpf = finalCpf.replace(/\D/g, '');
+                    if (!cleanCpf) {
+                        toast({
+                            variant: 'destructive',
+                            title: 'CPF/CNPJ obrigatório',
+                            description: 'Informe o CPF ou CNPJ do pagador para gerar a cobrança no Asaas.'
+                        });
+                        setIsSubmitting(false);
+                        return;
+                    }
+
+                    const tenantId = new URLSearchParams(window.location.search).get('tenantId') || undefined;
+
                     // 1. Criar/Buscar Cliente no Asaas
                     const customerRes = await fetch('/api/asaas/customers', {
                         method: 'POST',
@@ -528,36 +541,44 @@ function EnrollmentForm() {
                             name: finalName,
                             email: finalEmail,
                             phone: finalPhone || '',
-                            cpfCnpj: finalCpf.replace(/\D/g, ''),
+                            cpfCnpj: cleanCpf,
                             userId: userId || undefined,
+                            tenantId
                         }),
                     });
 
-                    if (customerRes.ok) {
-                        const { customerId } = await customerRes.json();
-
-                        const tomorrow = new Date();
-                        tomorrow.setDate(tomorrow.getDate() + 1);
-                        const tomorrowStr = tomorrow.toISOString().split('T')[0];
-
-                        const paymentRes = await fetch('/api/asaas/payments', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                customerId,
-                                billingType: paymentMethod,
-                                value: coursePrice,
-                                dueDate: tomorrowStr,
-                                description: `Inscrição Curso: ${selectedCourse?.name || 'Curso'} - ${finalName}`,
-                                externalReference: userId || undefined,
-                                ...(paymentMethod === 'CREDIT_CARD' && installments > 1 ? { installmentCount: installments } : {})
-                            }),
-                        });
-
-                        if (paymentRes.ok) {
-                            asaasCharge = await paymentRes.json();
-                        }
+                    const customerJson = await customerRes.json().catch(() => ({}));
+                    if (!customerRes.ok) {
+                        throw new Error(`Asaas (Cliente): ${customerJson.error || customerJson.message || 'Erro ao registrar cliente no Asaas.'}`);
                     }
+
+                    const { customerId } = customerJson;
+
+                    const tomorrow = new Date();
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+                    const paymentRes = await fetch('/api/asaas/payments', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            customerId,
+                            billingType: paymentMethod,
+                            value: coursePrice,
+                            dueDate: tomorrowStr,
+                            description: `Inscrição Curso: ${selectedCourse?.name || 'Curso'} - ${finalName}`,
+                            externalReference: userId || undefined,
+                            tenantId,
+                            ...(paymentMethod === 'CREDIT_CARD' && installments > 1 ? { installmentCount: installments } : {})
+                        }),
+                    });
+
+                    const paymentJson = await paymentRes.json().catch(() => ({}));
+                    if (!paymentRes.ok) {
+                        throw new Error(`Asaas (Fatura): ${paymentJson.error || paymentJson.message || 'Erro ao gerar fatura no Asaas.'}`);
+                    }
+
+                    asaasCharge = paymentJson;
                 }
 
                 const result = await submitEnrollmentRequest({
@@ -1145,6 +1166,20 @@ function EnrollmentForm() {
                                             R$ {((selectedCourse as any)?.financeConfig?.totalAmount || 100).toFixed(2).replace('.', ',')}
                                         </span>
                                     </h4>
+
+                                    {/* Input de CPF / CNPJ do Pagador (Obrigatório para o Asaas) */}
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10px] font-black uppercase text-slate-400">
+                                            CPF / CNPJ do Pagador <span className="text-red-400">* (Obrigatório para o Asaas)</span>
+                                        </Label>
+                                        <Input
+                                            type="text"
+                                            placeholder="000.000.000-00"
+                                            value={cpfCnpj}
+                                            onChange={(e) => setCpfCnpj(e.target.value)}
+                                            className="bg-white/10 border-white/20 text-white h-11 rounded-xl placeholder-slate-600 focus-visible:ring-primary focus-visible:border-primary"
+                                        />
+                                    </div>
 
                                     {/* Opções de Forma de Pagamento */}
                                     <div className="grid grid-cols-2 gap-2 pt-1">
