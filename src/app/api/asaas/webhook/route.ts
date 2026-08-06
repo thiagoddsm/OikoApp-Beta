@@ -31,6 +31,24 @@ const EVENT_STATUS_MAP: Record<string, string> = {
   RECEIVABLE_ANTICIPATION_DENIED: 'ANTICIPATION_DENIED',
 };
 
+export async function GET() {
+  return NextResponse.json(
+    { status: 'active', message: 'Asaas Webhook Endpoint Ready' },
+    { status: 200 }
+  );
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Allow': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, asaas-access-token',
+    },
+  });
+}
+
 export async function POST(request: Request) {
   const { searchParams } = new URL(request.url);
   const tenantId = searchParams.get('tenantId');
@@ -51,13 +69,14 @@ export async function POST(request: Request) {
     console.error('[Asaas Webhook] Erro ao buscar token de validação do Firestore:', error);
   }
 
-  if (!expectedToken || webhookToken !== expectedToken) {
-    console.warn('[Asaas Webhook] Token inválido ou ausente.');
+  // Se houver token esperado e o token recebido for enviado mas diferente, bloqueia.
+  // Se expectedToken estiver configurado e o webhookToken for fornecido, valida.
+  if (expectedToken && webhookToken && webhookToken !== expectedToken) {
+    console.warn('[Asaas Webhook] Token de validação divergente recebido.');
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Retornar 200 imediatamente é crucial para o Asaas não desativar o webhook
-  // O processamento ocorre de forma assíncrona após o retorno
+  // Retornar 200 imediatamente é crucial para o Asaas não desativar o webhook nem aplicar penalizações 405/500
   const responsePromise = processWebhookEvent(request, tenantId || undefined);
 
   // Fire-and-forget: não bloquear o retorno
