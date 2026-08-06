@@ -499,6 +499,8 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
 }
 
 
+import { TriggerGcBotDialog } from '@/components/gc/trigger-gc-bot-dialog';
+
 export default function CellsPage() {
   const { firestore, user } = useFirebase();
   const [isDialogOpen, setDialogOpen] = useState(false);
@@ -598,12 +600,15 @@ export default function CellsPage() {
           <CardTitle className="text-lg font-black">Gestão de Células</CardTitle>
           <CardDescription>Visualize, crie e edite as células e sua estrutura hierárquica.</CardDescription>
         </div>
-        {isSupervisor && (
-          <Button onClick={() => { setEditingCell(null); setDialogOpen(true); }}>
-            <PlusCircle className="mr-2 h-4 w-4"/>
-            Criar Célula
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <TriggerGcBotDialog buttonVariant="outline" buttonText="Disparar Bot WhatsApp" />
+          {isSupervisor && (
+            <Button onClick={() => { setEditingCell(null); setDialogOpen(true); }}>
+              <PlusCircle className="mr-2 h-4 w-4"/>
+              Criar Célula
+            </Button>
+          )}
+        </div>
       </CardHeader>
 
       {/* ── BARRA DE FILTROS ─────────────────────────────────────────────── */}

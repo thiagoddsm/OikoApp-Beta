@@ -16,6 +16,7 @@ import {
   Flame, HandHeart, UserX, UserCheck, History, BotMessageSquare, Trash2
 } from 'lucide-react';
 import { triggerGcReportForCell } from '@/app/actions/whatsapp-actions';
+import { TriggerGcBotDialog } from '@/components/gc/trigger-gc-bot-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
@@ -718,15 +719,18 @@ export default function CellReportPage() {
         </div>
         
         {/* Botão do WhatsApp */}
-        <Button 
-          variant="outline" 
-          onClick={handleTriggerWhatsApp}
-          disabled={isTriggeringWhatsApp}
-          className="flex items-center gap-2 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 hover:text-emerald-700 text-emerald-600 font-bold transition-all shadow-sm"
-        >
-          {isTriggeringWhatsApp ? <Loader2 className="h-4 w-4 animate-spin" /> : <BotMessageSquare className="h-4 w-4" />}
-          {isTriggeringWhatsApp ? 'Acionando...' : 'Preencher via WhatsApp'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <TriggerGcBotDialog buttonVariant="outline" buttonText="Disparo em Lote" />
+          <Button 
+            variant="outline" 
+            onClick={handleTriggerWhatsApp}
+            disabled={isTriggeringWhatsApp}
+            className="flex items-center gap-2 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 hover:text-emerald-700 text-emerald-600 font-bold transition-all shadow-sm"
+          >
+            {isTriggeringWhatsApp ? <Loader2 className="h-4 w-4 animate-spin" /> : <BotMessageSquare className="h-4 w-4" />}
+            {isTriggeringWhatsApp ? 'Acionando...' : 'Preencher via WhatsApp'}
+          </Button>
+        </div>
       </div>
 
       {/* Relatórios Recentes */}

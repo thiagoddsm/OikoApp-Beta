@@ -297,3 +297,120 @@ export async function triggerGcReportForCell(cellId: string) {
     }
 }
 
+/**
+ * Triggers GC report sessions via WhatsApp in batch for specified scope (all, rede, area, cell).
+ */
+export async function triggerGcReportsBatch(options: {
+    scope: 'all' | 'rede' | 'area' | 'cell';
+    redeId?: string;
+    areaId?: string;
+    cellId?: string;
+    force?: boolean;
+}) {
+    try {
+        const db = getAdminDb();
+        const { scope, redeId, areaId, cellId } = options;
+
+        let cellsRef: any = db.collection('cells');
+        let cellsSnap: any;
+
+        if (scope === 'cell' && cellId) {
+            const singleDoc = await db.collection('cells').doc(cellId).get();
+            if (!singleDoc.exists) {
+                return { success: false, error: 'Célula não encontrada.' };
+            }
+            cellsSnap = { docs: [singleDoc] };
+        } else if (scope === 'area' && areaId) {
+            cellsSnap = await cellsRef.where('areaId', '==', areaId).get();
+        } else if (scope === 'rede' && redeId) {
+            cellsSnap = await cellsRef.where('redeId', '==', redeId).get();
+        } else {
+            cellsSnap = await cellsRef.get();
+        }
+
+        if (!cellsSnap || cellsSnap.empty) {
+            return {
+                success: true,
+                message: 'Nenhum GC cadastrado encontrado no escopo selecionado.',
+                totalCells: 0,
+                triggeredCount: 0,
+                alreadyRunningCount: 0,
+                noLeaderCount: 0,
+                noPhoneCount: 0
+            };
+        }
+
+        let totalCells = 0;
+        let triggeredCount = 0;
+        let alreadyRunningCount = 0;
+        let noLeaderCount = 0;
+        let noPhoneCount = 0;
+        const details: { cellId: string; cellName: string; status: 'triggered' | 'already_running' | 'no_leader' | 'no_phone' | 'error'; error?: string }[] = [];
+
+        for (const cDoc of cellsSnap.docs) {
+            const cData = cDoc.data();
+            const cStatus = cData?.status || 'active';
+            const cellName = cData?.nome || cData?.name || `GC ${cDoc.id}`;
+
+            // Apenas células ativas ou em crescimento
+            if (cStatus !== 'active' && cStatus !== 'growing') continue;
+
+            totalCells++;
+            const liderId = cData?.liderId;
+
+            if (!liderId) {
+                noLeaderCount++;
+                details.push({ cellId: cDoc.id, cellName, status: 'no_leader', error: 'Sem líder cadastrado' });
+                continue;
+            }
+
+            const liderDoc = await db.collection('users').doc(liderId).get();
+            if (!liderDoc.exists) {
+                noLeaderCount++;
+                details.push({ cellId: cDoc.id, cellName, status: 'no_leader', error: 'Líder não encontrado no banco' });
+                continue;
+            }
+
+            const rawPhone = liderDoc.data()?.phone || liderDoc.data()?.phoneNumber;
+            if (!rawPhone) {
+                noPhoneCount++;
+                details.push({ cellId: cDoc.id, cellName, status: 'no_phone', error: 'Telefone do líder ausente' });
+                continue;
+            }
+
+            const formattedPhone = formatWhatsAppNumber(String(rawPhone));
+            if (formattedPhone.length < 8) {
+                noPhoneCount++;
+                details.push({ cellId: cDoc.id, cellName, status: 'no_phone', error: 'Telefone do líder inválido' });
+                continue;
+            }
+
+            try {
+                const success = await startGcReportSession(cDoc.id, formattedPhone);
+                if (success) {
+                    triggeredCount++;
+                    details.push({ cellId: cDoc.id, cellName, status: 'triggered' });
+                } else {
+                    alreadyRunningCount++;
+                    details.push({ cellId: cDoc.id, cellName, status: 'already_running', error: 'Sessão já em andamento' });
+                }
+            } catch (err: any) {
+                details.push({ cellId: cDoc.id, cellName, status: 'error', error: err.message });
+            }
+        }
+
+        return {
+            success: true,
+            totalCells,
+            triggeredCount,
+            alreadyRunningCount,
+            noLeaderCount,
+            noPhoneCount,
+            details
+        };
+    } catch (e: any) {
+        console.error('GC Batch Trigger Error:', e);
+        return { success: false, error: e.message };
+    }
+}
+
