@@ -606,14 +606,34 @@ function EnrollmentForm() {
                 }
 
                 if (isPaid && asaasCharge) {
+                    let qrImage = asaasCharge.pixQrCode?.encodedImage || asaasCharge.pixQrCodeImage || '';
+                    let qrPayload = asaasCharge.pixQrCode?.payload || asaasCharge.pixCopyPaste || '';
+
+                    // Se for PIX e não veio no objeto da resposta, faz busca no endpoint de QR Code PIX
+                    if (paymentMethod === 'PIX' && (!qrImage || !qrPayload) && asaasCharge.id) {
+                        try {
+                            const url = new URL(window.location.origin + `/api/asaas/payments/${asaasCharge.id}/pix`);
+                            if (tenantId) url.searchParams.set('tenantId', tenantId);
+                            const qrRes = await fetch(url.toString(), { headers: authHeaders });
+                            if (qrRes.ok) {
+                                const qrData = await qrRes.json();
+                                qrImage = qrData.encodedImage || qrImage;
+                                qrPayload = qrData.payload || qrPayload;
+                            }
+                        } catch (e) {
+                            console.error('Erro ao buscar QR Code Pix:', e);
+                        }
+                    }
+
                     setBillingResult({
                         isPaid: true,
+                        registrationId: result?.requestId || result?.id || '',
                         paymentMethod,
                         value: coursePrice,
                         invoiceUrl: asaasCharge.invoiceUrl || '',
                         bankSlipUrl: asaasCharge.bankSlipUrl || '',
-                        pixQrCodeImage: asaasCharge.pixQrCodeImage || '',
-                        pixCopyPaste: asaasCharge.pixCopyPaste || '',
+                        pixQrCodeImage: qrImage,
+                        pixCopyPaste: qrPayload,
                     });
                 }
 
@@ -643,7 +663,7 @@ function EnrollmentForm() {
                 {isPaidEvent ? (
                     <div className="space-y-4 text-left bg-white p-6 rounded-[2rem] border-2 shadow-md">
                         <p className="text-sm text-slate-600 font-medium text-center">
-                            Sua inscrição para <strong>{selectedEvent?.eventName}</strong> está pré-registrada. Conclua o pagamento abaixo para confirmar sua vaga.
+                            Sua inscrição para <strong>{selectedCategory === 'eventos' ? selectedEvent?.eventName : selectedCourse?.name}</strong> está pré-registrada. Conclua o pagamento abaixo para confirmar sua vaga.
                         </p>
 
                         {/* PIX */}
