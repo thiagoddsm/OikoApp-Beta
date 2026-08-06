@@ -137,6 +137,54 @@ async function processWebhookEvent(request: Request, tenantId?: string): Promise
       // Sincronizar status com a inscrição do evento correspondente
       const isPaidEvent = event === 'PAYMENT_RECEIVED' || event === 'PAYMENT_CONFIRMED';
       
+      // 1.1 Sincronizar com mensalidades de Cursos (tuition_fees) — Baixa Automática!
+      try {
+        const feesRef = db.collection('tuition_fees');
+        let feesQuerySnap = await feesRef.where('asaasPaymentId', '==', payment.id).get();
+
+        if (feesQuerySnap.empty && payment.externalReference) {
+          feesQuerySnap = await feesRef.where('enrollmentId', '==', payment.externalReference).get();
+        }
+
+        if (feesQuerySnap.empty && payment.externalReference) {
+          const docSnap = await feesRef.doc(payment.externalReference).get();
+          if (docSnap.exists) {
+            const updateFee: any = {
+              asaasStatus: payment.status || 'RECEIVED',
+              updatedAt: now,
+            };
+            if (isPaidEvent) {
+              updateFee.status = 'pago';
+              updateFee.paidAt = now;
+            }
+            await feesRef.doc(payment.externalReference).update(updateFee);
+            console.log(`[Asaas Webhook] Baixa automática efetuada na mensalidade ${payment.externalReference}`);
+          }
+        }
+
+        if (!feesQuerySnap.empty) {
+          const feeBatch = db.batch();
+          feesQuerySnap.docs.forEach(docSnap => {
+            const fRef = feesRef.doc(docSnap.id);
+            const updateFee: any = {
+              asaasStatus: payment.status || 'RECEIVED',
+              updatedAt: now,
+            };
+            if (isPaidEvent) {
+              updateFee.status = 'pago';
+              updateFee.paidAt = now;
+            }
+            feeBatch.update(fRef, updateFee);
+          });
+          await feeBatch.commit();
+          console.log(`[Asaas Webhook] Baixa automática efetuada em ${feesQuerySnap.size} mensalidade(s) para o pagamento ${payment.id}`);
+        }
+      } catch (feeError: unknown) {
+        const msg = feeError instanceof Error ? feeError.message : 'Erro desconhecido';
+        console.error('[Asaas Webhook] Erro ao sincronizar baixa na mensalidade (tuition_fees):', msg);
+      }
+
+      // 1.2 Sincronizar com inscrições de eventos (event_registrations)
       try {
         const registrationsRef = db.collection('event_registrations');
         let querySnapshot = await registrationsRef.where('payment.asaasPaymentId', '==', payment.id).get();
