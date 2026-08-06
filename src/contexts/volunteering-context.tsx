@@ -1108,7 +1108,9 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
                     name: req.name,
                     email: req.email,
                     phone: req.phone,
+                    cpfCnpj: (req.cpf || req.cpfCnpj || '').replace(/\D/g, ''),
                     userId: studentId,
+                    tenantId,
                   })
                 });
 

@@ -42,6 +42,7 @@ export function EnrollmentForm({ initialCourseId }: { initialCourseId?: string }
         name: '',
         email: '',
         phone: '',
+        cpf: '',
         courseId: initialCourseId || '',
         classId: '',
     });
@@ -91,6 +92,12 @@ export function EnrollmentForm({ initialCourseId }: { initialCourseId?: string }
             return;
         }
 
+        if (isCoursePaid && !formData.cpf.trim()) {
+            toast({ variant: 'destructive', title: 'CPF Obrigatório', description: 'Por favor, informe seu CPF para gerar a fatura.' });
+            setStep(3);
+            return;
+        }
+
         setIsSubmitting(true);
         try {
             const cardCalc = calculateCardInstallments(selectedInstallments);
@@ -99,6 +106,7 @@ export function EnrollmentForm({ initialCourseId }: { initialCourseId?: string }
                 name: formData.name,
                 email: formData.email,
                 phone: formData.phone,
+                cpf: formData.cpf.replace(/\D/g, ''),
                 courseId: formData.courseId,
                 classId: formData.classId,
                 status: 'pending',
@@ -263,6 +271,13 @@ export function EnrollmentForm({ initialCourseId }: { initialCourseId?: string }
                                         <Phone className="absolute left-3 top-3 size-4 text-slate-400" />
                                         <Input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} className="pl-10 h-11" placeholder="(21) 99999-9999" />
                                     </div>
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">CPF / CNPJ {isCoursePaid && <span className="text-rose-500">* (Obrigatório para emissão da fatura)</span>}</Label>
+                                <div className="relative">
+                                    <User className="absolute left-3 top-3 size-4 text-slate-400" />
+                                    <Input name="cpf" value={formData.cpf} onChange={handleInputChange} className="pl-10 h-11" placeholder="000.000.000-00" />
                                 </div>
                             </div>
                         </div>
