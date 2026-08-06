@@ -355,11 +355,20 @@ function EnrollmentForm() {
 
                 let asaasCharge: any = null;
 
+                // Obter token do Firebase Auth (logado ou anônimo) para o cabeçalho Authorization
+                const { getAuth } = await import('firebase/auth');
+                const auth = getAuth();
+                const token = auth.currentUser ? await auth.currentUser.getIdToken() : '';
+                const authHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+                if (token) {
+                    authHeaders['Authorization'] = `Bearer ${token}`;
+                }
+
                 if (isPaid) {
                     // 1. Criar/Buscar Cliente no Asaas
                     const customerRes = await fetch('/api/asaas/customers', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: authHeaders,
                         body: JSON.stringify({
                             name: finalName,
                             email: finalEmail,
@@ -387,7 +396,7 @@ function EnrollmentForm() {
 
                     const paymentRes = await fetch(endpoint, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: authHeaders,
                         body: JSON.stringify({
                             customerId,
                             billingType: paymentMethod,
@@ -536,7 +545,7 @@ function EnrollmentForm() {
                     // 1. Criar/Buscar Cliente no Asaas
                     const customerRes = await fetch('/api/asaas/customers', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: authHeaders,
                         body: JSON.stringify({
                             name: finalName,
                             email: finalEmail,
@@ -560,7 +569,7 @@ function EnrollmentForm() {
 
                     const paymentRes = await fetch('/api/asaas/payments', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: authHeaders,
                         body: JSON.stringify({
                             customerId,
                             billingType: paymentMethod,
