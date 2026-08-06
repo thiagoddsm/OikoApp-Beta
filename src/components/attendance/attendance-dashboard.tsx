@@ -99,6 +99,7 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
   const [filtroFeriado, setFeriadoFeriado] = useState('todos'); 
   const [filtroJogo, setJogoFutebol] = useState('todos'); 
   const [filtroBebe, setApresentacaoBebe] = useState('todos'); 
+  const [filtroApelo, setFiltroApelo] = useState('todos');
   
   const [aiReport, setAiReport] = useState<string>('');
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
@@ -169,9 +170,12 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
     if (filtroBebe !== 'todos') {
         filtrados = filtrados.filter(r => (r.apresentacaoBebe || false) === (filtroBebe === 'sim'));
     }
+    if (filtroApelo !== 'todos') {
+        filtrados = filtrados.filter(r => (r.teveApelo || false) === (filtroApelo === 'sim'));
+    }
     
     return filtrados.sort((a, b) => (a.data?.seconds || 0) - (b.data?.seconds || 0));
-  }, [registros, filtroDataInicio, filtroDataFim, filtroHorario, filtroSerie, filtroFeriado, filtroJogo, filtroBebe]);
+  }, [registros, filtroDataInicio, filtroDataFim, filtroHorario, filtroSerie, filtroFeriado, filtroJogo, filtroBebe, filtroApelo]);
 
   // Culto Selecionado para Análise Individual
   const selectedRecord = useMemo(() => {
@@ -657,6 +661,18 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
           <div className="space-y-1.5">
             <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Apresentação Bebê?</Label>
             <Select value={filtroBebe} onValueChange={setApresentacaoBebe}>
+                <SelectTrigger className="bg-white h-10 font-bold"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    <SelectItem value="sim">Sim</SelectItem>
+                    <SelectItem value="nao">Não</SelectItem>
+                </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Teve Apelo?</Label>
+            <Select value={filtroApelo} onValueChange={setFiltroApelo}>
                 <SelectTrigger className="bg-white h-10 font-bold"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                 <SelectContent>
                     <SelectItem value="todos">Todos</SelectItem>
