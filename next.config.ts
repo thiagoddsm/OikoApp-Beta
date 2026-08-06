@@ -2,6 +2,7 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  skipTrailingSlashRedirect: true,
   // Ignora erros de TypeScript para evitar que o build trave no Studio
   typescript: {
     ignoreBuildErrors: false,

@@ -42,12 +42,14 @@ export async function OPTIONS() {
   return new NextResponse(null, {
     status: 200,
     headers: {
-      'Allow': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Allow': 'GET, POST, PUT, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, asaas-access-token',
     },
   });
 }
+
+export { POST as PUT };
 
 export async function POST(request: Request) {
   const { searchParams } = new URL(request.url);
