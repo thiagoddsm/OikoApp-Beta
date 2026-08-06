@@ -105,6 +105,7 @@ export function RecordsList({ registros, loading, onEdit }: RecordsListProps) {
               <TableHead>Horário</TableHead>
               <TableHead>Adultos</TableHead>
               <TableHead>Crianças</TableHead>
+              <TableHead>Servos</TableHead>
               <TableHead>Sala VIP</TableHead>
               <TableHead className="text-emerald-600">Conversões</TableHead>
               <TableHead className="text-sky-600">Reconciliações</TableHead>
@@ -121,10 +122,11 @@ export function RecordsList({ registros, loading, onEdit }: RecordsListProps) {
                 <TableCell>{reg.horario.split(' - ')[1]}</TableCell>
                 <TableCell>{reg.adultos}</TableCell>
                 <TableCell>{reg.criancas || 0}</TableCell>
+                <TableCell className="font-medium text-indigo-600">{reg.servos || 0}</TableCell>
                 <TableCell>{reg.salaVip || 0}</TableCell>
                 <TableCell className="font-semibold text-emerald-600">{reg.conversoes || 0}</TableCell>
                 <TableCell className="font-semibold text-sky-600">{reg.reconciliacoes || 0}</TableCell>
-                <TableCell className="font-semibold text-primary">{reg.adultos + (reg.criancas || 0)}</TableCell>
+                <TableCell className="font-semibold text-primary">{(reg.adultos || 0) + (reg.criancas || 0) + (reg.servos || 0)}</TableCell>
                 <TableCell className="truncate max-w-xs">{reg.serieMensagem || "-"}</TableCell>
                 <TableCell className="space-x-1 space-y-1">
                   {reg.feriadoProximo && <Badge variant="outline">Feriado</Badge>}

@@ -35,6 +35,7 @@ export function RegisterForm({ editingRecord, onCancelEdit }: RegisterFormProps)
   const [horario, setHorario] = useState(horariosCultos[0]);
   const [adultos, setAdultos] = useState('');
   const [criancas, setCriancas] = useState('');
+  const [servos, setServos] = useState('');
   const [salaVip, setSalaVip] = useState('');
   const [conversoes, setConversoes] = useState('');
   const [reconciliacoes, setReconciliacoes] = useState('');
@@ -57,6 +58,7 @@ export function RegisterForm({ editingRecord, onCancelEdit }: RegisterFormProps)
       setHorario(editingRecord.horario || horariosCultos[0]);
       setAdultos(editingRecord.adultos?.toString() || '');
       setCriancas(editingRecord.criancas?.toString() || '0');
+      setServos(editingRecord.servos?.toString() || '0');
       setSalaVip(editingRecord.salaVip?.toString() || "");
       setConversoes(editingRecord.conversoes?.toString() || '0');
       setReconciliacoes(editingRecord.reconciliacoes?.toString() || '0');
@@ -78,6 +80,7 @@ export function RegisterForm({ editingRecord, onCancelEdit }: RegisterFormProps)
     setHorario(horariosCultos[0]);
     setAdultos('');
     setCriancas('');
+    setServos('');
     setSalaVip('');
     setConversoes('');
     setReconciliacoes('');
@@ -114,6 +117,7 @@ export function RegisterForm({ editingRecord, onCancelEdit }: RegisterFormProps)
       horario,
       adultos: Number(adultos),
       criancas: Number(criancas || 0),
+      servos: Number(servos || 0),
       salaVip: Number(salaVip || 0),
       conversoes: Number(conversoes || 0),
       reconciliacoes: Number(reconciliacoes || 0),
@@ -183,6 +187,10 @@ export function RegisterForm({ editingRecord, onCancelEdit }: RegisterFormProps)
         <div className="space-y-2">
           <Label htmlFor="criancas">Nº de Crianças</Label>
           <Input id="criancas" type="number" value={criancas} onChange={(e) => setCriancas(e.target.value)} placeholder="Ex: 30" min="0"/>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="servos">Nº de Servos</Label>
+          <Input id="servos" type="number" value={servos} onChange={(e) => setServos(e.target.value)} placeholder="Ex: 20" min="0"/>
         </div>
         <div className="space-y-2">
           <Label htmlFor="salaVip">Nº na Sala VIP</Label>

@@ -50,6 +50,7 @@ interface AttendanceRecord {
     horario: string;
     adultos: number;
     criancas: number;
+    servos?: number;
     salaVip?: number;
     conversoes?: number;
     reconciliacoes?: number;
@@ -184,17 +185,19 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
   const stats = useMemo(() => {
       const totalAdultos = registrosFiltrados.reduce((acc, r) => acc + (r.adultos || 0), 0);
       const totalCriancas = registrosFiltrados.reduce((acc, r) => acc + (r.criancas || 0), 0);
+      const totalServos = registrosFiltrados.reduce((acc, r) => acc + (r.servos || 0), 0);
       const totalSalaVip = registrosFiltrados.reduce((acc, r) => acc + (r.salaVip || 0), 0);
       const totalConversoes = registrosFiltrados.reduce((acc, r) => acc + (r.conversoes || 0), 0);
       const totalReconciliacoes = registrosFiltrados.reduce((acc, r) => acc + (r.reconciliacoes || 0), 0);
       
-      const totalGeral = totalAdultos + totalCriancas;
+      const totalGeral = totalAdultos + totalCriancas + totalServos;
       const count = registrosFiltrados.length;
 
       return {
           count: count,
           totalAdultos: totalAdultos,
           totalCriancas: totalCriancas,
+          totalServos: totalServos,
           totalSalaVip,
           totalConversoes,
           totalReconciliacoes,
@@ -209,10 +212,11 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
          date: new Date((r.data?.seconds || 0) * 1000).toLocaleDateString('pt-BR', { timeZone: 'UTC' }),
          Adultos: r.adultos || 0,
          Crianças: r.criancas || 0,
+         Servos: r.servos || 0,
          SalaVip: r.salaVip || 0,
          Conversões: r.conversoes || 0,
          Reconciliações: r.reconciliacoes || 0,
-         Total: (r.adultos || 0) + (r.criancas || 0)
+         Total: (r.adultos || 0) + (r.criancas || 0) + (r.servos || 0)
      }));
   }, [registrosFiltrados]);
 
@@ -487,15 +491,15 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
             </div>
             <div className="text-right">
               <div className="text-3xl font-black text-indigo-600">
-                {(selectedRecord.adultos || 0) + (selectedRecord.criancas || 0)}
+                {(selectedRecord.adultos || 0) + (selectedRecord.criancas || 0) + (selectedRecord.servos || 0)}
               </div>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Geral de Presentes</p>
             </div>
           </CardHeader>
 
           <CardContent className="px-0 pt-6 space-y-6">
-            {/* Grid 4 Colunas de Métricas do Culto */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {/* Grid 5 Colunas de Métricas do Culto */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border shadow-sm space-y-1">
                 <span className="text-[10px] font-black uppercase text-slate-400">Adultos</span>
                 <p className="text-2xl font-black text-emerald-600">{selectedRecord.adultos || 0}</p>
@@ -509,9 +513,15 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
               </div>
 
               <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border shadow-sm space-y-1">
-                <span className="text-[10px] font-black uppercase text-slate-400">🏛️ Sala VIP / Visitantes</span>
+                <span className="text-[10px] font-black uppercase text-slate-400">🤝 Servos</span>
+                <p className="text-2xl font-black text-indigo-600">{selectedRecord.servos || 0}</p>
+                <p className="text-[10px] text-slate-500">Voluntários escalados</p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border shadow-sm space-y-1">
+                <span className="text-[10px] font-black uppercase text-slate-400">🏛️ Sala VIP</span>
                 <p className="text-2xl font-black text-purple-600">{selectedRecord.salaVip || 0}</p>
-                <p className="text-[10px] text-slate-500">Primeira vez na igreja</p>
+                <p className="text-[10px] text-slate-500">Visitantes</p>
               </div>
 
               <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border shadow-sm space-y-1">
@@ -659,7 +669,7 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
       </Card>
       
       {/* Cards de Métricas */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3">
         <Card className="shadow-sm border bg-white">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-[11px] font-bold uppercase text-muted-foreground">Cultos</CardTitle>
@@ -695,12 +705,23 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
 
         <Card className="shadow-sm border bg-white">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-[11px] font-bold uppercase text-muted-foreground">Servos</CardTitle>
+            <Award className="size-4 text-indigo-600 print-hidden" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-black text-indigo-600">{stats.totalServos.toLocaleString('pt-BR')}</p>
+            <p className="text-[10px] text-muted-foreground mt-1">Voluntários no culto</p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm border bg-white">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-[11px] font-bold uppercase text-muted-foreground">Média / Culto</CardTitle>
             <FlameKindling className="size-4 text-indigo-600 print-hidden" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-black text-indigo-600">{(stats.totalAdultos + stats.totalCriancas > 0) ? stats.mediaGeral : 0}</p>
-            <p className="text-[10px] text-muted-foreground mt-1">Adultos + Crianças</p>
+            <p className="text-2xl font-black text-indigo-600">{(stats.totalAdultos + stats.totalCriancas + stats.totalServos > 0) ? stats.mediaGeral : 0}</p>
+            <p className="text-[10px] text-muted-foreground mt-1">Total de Presentes</p>
           </CardContent>
         </Card>
 
@@ -752,6 +773,7 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
                     <Line type="monotone" dataKey="Total" stroke="#4f46e5" strokeWidth={3} name="Total de Pessoas" activeDot={{ r: 8 }} />
                     <Line type="monotone" dataKey="Adultos" stroke="#10b981" strokeWidth={2} name="Adultos" />
                     <Line type="monotone" dataKey="Crianças" stroke="#f59e0b" strokeWidth={2} name="Crianças" />
+                    <Line type="monotone" dataKey="Servos" stroke="#6366f1" strokeWidth={2} name="Servos (Voluntários)" />
                     <Line type="monotone" dataKey="SalaVip" stroke="#a855f7" strokeWidth={1.5} name="Sala VIP (Visitantes)" />
                     <Line type="monotone" dataKey="Conversões" stroke="#0284c7" strokeWidth={1.5} name="Conversões" />
                     <Line type="monotone" dataKey="Reconciliações" stroke="#ec4899" strokeWidth={1.5} name="Reconciliações" />
