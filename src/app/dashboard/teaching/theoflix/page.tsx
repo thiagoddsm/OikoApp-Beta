@@ -735,47 +735,74 @@ function TheoFlixContent() {
                                 const epKey = ep.youtubeId || ep.title.replace(/\s+/g, '_');
                                 const isCompleted = userProgress[selectedCourse.id]?.[epKey];
 
-                                // Procura se este episódio está associado a alguma aula física
+                                // Procura se este episódio está associado a alguma aula da ementa física/cadastrada
                                 const matchedLesson = (() => {
+                                    if (!selectedCourse) return null;
+
+                                    // 1. Busca o curso físico em 'courses'
                                     const physicalCourse = courses?.find((pc: any) => 
-                                        pc.linkedTheoflixId === selectedCourse.id || pc.id === selectedCourse.id
+                                        pc.linkedTheoflixId === selectedCourse.id || 
+                                        pc.id === selectedCourse.id ||
+                                        (pc.name && selectedCourse.title && pc.name.toLowerCase().trim() === selectedCourse.title.toLowerCase().trim())
                                     );
-                                    const syllabus = physicalCourse?.syllabus || [];
-                                    const sIdx = syllabus.findIndex((mod: any) => 
-                                        mod.theoflixCourseId === selectedCourse.id &&
-                                        mod.theoflixRequiredVideoIds?.includes(idx.toString())
-                                    );
-                                    if (sIdx !== -1) {
-                                        return {
-                                            num: String(sIdx + 1).padStart(2, '0'),
-                                            title: syllabus[sIdx].title
-                                        };
+                                    
+                                    const syllabus = physicalCourse?.syllabus || (selectedCourse as any)?.syllabus || [];
+
+                                    // 1.1 Tenta achar pela ementa explícita vinculada
+                                    if (syllabus.length > 0) {
+                                        const sIdxExplicit = syllabus.findIndex((mod: any) => 
+                                            (mod.theoflixCourseId === selectedCourse.id && mod.theoflixRequiredVideoIds?.includes(idx.toString())) ||
+                                            mod.theoflixRequiredVideoIds?.includes(idx.toString()) ||
+                                            (ep.youtubeId && mod.theoflixRequiredVideoIds?.includes(ep.youtubeId))
+                                        );
+                                        if (sIdxExplicit !== -1 && syllabus[sIdxExplicit]) {
+                                            return {
+                                                num: String(sIdxExplicit + 1).padStart(2, '0'),
+                                                title: syllabus[sIdxExplicit].title || `Aula ${sIdxExplicit + 1}`
+                                            };
+                                        }
+
+                                        // 1.2 Tenta achar por ordem posicional (1-para-1) na ementa
+                                        if (syllabus[idx]) {
+                                            return {
+                                                num: String(idx + 1).padStart(2, '0'),
+                                                title: syllabus[idx].title || `Aula ${idx + 1}`
+                                            };
+                                        }
                                     }
-                                    return null;
+
+                                    // 1.3 Fallback padronizado por número da aula
+                                    return {
+                                        num: String(idx + 1).padStart(2, '0'),
+                                        title: ep.title
+                                    };
                                 })();
                                 
                                 return (
                                 <div key={idx} className={cn(
                                     "flex items-center justify-between p-3 sm:p-5 rounded-xl sm:rounded-2xl border transition-all cursor-pointer",
-                                    currentEpisode?.title === ep.title ? "bg-primary/20 border-primary" : "bg-slate-900 border-slate-800 hover:bg-slate-800"
+                                    currentEpisode?.title === ep.title ? "bg-primary/20 border-primary shadow-lg shadow-primary/10" : "bg-slate-900 border-slate-800 hover:bg-slate-850 hover:border-slate-700"
                                 )} onClick={() => handlePlayEpisode(ep)}>
-                                    <div className="flex items-center gap-3 sm:gap-6 min-w-0">
-                                        <div className="relative">
-                                          <span className="font-black text-base sm:text-2xl text-slate-700 shrink-0">{String(idx + 1).padStart(2, '0')}</span>
+                                    <div className="flex items-center gap-3 sm:gap-6 min-w-0 flex-1">
+                                        <div className="relative shrink-0">
+                                          <span className="font-black text-base sm:text-2xl text-slate-600 font-mono">{String(idx + 1).padStart(2, '0')}</span>
                                           {isCompleted && (
                                             <div className="absolute -top-1.5 -right-1.5 sm:-top-2 sm:-right-2 bg-emerald-500 rounded-full p-0.5 text-white">
                                               <CheckCircle className="size-2 sm:size-3 fill-current" />
                                             </div>
                                           )}
                                         </div>
-                                        <div className="min-w-0">
+                                        <div className="min-w-0 flex-1 space-y-1">
                                             {matchedLesson && (
-                                                <span className="text-[10px] font-bold text-primary block uppercase tracking-wider mb-0.5">
-                                                    Aula {matchedLesson.num}: {matchedLesson.title}
-                                                </span>
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="text-[10px] sm:text-xs font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md uppercase tracking-wider inline-flex items-center gap-1">
+                                                        <BookCheck className="size-3 text-emerald-400 shrink-0" />
+                                                        Aula {matchedLesson.num}: {matchedLesson.title}
+                                                    </span>
+                                                </div>
                                             )}
-                                            <h4 className="font-black text-xs sm:text-lg uppercase italic truncate">{ep.title}</h4>
-                                            <span className="text-[8px] sm:text-[10px] text-slate-500 font-bold uppercase">{ep.duration || '45 MIN'}</span>
+                                            <h4 className="font-black text-xs sm:text-lg uppercase italic truncate text-slate-100">{ep.title}</h4>
+                                            <span className="text-[8px] sm:text-[10px] text-slate-500 font-bold uppercase block">{ep.duration || '45 MIN'}</span>
                                         </div>
                                     </div>
                                     <PlayCircle className={cn("size-5 sm:size-8 shrink-0 ml-2", isCompleted ? "text-emerald-500" : "text-primary")} />
