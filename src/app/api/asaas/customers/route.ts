@@ -10,7 +10,9 @@ export async function POST(request: NextRequest) {
     if (authResult.errorResponse) return authResult.errorResponse;
     const context = authResult.context!;
 
-    const { name, cpfCnpj, email, phone, userId } = await request.json();
+    const body = await request.json();
+    const { name, cpfCnpj, email, phone, userId } = body;
+    const tenantId = body.tenantId || context.tenantId;
 
     if (!name) {
       return NextResponse.json(
@@ -25,12 +27,13 @@ export async function POST(request: NextRequest) {
       email,
       phone,
       externalReference: userId || context.userId,
-      tenantId: context.tenantId,
+      tenantId,
     });
 
     return NextResponse.json({ customerId: customer.id });
   } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Erro ao processar cliente Asaas.';
     console.error('[Asaas] Erro ao criar/buscar cliente:', error);
-    return NextResponse.json({ error: 'Erro ao processar cliente Asaas.' }, { status: 500 });
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
