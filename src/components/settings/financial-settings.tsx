@@ -313,6 +313,33 @@ export function FinancialSettings() {
             </div>
           </div>
 
+          {/* URL Dinâmica do Webhook */}
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+            <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              URL do Webhook para cadastrar no painel do Asaas:
+            </Label>
+            <div className="flex items-center gap-2">
+              <code className="text-xs font-mono text-primary bg-primary/10 px-2 py-1 rounded flex-1 overflow-x-auto select-all">
+                {(typeof window !== 'undefined' ? window.location.origin : '')}/api/asaas/webhook?tenantId={tenantId}
+              </code>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  if (typeof window !== 'undefined') {
+                    const url = `${window.location.origin}/api/asaas/webhook?tenantId=${tenantId}`;
+                    navigator.clipboard.writeText(url);
+                    toast({ title: 'URL Copiada! 📋', description: 'URL do Webhook copiada para a área de transferência.' });
+                  }
+                }}
+                className="h-8 text-xs font-bold shrink-0"
+              >
+                Copiar URL
+              </Button>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* URL Base do Asaas */}
             <div className="space-y-1.5">

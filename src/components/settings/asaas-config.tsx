@@ -140,7 +140,9 @@ export function AsaasConfig() {
           />
           <p className="text-xs text-muted-foreground">
             Configure o webhook na Asaas para apontar para:<br/>
-            <code className="text-primary font-mono bg-primary/10 px-1 rounded">https://oiko.app/api/asaas/webhook?tenantId={tenantId}</code>
+            <code className="text-primary font-mono bg-primary/10 px-1 rounded">
+              {(typeof window !== 'undefined' ? window.location.origin : '')}/api/asaas/webhook?tenantId={tenantId}
+            </code>
           </p>
         </div>
       </CardContent>
