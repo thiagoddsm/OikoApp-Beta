@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { TuitionFee } from '@/lib/finance/financial-plan-types';
 import { useToast } from '@/hooks/use-toast';
 import { useVolunteering } from '@/contexts/volunteering-context';
-import { useFirebase, deleteDocumentNonBlocking } from '@/firebase';
+import { useFirebase, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { doc, deleteDoc } from 'firebase/firestore';
 
 interface MensalidadesManagerProps {

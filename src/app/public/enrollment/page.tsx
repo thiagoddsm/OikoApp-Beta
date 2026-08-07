@@ -286,6 +286,8 @@ function EnrollmentForm() {
         }
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };    const handleFinalSubmit = async () => {
+        const tenantId = new URLSearchParams(window.location.search).get('tenantId') || undefined;
+
         // Obter token do Firebase Auth (logado ou anônimo) para o cabeçalho Authorization
         const { getAuth } = await import('firebase/auth');
         const auth = getAuth();
@@ -540,8 +542,6 @@ function EnrollmentForm() {
                         return;
                     }
 
-                    const tenantId = new URLSearchParams(window.location.search).get('tenantId') || undefined;
-
                     // 1. Criar/Buscar Cliente no Asaas
                     const customerRes = await fetch('/api/asaas/customers', {
                         method: 'POST',
@@ -627,7 +627,7 @@ function EnrollmentForm() {
 
                     setBillingResult({
                         isPaid: true,
-                        registrationId: result?.requestId || result?.id || '',
+                        registrationId: (result as any)?.requestId || (result as any)?.id || '',
                         paymentMethod,
                         value: coursePrice,
                         invoiceUrl: asaasCharge.invoiceUrl || '',
