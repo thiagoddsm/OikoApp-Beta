@@ -43,8 +43,8 @@ const INTENT_OPTIONS: IntentOption[] = [
   },
   {
     key: 'CURSOS',
-    title: 'Quero me inscrever em um curso',
-    subtitle: 'Inscrever-me nos cursos e capacitações da igreja',
+    title: 'Inscrição em Curso ou Evento',
+    subtitle: 'Inscrever-me nos cursos, capacitações e eventos da igreja',
     icon: BookOpen,
     badgeColor: 'bg-teal-500/10 text-teal-600 border-teal-200',
   },
