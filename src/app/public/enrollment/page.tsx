@@ -525,8 +525,9 @@ function EnrollmentForm() {
 
                 if (!finalName) finalName = 'Aluno IBM';
 
-                const coursePrice = (selectedCourse as any)?.financeConfig?.totalAmount || 0;
-                const isPaid = coursePrice > 0;
+                const finConfig = (selectedCourse as any)?.financeConfig;
+                const coursePrice = finConfig?.totalAmount || finConfig?.monthlyAmount || (selectedCourse as any)?.price || 0;
+                const isPaid = finConfig?.isPaid === true || coursePrice > 0 || ((selectedCourse as any)?.billingMethod && (selectedCourse as any)?.billingMethod !== 'none' && (selectedCourse as any)?.billingMethod !== 'manual_only');
 
                 let asaasCharge: any = null;
 
