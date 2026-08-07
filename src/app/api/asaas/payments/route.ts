@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createPayment, getPixQrCode } from '@/lib/asaas';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
-import { requireAuth } from '@/lib/server-auth';
+import { optionalAuth } from '@/lib/server-auth';
 import { IdempotencyService } from '@/lib/services/idempotency';
 import { ServerAuditService } from '@/lib/services/audit-service';
 
@@ -10,12 +10,10 @@ export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
-    const authResult = await requireAuth(request);
-    if (authResult.errorResponse) return authResult.errorResponse;
-    const context = authResult.context!;
+    const { context, tenantId: resolvedTenantId } = await optionalAuth(request);
 
     const idempotencyKey = request.headers.get('idempotency-key') || '';
-    if (idempotencyKey) {
+    if (idempotencyKey && context) {
       const lockResult = await IdempotencyService.checkAndLock(context.tenantId, idempotencyKey, 'CREATE_ASAAS_PAYMENT');
       if (lockResult.isDuplicate) {
         return NextResponse.json(lockResult.previousResult || { message: 'Pagamento já processado previamente.' });
@@ -33,10 +31,7 @@ export async function POST(request: NextRequest) {
       installmentValue,
     } = body;
 
-    // Bug fix: usar tenantId do contexto JWT autenticado como fonte primária.
-    // O body pode omitir o tenantId (wizard e approveEnrollmentRequest não o enviavam),
-    // fazendo getAsaasCredentials(undefined) pular a API key do tenant da igreja.
-    const tenantId = body.tenantId || context.tenantId;
+    const tenantId = body.tenantId || context?.tenantId || resolvedTenantId;
 
     if (!customerId || !billingType || !value || !dueDate) {
       return NextResponse.json(

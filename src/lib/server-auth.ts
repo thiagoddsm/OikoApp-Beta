@@ -75,13 +75,7 @@ export async function requireAuth(
     }
 
     if (!tenantId) {
-      return {
-        context: null,
-        errorResponse: NextResponse.json(
-          { error: 'Acesso negado. Nenhum tenant ativo associado ao usuário.', requestId },
-          { status: 403 }
-        )
-      };
+      tenantId = await resolveTenantFromHost(req);
     }
 
     if (roles.length === 0) {
@@ -121,4 +115,101 @@ export async function requireAuth(
       )
     };
   }
+}
+
+/**
+ * Resolve o ID do Tenant a partir do Host / Domínio da requisição HTTP (Multi-tenant por Host)
+ */
+export async function resolveTenantFromHost(req: NextRequest | Request): Promise<string> {
+  try {
+    const host = req.headers.get('host') || req.headers.get('x-forwarded-host') || '';
+    const cleanHost = host.split(':')[0]?.toLowerCase().trim();
+
+    if (cleanHost && cleanHost !== 'localhost' && cleanHost !== '127.0.0.1') {
+      const { getAdminDb } = await import('@/lib/firebase-admin');
+      const db = getAdminDb();
+
+      // 1. Busca por customDomain exato (ex: ibmanha.com.br)
+      const snap = await db.collection('tenants')
+        .where('customDomain', '==', cleanHost)
+        .limit(1)
+        .get();
+
+      if (!snap.empty) {
+        return snap.docs[0].id;
+      }
+
+      // 2. Busca por subdomínio (ex: ibmanha.oiko.app -> subdomain 'ibmanha')
+      const sub = cleanHost.split('.')[0];
+      if (sub) {
+        const subSnap = await db.collection('tenants')
+          .where('subdomain', '==', sub)
+          .limit(1)
+          .get();
+        if (!subSnap.empty) {
+          return subSnap.docs[0].id;
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[TenantResolver] Erro ao resolver tenant via host:', e);
+  }
+
+  return 'w3m93SHQeBRhiDnt7208'; // Default Fallback Tenant ID da Igreja Principal (IBM)
+}
+
+/**
+ * Autenticação opcional para APIs públicas (como inscrições públicas de cursos/eventos).
+ * Se o visitante não estiver logado, resolve o tenant pelo Host/Domínio sem bloquear.
+ */
+export async function optionalAuth(req: NextRequest | Request): Promise<{ context: AuthContext; tenantId: string }> {
+  const requestId = req.headers.get('x-request-id') || `req_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const authHeader = req.headers.get('authorization');
+
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split('Bearer ')[1]?.trim();
+    if (token) {
+      try {
+        const adminAuth = getAdminAuth();
+        const decodedToken = await adminAuth.verifyIdToken(token);
+        const userId = decodedToken.uid;
+        let tenantId = (decodedToken.tenantId || decodedToken.tenant) as string | undefined;
+
+        if (!tenantId) {
+          const { getAdminDb } = await import('@/lib/firebase-admin');
+          const userSnap = await getAdminDb().collection('users').doc(userId).get();
+          if (userSnap.exists) {
+            tenantId = userSnap.data()?.tenantId;
+          }
+        }
+
+        const resolvedTenant = tenantId || (await resolveTenantFromHost(req));
+
+        return {
+          context: {
+            userId,
+            tenantId: resolvedTenant,
+            roles: (decodedToken.roles || (decodedToken.role ? [decodedToken.role] : ['user'])) as string[],
+            requestId,
+            isSuperAdmin: Boolean(decodedToken.superadmin)
+          },
+          tenantId: resolvedTenant
+        };
+      } catch (e) {
+        // Token inválido, prossegue como visitante público
+      }
+    }
+  }
+
+  const resolvedTenant = await resolveTenantFromHost(req);
+  return {
+    context: {
+      userId: `guest_${Date.now()}`,
+      tenantId: resolvedTenant,
+      roles: ['guest'],
+      requestId,
+      isSuperAdmin: false
+    },
+    tenantId: resolvedTenant
+  };
 }

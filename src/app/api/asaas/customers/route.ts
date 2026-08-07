@@ -1,18 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { findOrCreateCustomer } from '@/lib/asaas';
-import { requireAuth } from '@/lib/server-auth';
+import { optionalAuth } from '@/lib/server-auth';
 
 export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
-    const authResult = await requireAuth(request);
-    if (authResult.errorResponse) return authResult.errorResponse;
-    const context = authResult.context!;
+    const { context, tenantId: resolvedTenantId } = await optionalAuth(request);
 
     const body = await request.json();
     const { name, cpfCnpj, email, phone, userId } = body;
-    const tenantId = body.tenantId || context.tenantId;
+    const tenantId = body.tenantId || context?.tenantId || resolvedTenantId;
 
     if (!name) {
       return NextResponse.json(
