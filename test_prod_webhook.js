@@ -7,10 +7,10 @@ function testWebhook() {
   });
 
   const options = {
-    hostname: 'oiko.app',
+    hostname: 'ibmanha.com.br',
     port: 443,
-    path: '/api/asaas/webhook/?tenantId=w3m93SHQeBRhiDnt7208',
-    method: 'GET',
+    path: '/api/asaas/webhook?tenantId=w3m93SHQeBRhiDnt7208',
+    method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Content-Length': data.length,
