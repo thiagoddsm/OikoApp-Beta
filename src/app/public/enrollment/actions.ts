@@ -63,6 +63,8 @@ export async function submitEnrollmentRequest(data: {
     classId?: string;
     paymentMethod?: string;
     installments?: number;
+    asaasPaymentId?: string;
+    tenantId?: string;
 }) {
     try {
         const db = getAdminDb();
@@ -86,7 +88,7 @@ export async function submitEnrollmentRequest(data: {
             throw new Error("Dados de identificação ausentes.");
         }
 
-        await db.collection('enrollment_requests').add({
+        const docRef = await db.collection('enrollment_requests').add({
             name: finalName,
             email: finalEmail.toLowerCase(),
             phone: finalPhone || '',
@@ -94,11 +96,13 @@ export async function submitEnrollmentRequest(data: {
             classId: data.classId || '',
             paymentMethod: data.paymentMethod || 'PIX',
             installments: data.installments || 1,
+            asaasPaymentId: data.asaasPaymentId || '',
+            tenantId: data.tenantId || '',
             status: 'pending',
             createdAt: Timestamp.now()
         });
 
-        return { success: true };
+        return { success: true, requestId: docRef.id };
     } catch (e: any) {
         console.error("Error submitting enrollment request:", e);
         return { error: e.message || "Erro ao salvar a inscrição." };

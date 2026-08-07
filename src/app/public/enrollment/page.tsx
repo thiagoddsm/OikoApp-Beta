@@ -599,6 +599,8 @@ function EnrollmentForm() {
                     classId: selectedClassId || undefined,
                     paymentMethod,
                     installments: paymentMethod === 'CREDIT_CARD' ? installments : 1,
+                    asaasPaymentId: asaasCharge?.id || undefined,
+                    tenantId,
                 });
 
                 if (result?.error) {

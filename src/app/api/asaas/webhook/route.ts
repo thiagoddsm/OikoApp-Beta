@@ -253,6 +253,109 @@ async function processWebhookEvent(request: Request, tenantId?: string): Promise
         const msg = regError instanceof Error ? regError.message : 'Erro desconhecido';
         console.error('[Asaas Webhook] Erro ao sincronizar inscrição de evento:', msg);
       }
+
+      // 1.3 Auto-aprovação de Inscrições de Cursos (enrollment_requests) e matrícula na turma quando pagamento for confirmado/recebido
+      try {
+        const requestsRef = db.collection('enrollment_requests');
+        let reqQuerySnap = await requestsRef.where('asaasPaymentId', '==', payment.id).get();
+
+        if (reqQuerySnap.empty && payment.externalReference) {
+          const docSnap = await requestsRef.doc(payment.externalReference).get();
+          if (docSnap.exists) {
+            reqQuerySnap = await requestsRef.where('__name__', '==', payment.externalReference).get();
+          }
+        }
+
+        if (!reqQuerySnap.empty) {
+          for (const reqDoc of reqQuerySnap.docs) {
+            const reqData = reqDoc.data();
+            
+            // Se o pagamento foi confirmado, aprova a solicitação
+            if (isPaidEvent) {
+              await requestsRef.doc(reqDoc.id).update({
+                status: 'approved',
+                paidAt: now,
+                asaasPaymentStatus: payment.status || 'RECEIVED',
+                updatedAt: now
+              });
+              console.log(`[Asaas Webhook] Inscrição de curso ${reqDoc.id} APROVADA automaticamente via confirmação de pagamento Asaas!`);
+
+              // Localizar ou criar o aluno em 'users'
+              let studentId: string | undefined;
+              if (reqData.email) {
+                const userSnap = await db.collection('users').where('email', '==', reqData.email.toLowerCase().trim()).get();
+                if (!userSnap.empty) {
+                  studentId = userSnap.docs[0].id;
+                }
+              }
+              if (!studentId && reqData.phone) {
+                const userPhoneSnap = await db.collection('users').where('phone', '==', reqData.phone).get();
+                if (!userPhoneSnap.empty) {
+                  studentId = userPhoneSnap.docs[0].id;
+                }
+              }
+              if (!studentId && reqData.name) {
+                const newUser = await db.collection('users').add({
+                  name: reqData.name,
+                  email: reqData.email || '',
+                  phone: reqData.phone || '',
+                  integrationStatus: 'nao_alcancado',
+                  createdAt: now
+                });
+                studentId = newUser.id;
+              }
+
+              // Adicionar aluno na turma (classes/{classId})
+              if (studentId && reqData.classId) {
+                const classRef = db.collection('classes').doc(reqData.classId);
+                const classSnap = await classRef.get();
+                if (classSnap.exists) {
+                  const classData = classSnap.data()!;
+                  const currentStudents: string[] = classData.students || [];
+                  if (!currentStudents.includes(studentId)) {
+                    await classRef.update({
+                      students: [...currentStudents, studentId]
+                    });
+                    console.log(`[Asaas Webhook] Aluno ${studentId} adicionado automaticamente à turma ${reqData.classId}`);
+                  }
+                }
+              }
+
+              // Criar/atualizar a cobrança em tuition_fees como PAGO
+              let courseName = 'Curso';
+              if (reqData.courseId) {
+                const cSnap = await db.collection('courses').doc(reqData.courseId).get();
+                if (cSnap.exists) {
+                  courseName = cSnap.data()?.name || courseName;
+                }
+              }
+
+              const feeId = `fee_${reqDoc.id}`;
+              const feeRef = db.collection('tuition_fees').doc(feeId);
+              await feeRef.set({
+                studentId: studentId || '',
+                studentName: reqData.name || 'Aluno',
+                courseId: reqData.courseId || '',
+                courseName,
+                classId: reqData.classId || '',
+                amount: payment.value || 100,
+                dueDate: payment.dueDate || new Date().toISOString().split('T')[0],
+                status: 'pago',
+                paidAt: now,
+                enrollmentId: reqDoc.id,
+                asaasPaymentId: payment.id,
+                asaasStatus: payment.status || 'RECEIVED',
+                billingType: payment.billingType || 'PIX',
+                createdAt: now,
+                updatedAt: now
+              }, { merge: true });
+              console.log(`[Asaas Webhook] Cobrança em tuition_fees registrada como PAGO para ${reqData.name}`);
+            }
+          }
+        }
+      } catch (autoApproveErr) {
+        console.error('[Asaas Webhook] Erro ao aprovar inscrição automaticamente:', autoApproveErr);
+      }
     }
 
     // 2. Processar Eventos de Assinatura (Subscription)
