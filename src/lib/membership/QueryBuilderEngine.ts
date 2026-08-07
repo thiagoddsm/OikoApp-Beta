@@ -180,13 +180,68 @@ export class QueryBuilderEngine {
       }
 
       case 'pequenos_grupos': {
+        // Encontra todas as células vinculadas a esta pessoa (como membro ou como líder)
+        const userCells = context.cells.filter(cell => 
+          cell.leaderId === user.id ||
+          cell.liderId === user.id ||
+          cell.leaderId1 === user.id ||
+          cell.leaderId2 === user.id ||
+          cell.viceLeaderId === user.id ||
+          cell.hostId === user.id ||
+          cell.anfitriaoId === user.id ||
+          (Array.isArray(cell.leaders) && cell.leaders.includes(user.id)) ||
+          (Array.isArray(cell.coLeaders) && cell.coLeaders.includes(user.id)) ||
+          (Array.isArray(cell.members) && cell.members.includes(user.id)) ||
+          user.cellId === cell.id
+        );
+
         if (field === 'cellId') {
-          return this.compareValues(user.cellId, operator, value);
+          if (this.compareValues(user.cellId, operator, value)) return true;
+          return userCells.some(cell => this.compareValues(cell.id, operator, value) || this.compareValues(cell.name, operator, value));
         }
+
         if (field === 'role') {
-          return this.compareValues(user.cellRole || 'membro', operator, value);
+          const valStr = String(value || '').toLowerCase();
+          const isTargetLider = valStr.includes('lider') || valStr.includes('líder');
+          const isTargetVice = valStr.includes('vice');
+          const isTargetAnfitriao = valStr.includes('anfitriao') || valStr.includes('anfitrião');
+
+          const userIsLeaderInCell = context.cells.some(cell => 
+            cell.leaderId === user.id ||
+            cell.liderId === user.id ||
+            cell.leaderId1 === user.id ||
+            cell.leaderId2 === user.id ||
+            (Array.isArray(cell.leaders) && cell.leaders.includes(user.id))
+          );
+
+          const userIsViceInCell = context.cells.some(cell => 
+            cell.viceLeaderId === user.id ||
+            (Array.isArray(cell.coLeaders) && cell.coLeaders.includes(user.id))
+          );
+
+          const userIsAnfitriaoInCell = context.cells.some(cell => 
+            cell.hostId === user.id || cell.anfitriaoId === user.id
+          );
+
+          const userRole = String(user.cellRole || user.role || '').toLowerCase();
+
+          if (isTargetLider) {
+            const isMatch = userIsLeaderInCell || userRole.includes('lider') || userRole.includes('líder') || user.isLeader === true;
+            return operator === 'not_equals' ? !isMatch : isMatch;
+          }
+          if (isTargetVice) {
+            const isMatch = userIsViceInCell || userRole.includes('vice');
+            return operator === 'not_equals' ? !isMatch : isMatch;
+          }
+          if (isTargetAnfitriao) {
+            const isMatch = userIsAnfitriaoInCell || userRole.includes('anfitriao') || userRole.includes('anfitrião');
+            return operator === 'not_equals' ? !isMatch : isMatch;
+          }
+
+          return this.compareValues(user.cellRole || user.role || 'membro', operator, value);
         }
-        return !!user.cellId;
+
+        return userCells.length > 0 || !!user.cellId;
       }
 
       case 'ministerios': {
