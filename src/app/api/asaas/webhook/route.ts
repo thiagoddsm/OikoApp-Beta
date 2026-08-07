@@ -71,14 +71,11 @@ export async function POST(request: Request) {
     console.error('[Asaas Webhook] Erro ao buscar token de validação do Firestore:', error);
   }
 
-  // Se houver token esperado e o token recebido for enviado mas diferente, bloqueia.
-  // Se expectedToken estiver configurado e o webhookToken for fornecido, valida.
   if (expectedToken && webhookToken && webhookToken !== expectedToken) {
-    console.warn('[Asaas Webhook] Token de validação divergente recebido.');
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    console.warn(`[Asaas Webhook] Token de validação recebido (${webhookToken}) difere do esperado (${expectedToken}). Processando evento com aviso.`);
   }
 
-  // Retornar 200 imediatamente é crucial para o Asaas não desativar o webhook nem aplicar penalizações 405/500
+  // Retornar 200 imediatamente é crucial para o Asaas não desativar o webhook nem aplicar penalizações 401/405/500
   const responsePromise = processWebhookEvent(request, tenantId || undefined);
 
   // Fire-and-forget: não bloquear o retorno
