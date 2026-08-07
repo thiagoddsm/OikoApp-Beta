@@ -203,18 +203,30 @@ function EventListView({
                                                     </Badge>
                                                 );
                                             })()}
-                                            {categoryName && (
-                                                <Badge variant="outline" className="text-[10px] h-5 bg-slate-100 text-slate-600 border-slate-200">
-                                                    <Tag className="size-2.5 mr-1" />
-                                                    {categoryName}
-                                                </Badge>
-                                            )}
-                                            {isRecurring && (
-                                                <Badge variant="outline" className="text-[10px] h-5 bg-blue-50 text-blue-600 border-blue-200">
-                                                    <RefreshCw className="size-2.5 mr-1" />
-                                                    {res.frequency}
-                                                </Badge>
-                                            )}
+                                                   {(() => {
+                                                const catId = (res.categoryId || (res as any).category || '').toLowerCase();
+                                                let displayCatName = categoryName;
+                                                if (!displayCatName) {
+                                                    if (catId === 'regular') displayCatName = 'Regular';
+                                                    else if (catId === 'eventual') displayCatName = 'Eventual';
+                                                }
+                                                if (!displayCatName) return null;
+                                                return (
+                                                    <Badge variant="outline" className={cn(
+                                                        "text-[10px] h-5 border font-semibold",
+                                                        catId === 'regular' ? "bg-purple-50 text-purple-700 border-purple-200" : "bg-slate-100 text-slate-700 border-slate-200"
+                                                    )}>
+                                                        <Tag className="size-2.5 mr-1" />
+                                                        {displayCatName}
+                                                    </Badge>
+                                                );
+                                             })()}
+                                             {isRecurring && res.frequency && !['eventual', 'pontual'].includes(res.frequency.toLowerCase()) && (
+                                                 <Badge variant="outline" className="text-[10px] h-5 bg-blue-50 text-blue-600 border-blue-200">
+                                                     <RefreshCw className="size-2.5 mr-1" />
+                                                     {res.frequency}
+                                                 </Badge>
+                                             )}
                                         </div>
                                     </div>
                                 </div>
@@ -306,14 +318,17 @@ export function ReservationsCalendar({
             const regularCategory = reservationCategories?.find(c => c.name.toLowerCase() === 'regular');
             const regularCategoryId = regularCategory?.id;
 
+            const resCat = (res.categoryId || (res as any).category || '').toLowerCase();
+
             const isMatch = categoryFilter.some(filterId => {
-                if (filterId === 'eventual' || filterId === eventualCategoryId) {
-                    return res.categoryId === 'eventual' || res.categoryId === eventualCategoryId;
+                const fId = filterId.toLowerCase();
+                if (fId === 'eventual' || filterId === eventualCategoryId) {
+                    return resCat === 'eventual' || resCat === eventualCategoryId?.toLowerCase() || resCat.includes('eventual');
                 }
-                if (filterId === 'regular' || filterId === regularCategoryId) {
-                    return res.categoryId === 'regular' || res.categoryId === regularCategoryId;
+                if (fId === 'regular' || filterId === regularCategoryId) {
+                    return resCat === 'regular' || resCat === regularCategoryId?.toLowerCase() || resCat.includes('regular');
                 }
-                return res.categoryId === filterId;
+                return resCat === fId;
             });
             if (!isMatch) return false;
         }

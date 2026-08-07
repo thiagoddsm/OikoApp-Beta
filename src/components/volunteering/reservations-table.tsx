@@ -51,7 +51,16 @@ export function ReservationsTable({
         
         return [...reservations].filter(res => {
             // Filtro de Categoria
-            if (categoryFilter.length > 0 && (!res.categoryId || !categoryFilter.includes(res.categoryId))) return false;
+            if (categoryFilter.length > 0) {
+                const resCat = (res.categoryId || (res as any).category || '').toLowerCase();
+                const isMatch = categoryFilter.some(filterId => {
+                    const fId = filterId.toLowerCase();
+                    if (fId === 'eventual') return resCat === 'eventual' || resCat.includes('eventual');
+                    if (fId === 'regular') return resCat === 'regular' || resCat.includes('regular');
+                    return resCat === fId;
+                });
+                if (!isMatch) return false;
+            }
 
             // Filtro de Ambiente
             if (roomFilter !== 'all' && !res.rooms?.includes(roomFilter)) return false;

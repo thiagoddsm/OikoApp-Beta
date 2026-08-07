@@ -86,7 +86,7 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
         setTempDate('');
         setDayOfWeek(existingReservation.dayOfWeek || '');
         setWeekOfMonth(existingReservation.weekOfMonth || '1');
-        setCategoryId(existingReservation.categoryId || 'regular');
+        setCategoryId(existingReservation.categoryId || (existingReservation as any).category || 'regular');
         setMinistry((existingReservation as any).ministry || 'geral');
         setIsCreatingCategory(false);
         setNewCategoryName('');
@@ -207,7 +207,8 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
       status: existingReservation?.status || 'pending',
       frequency,
       dayOfWeek: ['semanal', 'quinzenal', 'mensal'].includes(frequency) ? dayOfWeek : '',
-      categoryId: categoryId,
+      categoryId: finalCategoryId,
+      category: finalCategoryId,
       ministry: ministry,
       specificDates: isMultiplas ? specificDates : [],
     };
