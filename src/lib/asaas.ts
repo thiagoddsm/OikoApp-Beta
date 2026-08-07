@@ -56,18 +56,21 @@ async function getAsaasCredentials(tenantId?: string): Promise<{ apiKey: string;
   try {
     const db = getAdminDb();
     
-    // 1. Tenta buscar a API Key específica da Igreja (Tenant)
-    if (tenantId) {
-      const tenantSnap = await db.collection('tenants').doc(tenantId).get();
+    // 1. Tenta buscar a API Key da Igreja (Tenant informado ou tenant principal)
+    const targetTenantId = tenantId || 'w3m93SHQeBRhiDnt7208';
+    if (targetTenantId) {
+      const tenantSnap = await db.collection('tenants').doc(targetTenantId).get();
       if (tenantSnap.exists) {
         const tenantData = tenantSnap.data();
         if (tenantData?.asaasApiKey) {
           const decryptedKey = decrypt(tenantData.asaasApiKey);
-          const isProd = decryptedKey.startsWith('$aact_prod_');
-          return {
-            apiKey: decryptedKey,
-            baseUrl: isProd ? 'https://api.asaas.com/v3' : (tenantData.asaasBaseUrl || (tenantData.asaasEnv === 'sandbox' ? 'https://sandbox.asaas.com/api/v3' : 'https://api.asaas.com/v3'))
-          };
+          if (decryptedKey && decryptedKey.startsWith('$aact_')) {
+            const isProd = decryptedKey.includes('_prod_');
+            return {
+              apiKey: decryptedKey,
+              baseUrl: isProd ? 'https://api.asaas.com/v3' : (tenantData.asaasBaseUrl || (tenantData.asaasEnv === 'sandbox' ? 'https://sandbox.asaas.com/api/v3' : 'https://api.asaas.com/v3'))
+            };
+          }
         }
       }
     }
@@ -79,15 +82,17 @@ async function getAsaasCredentials(tenantId?: string): Promise<{ apiKey: string;
       const data = snap.data()!;
       if (data.asaasApiKey) {
         const decryptedKey = decrypt(data.asaasApiKey);
-        const isProd = decryptedKey.startsWith('$aact_prod_');
-        return {
-          apiKey: decryptedKey,
-          baseUrl: isProd ? 'https://api.asaas.com/v3' : (data.asaasBaseUrl || 'https://api.asaas.com/v3')
-        };
+        if (decryptedKey && decryptedKey.startsWith('$aact_')) {
+          const isProd = decryptedKey.includes('_prod_');
+          return {
+            apiKey: decryptedKey,
+            baseUrl: isProd ? 'https://api.asaas.com/v3' : (data.asaasBaseUrl || 'https://api.asaas.com/v3')
+          };
+        }
       }
     }
   } catch (error) {
-    console.warn('[Asaas Config] Não foi possível ler credenciais do Firestore. Tentando fallback para .env.', error);
+    console.warn('[Asaas Config] Erro ao ler credenciais do Firestore:', error);
   }
 
   const envKey = process.env.ASAAS_API_KEY || '';
