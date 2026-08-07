@@ -1,0 +1,271 @@
+import { getAdminDb } from '@/lib/firebase-admin';
+import { FilterRuleBlock, MembershipBoardConfig } from '@/types/membership-board-types';
+
+export interface ProcessedPersonResult {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  photoUrl?: string;
+  membershipStatus?: string;
+  gender?: string;
+  age?: number;
+  cellName?: string;
+  matchedCategories: string[];
+}
+
+export class QueryBuilderEngine {
+  /**
+   * Processa as regras de um Quadro Dinâmico e retorna os membros filtrados + contagem total.
+   */
+  static async executeQuery(
+    boardConfig: MembershipBoardConfig,
+    tenantId?: string,
+    options?: { limit?: number; offset?: number }
+  ): Promise<{ totalCount: number; people: ProcessedPersonResult[] }> {
+    const db = getAdminDb();
+
+    // 1. Carregar todos os usuários/membros ativos do tenant (base primária)
+    let usersQuery = db.collection('users').asQuery ? db.collection('users') : db.collection('users');
+    if (tenantId) {
+      usersQuery = usersQuery.where('tenantId', '==', tenantId) as any;
+    }
+    const usersSnap = await usersQuery.get();
+    
+    if (usersSnap.empty) {
+      return { totalCount: 0, people: [] };
+    }
+
+    const allUsers: any[] = usersSnap.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    // Se não houver regras, retorna todos
+    if (!boardConfig.rules || boardConfig.rules.length === 0) {
+      const people = allUsers.map(u => this.formatPerson(u, ['membresia']));
+      return {
+        totalCount: people.length,
+        people: options?.limit ? people.slice(options.offset || 0, (options.offset || 0) + options.limit) : people,
+      };
+    }
+
+    // 2. Carregar coleções auxiliares em cache de memória para cruzamento ultra-rápido
+    const [eventsSnap, tuitionFeesSnap, classesSnap, cellsSnap, volunteersSnap] = await Promise.all([
+      db.collection('event_registrations').get().catch(() => ({ empty: true, docs: [] } as any)),
+      db.collection('tuition_fees').get().catch(() => ({ empty: true, docs: [] } as any)),
+      db.collection('classes').get().catch(() => ({ empty: true, docs: [] } as any)),
+      db.collection('cells').get().catch(() => ({ empty: true, docs: [] } as any)),
+      db.collection('volunteers').get().catch(() => ({ empty: true, docs: [] } as any)),
+    ]);
+
+    const eventRegistrations = eventsSnap.docs.map((d: any) => ({ id: d.id, ...d.data() }));
+    const tuitionFees = tuitionFeesSnap.docs.map((d: any) => ({ id: d.id, ...d.data() }));
+    const classes = classesSnap.docs.map((d: any) => ({ id: d.id, ...d.data() }));
+    const cells = cellsSnap.docs.map((d: any) => ({ id: d.id, ...d.data() }));
+    const volunteers = volunteersSnap.docs.map((d: any) => ({ id: d.id, ...d.data() }));
+
+    // 3. Filtrar usuários pessoa por pessoa aplicando a álgebra booleana das regras
+    const filteredPeople: ProcessedPersonResult[] = [];
+
+    for (const user of allUsers) {
+      let isMatch = true;
+      const matchedCats = new Set<string>();
+
+      for (let i = 0; i < boardConfig.rules.length; i++) {
+        const rule = boardConfig.rules[i];
+        const ruleMatches = this.evaluateRuleForUser(user, rule, {
+          eventRegistrations,
+          tuitionFees,
+          classes,
+          cells,
+          volunteers,
+        });
+
+        // Aplica a lógica de negação (isNegated)
+        // Se isNegated === true: inverter o resultado da regra
+        const finalRuleMatch = rule.isNegated ? !ruleMatches : ruleMatches;
+
+        if (finalRuleMatch) {
+          matchedCats.add(rule.category);
+        }
+
+        if (i === 0) {
+          isMatch = finalRuleMatch;
+        } else {
+          if (rule.logicalOperator === 'OR') {
+            isMatch = isMatch || finalRuleMatch;
+          } else {
+            isMatch = isMatch && finalRuleMatch;
+          }
+        }
+      }
+
+      if (isMatch) {
+        filteredPeople.push(this.formatPerson(user, Array.from(matchedCats)));
+      }
+    }
+
+    const totalCount = filteredPeople.length;
+    const paginatedPeople = options?.limit
+      ? filteredPeople.slice(options.offset || 0, (options.offset || 0) + options.limit)
+      : filteredPeople;
+
+    return { totalCount, people: paginatedPeople };
+  }
+
+  /**
+   * Avalia uma única regra contra uma pessoa.
+   */
+  private static evaluateRuleForUser(
+    user: any,
+    rule: FilterRuleBlock,
+    context: {
+      eventRegistrations: any[];
+      tuitionFees: any[];
+      classes: any[];
+      cells: any[];
+      volunteers: any[];
+    }
+  ): boolean {
+    const { category, field, operator, value } = rule;
+
+    switch (category) {
+      case 'membresia': {
+        const userValue = user[field];
+        return this.compareValues(userValue, operator, value);
+      }
+
+      case 'eventos': {
+        // Busca inscrições do usuário em eventos
+        const userEvents = context.eventRegistrations.filter(
+          e => e.userId === user.id || e.email?.toLowerCase() === user.email?.toLowerCase()
+        );
+
+        if (userEvents.length === 0) return false;
+
+        if (field === 'eventId') {
+          return userEvents.some(e => this.compareValues(e.eventId, operator, value));
+        }
+        if (field === 'status') {
+          return userEvents.some(e => this.compareValues(e.payment?.status || e.status, operator, value));
+        }
+        return userEvents.length > 0;
+      }
+
+      case 'ensino': {
+        // Busca turmas em que o aluno está inscrito
+        const userClasses = context.classes.filter(
+          c => Array.isArray(c.students) && c.students.includes(user.id)
+        );
+        // E buscas de cobranças de mensalidades
+        const userFees = context.tuitionFees.filter(
+          f => f.studentId === user.id || f.email?.toLowerCase() === user.email?.toLowerCase()
+        );
+
+        if (field === 'courseId') {
+          return userClasses.some(c => this.compareValues(c.courseId, operator, value));
+        }
+        if (field === 'classId') {
+          return userClasses.some(c => this.compareValues(c.id, operator, value));
+        }
+        if (field === 'paymentStatus') {
+          return userFees.some(f => this.compareValues(f.status, operator, value));
+        }
+        return userClasses.length > 0;
+      }
+
+      case 'pequenos_grupos': {
+        if (field === 'cellId') {
+          return this.compareValues(user.cellId, operator, value);
+        }
+        if (field === 'role') {
+          return this.compareValues(user.cellRole || 'membro', operator, value);
+        }
+        return !!user.cellId;
+      }
+
+      case 'ministerios': {
+        const userVolunteers = context.volunteers.filter(
+          v => v.userId === user.id || v.personId === user.id
+        );
+        if (field === 'ministryId') {
+          return userVolunteers.some(v => this.compareValues(v.ministryId || v.departmentId, operator, value));
+        }
+        return userVolunteers.length > 0;
+      }
+
+      case 'financeiro': {
+        const userFees = context.tuitionFees.filter(
+          f => f.studentId === user.id || f.email?.toLowerCase() === user.email?.toLowerCase()
+        );
+        if (field === 'status') {
+          return userFees.some(f => this.compareValues(f.status, operator, value));
+        }
+        if (field === 'isDizimista') {
+          return this.compareValues(user.isDizimista ?? false, operator, value);
+        }
+        return userFees.length > 0;
+      }
+
+      case 'discipulado': {
+        if (field === 'hasDiscipulador') {
+          return this.compareValues(!!user.discipuladorId, operator, value);
+        }
+        if (field === 'isDiscipulador') {
+          return this.compareValues(!!user.isDiscipulador, operator, value);
+        }
+        return !!user.discipuladorId;
+      }
+
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Helper para comparação de operadores.
+   */
+  private static compareValues(actual: any, operator: string, target: any): boolean {
+    if (actual === undefined || actual === null) {
+      return operator === 'not_equals';
+    }
+
+    switch (operator) {
+      case 'equals':
+        return String(actual).toLowerCase() === String(target).toLowerCase();
+      case 'not_equals':
+        return String(actual).toLowerCase() !== String(target).toLowerCase();
+      case 'contains':
+        return String(actual).toLowerCase().includes(String(target).toLowerCase());
+      case 'greater_than':
+        return Number(actual) > Number(target);
+      case 'less_than':
+        return Number(actual) < Number(target);
+      case 'in':
+        if (Array.isArray(target)) {
+          return target.map(t => String(t).toLowerCase()).includes(String(actual).toLowerCase());
+        }
+        return String(target).split(',').map(s => s.trim().toLowerCase()).includes(String(actual).toLowerCase());
+      case 'is_active':
+        return Boolean(actual) === true || String(actual).toLowerCase() === 'ativo';
+      default:
+        return false;
+    }
+  }
+
+  private static formatPerson(user: any, categories: string[]): ProcessedPersonResult {
+    return {
+      id: user.id,
+      name: user.name || 'Sem nome',
+      email: user.email,
+      phone: user.phone,
+      photoUrl: user.photoUrl,
+      membershipStatus: user.status || user.membershipStatus || 'ativo',
+      gender: user.gender,
+      age: user.age,
+      cellName: user.cellName,
+      matchedCategories: categories,
+    };
+  }
+}
