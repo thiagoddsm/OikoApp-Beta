@@ -266,14 +266,6 @@ export function MensalidadesManager({
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         <Button 
-                          size="sm" 
-                          variant={fee.status === 'pago' ? 'outline' : 'default'} 
-                          onClick={() => handleToggleStatus(fee.id)}
-                          className={fee.status === 'pago' ? 'h-7 text-xs border-emerald-300 text-emerald-700 font-bold' : 'h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold'}
-                        >
-                          {fee.status === 'pago' ? 'Desfazer Baixa' : 'Dar Baixa'}
-                        </Button>
-                        <Button 
                           size="icon" 
                           variant="ghost" 
                           onClick={() => handleOpenEdit(fee)}
