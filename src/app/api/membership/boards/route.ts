@@ -11,14 +11,14 @@ export async function GET(request: NextRequest) {
     const context = authResult.context!;
 
     const db = getAdminDb();
-    let q = db.collection('custom_membership_boards').asQuery ? db.collection('custom_membership_boards') : db.collection('custom_membership_boards');
+    let q: any = db.collection('custom_membership_boards');
     
     if (context.tenantId) {
       q = q.where('tenantId', '==', context.tenantId) as any;
     }
 
     const snap = await q.get();
-    const boards: MembershipBoardConfig[] = snap.docs.map(doc => ({
+    const boards: MembershipBoardConfig[] = snap.docs.map((doc: any) => ({
       id: doc.id,
       ...doc.data(),
     } as MembershipBoardConfig));

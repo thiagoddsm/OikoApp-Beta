@@ -26,7 +26,7 @@ export class QueryBuilderEngine {
     const db = getAdminDb();
 
     // 1. Carregar todos os usuários/membros ativos do tenant (base primária)
-    let usersQuery = db.collection('users').asQuery ? db.collection('users') : db.collection('users');
+    let usersQuery: any = db.collection('users');
     if (tenantId) {
       usersQuery = usersQuery.where('tenantId', '==', tenantId) as any;
     }
@@ -36,7 +36,7 @@ export class QueryBuilderEngine {
       return { totalCount: 0, people: [] };
     }
 
-    const allUsers: any[] = usersSnap.docs.map(doc => ({
+    const allUsers: any[] = usersSnap.docs.map((doc: any) => ({
       id: doc.id,
       ...doc.data(),
     }));
