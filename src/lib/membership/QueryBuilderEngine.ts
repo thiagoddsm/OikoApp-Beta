@@ -209,7 +209,7 @@ export class QueryBuilderEngine {
           const userIsLeaderInCell = context.cells.some(cell => {
             const mainLeaderId = cell.leaderId || cell.liderId || cell.leaderId1;
             
-            // 1. Checagem direta de IDs de líderes e casais
+            // 1. Checagem direta de IDs dos Líderes Titulares e Casal Líder Titular
             if (
               cell.leaderId === user.id ||
               cell.liderId === user.id ||
@@ -217,15 +217,10 @@ export class QueryBuilderEngine {
               cell.leaderId2 === user.id ||
               cell.liderCasalId === user.id ||
               cell.leaderCasalId === user.id ||
-              cell.spouseId === user.id ||
               cell.spouseLeaderId === user.id
             ) return true;
 
-            // 2. Checagem em arrays de líderes e co-líderes
-            if (Array.isArray(cell.leaders) && cell.leaders.includes(user.id)) return true;
-            if (Array.isArray(cell.coLideres) && cell.coLideres.some((cl: any) => cl.id === user.id || cl.casalId === user.id)) return true;
-
-            // 3. Checagem de cônjuge no perfil do usuário se o parceiro for o líder da célula
+            // 2. Checagem de cônjuge no perfil do usuário se o parceiro for o líder principal da célula
             if (user.spouseId && mainLeaderId && (user.spouseId === mainLeaderId || user.casalId === mainLeaderId)) return true;
             if (user.casalId && mainLeaderId && (user.casalId === mainLeaderId || user.spouseId === mainLeaderId)) return true;
 
@@ -234,7 +229,8 @@ export class QueryBuilderEngine {
 
           const userIsViceInCell = context.cells.some(cell => 
             cell.viceLeaderId === user.id ||
-            (Array.isArray(cell.coLeaders) && cell.coLeaders.includes(user.id))
+            (Array.isArray(cell.coLeaders) && cell.coLeaders.includes(user.id)) ||
+            (Array.isArray(cell.coLideres) && cell.coLideres.some((cl: any) => cl.id === user.id || cl.casalId === user.id))
           );
 
           const userIsAnfitriaoInCell = context.cells.some(cell => 
