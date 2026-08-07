@@ -10,6 +10,7 @@ export interface ConectarConfig {
     ATUALIZACAO?: string; // ex: '/public/cadastro'
     MEMBRESIA?: string;   // ex: '/public/enrollment'
     BATISMO?: string;     // ex: '/public/enrollment'
+    CURSOS?: string;      // ex: '/public/enrollment'
     GC?: string;
     VOLUNTARIADO?: string;
     ACONSELHAMENTO?: string;
@@ -31,6 +32,7 @@ export async function getConectarConfig(): Promise<ConectarConfig> {
       ATUALIZACAO: '/public/cadastro',
       MEMBRESIA: '/public/enrollment',
       BATISMO: '/public/enrollment',
+      CURSOS: '/public/enrollment',
     }
   };
 }
@@ -148,7 +150,7 @@ export async function submitSolicitacao(data: {
   conjuge?: string;
   addressStreet?: string;
   addressCep?: string;
-  intentType: 'VISITANDO' | 'GC' | 'BATISMO' | 'MEMBRESIA' | 'VOLUNTARIADO' | 'ACONSELHAMENTO' | 'ATUALIZACAO';
+  intentType: 'VISITANDO' | 'GC' | 'CURSOS' | 'BATISMO' | 'MEMBRESIA' | 'VOLUNTARIADO' | 'ACONSELHAMENTO' | 'ATUALIZACAO';
   intentDetails?: Record<string, any>;
   entryPoint?: string;
 }) {

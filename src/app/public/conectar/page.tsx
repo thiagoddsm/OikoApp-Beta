@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { 
   Loader2, ArrowRight, CheckCircle, Sparkles, User, Heart, 
   Compass, HandHelping, Users, Waves, GraduationCap, MessageSquare, 
-  RefreshCw, ArrowLeft, Church, Home
+  RefreshCw, ArrowLeft, Church, Home, BookOpen
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { identifyPerson, submitSolicitacao, getConectarOptions, ConectarConfig } from './actions';
@@ -19,7 +19,7 @@ import { GooglePlacesAutocomplete } from '@/components/common/google-places-auto
 type Step = 'identify' | 'select_intent' | 'fill_details' | 'success';
 
 interface IntentOption {
-  key: 'VISITANDO' | 'GC' | 'BATISMO' | 'MEMBRESIA' | 'VOLUNTARIADO' | 'ACONSELHAMENTO' | 'ATUALIZACAO';
+  key: 'VISITANDO' | 'GC' | 'CURSOS' | 'BATISMO' | 'MEMBRESIA' | 'VOLUNTARIADO' | 'ACONSELHAMENTO' | 'ATUALIZACAO';
   title: string;
   subtitle: string;
   icon: React.ElementType;
@@ -40,6 +40,13 @@ const INTENT_OPTIONS: IntentOption[] = [
     subtitle: 'Conectar-me a um Grupo de Crescimento / Célula',
     icon: Users,
     badgeColor: 'bg-emerald-500/10 text-emerald-600 border-emerald-200',
+  },
+  {
+    key: 'CURSOS',
+    title: 'Quero me inscrever em um curso',
+    subtitle: 'Inscrever-me nos cursos e capacitações da igreja',
+    icon: BookOpen,
+    badgeColor: 'bg-teal-500/10 text-teal-600 border-teal-200',
   },
   {
     key: 'BATISMO',
@@ -181,7 +188,15 @@ export default function ConectarPage() {
       return;
     }
 
-    // 2. Redirecionamento configurado ou padrão para MEMBRESIA -> /public/enrollment?intent=membresia (Abre direto a turma do PERTENCER)
+    // 2. Redirecionamento configurado ou padrão para CURSOS -> /public/enrollment (Abre o portal público de turmas e cursos)
+    if (option.key === 'CURSOS') {
+      const baseUrl = config.intentRedirects?.CURSOS || '/public/enrollment';
+      const separator = baseUrl.includes('?') ? '&' : '?';
+      router.push(`${baseUrl}${emailParam ? `${separator}email=${encodeURIComponent(emailParam)}` : ''}`);
+      return;
+    }
+
+    // 3. Redirecionamento configurado ou padrão para MEMBRESIA -> /public/enrollment?intent=membresia (Abre direto a turma do PERTENCER)
     if (option.key === 'MEMBRESIA') {
       const baseUrl = config.intentRedirects?.MEMBRESIA || '/public/enrollment';
       const separator = baseUrl.includes('?') ? '&' : '?';
@@ -189,7 +204,7 @@ export default function ConectarPage() {
       return;
     }
 
-    // 3. Redirecionamento configurado ou padrão para BATISMO -> /public/enrollment?intent=batismo (Abre direto a turma de BATISMO)
+    // 4. Redirecionamento configurado ou padrão para BATISMO -> /public/enrollment?intent=batismo (Abre direto a turma de BATISMO)
     if (option.key === 'BATISMO') {
       const baseUrl = config.intentRedirects?.BATISMO || '/public/enrollment';
       const separator = baseUrl.includes('?') ? '&' : '?';
