@@ -206,13 +206,31 @@ export class QueryBuilderEngine {
           const isTargetVice = valStr.includes('vice');
           const isTargetAnfitriao = valStr.includes('anfitriao') || valStr.includes('anfitrião');
 
-          const userIsLeaderInCell = context.cells.some(cell => 
-            cell.leaderId === user.id ||
-            cell.liderId === user.id ||
-            cell.leaderId1 === user.id ||
-            cell.leaderId2 === user.id ||
-            (Array.isArray(cell.leaders) && cell.leaders.includes(user.id))
-          );
+          const userIsLeaderInCell = context.cells.some(cell => {
+            const mainLeaderId = cell.leaderId || cell.liderId || cell.leaderId1;
+            
+            // 1. Checagem direta de IDs de líderes e casais
+            if (
+              cell.leaderId === user.id ||
+              cell.liderId === user.id ||
+              cell.leaderId1 === user.id ||
+              cell.leaderId2 === user.id ||
+              cell.liderCasalId === user.id ||
+              cell.leaderCasalId === user.id ||
+              cell.spouseId === user.id ||
+              cell.spouseLeaderId === user.id
+            ) return true;
+
+            // 2. Checagem em arrays de líderes e co-líderes
+            if (Array.isArray(cell.leaders) && cell.leaders.includes(user.id)) return true;
+            if (Array.isArray(cell.coLideres) && cell.coLideres.some((cl: any) => cl.id === user.id || cl.casalId === user.id)) return true;
+
+            // 3. Checagem de cônjuge no perfil do usuário se o parceiro for o líder da célula
+            if (user.spouseId && mainLeaderId && (user.spouseId === mainLeaderId || user.casalId === mainLeaderId)) return true;
+            if (user.casalId && mainLeaderId && (user.casalId === mainLeaderId || user.spouseId === mainLeaderId)) return true;
+
+            return false;
+          });
 
           const userIsViceInCell = context.cells.some(cell => 
             cell.viceLeaderId === user.id ||
