@@ -93,7 +93,11 @@ export class QueryBuilderEngine {
         if (i === 0) {
           isMatch = finalRuleMatch;
         } else {
-          if (rule.logicalOperator === 'OR') {
+          // Pela Lei de De Morgan: Para blocos de EXCLUSÃO (isNegated = true), a combinação de EXCLUIR A OU EXCLUIR B 
+          // significa que a pessoa NÃO pode atender a A E NÃO pode atender a B (interseção estrita de exclusão).
+          if (rule.isNegated) {
+            isMatch = isMatch && finalRuleMatch;
+          } else if (rule.logicalOperator === 'OR') {
             isMatch = isMatch || finalRuleMatch;
           } else {
             isMatch = isMatch && finalRuleMatch;
