@@ -12,9 +12,11 @@ import { BoardVisualPicker } from '@/components/membership/board-visual-picker';
 import { QueryBuilderBlocks } from '@/components/membership/query-builder-blocks';
 import { BoardPeopleDrawer } from '@/components/membership/board-people-drawer';
 import { useToast } from '@/hooks/use-toast';
+import { useUser } from '@/firebase/provider';
 
 export default function MembershipBoardsPage() {
   const { toast } = useToast();
+  const { user } = useUser();
   const [boards, setBoards] = useState<MembershipBoardConfig[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
@@ -32,14 +34,22 @@ export default function MembershipBoardsPage() {
   const [icon, setIcon] = useState<string>('Users');
   const [rules, setRules] = useState<FilterRuleBlock[]>([]);
 
+  const getAuthHeaders = async () => {
+    const token = await user?.getIdToken();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    return headers;
+  };
+
   useEffect(() => {
-    fetchBoards();
-  }, []);
+    if (user) fetchBoards();
+  }, [user]);
 
   const fetchBoards = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/membership/boards');
+      const headers = await getAuthHeaders();
+      const res = await fetch('/api/membership/boards', { headers });
       if (!res.ok) throw new Error('Erro ao carregar quadros');
       const data = await res.json();
       setBoards(data.boards || []);
@@ -102,9 +112,10 @@ export default function MembershipBoardsPage() {
         method = 'PUT';
       }
 
+      const headers = await getAuthHeaders();
       const res = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(payload),
       });
 
@@ -126,7 +137,8 @@ export default function MembershipBoardsPage() {
   const handleDeleteBoard = async (boardId: string) => {
     if (!confirm('Tem certeza que deseja excluir este quadro dinâmico?')) return;
     try {
-      const res = await fetch(`/api/membership/boards/${boardId}`, { method: 'DELETE' });
+      const headers = await getAuthHeaders();
+      const res = await fetch(`/api/membership/boards/${boardId}`, { method: 'DELETE', headers });
       if (!res.ok) throw new Error('Erro ao excluir quadro');
       toast({ title: 'Excluído!', description: 'O quadro foi removido.' });
       fetchBoards();
@@ -138,7 +150,8 @@ export default function MembershipBoardsPage() {
   const handleRecalculateAll = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/membership/boards/execute', { method: 'POST' });
+      const headers = await getAuthHeaders();
+      const res = await fetch('/api/membership/boards/execute', { method: 'POST', headers });
       if (!res.ok) throw new Error('Erro ao recalcular contagens');
       toast({ title: 'Painel Atualizado! 🔄', description: 'Todos os quadros foram recalculados com sucesso.' });
       fetchBoards();

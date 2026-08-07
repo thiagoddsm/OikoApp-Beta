@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { MembershipBoardConfig } from '@/types/membership-board-types';
 import { useToast } from '@/hooks/use-toast';
+import { useUser } from '@/firebase/provider';
 
 interface DynamicBoardCardProps {
   board: MembershipBoardConfig;
@@ -41,6 +42,7 @@ export function DynamicBoardCard({
   onRecalculate,
   onOpenWhatsapp,
 }: DynamicBoardCardProps) {
+  const { user } = useUser();
   const { toast } = useToast();
   const [isExporting, setIsExporting] = useState(false);
   const [isRecalculating, setIsRecalculating] = useState(false);
@@ -51,7 +53,11 @@ export function DynamicBoardCard({
     e.stopPropagation();
     setIsExporting(true);
     try {
-      const res = await fetch(`/api/membership/boards/${board.id}/export`);
+      const token = await user?.getIdToken();
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`/api/membership/boards/${board.id}/export`, { headers });
       if (!res.ok) throw new Error('Erro ao gerar planilha');
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
@@ -76,9 +82,13 @@ export function DynamicBoardCard({
       if (onRecalculate) {
         await onRecalculate();
       } else {
+        const token = await user?.getIdToken();
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
         const res = await fetch('/api/membership/boards/execute', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({ boardId: board.id }),
         });
         if (!res.ok) throw new Error('Erro ao recalcular contagem');

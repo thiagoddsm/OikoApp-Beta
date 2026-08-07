@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -8,12 +8,20 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, Layers, ShieldAlert, Sparkles, Filter, Users, Calendar, GraduationCap, Home, Heart, DollarSign, Flame } from 'lucide-react';
+import { Plus, Trash2, Filter } from 'lucide-react';
 import { FilterRuleBlock, FilterCategory, FilterOperator, CATEGORY_LABELS } from '@/types/membership-board-types';
+import { useUser } from '@/firebase/provider';
 
 interface QueryBuilderBlocksProps {
   rules: FilterRuleBlock[];
   onChange: (rules: FilterRuleBlock[]) => void;
+}
+
+interface SystemOptions {
+  courses: { id: string; name: string }[];
+  events: { id: string; name: string }[];
+  cells: { id: string; name: string }[];
+  ministries: { id: string; name: string }[];
 }
 
 const FIELD_OPTIONS_BY_CATEGORY: Record<FilterCategory, { key: string; label: string; operators: FilterOperator[] }[]> = {
@@ -25,20 +33,20 @@ const FIELD_OPTIONS_BY_CATEGORY: Record<FilterCategory, { key: string; label: st
     { key: 'isBaptized', label: 'Batizado', operators: ['is_active'] },
   ],
   eventos: [
-    { key: 'eventId', label: 'Participou do Evento (ID / Nome)', operators: ['equals', 'contains'] },
+    { key: 'eventId', label: 'Participou do Evento (Selecione da Lista)', operators: ['equals', 'contains'] },
     { key: 'status', label: 'Status do Ingresso / Inscrição', operators: ['equals', 'in'] },
   ],
   ensino: [
-    { key: 'courseId', label: 'Matriculado no Curso (ID / Nome)', operators: ['equals', 'contains'] },
-    { key: 'classId', label: 'Matriculado na Turma Specific', operators: ['equals'] },
+    { key: 'courseId', label: 'Matriculado no Curso (Selecione da Lista)', operators: ['equals', 'contains'] },
+    { key: 'classId', label: 'Matriculado na Turma Específica', operators: ['equals'] },
     { key: 'paymentStatus', label: 'Status Financeiro do Curso', operators: ['equals', 'in'] },
   ],
   pequenos_grupos: [
-    { key: 'cellId', label: 'Pertence ao GC / Célula (ID)', operators: ['equals', 'contains'] },
+    { key: 'cellId', label: 'Pertence ao GC / Célula (Selecione da Lista)', operators: ['equals', 'contains'] },
     { key: 'role', label: 'Cargo no GC (Líder / Membro / Anfitrião)', operators: ['equals', 'in'] },
   ],
   ministerios: [
-    { key: 'ministryId', label: 'Voluntário no Ministério (ID / Nome)', operators: ['equals', 'contains'] },
+    { key: 'ministryId', label: 'Voluntário no Ministério (Selecione da Lista)', operators: ['equals', 'contains'] },
   ],
   financeiro: [
     { key: 'isDizimista', label: 'Dizimista Ativo / Cadastrado', operators: ['is_active'] },
@@ -50,7 +58,71 @@ const FIELD_OPTIONS_BY_CATEGORY: Record<FilterCategory, { key: string; label: st
   ],
 };
 
+const PREDEFINED_SELECT_OPTIONS: Record<string, { label: string; value: string }[]> = {
+  status: [
+    { label: 'Ativo', value: 'ativo' },
+    { label: 'Inativo', value: 'inativo' },
+    { label: 'Visitante', value: 'visitante' },
+    { label: 'Pendente', value: 'pending' },
+    { label: 'Pago', value: 'pago' },
+    { label: 'Aprovado', value: 'approved' },
+  ],
+  gender: [
+    { label: 'Masculino', value: 'Masculino' },
+    { label: 'Feminino', value: 'Feminino' },
+  ],
+  maritalStatus: [
+    { label: 'Solteiro(a)', value: 'Solteiro' },
+    { label: 'Casado(a)', value: 'Casado' },
+    { label: 'Divorciado(a)', value: 'Divorciado' },
+    { label: 'Viúvo(a)', value: 'Viuvo' },
+  ],
+  role: [
+    { label: 'Líder de GC', value: 'lider' },
+    { label: 'Vice-Líder', value: 'vice_lider' },
+    { label: 'Anfitrião', value: 'anfitriao' },
+    { label: 'Membro Regular', value: 'membro' },
+  ],
+  paymentStatus: [
+    { label: 'Pago', value: 'pago' },
+    { label: 'Em Aberto', value: 'em_aberto' },
+    { label: 'Isento / Bolsa', value: 'isento' },
+  ],
+};
+
 export function QueryBuilderBlocks({ rules, onChange }: QueryBuilderBlocksProps) {
+  const { user } = useUser();
+  const [options, setOptions] = useState<SystemOptions>({ courses: [], events: [], cells: [], ministries: [] });
+  const [loadingOptions, setLoadingOptions] = useState<boolean>(false);
+
+  useEffect(() => {
+    fetchOptions();
+  }, [user]);
+
+  const fetchOptions = async () => {
+    if (!user) return;
+    setLoadingOptions(true);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch('/api/membership/options', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setOptions({
+          courses: data.courses || [],
+          events: data.events || [],
+          cells: data.cells || [],
+          ministries: data.ministries || [],
+        });
+      }
+    } catch (e) {
+      console.error('Erro ao carregar opções do sistema:', e);
+    } finally {
+      setLoadingOptions(false);
+    }
+  };
+
   const handleAddRule = (category: FilterCategory) => {
     const defaultField = FIELD_OPTIONS_BY_CATEGORY[category][0]?.key || 'status';
     const newRule: FilterRuleBlock = {
@@ -71,6 +143,108 @@ export function QueryBuilderBlocks({ rules, onChange }: QueryBuilderBlocksProps)
 
   const handleRemoveRule = (id: string) => {
     onChange(rules.filter(r => r.id !== id));
+  };
+
+  const renderValueInput = (rule: FilterRuleBlock) => {
+    if (rule.operator === 'is_active') return null;
+
+    // Seletores Inteligentes Dinâmicos baseados no campo
+    if (rule.field === 'courseId' && options.courses.length > 0) {
+      return (
+        <Select value={rule.value || ''} onValueChange={val => handleUpdateRule(rule.id, { value: val })}>
+          <SelectTrigger className="h-9 text-xs">
+            <SelectValue placeholder="Selecione o curso..." />
+          </SelectTrigger>
+          <SelectContent>
+            {options.courses.map(c => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      );
+    }
+
+    if (rule.field === 'eventId' && options.events.length > 0) {
+      return (
+        <Select value={rule.value || ''} onValueChange={val => handleUpdateRule(rule.id, { value: val })}>
+          <SelectTrigger className="h-9 text-xs">
+            <SelectValue placeholder="Selecione o evento..." />
+          </SelectTrigger>
+          <SelectContent>
+            {options.events.map(e => (
+              <SelectItem key={e.id} value={e.id}>
+                {e.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      );
+    }
+
+    if (rule.field === 'cellId' && options.cells.length > 0) {
+      return (
+        <Select value={rule.value || ''} onValueChange={val => handleUpdateRule(rule.id, { value: val })}>
+          <SelectTrigger className="h-9 text-xs">
+            <SelectValue placeholder="Selecione o GC..." />
+          </SelectTrigger>
+          <SelectContent>
+            {options.cells.map(cell => (
+              <SelectItem key={cell.id} value={cell.id}>
+                {cell.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      );
+    }
+
+    if (rule.field === 'ministryId' && options.ministries.length > 0) {
+      return (
+        <Select value={rule.value || ''} onValueChange={val => handleUpdateRule(rule.id, { value: val })}>
+          <SelectTrigger className="h-9 text-xs">
+            <SelectValue placeholder="Selecione o ministério..." />
+          </SelectTrigger>
+          <SelectContent>
+            {options.ministries.map(m => (
+              <SelectItem key={m.id} value={m.id}>
+                {m.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      );
+    }
+
+    // Seletores Predefinidos
+    const predefined = PREDEFINED_SELECT_OPTIONS[rule.field];
+    if (predefined) {
+      return (
+        <Select value={rule.value || ''} onValueChange={val => handleUpdateRule(rule.id, { value: val })}>
+          <SelectTrigger className="h-9 text-xs">
+            <SelectValue placeholder="Selecione a opção..." />
+          </SelectTrigger>
+          <SelectContent>
+            {predefined.map(opt => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      );
+    }
+
+    // Fallback para Input Texto Puro
+    return (
+      <Input
+        placeholder="Digite o valor..."
+        value={rule.value || ''}
+        onChange={e => handleUpdateRule(rule.id, { value: e.target.value })}
+        className="h-9 text-xs"
+      />
+    );
   };
 
   return (
@@ -184,6 +358,7 @@ export function QueryBuilderBlocks({ rules, onChange }: QueryBuilderBlocksProps)
                           handleUpdateRule(rule.id, {
                             field: val,
                             operator: newFieldObj?.operators[0] || 'equals',
+                            value: '',
                           });
                         }}
                       >
@@ -226,16 +401,11 @@ export function QueryBuilderBlocks({ rules, onChange }: QueryBuilderBlocksProps)
                       </Select>
                     </div>
 
-                    {/* Valor Parametrizado */}
+                    {/* Valor Parametrizado (Seletor Inteligente ou Texto) */}
                     {rule.operator !== 'is_active' && (
                       <div className="space-y-1">
-                        <Label className="text-[10px] font-bold uppercase text-slate-500">Valor de Busca</Label>
-                        <Input
-                          placeholder="Digite o valor..."
-                          value={rule.value || ''}
-                          onChange={e => handleUpdateRule(rule.id, { value: e.target.value })}
-                          className="h-9 text-xs"
-                        />
+                        <Label className="text-[10px] font-bold uppercase text-slate-500">Valor de Busca (Lista do Sistema)</Label>
+                        {renderValueInput(rule)}
                       </div>
                     )}
                   </div>

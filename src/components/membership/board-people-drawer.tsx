@@ -9,6 +9,7 @@ import { Search, Loader2, Download, MessageSquare, Mail, Phone, Users, User, Che
 import { MembershipBoardConfig } from '@/types/membership-board-types';
 import { ProcessedPersonResult } from '@/lib/membership/QueryBuilderEngine';
 import { useToast } from '@/hooks/use-toast';
+import { useUser } from '@/firebase/provider';
 
 interface BoardPeopleDrawerProps {
   board: MembershipBoardConfig | null;
@@ -17,6 +18,7 @@ interface BoardPeopleDrawerProps {
 }
 
 export function BoardPeopleDrawer({ board, isOpen, onClose }: BoardPeopleDrawerProps) {
+  const { user } = useUser();
   const { toast } = useToast();
   const [people, setPeople] = useState<ProcessedPersonResult[]>([]);
   const [totalCount, setTotalCount] = useState<number>(0);
@@ -26,17 +28,21 @@ export function BoardPeopleDrawer({ board, isOpen, onClose }: BoardPeopleDrawerP
   const limit = 20;
 
   useEffect(() => {
-    if (board && isOpen) {
+    if (board && isOpen && user) {
       fetchPeople(1);
     }
-  }, [board, isOpen]);
+  }, [board, isOpen, user]);
 
   const fetchPeople = async (targetPage: number) => {
     if (!board) return;
     setLoading(true);
     try {
+      const token = await user?.getIdToken();
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const offset = (targetPage - 1) * limit;
-      const res = await fetch(`/api/membership/boards/${board.id}/people?limit=${limit}&offset=${offset}`);
+      const res = await fetch(`/api/membership/boards/${board.id}/people?limit=${limit}&offset=${offset}`, { headers });
       if (!res.ok) throw new Error('Erro ao carregar lista de membros');
       const data = await res.json();
       setPeople(data.people || []);
