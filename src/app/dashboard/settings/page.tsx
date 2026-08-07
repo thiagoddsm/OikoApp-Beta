@@ -75,9 +75,9 @@ export default function SettingsPage() {
             <CardHeader>
                 <div className="flex items-center gap-4">
                     <Shield className="size-6 text-primary" />
-                    <CardTitle>Integrações Financeiras</CardTitle>
+                    <CardTitle>Integração ERP Conta Azul</CardTitle>
                 </div>
-                <CardDescription>Gerencie as conexões com o Asaas e o Conta Azul ERP.</CardDescription>
+                <CardDescription>Gerencie a conexão com a Conta Azul ERP para sincronização contábil.</CardDescription>
             </CardHeader>
             <CardContent>
                 <IntegrationsManager />
@@ -90,9 +90,9 @@ export default function SettingsPage() {
             <CardHeader>
                 <div className="flex items-center gap-4">
                     <Shield className="size-6 text-primary" />
-                    <CardTitle>Configurações Financeiras</CardTitle>
+                    <CardTitle>Gateway Asaas & Configurações Financeiras</CardTitle>
                 </div>
-                <CardDescription>Defina prazos úteis e simule webhooks de teste.</CardDescription>
+                <CardDescription>Chaves de API, Token do Webhook, URL de retorno e gerador de cobranças de teste.</CardDescription>
             </CardHeader>
             <CardContent>
                 <FinancialSettings />

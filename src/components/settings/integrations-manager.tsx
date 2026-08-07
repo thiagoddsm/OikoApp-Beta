@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, RefreshCw, CheckCircle2, AlertTriangle, Link2, Link2Off } from "lucide-react";
-import { AsaasConfig } from './asaas-config';
+import { useTenant } from '@/contexts/tenant-context';
 
 export function IntegrationsManager() {
   const { toast } = useToast();
@@ -204,9 +204,6 @@ export function IntegrationsManager() {
           )}
         </CardContent>
       </Card>
-
-      {/* Asaas Card (Novo Componente Multitenant) */}
-      <AsaasConfig />
     </div>
   );
 }
