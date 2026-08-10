@@ -108,3 +108,30 @@ export async function submitEnrollmentRequest(data: {
         return { error: e.message || "Erro ao salvar a inscrição." };
     }
 }
+
+/**
+ * Busca o catálogo público de Cursos, Turmas e Eventos via Firebase Admin SDK.
+ * Evita erros de regra de segurança do Firestore para visitantes deslogados (auth: null).
+ */
+export async function getPublicCatalog() {
+    try {
+        const db = getAdminDb();
+
+        const [coursesSnap, classesSnap, eventsSnap, strategicEventsSnap] = await Promise.all([
+            db.collection('courses').get(),
+            db.collection('classes').get(),
+            db.collection('events').get(),
+            db.collection('strategicEvents').get(),
+        ]);
+
+        const courses = coursesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const classes = classesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const events = eventsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const strategicEvents = strategicEventsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        return { courses, classes, events, strategicEvents };
+    } catch (e) {
+        console.error("Error fetching public catalog:", e);
+        return { courses: [], classes: [], events: [], strategicEvents: [] };
+    }
+}

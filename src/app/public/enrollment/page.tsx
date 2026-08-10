@@ -24,7 +24,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Logo } from '@/components/icons';
 import { cn } from '@/lib/utils';
-import { verifyMemberEmail, submitEnrollmentRequest } from './actions';
+import { verifyMemberEmail, submitEnrollmentRequest, getPublicCatalog } from './actions';
 import { useFirebase } from '@/firebase';
 import { useEventsData, useCoursesData } from "@/hooks/useDomainData";
 
@@ -75,8 +75,31 @@ function EnrollmentForm() {
     const emailParam = searchParams.get('email');
 
     const { firestore } = useFirebase();
-    const { events, reservations, rooms, strategicEvents, reservationCategories } = useEventsData();
-    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+    const { events: rawEvents, reservations, rooms, strategicEvents: rawStrategicEvents, reservationCategories } = useEventsData();
+    const { courses: rawCourses, classes: rawClasses, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+
+    // Catalogo publico para visitantes deslogados (evita erro de permissao auth: null no Firestore)
+    const [publicCatalog, setPublicCatalog] = useState<{ courses: any[]; classes: any[]; events: any[]; strategicEvents: any[] }>({
+        courses: [],
+        classes: [],
+        events: [],
+        strategicEvents: []
+    });
+
+    useEffect(() => {
+        async function fetchCatalog() {
+            const data = await getPublicCatalog();
+            if (data) {
+                setPublicCatalog(data);
+            }
+        }
+        fetchCatalog();
+    }, []);
+
+    const courses = useMemo(() => (rawCourses && rawCourses.length > 0) ? rawCourses : publicCatalog.courses, [rawCourses, publicCatalog.courses]);
+    const classes = useMemo(() => (rawClasses && rawClasses.length > 0) ? rawClasses : publicCatalog.classes, [rawClasses, publicCatalog.classes]);
+    const events = useMemo(() => (rawEvents && rawEvents.length > 0) ? rawEvents : publicCatalog.events, [rawEvents, publicCatalog.events]);
+    const strategicEvents = useMemo(() => (rawStrategicEvents && rawStrategicEvents.length > 0) ? rawStrategicEvents : publicCatalog.strategicEvents, [rawStrategicEvents, publicCatalog.strategicEvents]);
 
     const { toast } = useToast();
 
