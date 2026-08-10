@@ -224,11 +224,10 @@ export function AcademicEnrollmentWizard({
         batch.set(classRef, { students: updatedStudents }, { merge: true });
       }
 
-      // 4. Generate Tuition Fees & Asaas Invoice if paid course
       if (isPaidCourse && finalTuition > 0 && !isScholarship) {
         const scAny = selectedCourse as any;
         const isDisCourse = (scAny?.schoolId || scAny?.ministry || '').toLowerCase().includes('dis') || (selectedCourse?.name || '').toLowerCase().includes('libras');
-        const isAsaasCourse = scAny?.billingMethod !== 'manual_only' && scAny?.billingMethod !== 'none';
+        const isAsaasCourse = scAny?.billingMethod === 'asaas';
 
         let asaasCustomerId: string | null = null;
         let asaasPaymentData: any = null;

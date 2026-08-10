@@ -526,8 +526,11 @@ function EnrollmentForm() {
                 if (!finalName) finalName = 'Aluno IBM';
 
                 const finConfig = (selectedCourse as any)?.financeConfig;
-                const coursePrice = finConfig?.totalAmount || finConfig?.monthlyAmount || (selectedCourse as any)?.price || 0;
-                const isPaid = finConfig?.isPaid === true || coursePrice > 0 || ((selectedCourse as any)?.billingMethod && (selectedCourse as any)?.billingMethod !== 'none' && (selectedCourse as any)?.billingMethod !== 'manual_only');
+                const billingMethod = (selectedCourse as any)?.billingMethod || 'manual';
+                const coursePrice = Number(finConfig?.totalAmount || finConfig?.monthlyAmount || (selectedCourse as any)?.price || 0);
+
+                // Só exige cobrança no Asaas se billingMethod === 'asaas'
+                const isPaid = billingMethod === 'asaas' && coursePrice > 0;
 
                 let asaasCharge: any = null;
 
@@ -1189,81 +1192,121 @@ function EnrollmentForm() {
                                 )}
                             </div>
 
-                            {/* Bloco de Faturamento para Cursos Pagos */}
-                            {selectedCategory !== 'eventos' && selectedCourse && (
-                                <div className="space-y-4 p-5 bg-white/5 rounded-2xl border border-white/10">
-                                    <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between">
-                                        <span>💳 Informações de Pagamento</span>
-                                        <span className="text-emerald-400 font-extrabold text-sm">
-                                            R$ {((selectedCourse as any)?.financeConfig?.totalAmount || 100).toFixed(2).replace('.', ',')}
-                                        </span>
-                                    </h4>
+                            {/* Bloco de Faturamento para Cursos */}
+                            {selectedCategory !== 'eventos' && selectedCourse && (() => {
+                                const finConfig = (selectedCourse as any)?.financeConfig;
+                                const bMethod = (selectedCourse as any)?.billingMethod || 'manual';
+                                const cPrice = Number(finConfig?.totalAmount || finConfig?.monthlyAmount || (selectedCourse as any)?.price || 0);
+                                const isAsaasCourse = bMethod === 'asaas' && cPrice > 0;
+                                const isManual = bMethod === 'manual';
 
-                                    {/* Input de CPF / CNPJ do Pagador (Obrigatório para o Asaas) */}
-                                    <div className="space-y-1.5">
-                                        <Label className="text-[10px] font-black uppercase text-slate-400">
-                                            CPF / CNPJ do Pagador <span className="text-red-400">* (Obrigatório para o Asaas)</span>
-                                        </Label>
-                                        <Input
-                                            type="text"
-                                            placeholder="000.000.000-00"
-                                            value={cpfCnpj}
-                                            onChange={(e) => setCpfCnpj(e.target.value)}
-                                            className="bg-white/10 border-white/20 text-white h-11 rounded-xl placeholder-slate-600 focus-visible:ring-primary focus-visible:border-primary"
-                                        />
+                                return (
+                                    <div className="space-y-4 p-5 bg-white/5 rounded-2xl border border-white/10">
+                                        <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between">
+                                            <span>💳 Informações de Pagamento</span>
+                                            <span className={cn("font-extrabold text-sm", isAsaasCourse ? "text-emerald-400" : isManual && cPrice > 0 ? "text-amber-400" : "text-emerald-400")}>
+                                                {cPrice > 0 ? `R$ ${cPrice.toFixed(2).replace('.', ',')}` : 'Gratuito'}
+                                            </span>
+                                        </h4>
+
+                                        {/* Faturamento Automático via ASAAS */}
+                                        {isAsaasCourse && (
+                                            <>
+                                                {/* Input de CPF / CNPJ do Pagador (Obrigatório para o Asaas) */}
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[10px] font-black uppercase text-slate-400">
+                                                        CPF / CNPJ do Pagador <span className="text-red-400">* (Obrigatório para o Asaas)</span>
+                                                    </Label>
+                                                    <Input
+                                                        type="text"
+                                                        placeholder="000.000.000-00"
+                                                        value={cpfCnpj}
+                                                        onChange={(e) => setCpfCnpj(e.target.value)}
+                                                        className="bg-white/10 border-white/20 text-white h-11 rounded-xl placeholder-slate-600 focus-visible:ring-primary focus-visible:border-primary"
+                                                    />
+                                                </div>
+
+                                                {/* Opções de Forma de Pagamento */}
+                                                <div className="grid grid-cols-2 gap-2 pt-1">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setPaymentMethod('PIX')}
+                                                        className={cn(
+                                                            "p-3 rounded-xl border text-left text-xs transition-all flex flex-col justify-between h-20",
+                                                            paymentMethod === 'PIX' ? "border-emerald-400 bg-emerald-400/10 text-white font-bold" : "border-white/10 bg-white/5 text-slate-400"
+                                                        )}
+                                                    >
+                                                        <span>⚡ PIX / Boleto</span>
+                                                        <span className="text-[10px] text-emerald-400">À Vista sem juros</span>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setPaymentMethod('CREDIT_CARD')}
+                                                        className={cn(
+                                                            "p-3 rounded-xl border text-left text-xs transition-all flex flex-col justify-between h-20",
+                                                            paymentMethod === 'CREDIT_CARD' ? "border-indigo-400 bg-indigo-400/10 text-white font-bold" : "border-white/10 bg-white/5 text-slate-400"
+                                                        )}
+                                                    >
+                                                        <span>💳 Cartão de Crédito</span>
+                                                        <span className="text-[10px] text-indigo-300">Parcelado no cartão</span>
+                                                    </button>
+                                                </div>
+
+                                                {/* Se for Cartão Parcelado: seletor de parcelas com repasse de juros */}
+                                                {paymentMethod === 'CREDIT_CARD' && (
+                                                    <div className="space-y-2 pt-2 border-t border-white/10">
+                                                        <Label className="text-[10px] font-black uppercase text-slate-400">Selecione as parcelas (com repasse de taxa):</Label>
+                                                        <select
+                                                            value={installments}
+                                                            onChange={(e) => setInstallments(Number(e.target.value))}
+                                                            className="w-full rounded-xl bg-slate-800 border border-white/20 text-white text-xs h-11 px-3"
+                                                        >
+                                                            {Array.from({ length: (selectedCourse as any)?.financeConfig?.installments || 6 }, (_, i) => i + 1).map(n => {
+                                                                const baseVal = cPrice > 0 ? cPrice : 100;
+                                                                const rate = 0.0299; // 2.99% a.m.
+                                                                const totalWithInterest = n > 1 ? baseVal * Math.pow(1 + rate, n) : baseVal;
+                                                                const perInst = totalWithInterest / n;
+                                                                return (
+                                                                    <option key={n} value={n}>
+                                                                        {n}x de R$ {perInst.toFixed(2).replace('.', ',')} {n > 1 ? `(Total R$ ${totalWithInterest.toFixed(2).replace('.', ',')})` : 'à vista'}
+                                                                    </option>
+                                                                );
+                                                            })}
+                                                        </select>
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
+
+                                        {/* Faturamento Manual (Secretaria / Pix Interno) */}
+                                        {!isAsaasCourse && isManual && (
+                                            <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-1.5 text-left">
+                                                <div className="flex items-center gap-2 text-amber-400 font-bold text-xs uppercase">
+                                                    <Info className="size-4 shrink-0" /> Faturamento Manual (Pix / Caixa Interno)
+                                                </div>
+                                                <p className="text-xs text-slate-300">
+                                                    {cPrice > 0 
+                                                        ? `O acerto financeiro deste curso (R$ ${cPrice.toFixed(2).replace('.', ',')}) é gerenciado de forma manual pela secretaria da igreja.` 
+                                                        : `Este curso tem método de faturamento manual gerenciado diretamente pela secretaria da igreja.`
+                                                    }
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        {/* Gratuito */}
+                                        {!isAsaasCourse && !isManual && cPrice === 0 && (
+                                            <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-left space-y-1">
+                                                <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs uppercase">
+                                                    <Sparkles className="size-4 shrink-0" /> Curso Gratuito
+                                                </div>
+                                                <p className="text-xs text-slate-300">
+                                                    A inscrição para este curso não possui cobrança.
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
-
-                                    {/* Opções de Forma de Pagamento */}
-                                    <div className="grid grid-cols-2 gap-2 pt-1">
-                                        <button
-                                            type="button"
-                                            onClick={() => setPaymentMethod('PIX')}
-                                            className={cn(
-                                                "p-3 rounded-xl border text-left text-xs transition-all flex flex-col justify-between h-20",
-                                                paymentMethod === 'PIX' ? "border-emerald-400 bg-emerald-400/10 text-white font-bold" : "border-white/10 bg-white/5 text-slate-400"
-                                            )}
-                                        >
-                                            <span>⚡ PIX / Boleto</span>
-                                            <span className="text-[10px] text-emerald-400">À Vista sem juros</span>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setPaymentMethod('CREDIT_CARD')}
-                                            className={cn(
-                                                "p-3 rounded-xl border text-left text-xs transition-all flex flex-col justify-between h-20",
-                                                paymentMethod === 'CREDIT_CARD' ? "border-indigo-400 bg-indigo-400/10 text-white font-bold" : "border-white/10 bg-white/5 text-slate-400"
-                                            )}
-                                        >
-                                            <span>💳 Cartão de Crédito</span>
-                                            <span className="text-[10px] text-indigo-300">Parcelado no cartão</span>
-                                        </button>
-                                    </div>
-
-                                    {/* Se for Cartão Parcelado: seletor de parcelas com repasse de juros */}
-                                    {paymentMethod === 'CREDIT_CARD' && (
-                                        <div className="space-y-2 pt-2 border-t border-white/10">
-                                            <Label className="text-[10px] font-black uppercase text-slate-400">Selecione as parcelas (com repasse de taxa):</Label>
-                                            <select
-                                                value={installments}
-                                                onChange={(e) => setInstallments(Number(e.target.value))}
-                                                className="w-full rounded-xl bg-slate-800 border border-white/20 text-white text-xs h-11 px-3"
-                                            >
-                                                {Array.from({ length: (selectedCourse as any)?.financeConfig?.installments || 6 }, (_, i) => i + 1).map(n => {
-                                                    const baseVal = Number((selectedCourse as any)?.financeConfig?.totalAmount || 100);
-                                                    const rate = 0.0299; // 2.99% a.m.
-                                                    const totalWithInterest = n > 1 ? baseVal * Math.pow(1 + rate, n) : baseVal;
-                                                    const perInst = totalWithInterest / n;
-                                                    return (
-                                                        <option key={n} value={n}>
-                                                            {n}x de R$ {perInst.toFixed(2).replace('.', ',')} {n > 1 ? `(Total R$ ${totalWithInterest.toFixed(2).replace('.', ',')})` : 'à vista'}
-                                                        </option>
-                                                    );
-                                                })}
-                                            </select>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
+                                );
+                            })()}
 
                             {selectedCategory === 'eventos' && (
                                 <div className="space-y-6">
