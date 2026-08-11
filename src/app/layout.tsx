@@ -24,6 +24,11 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: 'Igreja Batista da Manhã | Onde a Organização Serve ao Organismo',
   description: 'Uma família que vive o evangelho de forma prática e relevante, centrada em Jesus e apaixonada pela missão de Deus.',
+  icons: {
+    icon: '/icon.svg',
+    shortcut: '/icon.svg',
+    apple: '/icon.svg',
+  },
 };
 
 export const viewport = {
