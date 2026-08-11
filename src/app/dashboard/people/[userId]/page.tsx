@@ -8,7 +8,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { 
   Loader2, ArrowLeft, Edit, Users, ShieldCheck, Network, Map, 
   Footprints, User as UserIcon, Heart, HandHelping, Bot, GraduationCap, CheckCircle2, Camera, RefreshCw, History,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, Trash2
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,6 +35,7 @@ import { FamilyManagement } from '@/components/users/family-management';
 import { VolunteerServiceForm } from '@/components/volunteering/volunteer-service-form';
 import { AIProfileAnalysis } from '@/components/users/ai-profile-analysis';
 import { EditUserDialog } from '@/components/users/edit-user-dialog';
+import { DeletePersonDialog } from '@/components/people/delete-person-dialog';
 import { InviteUserButton } from '@/components/users/invite-user-button';
 import { PersonProcessesList } from '@/components/users/person-processes-list';
 import { RelationshipTimeline } from '@/components/users/relationship-timeline';
@@ -51,6 +52,7 @@ function PersonProfilePageContent() {
 
     const { isLoading: isContextLoading } = useVolunteering();
     const [isEditOpen, setIsEditOpen] = useState(false);
+    const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isSyncingPhoto, setIsSyncingPhoto] = useState(false);
     const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
     const [livePhotoUrl, setLivePhotoUrl] = useState<string | null>(null);
@@ -324,6 +326,9 @@ function PersonProfilePageContent() {
                             <Button className="font-bold h-10 px-6 rounded-xl shadow-lg shadow-primary/20" onClick={() => setIsEditOpen(true)}>
                                 <Edit className="size-4 mr-2" /> Editar Perfil
                             </Button>
+                            <Button variant="outline" size="sm" className="h-10 px-4 rounded-xl border-rose-200 text-rose-600 hover:bg-rose-50 font-bold" onClick={() => setIsDeleteOpen(true)}>
+                                <Trash2 className="size-4 mr-2" /> Excluir
+                            </Button>
                             <Button variant="outline" size="sm" className="h-10 px-6 rounded-xl border-slate-200" onClick={() => router.back()}>
                                 <ArrowLeft className="size-4 mr-2" /> Voltar
                             </Button>
@@ -481,6 +486,12 @@ function PersonProfilePageContent() {
                 open={isEditOpen}
                 onOpenChange={setIsEditOpen}
                 user={person}
+            />
+            <DeletePersonDialog
+                person={person}
+                isOpen={isDeleteOpen}
+                onClose={() => setIsDeleteOpen(false)}
+                onSuccess={() => router.push('/dashboard/people/list')}
             />
         </div>
     );

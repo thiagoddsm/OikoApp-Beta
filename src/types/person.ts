@@ -74,6 +74,11 @@ export interface Person {
   role?: string; // Supervisor, Líder, etc.
   status?: 'active' | 'inactive' | 'pending';
   gc?: string; // Name or ID of the small group
+
+  // Soft Delete & Lixeira
+  isDeleted?: boolean;
+  deletedAt?: Timestamp | null;
+  deletedBy?: string;
 }
 
 export type SituacaoCaminhada = 

@@ -8,13 +8,14 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Loader2, Plus, Search, Trash2, Wand2, Tag, FilterX, X, Users, Briefcase, Compass } from 'lucide-react';
+import { Loader2, Plus, Search, Trash2, Wand2, Tag, FilterX, X, Users, Briefcase, Compass, RotateCcw } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { EditUserDialog } from '@/components/users/edit-user-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { cn, formatPhone } from '@/lib/utils';
-import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
+import { DeletePersonDialog } from './delete-person-dialog';
+import { restorePerson } from '@/app/dashboard/people/actions';
 // import { MergeToolDialog } from './merge-tool-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -35,6 +36,8 @@ type User = {
     serviceAreaId?: string;
     profilePicture?: string;
     photoURL?: string;
+    isDeleted?: boolean;
+    deletedAt?: any;
 };
 
 const journeyStatusLabels: { [key: string]: string } = {
@@ -84,6 +87,31 @@ export function PeopleTable() {
         return Array.from(tags).sort();
     }, [users]);
 
+    const [viewMode, setViewMode] = useState<'active' | 'trash'>('active');
+    const [restoringId, setRestoringId] = useState<string | null>(null);
+
+    const handleRestore = async (userToRestore: User) => {
+        setRestoringId(userToRestore.id);
+        try {
+            const res = await restorePerson(userToRestore.id);
+            if (res.success) {
+                toast({
+                    title: 'Cadastro Restaurado! 🔄',
+                    description: `O cadastro de ${userToRestore.name} foi reativado com sucesso com todos os dados intactos.`
+                });
+            } else {
+                toast({ variant: 'destructive', title: 'Erro ao restaurar', description: res.error || 'Não foi possível restaurar o cadastro.' });
+            }
+        } catch (err: any) {
+            toast({ variant: 'destructive', title: 'Erro ao restaurar', description: err.message });
+        } finally {
+            setRestoringId(null);
+        }
+    };
+
+    const activeUsersCount = useMemo(() => users?.filter(u => !u.isDeleted).length || 0, [users]);
+    const trashedUsersCount = useMemo(() => users?.filter(u => u.isDeleted === true).length || 0, [users]);
+
     const filteredUsers = useMemo(() => {
         if (!users) return [];
         
@@ -94,6 +122,10 @@ export function PeopleTable() {
         
         const filtered = users.filter(user => {
             if (!user) return false;
+
+            // Filtrar Lixeira x Ativos
+            if (viewMode === 'active' && user.isDeleted === true) return false;
+            if (viewMode === 'trash' && user.isDeleted !== true) return false;
             
             const name = normalize(user.name);
             const email = normalize(user.email || '');
@@ -123,29 +155,17 @@ export function PeopleTable() {
         });
 
         return [...filtered].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR'));
-    }, [users, searchTerm, selectedTag, selectedGcFilter, selectedServiceFilter, selectedJourneyFilter]);
+    }, [users, viewMode, searchTerm, selectedTag, selectedGcFilter, selectedServiceFilter, selectedJourneyFilter]);
 
     React.useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, selectedTag, selectedGcFilter, selectedServiceFilter, selectedJourneyFilter]);
+    }, [viewMode, searchTerm, selectedTag, selectedGcFilter, selectedServiceFilter, selectedJourneyFilter]);
 
     const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
     const paginatedUsers = useMemo(() => {
         const start = (currentPage - 1) * itemsPerPage;
         return filteredUsers.slice(start, start + itemsPerPage);
     }, [filteredUsers, currentPage]);
-    
-    const handleDelete = () => {
-        if (!userToDelete || !firestore) return;
-        if (currentUser?.uid === userToDelete.id) {
-            toast({ variant: 'destructive', title: 'Ação Bloqueada', description: 'Você não pode excluir seu próprio cadastro.' });
-            setUserToDelete(null);
-            return;
-        }
-        deleteDocumentNonBlocking(doc(firestore, 'users', userToDelete.id));
-        toast({ title: 'Exclusão Iniciada', description: `O cadastro de ${userToDelete.name} será removido.` });
-        setUserToDelete(null);
-    };
     
     const isLoading = isLoadingUsers || isLoadingCells || isLoadingAreas;
 
@@ -163,9 +183,28 @@ export function PeopleTable() {
                     <CardDescription>Visualize e gerencie todos os cadastros do sistema IBM.</CardDescription>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
-                    {/* <Button variant="outline" onClick={() => setIsMergeOpen(true)} className="font-bold">
-                         <Wand2 className="mr-2 h-4 w-4 text-indigo-500" /> Unificar
-                    </Button> */}
+                    {/* Alternador de Lixeira / Cadastros Ativos */}
+                    <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+                        <Button
+                            type="button"
+                            variant={viewMode === 'active' ? 'default' : 'ghost'}
+                            size="sm"
+                            onClick={() => setViewMode('active')}
+                            className={cn("h-8 rounded-lg text-xs font-bold gap-1.5", viewMode === 'active' && "shadow-sm")}
+                        >
+                            <Users size={14} /> Ativos ({activeUsersCount})
+                        </Button>
+                        <Button
+                            type="button"
+                            variant={viewMode === 'trash' ? 'destructive' : 'ghost'}
+                            size="sm"
+                            onClick={() => setViewMode('trash')}
+                            className={cn("h-8 rounded-lg text-xs font-bold gap-1.5", viewMode === 'trash' ? "bg-rose-600 text-white shadow-sm" : "text-rose-600 hover:bg-rose-50")}
+                        >
+                            <Trash2 size={14} /> Lixeira ({trashedUsersCount})
+                        </Button>
+                    </div>
+
                     <Button onClick={() => setFormOpen(true)} className="font-bold">
                         <Plus className="mr-2 h-4 w-4" /> Novo Cadastro
                     </Button>
@@ -335,10 +374,32 @@ export function PeopleTable() {
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 <div className="flex justify-end gap-1">
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8" asChild title="Ver Perfil">
                                                         <Link href={`/dashboard/people/${user.id}`}><Search className="h-4 w-4" /></Link>
                                                     </Button>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => setUserToDelete(user)}><Trash2 className="h-4 w-4" /></Button>
+                                                    {viewMode === 'active' ? (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                                                            onClick={() => setUserToDelete(user)}
+                                                            title="Mover para Lixeira"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    ) : (
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            disabled={restoringId === user.id}
+                                                            onClick={() => handleRestore(user)}
+                                                            className="h-8 text-xs font-bold text-emerald-600 border-emerald-200 hover:bg-emerald-50 gap-1"
+                                                            title="Restaurar Cadastro"
+                                                        >
+                                                            {restoringId === user.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
+                                                            Restaurar
+                                                        </Button>
+                                                    )}
                                                 </div>
                                             </TableCell>
                                         </TableRow>
@@ -381,7 +442,11 @@ export function PeopleTable() {
             </CardContent>
             <EditUserDialog user={null} open={isFormOpen} onOpenChange={setFormOpen} />
             {/* <MergeToolDialog open={isMergeOpen} onOpenChange={setIsMergeOpen} users={users || []} /> */}
-            {userToDelete && <DeleteConfirmationDialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)} onConfirm={handleDelete} itemName={userToDelete.name} itemType="Cadastro de Pessoa" />}
+            <DeletePersonDialog
+                person={userToDelete}
+                isOpen={!!userToDelete}
+                onClose={() => setUserToDelete(null)}
+            />
         </Card>
     );
 }
