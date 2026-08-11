@@ -221,6 +221,14 @@ export function MensalidadesManager({
         </CardHeader>
 
         <CardContent className="space-y-4">
+          {/* Banner Informativo sobre Faturamento Manual (Pix / Secretaria) */}
+          <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-between text-xs text-emerald-900 dark:text-emerald-200">
+            <div className="flex items-center gap-2">
+              <DollarSign className="size-4 shrink-0 text-emerald-600" />
+              <span><strong>Baixa Manual de Mensalidades:</strong> Para cursos manuais (Pix direto na conta da igreja / Caixa), confirme os recebimentos utilizando o botão <strong>Dar Baixa</strong> ao lado de cada mensalidade.</span>
+            </div>
+          </div>
+
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-1.5 flex-wrap">
               <Button size="sm" variant={filterStatus === 'all' ? 'default' : 'outline'} onClick={() => setFilterStatus('all')} className="h-8 text-xs font-bold">Todas</Button>
@@ -265,6 +273,29 @@ export function MensalidadesManager({
                     <TableCell className="text-center">{getBadgeForStatus(fee.status)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1.5">
+                        {fee.status === 'em_aberto' && (
+                          <Button 
+                            size="sm" 
+                            onClick={() => handleToggleStatus(fee.id)}
+                            className="h-7 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white gap-1 shadow-xs"
+                            title="Dar baixa manual no pagamento (Pix / Caixa Interno)"
+                          >
+                            <CheckCircle2 className="size-3.5" /> Dar Baixa
+                          </Button>
+                        )}
+
+                        {fee.status === 'pago' && (
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleToggleStatus(fee.id)}
+                            className="h-7 text-xs font-bold text-emerald-700 border-emerald-300 bg-emerald-50 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 gap-1"
+                            title="Baixa Efetuada - Clique para alterar status se necessário"
+                          >
+                            <CheckCircle2 className="size-3.5 text-emerald-600" /> Baixado
+                          </Button>
+                        )}
+
                         <Button 
                           size="icon" 
                           variant="ghost" 
