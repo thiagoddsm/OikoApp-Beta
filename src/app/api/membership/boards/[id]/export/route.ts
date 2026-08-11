@@ -9,7 +9,17 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authResult = await requireAuth(request);
+    let reqToAuth = request;
+    const authHeader = request.headers.get('authorization');
+    const tokenParam = request.nextUrl.searchParams.get('token');
+
+    if ((!authHeader || !authHeader.startsWith('Bearer ')) && tokenParam) {
+      const reqHeaders = new Headers(request.headers);
+      reqHeaders.set('authorization', `Bearer ${tokenParam}`);
+      reqToAuth = new NextRequest(request.url, { headers: reqHeaders });
+    }
+
+    const authResult = await requireAuth(reqToAuth);
     if (authResult.errorResponse) return authResult.errorResponse;
     const context = authResult.context!;
 

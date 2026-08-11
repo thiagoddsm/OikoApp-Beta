@@ -55,6 +55,36 @@ export function BoardPeopleDrawer({ board, isOpen, onClose }: BoardPeopleDrawerP
     }
   };
 
+  const [isExporting, setIsExporting] = useState<boolean>(false);
+
+  const handleExportCsv = async () => {
+    if (!board) return;
+    setIsExporting(true);
+    try {
+      const token = await user?.getIdToken();
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`/api/membership/boards/${board.id}/export`, { headers });
+      if (!res.ok) throw new Error('Erro ao gerar planilha CSV');
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `quadro-${board.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      toast({ title: 'Planilha Exportada! 📥', description: 'O arquivo CSV foi baixado com sucesso.' });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Erro ao exportar', description: err.message });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const filteredPeople = people.filter(p => 
     !searchQuery || 
     p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -100,10 +130,11 @@ export function BoardPeopleDrawer({ board, isOpen, onClose }: BoardPeopleDrawerP
           <Button
             size="sm"
             variant="outline"
-            onClick={() => window.open(`/api/membership/boards/${board.id}/export`, '_blank')}
+            disabled={isExporting}
+            onClick={handleExportCsv}
             className="h-9 text-xs font-bold gap-1 text-emerald-600 border-emerald-200 hover:bg-emerald-50"
           >
-            <Download size={14} /> Exportar CSV
+            {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />} Exportar CSV
           </Button>
         </div>
 
