@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { DollarSign, CheckCircle2, Clock, AlertCircle, ShieldAlert, CreditCard, Search, FileText, Pencil, Trash2 } from 'lucide-react';
+import { DollarSign, CheckCircle2, Clock, AlertCircle, ShieldAlert, CreditCard, Search, FileText, Pencil, Trash2, Calendar, PlusCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
@@ -14,7 +14,7 @@ import { TuitionFee } from '@/lib/finance/financial-plan-types';
 import { useToast } from '@/hooks/use-toast';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { useFirebase, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
-import { doc, deleteDoc } from 'firebase/firestore';
+import { doc, deleteDoc, collection, addDoc } from 'firebase/firestore';
 
 interface MensalidadesManagerProps {
   fees?: TuitionFee[];
@@ -29,19 +29,59 @@ export function MensalidadesManager({
   const [feeList, setFeeList] = useState<TuitionFee[]>(fees);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterCompetence, setFilterCompetence] = useState<string>('all');
+
+  // Gerador de Mensalidades em Lote do Mês
+  const [isBatchOpen, setIsBatchOpen] = useState(false);
+  const [batchCompetence, setBatchCompetence] = useState('2026-09');
+  const [batchDueDate, setBatchDueDate] = useState('2026-09-10');
+  const [batchAmount, setBatchAmount] = useState('85.00');
+  const [isGeneratingBatch, setIsGeneratingBatch] = useState(false);
 
   // Sincroniza props.fees com o estado interno quando props mudar
   React.useEffect(() => {
     setFeeList(fees);
   }, [fees]);
 
+  // Competências disponíveis dinamicamente
+  const availableCompetences = useMemo(() => {
+    const compSet = new Set<string>();
+    feeList.forEach(f => {
+      if (f.competence) compSet.add(f.competence);
+    });
+    return Array.from(compSet).sort().reverse();
+  }, [feeList]);
+
   const filteredFees = feeList.filter(fee => {
     const matchesSearch = !searchQuery || 
       fee.studentName.toLowerCase().includes(searchQuery.toLowerCase()) || 
       fee.courseName.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = filterStatus === 'all' || fee.status === filterStatus;
-    return matchesSearch && matchesStatus;
+    const matchesCompetence = filterCompetence === 'all' || fee.competence === filterCompetence;
+    return matchesSearch && matchesStatus && matchesCompetence;
   });
+
+  // Métricas do Mês Filtrado
+  const monthlyMetrics = useMemo(() => {
+    const totalCount = filteredFees.length;
+    const paidList = filteredFees.filter(f => f.status === 'pago');
+    const pendingList = filteredFees.filter(f => f.status === 'em_aberto');
+
+    const totalRevenue = paidList.reduce((acc, f) => acc + (f.amount || 0), 0);
+    const totalPending = pendingList.reduce((acc, f) => acc + (f.amount || 0), 0);
+    const totalSheet = totalRevenue + totalPending;
+    const adimplenciaRate = totalCount > 0 ? Math.round((paidList.length / totalCount) * 100) : 100;
+
+    return {
+      totalRevenue,
+      totalPending,
+      totalSheet,
+      adimplenciaRate,
+      paidCount: paidList.length,
+      pendingCount: pendingList.length,
+      totalCount
+    };
+  }, [filteredFees]);
 
   const { updateDisPayment, deleteDisPayment } = useVolunteering();
   const { firestore } = useFirebase();
@@ -190,6 +230,71 @@ export function MensalidadesManager({
     }
   };
 
+  const handleGenerateBatch = async () => {
+    if (!batchCompetence || !batchDueDate || !batchAmount) {
+      toast({ variant: 'destructive', title: 'Dados incompletos', description: 'Preencha a competência, vencimento e valor.' });
+      return;
+    }
+    const numAmount = Number(batchAmount);
+    if (isNaN(numAmount) || numAmount <= 0) {
+      toast({ variant: 'destructive', title: 'Valor inválido', description: 'Informe um valor numérico válido.' });
+      return;
+    }
+
+    setIsGeneratingBatch(true);
+    try {
+      const studentMap = new Map<string, { studentName: string; courseName: string }>();
+      feeList.forEach(f => {
+        if (f.studentName) {
+          studentMap.set(f.studentName, { studentName: f.studentName, courseName: f.courseName || 'Curso de Libras' });
+        }
+      });
+
+      const uniqueStudents = Array.from(studentMap.values());
+      let createdCount = 0;
+      const newFees: TuitionFee[] = [];
+
+      for (const st of uniqueStudents) {
+        const exists = feeList.some(f => f.studentName === st.studentName && f.competence === batchCompetence);
+        if (!exists && firestore) {
+          const newDocRef = await addDoc(collection(firestore, 'tuition_fees'), {
+            studentName: st.studentName,
+            courseName: st.courseName,
+            competence: batchCompetence,
+            dueDate: batchDueDate,
+            amount: numAmount,
+            status: 'em_aberto',
+            createdAt: new Date().toISOString()
+          });
+
+          newFees.push({
+            id: newDocRef.id,
+            studentName: st.studentName,
+            courseName: st.courseName,
+            competence: batchCompetence,
+            dueDate: batchDueDate,
+            amount: numAmount,
+            status: 'em_aberto'
+          });
+          createdCount++;
+        }
+      }
+
+      setFeeList(prev => [...newFees, ...prev]);
+      setFilterCompetence(batchCompetence);
+      toast({
+        title: 'Mensalidades Geradas! 📅',
+        description: `Foram geradas ${createdCount} novas cobranças para a competência ${batchCompetence}.`
+      });
+      setIsBatchOpen(false);
+    } catch (err: any) {
+      console.error(err);
+      toast({ variant: 'destructive', title: 'Erro ao gerar lote', description: err.message });
+    } finally {
+      setIsGeneratingBatch(false);
+    }
+  };
+
   const getBadgeForStatus = (status: TuitionFee['status']) => {
     switch (status) {
       case 'pago':
@@ -208,19 +313,60 @@ export function MensalidadesManager({
   return (
     <>
       <Card className="w-full">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4">
           <div>
             <CardTitle className="text-lg font-black flex items-center gap-2">
               <DollarSign className="size-5 text-emerald-600" />
               Gestão Financeira & Mensalidades
             </CardTitle>
             <CardDescription className="text-xs">
-              Controle de carnês, mensalidades por competência e liquidação manual / via Asaas.
+              Controle de carnês, mensalidades por competência mensal e liquidação manual / via Asaas.
             </CardDescription>
           </div>
+
+          <Button 
+            size="sm" 
+            onClick={() => setIsBatchOpen(true)}
+            className="font-bold text-xs bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 shadow-sm"
+          >
+            <PlusCircle className="size-4" /> Gerar Mensalidades do Mês
+          </Button>
         </CardHeader>
 
         <CardContent className="space-y-4">
+          {/* CARDS DE RESUMO DO MÊS SELECIONADO */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl space-y-0.5">
+              <span className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-400">Total Arrecadado (Pagas)</span>
+              <p className="text-xl font-black text-emerald-800 dark:text-emerald-300">
+                R$ {monthlyMetrics.totalRevenue.toFixed(2)}
+              </p>
+              <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                {monthlyMetrics.paidCount} de {monthlyMetrics.totalCount} parcelas quitadas
+              </p>
+            </div>
+
+            <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl space-y-0.5">
+              <span className="text-[10px] uppercase font-bold text-amber-700 dark:text-amber-400">A Receber (Em Aberto)</span>
+              <p className="text-xl font-black text-amber-800 dark:text-amber-300">
+                R$ {monthlyMetrics.totalPending.toFixed(2)}
+              </p>
+              <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                {monthlyMetrics.pendingCount} parcelas aguardando baixa
+              </p>
+            </div>
+
+            <div className="p-3 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 rounded-xl space-y-0.5">
+              <span className="text-[10px] uppercase font-bold text-indigo-700 dark:text-indigo-400">Adimplência do Mês</span>
+              <p className="text-xl font-black text-indigo-800 dark:text-indigo-300">
+                {monthlyMetrics.adimplenciaRate}%
+              </p>
+              <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium">
+                Folha Prevista: R$ {monthlyMetrics.totalSheet.toFixed(2)}
+              </p>
+            </div>
+          </div>
+
           {/* Banner Informativo sobre Faturamento Manual (Pix / Secretaria) */}
           <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-between text-xs text-emerald-900 dark:text-emerald-200">
             <div className="flex items-center gap-2">
@@ -229,20 +375,42 @@ export function MensalidadesManager({
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <Button size="sm" variant={filterStatus === 'all' ? 'default' : 'outline'} onClick={() => setFilterStatus('all')} className="h-8 text-xs font-bold">Todas</Button>
-              <Button size="sm" variant={filterStatus === 'em_aberto' ? 'default' : 'outline'} onClick={() => setFilterStatus('em_aberto')} className="h-8 text-xs font-bold text-amber-600">Em Aberto</Button>
-              <Button size="sm" variant={filterStatus === 'pago' ? 'default' : 'outline'} onClick={() => setFilterStatus('pago')} className="h-8 text-xs font-bold text-emerald-600">Pagas</Button>
+          {/* BARRA DE FILTROS: STATUS, COMPETÊNCIA MENSAL E BUSCA */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-50 dark:bg-slate-900 p-2.5 rounded-xl border">
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Filtro por Competência / Mês */}
+              <div className="flex items-center gap-1.5">
+                <Calendar className="size-4 text-slate-500 ml-1" />
+                <Select value={filterCompetence} onValueChange={setFilterCompetence}>
+                  <SelectTrigger className="h-8 text-xs font-bold w-[170px] bg-white dark:bg-slate-800 border-slate-200">
+                    <SelectValue placeholder="Competência" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as Competências</SelectItem>
+                    {availableCompetences.map(comp => (
+                      <SelectItem key={comp} value={comp}>
+                        📅 Mês: {comp}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Filtro por Status */}
+              <div className="flex items-center gap-1">
+                <Button size="sm" variant={filterStatus === 'all' ? 'default' : 'outline'} onClick={() => setFilterStatus('all')} className="h-8 text-xs font-bold">Todas</Button>
+                <Button size="sm" variant={filterStatus === 'em_aberto' ? 'default' : 'outline'} onClick={() => setFilterStatus('em_aberto')} className="h-8 text-xs font-bold text-amber-600">Em Aberto</Button>
+                <Button size="sm" variant={filterStatus === 'pago' ? 'default' : 'outline'} onClick={() => setFilterStatus('pago')} className="h-8 text-xs font-bold text-emerald-600">Pagas</Button>
+              </div>
             </div>
 
             <div className="relative w-full sm:w-64">
-              <Search className="size-3.5 absolute left-3 top-3 text-slate-400" />
+              <Search className="size-3.5 absolute left-3 top-2.5 text-slate-400" />
               <Input
                 placeholder="Buscar aluno ou curso..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="h-9 pl-9 text-xs"
+                className="h-8 pl-9 text-xs bg-white dark:bg-slate-800"
               />
             </div>
           </div>
@@ -388,6 +556,63 @@ export function MensalidadesManager({
               </Button>
               <Button onClick={handleSaveEdit} disabled={isSavingEdit} className="text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white">
                 {isSavingEdit ? 'Salvando...' : 'Salvar Alterações'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+      {isBatchOpen && (
+        <Dialog open={isBatchOpen} onOpenChange={open => !open && setIsBatchOpen(false)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-base font-bold flex items-center gap-2">
+                <Calendar className="size-4 text-indigo-600" /> Gerar Mensalidades em Lote
+              </DialogTitle>
+              <DialogDescription className="text-xs">
+                Gere automaticamente as cobranças de um novo mês para todos os alunos já matriculados no curso.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-2">
+              <div className="space-y-1">
+                <Label className="text-xs font-bold">Competência / Mês-Ano (Ex: 2026-09)</Label>
+                <Input 
+                  type="text" 
+                  value={batchCompetence} 
+                  onChange={e => setBatchCompetence(e.target.value)} 
+                  placeholder="AAAA-MM"
+                  className="h-9 text-xs font-mono"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-bold">Data de Vencimento Padrão</Label>
+                <Input 
+                  type="date" 
+                  value={batchDueDate} 
+                  onChange={e => setBatchDueDate(e.target.value)} 
+                  className="h-9 text-xs"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-bold">Valor da Mensalidade (R$)</Label>
+                <Input 
+                  type="number" 
+                  value={batchAmount} 
+                  onChange={e => setBatchAmount(e.target.value)} 
+                  placeholder="85.00"
+                  className="h-9 text-xs"
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsBatchOpen(false)} disabled={isGeneratingBatch} className="text-xs font-bold">
+                Cancelar
+              </Button>
+              <Button onClick={handleGenerateBatch} disabled={isGeneratingBatch} className="text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white">
+                {isGeneratingBatch ? 'Gerando...' : 'Gerar Mensalidades'}
               </Button>
             </DialogFooter>
           </DialogContent>
