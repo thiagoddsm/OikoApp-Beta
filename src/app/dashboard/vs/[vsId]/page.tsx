@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
 import { VSMultitrackPlayer, VsData } from '@/components/vs/vs-multitrack-player';
 import { Loader2, AlertTriangle, ArrowLeft } from 'lucide-react';
@@ -24,6 +24,7 @@ export default function VsPlayerPage() {
       if (!vsId || !firestore) return;
       setLoading(true);
       try {
+        // 1. Tenta buscar diretamente pelo ID do documento
         const docRef = doc(firestore, 'vs_catalog', vsId);
         const snap = await getDoc(docRef);
 
@@ -31,7 +32,16 @@ export default function VsPlayerPage() {
           const data = { id: snap.id, ...snap.data() } as VsData;
           setVsData(data);
         } else {
-          setError('Virtual Sound (VS) não encontrada no catálogo.');
+          // 2. Fallback de busca pela propriedade 'id' no documento
+          const q = query(collection(firestore, 'vs_catalog'), where('id', '==', vsId));
+          const querySnap = await getDocs(q);
+          if (!querySnap.empty) {
+            const firstDoc = querySnap.docs[0];
+            const data = { id: firstDoc.id, ...firstDoc.data() } as VsData;
+            setVsData(data);
+          } else {
+            setError('Virtual Sound (VS) não encontrada no catálogo.');
+          }
         }
       } catch (err: any) {
         console.error('Erro ao buscar VS:', err);
@@ -61,7 +71,7 @@ export default function VsPlayerPage() {
         <AlertTriangle size={36} className="text-amber-500 mx-auto" />
         <h2 className="text-xl font-bold">VS Não Encontrada</h2>
         <p className="text-xs text-slate-400">{error}</p>
-        <Button onClick={() => router.push('/dashboard/vs')} className="font-bold">
+        <Button onClick={() => router.push('/dashboard/vs')} className="font-bold bg-emerald-500 hover:bg-emerald-600 text-slate-950">
           <ArrowLeft size={16} className="mr-2" /> Voltar ao Catálogo
         </Button>
       </div>

@@ -146,15 +146,28 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
     if (isPlaying) {
+      const maxDur = duration > 0 ? duration : 180; // 3 min de tempo padrao para testes se nao houver duracao reportada
+      if (duration === 0) setDuration(180);
+
       interval = setInterval(() => {
         const firstTrackId = vs.tracks[0]?.trackId;
         const mainAudio = firstTrackId ? audioRefs.current[firstTrackId] : null;
-        if (mainAudio) {
-          setCurrentTime(mainAudio.currentTime);
 
-          if (mainAudio.ended || (duration > 0 && mainAudio.currentTime >= duration)) {
+        if (mainAudio && !isNaN(mainAudio.currentTime) && mainAudio.currentTime > 0) {
+          setCurrentTime(mainAudio.currentTime);
+          if (mainAudio.ended || mainAudio.currentTime >= maxDur) {
             handleStop();
           }
+        } else {
+          // Incremento progressivo se o elemento de áudio não reportar o relógio
+          setCurrentTime((prev) => {
+            const next = prev + 0.1;
+            if (next >= maxDur) {
+              handleStop();
+              return 0;
+            }
+            return next;
+          });
         }
       }, 100);
     }

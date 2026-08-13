@@ -2,7 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, setDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { initializeFirebase } from '@/firebase';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -141,7 +141,7 @@ export default function VsUploadPage() {
       }
 
       if (firestore) {
-        await addDoc(collection(firestore, 'vs_catalog'), {
+        await setDoc(doc(firestore, 'vs_catalog', vsId), {
           id: vsId,
           title: title.trim(),
           artist: artist.trim() || '',
