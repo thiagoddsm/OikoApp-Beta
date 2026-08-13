@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { initializeFirebase } from '@/firebase';
-import { collection, query, orderBy, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, doc, onSnapshot } from 'firebase/firestore';
 import { VSMultitrackPlayer, VsData } from '@/components/vs/vs-multitrack-player';
 import { Badge } from '@/components/ui/badge';
 import { Radio, Volume2, ShieldCheck } from 'lucide-react';
@@ -14,7 +14,6 @@ export default function VSIgrejaPublicPage() {
   const [setlistSongs, setSetlistSongs] = useState<VsData[]>([]);
   const [currentSongIndex, setCurrentSongIndex] = useState(0);
   const [loading, setLoading] = useState(true);
-
   useEffect(() => {
     async function loadData() {
       if (!firestore) return;
@@ -80,6 +79,20 @@ export default function VSIgrejaPublicPage() {
       }
     }
     loadData();
+
+    // Sincronização em Tempo Real (Broadcast do Palco Principal)
+    if (firestore) {
+      const syncRef = doc(firestore, 'vs_live_sync', 'current');
+      const unsub = onSnapshot(syncRef, (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.currentSongIndex !== undefined) {
+            setCurrentSongIndex(data.currentSongIndex);
+          }
+        }
+      });
+      return () => unsub();
+    }
   }, []);
 
   return (

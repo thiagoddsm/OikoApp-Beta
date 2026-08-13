@@ -163,7 +163,20 @@ export default function VsMainStagePage() {
     fetchCatalogAndWorshipPlan();
   }, []);
 
-  // Temporizadores do Culto, Música e Virada de Seção em Tempo Real
+  // Transmite o estado de reprodução para as telas de palco (/public/vs-igreja e /public/vs-banda)
+  useEffect(() => {
+    if (!firestore) return;
+    try {
+      const syncRef = doc(firestore, 'vs_live_sync', 'current');
+      setDoc(syncRef, {
+        currentSongIndex,
+        isPlaying,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+    } catch (e) {
+      console.warn('Erro ao transmitir estado de palco:', e);
+    }
+  }, [currentSongIndex, isPlaying]);
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
 

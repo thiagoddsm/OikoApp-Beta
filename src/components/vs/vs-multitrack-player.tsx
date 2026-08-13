@@ -392,7 +392,7 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all' }: VSMultitrackPlaye
             const clickTrack = tracksStateRef.current.find((t) => t.trackId.includes('click'));
             const isClickMuted = clickTrack ? (clickTrack.isMuted || (hasSolo && !clickTrack.isSolo)) : false;
 
-            if (!isClickMuted) {
+            if (!isClickMuted && outputMode !== 'house_pa') {
               playClickBeep(1000);
             }
             lastBeep = Date.now();
@@ -428,7 +428,7 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all' }: VSMultitrackPlaye
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isPlaying, duration, vs.tracks, vs.bpm, playClickBeep]);
+  }, [isPlaying, duration, vs.tracks, vs.bpm, playClickBeep, outputMode]);
 
   const handleAudioLoadedMetadata = (trackId: string, e: React.SyntheticEvent<HTMLAudioElement>) => {
     const audioEl = e.currentTarget;

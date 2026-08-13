@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { initializeFirebase } from '@/firebase';
-import { collection, query, orderBy, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, doc, onSnapshot } from 'firebase/firestore';
 import { VSMultitrackPlayer, VsData } from '@/components/vs/vs-multitrack-player';
 import { Badge } from '@/components/ui/badge';
 import { Headphones, Sparkles, Volume2 } from 'lucide-react';
@@ -80,6 +80,20 @@ export default function VSBandaPublicPage() {
       }
     }
     loadData();
+
+    // Sincronização em Tempo Real (Broadcast do Palco Principal)
+    if (firestore) {
+      const syncRef = doc(firestore, 'vs_live_sync', 'current');
+      const unsub = onSnapshot(syncRef, (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.currentSongIndex !== undefined) {
+            setCurrentSongIndex(data.currentSongIndex);
+          }
+        }
+      });
+      return () => unsub();
+    }
   }, []);
 
   return (
