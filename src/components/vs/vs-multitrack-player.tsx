@@ -1,13 +1,14 @@
 'use client';
 
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { 
   Play, Pause, Square, RotateCcw, Volume2, VolumeX, Sliders, Headphones, 
-  Radio, Loader2, ArrowLeft, Disc, Sparkles, Volume1
+  Radio, Loader2, ArrowLeft, Disc, Sparkles, Repeat, Repeat1, Infinity as InfinityIcon,
+  FastForward, Bookmark, Volume1
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -20,6 +21,14 @@ export interface VsTrack {
   defaultVolume?: number;
 }
 
+export interface VsSectionMarker {
+  id: string;
+  label: string;       // "Intro", "Verso", "Refrão", "Ponte", "Ministração", "Outro"
+  startTime: number;  // em segundos
+  endTime: number;    // em segundos
+  color?: string;
+}
+
 export interface VsData {
   id: string;
   title: string;
@@ -28,6 +37,7 @@ export interface VsData {
   key?: string;
   timeSignature?: string;
   tracks: VsTrack[];
+  sections?: VsSectionMarker[];
 }
 
 interface VSMultitrackPlayerProps {
@@ -56,6 +66,31 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
+  // Modo de Loop ao Vivo: 'none' (normal), 'single' (repetir 1x), 'infinite' (loop continuo de oração/ministração)
+  const [loopMode, setLoopMode] = useState<'none' | 'single' | 'infinite'>('none');
+  const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
+
+  // Marcadores de Seções da Música (se não houver no banco, gera automaticamente para demonstração)
+  const sections: VsSectionMarker[] = useMemo(() => {
+    if (vs.sections && vs.sections.length > 0) return vs.sections;
+
+    const totalDur = duration > 0 ? duration : 180;
+    const step = totalDur / 5;
+
+    return [
+      { id: 'sec_intro', label: 'Intro', startTime: 0, endTime: step, color: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30' },
+      { id: 'sec_verso', label: 'Verso', startTime: step, endTime: step * 2, color: 'bg-sky-500/20 text-sky-400 border-sky-500/30' },
+      { id: 'sec_refrao', label: 'Refrão', startTime: step * 2, endTime: step * 3, color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
+      { id: 'sec_ponte', label: 'Ponte', startTime: step * 3, endTime: step * 4, color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
+      { id: 'sec_ministracao', label: 'Ministração / Oração', startTime: step * 4, endTime: totalDur, color: 'bg-rose-500/20 text-rose-400 border-rose-500/30' },
+    ];
+  }, [vs.sections, duration]);
+
+  // Seção sendo executada no momento
+  const currentSection = useMemo(() => {
+    return sections.find((sec) => currentTime >= sec.startTime && currentTime < sec.endTime) || sections[0];
+  }, [sections, currentTime]);
+
   const [tracksState, setTracksState] = useState<TrackAudioControl[]>(() =>
     vs.tracks.map((t) => ({
       trackId: t.trackId,
@@ -69,7 +104,6 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
     }))
   );
 
-  // Inicializa o AudioContext para beeps sintéticos de teste se necessário
   const getAudioContext = useCallback(() => {
     if (!audioCtxRef.current) {
       const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
@@ -81,7 +115,6 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
     return audioCtxRef.current;
   }, []);
 
-  // Toca um tom de bip sintético (Metrônomo de Teste) se o canal de clique/teste estiver ativado
   const playClickBeep = useCallback((freq = 1000) => {
     try {
       const ctx = getAudioContext();
@@ -104,7 +137,6 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
     }
   }, [getAudioContext]);
 
-  // Atualiza Volume e Mute de cada elemento HTML5 de áudio diretamente (Solução Infalível para Saída de Som)
   const applyAudioSettings = useCallback((tracks: TrackAudioControl[]) => {
     const hasSolo = tracks.some((t) => t.isSolo);
 
@@ -121,7 +153,7 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
     });
   }, []);
 
-  // Monitora e atualiza o progresso do tempo
+  // Monitora e atualiza o progresso do tempo + Lógica de Loop de Seção
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
 
@@ -137,24 +169,13 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
         const firstTrackId = vs.tracks[0]?.trackId;
         const mainAudio = firstTrackId ? audioRefs.current[firstTrackId] : null;
 
-        // Se houver áudio real tocando
-        if (mainAudio && !isNaN(mainAudio.currentTime) && mainAudio.currentTime > 0) {
-          setCurrentTime(mainAudio.currentTime);
-          if (mainAudio.ended || mainAudio.currentTime >= maxDur) {
-            handleStop();
-          }
-        } else {
-          // Temporizador progressivo sintético
-          setCurrentTime((prev) => {
-            const next = prev + 0.1;
-            if (next >= maxDur) {
-              handleStop();
-              return 0;
-            }
-            return next;
-          });
+        let nextTime = currentTime;
 
-          // Dispara o bip sintético do metrônomo se a faixa de Clique não estiver em Mute
+        if (mainAudio && !isNaN(mainAudio.currentTime) && mainAudio.currentTime > 0) {
+          nextTime = mainAudio.currentTime;
+        } else {
+          nextTime = currentTime + 0.1;
+
           if (Date.now() - lastBeep >= intervalMs) {
             const hasSolo = tracksState.some((t) => t.isSolo);
             const clickTrack = tracksState.find((t) => t.trackId.includes('click'));
@@ -166,15 +187,36 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
             lastBeep = Date.now();
           }
         }
+
+        // LÓGICA DE LOOP DE SEÇÃO AO VIVO
+        if (loopMode !== 'none' && currentSection) {
+          if (nextTime >= currentSection.endTime - 0.2) {
+            nextTime = currentSection.startTime;
+            handleSeek(currentSection.startTime);
+
+            if (loopMode === 'single') {
+              setLoopMode('none');
+              toast({
+                title: 'Loop 1x Concluído 🔁',
+                description: `A seção "${currentSection.label}" foi repetida. Seguindo o arranjo normalmente.`,
+              });
+            }
+          }
+        }
+
+        if (nextTime >= maxDur) {
+          handleStop();
+        } else {
+          setCurrentTime(nextTime);
+        }
       }, 100);
     }
 
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isPlaying, duration, vs.tracks, vs.bpm, playClickBeep]);
+  }, [isPlaying, duration, vs.tracks, vs.bpm, playClickBeep, loopMode, currentSection, currentTime]);
 
-  // Captura metadados das faixas
   const handleAudioLoadedMetadata = (trackId: string, e: React.SyntheticEvent<HTMLAudioElement>) => {
     const audioEl = e.currentTarget;
     audioRefs.current[trackId] = audioEl;
@@ -183,30 +225,20 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
       setDuration((prev) => Math.max(prev, audioEl.duration));
     }
 
-    setTracksState((prev) => {
-      const copy = prev.map((t) => (t.trackId === trackId ? { ...t, isReady: true } : t));
-      return copy;
-    });
+    setTracksState((prev) => prev.map((t) => (t.trackId === trackId ? { ...t, isReady: true } : t)));
   };
 
-  // Play / Pause
   const handlePlayPause = async () => {
     getAudioContext();
 
     if (isPlaying) {
-      // Pause
       Object.values(audioRefs.current).forEach((audio) => {
         if (audio) {
-          try {
-            audio.pause();
-          } catch (e) {
-            // ignora
-          }
+          try { audio.pause(); } catch (e) {}
         }
       });
       setIsPlaying(false);
     } else {
-      // Play
       applyAudioSettings(tracksState);
 
       const playPromises = Object.values(audioRefs.current).map((audio) => {
@@ -214,9 +246,7 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
           const p = audio.play();
           if (p !== undefined) {
             return p.catch((err) => {
-              if (err.name !== 'AbortError') {
-                console.warn('Aviso de play de áudio:', err);
-              }
+              if (err.name !== 'AbortError') console.warn('Aviso de play de áudio:', err);
             });
           }
         }
@@ -227,9 +257,7 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
         await Promise.all(playPromises);
         setIsPlaying(true);
       } catch (err: any) {
-        if (err?.name !== 'AbortError') {
-          console.error('Erro ao dar Play:', err);
-        }
+        if (err?.name !== 'AbortError') console.error('Erro ao dar Play:', err);
       }
     }
   };
@@ -240,9 +268,7 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
         try {
           audio.pause();
           audio.currentTime = 0;
-        } catch (e) {
-          // ignora
-        }
+        } catch (e) {}
       }
     });
     setIsPlaying(false);
@@ -255,10 +281,17 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
       if (audio) {
         try {
           audio.currentTime = newTime;
-        } catch (e) {
-          // ignora
-        }
+        } catch (e) {}
       }
+    });
+  };
+
+  // Salto de Seção ao Vivo (Live ReOrder)
+  const handleJumpToSection = (section: VsSectionMarker) => {
+    handleSeek(section.startTime);
+    toast({
+      title: `Salto para "${section.label}" 🔀`,
+      description: `Posicionado em ${formatTime(section.startTime)}.`,
     });
   };
 
@@ -271,10 +304,7 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
   };
 
   const handlePanChange = (idx: number, newPan: number) => {
-    setTracksState((prev) => {
-      const copy = prev.map((t, i) => (i === idx ? { ...t, pan: newPan } : t));
-      return copy;
-    });
+    setTracksState((prev) => prev.map((t, i) => (i === idx ? { ...t, pan: newPan } : t)));
   };
 
   const handleToggleMute = (idx: number) => {
@@ -295,15 +325,10 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
 
   const applyEarphonePreset = () => {
     setTracksState((prev) => {
-      const copy = prev.map((t) => {
-        let pan = 0;
-        if (t.trackId.includes('click') || t.trackId.includes('guide')) {
-          pan = -1.0;
-        } else {
-          pan = 1.0;
-        }
-        return { ...t, pan };
-      });
+      const copy = prev.map((t) => ({
+        ...t,
+        pan: t.trackId.includes('click') || t.trackId.includes('guide') ? -1.0 : 1.0,
+      }));
       applyAudioSettings(copy);
       return copy;
     });
@@ -342,9 +367,7 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
         {vs.tracks.map((t) => (
           <audio
             key={t.trackId}
-            ref={(el) => { 
-              if (el) audioRefs.current[t.trackId] = el; 
-            }}
+            ref={(el) => { if (el) audioRefs.current[t.trackId] = el; }}
             src={t.url}
             preload="auto"
             onLoadedMetadata={(e) => handleAudioLoadedMetadata(t.trackId, e)}
@@ -395,78 +418,157 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
       </div>
 
       {/* Control Bar Principal (Play/Pause, Slider, Presets) */}
-      <Card className="bg-slate-950 text-white border-slate-800 shadow-2xl rounded-3xl overflow-hidden">
-        <CardContent className="p-6 space-y-6">
-          {/* Barra de Progresso do Áudio */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs font-mono text-slate-400 font-bold">
-              <span>{formatTime(currentTime)}</span>
-              <span>{formatTime(duration)}</span>
-            </div>
-            <Slider
-              value={[currentTime]}
-              min={0}
-              max={duration || 1}
-              step={0.1}
-              onValueChange={(val) => handleSeek(val[0])}
-              className="cursor-pointer"
-            />
+      <Card className="bg-slate-950 text-white border-slate-800 shadow-2xl rounded-3xl overflow-hidden space-y-4 p-6">
+        {/* BARRA DE SEÇÕES DA MÚSICA & SALTO AO VIVO (LIVE REORDER) */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+              <Bookmark size={14} className="text-emerald-400" /> Seções do Arranjo (Live ReOrder)
+            </span>
+
+            {/* BADGE DA SEÇÃO ATUAL EM DESTAQUE */}
+            {currentSection && (
+              <Badge className={`font-black uppercase tracking-wider text-[10px] px-3 py-1 ${currentSection.color || 'bg-emerald-500/20 text-emerald-400'}`}>
+                📍 Tocando Agora: {currentSection.label}
+              </Badge>
+            )}
           </div>
 
-          {/* Botões Principais de Controle */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
-            <div className="flex items-center gap-3">
-              <Button
-                size="icon"
-                onClick={handlePlayPause}
-                className="size-14 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95 transition-all"
-              >
-                {isPlaying ? <Pause size={28} /> : <Play size={28} className="ml-1" />}
-              </Button>
-
-              <Button
-                size="icon"
-                variant="outline"
-                onClick={handleStop}
-                className="size-12 rounded-2xl border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-300"
-                title="Parar e Rebobinar"
-              >
-                <Square size={20} />
-              </Button>
-
-              <Button
-                size="icon"
-                variant="outline"
-                onClick={() => handleSeek(0)}
-                className="size-12 rounded-2xl border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-300"
-                title="Voltar ao início"
-              >
-                <RotateCcw size={20} />
-              </Button>
-            </div>
-
-            {/* Presets Rápidos de Fone */}
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={applyEarphonePreset}
-                className="h-10 px-4 rounded-xl text-xs font-bold border-indigo-500/40 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 gap-1.5"
-              >
-                <Headphones size={14} /> Preset Fone Músicos (L/R)
-              </Button>
-
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={applyStereoPreset}
-                className="h-10 px-4 rounded-xl text-xs font-bold border-slate-800 bg-slate-900 text-slate-300 hover:bg-slate-800 gap-1.5"
-              >
-                <Radio size={14} /> Estéreo Padrão
-              </Button>
-            </div>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            {sections.map((sec) => {
+              const isCurrent = currentSection?.id === sec.id;
+              return (
+                <button
+                  type="button"
+                  key={sec.id}
+                  onClick={() => handleJumpToSection(sec)}
+                  className={`p-2.5 rounded-2xl border text-left transition-all duration-200 flex flex-col justify-between ${
+                    isCurrent
+                      ? 'bg-slate-800 border-emerald-500 ring-2 ring-emerald-500/50 shadow-lg scale-102'
+                      : 'bg-slate-900/80 border-slate-800 hover:bg-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  <span className={`text-[11px] font-black tracking-tight ${isCurrent ? 'text-emerald-400' : 'text-slate-200'}`}>
+                    {sec.label}
+                  </span>
+                  <span className="text-[9px] font-mono text-slate-500 font-bold mt-1">
+                    {formatTime(sec.startTime)} - {formatTime(sec.endTime)}
+                  </span>
+                </button>
+              );
+            })}
           </div>
-        </CardContent>
+        </div>
+
+        {/* Barra de Progresso do Áudio */}
+        <div className="space-y-2 pt-2">
+          <div className="flex items-center justify-between text-xs font-mono text-slate-400 font-bold">
+            <span>{formatTime(currentTime)}</span>
+            <span>{formatTime(duration)}</span>
+          </div>
+          <Slider
+            value={[currentTime]}
+            min={0}
+            max={duration || 1}
+            step={0.1}
+            onValueChange={(val) => handleSeek(val[0])}
+            className="cursor-pointer"
+          />
+        </div>
+
+        {/* CONTROLES AO VIVO: PLAY, STOP, LOOP DE SEÇÃO, LOOP INFINITO */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+          <div className="flex items-center gap-3">
+            <Button
+              size="icon"
+              onClick={handlePlayPause}
+              className="size-14 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95 transition-all"
+            >
+              {isPlaying ? <Pause size={28} /> : <Play size={28} className="ml-1" />}
+            </Button>
+
+            <Button
+              size="icon"
+              variant="outline"
+              onClick={handleStop}
+              className="size-12 rounded-2xl border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-300"
+              title="Parar e Rebobinar"
+            >
+              <Square size={20} />
+            </Button>
+
+            <Button
+              size="icon"
+              variant="outline"
+              onClick={() => handleSeek(0)}
+              className="size-12 rounded-2xl border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-300"
+              title="Voltar ao início"
+            >
+              <RotateCcw size={20} />
+            </Button>
+          </div>
+
+          {/* PAINEL DE LOOPS AO VIVO (SINGLE LOOP & INFINITE LOOP) */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              size="sm"
+              variant={loopMode === 'single' ? 'default' : 'outline'}
+              onClick={() => {
+                const next = loopMode === 'single' ? 'none' : 'single';
+                setLoopMode(next);
+                if (next === 'single') {
+                  toast({ title: 'Loop de Seção (1x) Ativado 🔁', description: `A seção "${currentSection?.label}" repetirá mais uma vez.` });
+                }
+              }}
+              className={`h-10 px-4 rounded-xl text-xs font-bold gap-1.5 transition-all ${
+                loopMode === 'single'
+                  ? 'bg-amber-500 text-slate-950 hover:bg-amber-400 font-black shadow-lg shadow-amber-500/20'
+                  : 'border-slate-800 bg-slate-900 text-slate-300 hover:bg-slate-800'
+              }`}
+            >
+              <Repeat1 size={15} /> Loop Seção (1x)
+            </Button>
+
+            <Button
+              size="sm"
+              variant={loopMode === 'infinite' ? 'default' : 'outline'}
+              onClick={() => {
+                const next = loopMode === 'infinite' ? 'none' : 'infinite';
+                setLoopMode(next);
+                if (next === 'infinite') {
+                  toast({ title: 'Loop Infinito Ativado ♾️', description: `Repetindo "${currentSection?.label}" continuamente para oração/ministração.` });
+                }
+              }}
+              className={`h-10 px-4 rounded-xl text-xs font-bold gap-1.5 transition-all ${
+                loopMode === 'infinite'
+                  ? 'bg-rose-500 text-white hover:bg-rose-600 font-black shadow-lg shadow-rose-500/20'
+                  : 'border-slate-800 bg-slate-900 text-slate-300 hover:bg-slate-800'
+              }`}
+            >
+              <InfinityIcon size={15} /> Loop Infinito (Oração)
+            </Button>
+
+            <div className="h-6 w-px bg-slate-800 mx-1 hidden sm:block" />
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={applyEarphonePreset}
+              className="h-10 px-4 rounded-xl text-xs font-bold border-indigo-500/40 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 gap-1.5"
+            >
+              <Headphones size={14} /> Fone (L/R)
+            </Button>
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={applyStereoPreset}
+              className="h-10 px-4 rounded-xl text-xs font-bold border-slate-800 bg-slate-900 text-slate-300 hover:bg-slate-800 gap-1.5"
+            >
+              <Radio size={14} /> Estéreo
+            </Button>
+          </div>
+        </div>
       </Card>
 
       {/* MESA DE MISTURA (MIXER VIRTUAL DE CANAIS) */}
