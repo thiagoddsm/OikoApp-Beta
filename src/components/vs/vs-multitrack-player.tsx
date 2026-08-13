@@ -157,6 +157,24 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
     }))
   );
 
+  // Recarrega as pistas quando a música selecionada mudar (vs.id)
+  useEffect(() => {
+    if (vs && vs.tracks) {
+      setTracksState(
+        vs.tracks.map((t) => ({
+          trackId: t.trackId,
+          label: t.label,
+          url: t.url,
+          volume: t.defaultVolume !== undefined ? t.defaultVolume : 1,
+          pan: t.defaultPan !== undefined ? t.defaultPan : 0,
+          isMuted: false,
+          isSolo: false,
+          isReady: false,
+        }))
+      );
+    }
+  }, [vs.id, vs.tracks]);
+
   // Master Equalizer BiquadFilterNodes Refs
   const masterLowEqRef = useRef<BiquadFilterNode | null>(null);
   const masterMidEqRef = useRef<BiquadFilterNode | null>(null);

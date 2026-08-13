@@ -102,7 +102,12 @@ export default function VsMainStagePage() {
                 key: item.key || matchedVs?.key || 'C',
                 timeSignature: matchedVs?.timeSignature || '4/4',
                 duration: item.durationSeconds || matchedVs?.duration || 270,
-                tracks: matchedVs?.tracks || [{ trackId: '1', label: 'All Tracks' }],
+                tracks: matchedVs?.tracks && matchedVs.tracks.length > 0 ? matchedVs.tracks : [
+                  { trackId: 'click', label: 'Clique (Metrônomo)', defaultPan: -1.0, defaultVolume: 1.0 },
+                  { trackId: 'guide', label: 'Guia (Voz Regência)', defaultPan: 1.0, defaultVolume: 1.0 },
+                  { trackId: 'backing', label: 'Playback / Instrumental', defaultPan: 0.0, defaultVolume: 1.0 },
+                  { trackId: 'extra1', label: 'Teclados / Pads', defaultPan: 0.0, defaultVolume: 0.8 },
+                ],
                 sections: matchedVs?.sections || [],
               };
             });
@@ -124,7 +129,12 @@ export default function VsMainStagePage() {
               key: 'D',
               timeSignature: '4/4',
               duration: 270,
-              tracks: [{ trackId: '1', label: 'All Tracks' }]
+              tracks: [
+                { trackId: 'click', label: 'Clique (Metrônomo)', defaultPan: -1.0, defaultVolume: 1.0 },
+                { trackId: 'guide', label: 'Guia (Voz Regência)', defaultPan: 1.0, defaultVolume: 1.0 },
+                { trackId: 'backing', label: 'Playback / Instrumental', defaultPan: 0.0, defaultVolume: 1.0 },
+                { trackId: 'extra1', label: 'Teclados / Synths', defaultPan: 0.0, defaultVolume: 0.8 },
+              ]
             },
             {
               id: 'demo_2',
@@ -134,7 +144,12 @@ export default function VsMainStagePage() {
               key: 'F#m',
               timeSignature: '6/8',
               duration: 345,
-              tracks: [{ trackId: '1', label: 'All Tracks' }]
+              tracks: [
+                { trackId: 'click', label: 'Clique (Metrônomo)', defaultPan: -1.0, defaultVolume: 1.0 },
+                { trackId: 'guide', label: 'Guia (Voz Regência)', defaultPan: 1.0, defaultVolume: 1.0 },
+                { trackId: 'backing', label: 'Playback / Instrumental', defaultPan: 0.0, defaultVolume: 1.0 },
+                { trackId: 'extra1', label: 'Violão & Cordas', defaultPan: 0.0, defaultVolume: 0.8 },
+              ]
             },
           ];
           setSetlistSongs(demoSongs);
