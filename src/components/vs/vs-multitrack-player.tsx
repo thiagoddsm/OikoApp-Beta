@@ -252,30 +252,37 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
     try {
       const ctx = getAudioContext();
       if (!mediaSourcesRef.current[trackId]) {
-        const source = ctx.createMediaElementSource(audioEl);
-        const gainNode = ctx.createGain();
-        const panNode = ctx.createStereoPanner();
-        const analyserNode = ctx.createAnalyser();
-        analyserNode.fftSize = 64;
-        
-        source.connect(gainNode);
-        gainNode.connect(panNode);
-        panNode.connect(analyserNode);
-        
-        // Conecta ao Master Equalizer (se disponível) ou à saída final
-        if (masterLowEqRef.current) {
-          analyserNode.connect(masterLowEqRef.current);
-        } else {
-          analyserNode.connect(ctx.destination);
+        // Tenta conectar ao Web Audio graph para controle fino de Pan e EQ Master
+        try {
+          const source = ctx.createMediaElementSource(audioEl);
+          const gainNode = ctx.createGain();
+          const panNode = ctx.createStereoPanner();
+          const analyserNode = ctx.createAnalyser();
+          analyserNode.fftSize = 64;
+          
+          source.connect(gainNode);
+          gainNode.connect(panNode);
+          panNode.connect(analyserNode);
+          
+          // Conecta ao Master Equalizer (se disponível) ou à saída final dos falantes
+          if (masterLowEqRef.current) {
+            analyserNode.connect(masterLowEqRef.current);
+          } else {
+            analyserNode.connect(ctx.destination);
+          }
+          
+          mediaSourcesRef.current[trackId] = source;
+          gainNodesRef.current[trackId] = gainNode;
+          panNodesRef.current[trackId] = panNode;
+          analyserNodesRef.current[trackId] = analyserNode;
+        } catch (webaudioErr) {
+          // Se o navegador barrar o createMediaElementSource (ex: CORS em storage remoto),
+          // o áudio continuará tocando normalmente pelo elemento nativo <audio>
+          console.warn('Web Audio node fallback para HTML5 nativo:', webaudioErr);
         }
-        
-        mediaSourcesRef.current[trackId] = source;
-        gainNodesRef.current[trackId] = gainNode;
-        panNodesRef.current[trackId] = panNode;
-        analyserNodesRef.current[trackId] = analyserNode;
       }
     } catch (e) {
-      console.warn('Erro ao criar MediaElementSource, fallback nativo será usado:', e);
+      console.warn('Erro ao configurar áudio:', e);
     }
   };
 
@@ -508,21 +515,28 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
       // Ativa o AudioContext (necessário após gesto do usuário)
       if (ctx.state === 'suspended') ctx.resume();
 
-      // Aplica volume/mute/pan
-      applyAudioSettings(tracksState);
-
-      // Dispara reprodução de áudio real em background (sem bloquear o play)
-      Object.values(audioRefs.current).forEach((audio) => {
-        if (audio && audio.src) {
-          audio.currentTime = currentTimeRef.current;
-          audio.play().catch((err) => {
-            // Ignora erros normais (sem src, AbortError, NotSupportedError)
-            if (err.name !== 'AbortError' && err.name !== 'NotSupportedError') {
-              console.warn('Play de áudio ignorado:', err.name, err.message);
+      // Dispara reprodução de todas as faixas que possuem URL de áudio
+      Object.entries(audioRefs.current).forEach(([trackId, audio]) => {
+        if (audio && audio.src && audio.src !== window.location.href) {
+          try {
+            audio.currentTime = currentTimeRef.current;
+            setupAudioNode(trackId, audio);
+            const playPromise = audio.play();
+            if (playPromise !== undefined) {
+              playPromise.catch((err) => {
+                if (err.name !== 'AbortError' && err.name !== 'NotSupportedError') {
+                  console.warn(`Áudio da faixa ${trackId} não reproduziu:`, err);
+                }
+              });
             }
-          });
+          } catch (e) {
+            console.warn(`Erro ao iniciar faixa ${trackId}:`, e);
+          }
         }
       });
+
+      // Aplica volume/mute/pan atualizado para todas as faixas
+      applyAudioSettings(tracksState);
 
       // Ativa o state de play IMEDIATAMENTE — o clock roda independentemente
       setIsPlaying(true);
