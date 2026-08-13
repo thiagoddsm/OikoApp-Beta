@@ -55,6 +55,7 @@ export default function VsMainStagePage() {
 
   // Estados do Player & Seção Enfileirada (Queued Section)
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isLive, setIsLive] = useState(false); // Estado de transmissão ao vivo
   const [serviceElapsedSeconds, setServiceElapsedSeconds] = useState(2052); // 00:34:12 de culto
   const [songCurrentTime, setSongCurrentTime] = useState(0); // tempo da música
   const [currentSectionLabel, setCurrentSectionLabel] = useState('INTRO');
@@ -302,6 +303,31 @@ export default function VsMainStagePage() {
       setCurrentSongIndex((prev) => prev - 1);
     }
   };
+
+  // Ir ao Vivo: transmite a playlist ativa para as telas de palco
+  const handleGoLive = useCallback(async () => {
+    if (!firestore) return;
+    const nextIsLive = !isLive;
+    try {
+      const syncRef = doc(firestore, 'vs_live_sync', 'current');
+      await setDoc(syncRef, {
+        isLive: nextIsLive,
+        currentSongIndex,
+        setlistTitle,
+        setlistSongCount: setlistSongs.length,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+      setIsLive(nextIsLive);
+      toast({
+        title: nextIsLive ? '🔴 Transmissão Iniciada!' : '⬛ Transmissão Encerrada',
+        description: nextIsLive
+          ? `As telas Mesa PA e Retorno da Banda receberam a playlist "${setlistTitle}".`
+          : 'As telas de palco foram desconectadas da transmissão.',
+      });
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'Erro ao ir ao vivo', description: e.message });
+    }
+  }, [isLive, currentSongIndex, setlistTitle, setlistSongs.length]);
 
   // Excluir VS do Catálogo Geral (Firestore)
   const handleDeleteVsFromCatalog = async (vsId: string, vsTitle: string) => {
@@ -561,6 +587,20 @@ export default function VsMainStagePage() {
 
         {/* ÍCONES DE AÇÃO E SELETOR MOBILE REMOTE PAD */}
         <div className="flex items-center gap-2">
+          {/* BOTÃO IR AO VIVO */}
+          <Button
+            size="sm"
+            onClick={handleGoLive}
+            className={`h-10 px-4 rounded-xl font-black text-xs gap-2 shadow-lg transition-all ${
+              isLive
+                ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-500/30 animate-pulse'
+                : 'bg-rose-500/10 border border-rose-500/40 text-rose-400 hover:bg-rose-500/20 shadow-rose-500/10'
+            }`}
+          >
+            <Radio size={16} className={isLive ? 'animate-pulse' : ''} />
+            {isLive ? '🔴 AO VIVO' : 'Ir ao Vivo'}
+          </Button>
+
           <Button
             size="sm"
             onClick={() => setViewMode('remote_pad')}
@@ -650,22 +690,50 @@ export default function VsMainStagePage() {
 
               <div className="pt-2 border-t border-slate-800/60 space-y-1">
                 <span className="text-[9px] font-black uppercase text-slate-500 tracking-wider px-1">Links de Palco</span>
-                <a
-                  href="/public/vs-igreja"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl font-bold text-xs text-rose-400 hover:bg-rose-500/10 border border-rose-500/20 transition-all"
-                >
-                  <Radio size={14} /> 🔊 Mesa PA (Igreja)
-                </a>
-                <a
-                  href="/public/vs-banda"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl font-bold text-xs text-amber-400 hover:bg-amber-500/10 border border-amber-500/20 transition-all"
-                >
-                  <Headphones size={14} /> 🎧 Retorno (Banda)
-                </a>
+
+                {/* PAINEL AO VIVO */}
+                <div className={`p-3 rounded-2xl border space-y-2 transition-all ${
+                  isLive
+                    ? 'bg-rose-950/30 border-rose-500/40'
+                    : 'bg-slate-900/60 border-slate-800'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <span className={`text-[10px] font-black uppercase tracking-wider flex items-center gap-1 ${
+                      isLive ? 'text-rose-400' : 'text-slate-500'
+                    }`}>
+                      <Radio size={10} className={isLive ? 'animate-pulse' : ''} />
+                      {isLive ? 'Transmitindo' : 'Offline'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleGoLive}
+                      className={`text-[9px] font-black px-2 py-0.5 rounded-lg transition-all ${
+                        isLive
+                          ? 'bg-rose-600 text-white hover:bg-rose-700'
+                          : 'bg-rose-500/20 text-rose-400 hover:bg-rose-500/30'
+                      }`}
+                    >
+                      {isLive ? '⬛ Encerrar' : '🔴 Live'}
+                    </button>
+                  </div>
+
+                  <a
+                    href="/public/vs-igreja"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl font-bold text-xs text-rose-400 hover:bg-rose-500/10 border border-rose-500/20 transition-all"
+                  >
+                    <Radio size={12} /> 🔊 Mesa PA (Igreja)
+                  </a>
+                  <a
+                    href="/public/vs-banda"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl font-bold text-xs text-amber-400 hover:bg-amber-500/10 border border-amber-500/20 transition-all"
+                  >
+                    <Headphones size={12} /> 🎧 Retorno (Banda)
+                  </a>
+                </div>
               </div>
             </nav>
 

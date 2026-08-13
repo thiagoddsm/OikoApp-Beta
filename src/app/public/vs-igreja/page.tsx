@@ -15,7 +15,7 @@ export default function VSIgrejaPublicPage() {
   const [currentSongIndex, setCurrentSongIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [externalIsPlaying, setExternalIsPlaying] = useState<boolean | undefined>(undefined);
-
+  const [isLive, setIsLive] = useState(false);
   useEffect(() => {
     async function loadData() {
       if (!firestore) return;
@@ -94,6 +94,9 @@ export default function VSIgrejaPublicPage() {
           if (data.isPlaying !== undefined) {
             setExternalIsPlaying(data.isPlaying);
           }
+          if (data.isLive !== undefined) {
+            setIsLive(data.isLive);
+          }
         }
       });
       return () => unsub();
@@ -109,6 +112,14 @@ export default function VSIgrejaPublicPage() {
 
   return (
     <div className="min-h-screen bg-[#07090e] text-white p-4 sm:p-6 space-y-6">
+      {/* BANNER AO VIVO */}
+      {isLive && (
+        <div className="flex items-center justify-center gap-3 bg-rose-950/50 border border-rose-500/40 px-4 py-2 rounded-2xl">
+          <span className="size-2 rounded-full bg-rose-500 animate-pulse" />
+          <span className="text-xs font-black uppercase tracking-widest text-rose-400">🔴 AO VIVO — Transmissão Ativa do Console Principal</span>
+        </div>
+      )}
+
       {/* HEADER DA MESA DE SOM / PA IGREJA */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900/90 border border-slate-800 p-4 sm:p-6 rounded-3xl shadow-2xl">
         <div className="space-y-1">
