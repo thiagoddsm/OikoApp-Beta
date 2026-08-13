@@ -109,6 +109,9 @@ export default function VsCatalogPage() {
                 </div>
               )}
               <div className="vs-card-actions">
+                <Link href={`/dashboard/vs/${vs.id}`} className="vs-play-btn">
+                  ▶️ Executar Multitrack Mixer
+                </Link>
                 <button
                   onClick={() => handleDelete(vs.id)}
                   disabled={deletingId === vs.id}
@@ -147,7 +150,9 @@ export default function VsCatalogPage() {
         .vs-badge { font-size: 0.78rem; background: rgba(99,102,241,0.1); color: #6366f1; padding: 3px 10px; border-radius: 20px; font-weight: 500; }
         .vs-tracks { display: flex; flex-wrap: wrap; gap: 6px; }
         .vs-track-pill { font-size: 0.75rem; background: var(--muted); padding: 3px 10px; border-radius: 20px; color: var(--muted-foreground); }
-        .vs-card-actions { margin-top: auto; padding-top: 8px; border-top: 1px solid var(--border); }
+        .vs-card-actions { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--border); display: flex; items-center; justify-content: space-between; gap: 8px; }
+        .vs-play-btn { display: inline-flex; align-items: center; gap: 6px; background: #10b981; color: white; padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 0.8rem; text-decoration: none; transition: background 0.2s; }
+        .vs-play-btn:hover { background: #059669; }
         .vs-delete-btn { font-size: 0.8rem; color: #ef4444; background: transparent; border: none; cursor: pointer; padding: 4px 8px; border-radius: 6px; }
         .vs-delete-btn:hover { background: #fee2e2; }
         .vs-delete-btn:disabled { opacity: 0.5; cursor: not-allowed; }
