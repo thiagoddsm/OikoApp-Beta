@@ -364,6 +364,10 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all' }: VSMultitrackPlaye
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // Referência ao timestamp de início para clock baseado em wall-clock (independente do áudio)
+  const playStartTimeRef = useRef<number>(0);   // Date.now() ao apertar Play
+  const playStartPosRef = useRef<number>(0);    // currentTime ao apertar Play
+
   // Monitora e atualiza o progresso do tempo + Lógica de Loop de Seção
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
@@ -373,25 +377,28 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all' }: VSMultitrackPlaye
       if (duration === 0) setDuration(180);
 
       const bpm = vs.bpm && vs.bpm > 0 ? vs.bpm : 120;
-      const intervalMs = (60 / bpm) * 1000;
+      const beatIntervalMs = (60 / bpm) * 1000;
       let lastBeep = Date.now();
 
       interval = setInterval(() => {
+        // Tenta usar o currentTime real do elemento de áudio principal
         const firstTrackId = vs.tracks[0]?.trackId;
         const mainAudio = firstTrackId ? audioRefs.current[firstTrackId] : null;
+        const hasRealAudio = mainAudio && !mainAudio.paused && !isNaN(mainAudio.currentTime) && mainAudio.duration > 0;
 
-        let nextTime = currentTimeRef.current;
-
-        if (mainAudio && !isNaN(mainAudio.currentTime) && mainAudio.currentTime > 0) {
-          nextTime = mainAudio.currentTime;
+        let nextTime: number;
+        if (hasRealAudio) {
+          nextTime = mainAudio!.currentTime;
         } else {
-          nextTime = currentTimeRef.current + 0.1;
+          // Fallback: relógio de parede de alta precisão (Date.now)
+          const elapsed = (Date.now() - playStartTimeRef.current) / 1000;
+          nextTime = playStartPosRef.current + elapsed;
 
-          if (Date.now() - lastBeep >= intervalMs) {
+          // Click sintético do metrônomo (só ativo quando não há áudio real e não é house_pa)
+          if (Date.now() - lastBeep >= beatIntervalMs) {
             const hasSolo = tracksStateRef.current.some((t) => t.isSolo);
             const clickTrack = tracksStateRef.current.find((t) => t.trackId.includes('click'));
             const isClickMuted = clickTrack ? (clickTrack.isMuted || (hasSolo && !clickTrack.isSolo)) : false;
-
             if (!isClickMuted && outputMode !== 'house_pa') {
               playClickBeep(1000);
             }
@@ -406,6 +413,9 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all' }: VSMultitrackPlaye
           if (nextTime >= activeSection.endTime - 0.2) {
             nextTime = activeSection.startTime;
             handleSeek(activeSection.startTime);
+            // Reseta o relógio de parede para o novo ponto
+            playStartTimeRef.current = Date.now();
+            playStartPosRef.current = activeSection.startTime;
 
             if (activeLoopMode === 'single') {
               setLoopMode('none');
@@ -443,10 +453,11 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all' }: VSMultitrackPlaye
     setTracksState((prev) => prev.map((t) => (t.trackId === trackId ? { ...t, isReady: true } : t)));
   };
 
-  const handlePlayPause = async () => {
-    getAudioContext();
+  const handlePlayPause = () => {
+    const ctx = getAudioContext();
 
     if (isPlaying) {
+      // PAUSE: Para todos os áudios reais
       Object.values(audioRefs.current).forEach((audio) => {
         if (audio) {
           try { audio.pause(); } catch (e) {}
@@ -454,26 +465,31 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all' }: VSMultitrackPlaye
       });
       setIsPlaying(false);
     } else {
+      // PLAY: Inicializa o relógio de parede ANTES de qualquer coisa
+      playStartTimeRef.current = Date.now();
+      playStartPosRef.current = currentTimeRef.current;
+
+      // Ativa o AudioContext (necessário após gesto do usuário)
+      if (ctx.state === 'suspended') ctx.resume();
+
+      // Aplica volume/mute/pan
       applyAudioSettings(tracksState);
 
-      const playPromises = Object.values(audioRefs.current).map((audio) => {
-        if (audio) {
-          const p = audio.play();
-          if (p !== undefined) {
-            return p.catch((err) => {
-              if (err.name !== 'AbortError') console.warn('Aviso de play de áudio:', err);
-            });
-          }
+      // Dispara reprodução de áudio real em background (sem bloquear o play)
+      Object.values(audioRefs.current).forEach((audio) => {
+        if (audio && audio.src) {
+          audio.currentTime = currentTimeRef.current;
+          audio.play().catch((err) => {
+            // Ignora erros normais (sem src, AbortError, NotSupportedError)
+            if (err.name !== 'AbortError' && err.name !== 'NotSupportedError') {
+              console.warn('Play de áudio ignorado:', err.name, err.message);
+            }
+          });
         }
-        return Promise.resolve();
       });
 
-      try {
-        await Promise.all(playPromises);
-        setIsPlaying(true);
-      } catch (err: any) {
-        if (err?.name !== 'AbortError') console.error('Erro ao dar Play:', err);
-      }
+      // Ativa o state de play IMEDIATAMENTE — o clock roda independentemente
+      setIsPlaying(true);
     }
   };
 
@@ -482,24 +498,30 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all' }: VSMultitrackPlaye
       if (audio) {
         try {
           audio.pause();
-          audio.currentTime = 0;
+          if (audio.readyState >= 1) audio.currentTime = 0;
         } catch (e) {}
       }
     });
     setIsPlaying(false);
     setCurrentTime(0);
+    playStartPosRef.current = 0;
+    playStartTimeRef.current = 0;
   };
 
   const handleSeek = (newTime: number) => {
+    if (isNaN(newTime)) return;
     setCurrentTime(newTime);
+    // Reseta o relógio de parede para o novo ponto
+    playStartTimeRef.current = Date.now();
+    playStartPosRef.current = newTime;
     Object.values(audioRefs.current).forEach((audio) => {
       if (audio && !isNaN(newTime)) {
         try {
-          if (audio.readyState >= 1) { // HAVE_METADATA ou superior
+          if (audio.readyState >= 1) {
             audio.currentTime = newTime;
           }
         } catch (e) {
-          console.warn('Seek ignorado para áudio ainda não carregado:', e);
+          console.warn('Seek ignorado para áudio não carregado:', e);
         }
       }
     });
