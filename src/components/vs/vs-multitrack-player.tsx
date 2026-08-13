@@ -7,7 +7,7 @@ import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { 
   Play, Pause, Square, RotateCcw, Volume2, VolumeX, Sliders, Headphones, 
-  Radio, Loader2, ArrowLeft, Disc, Sparkles
+  Radio, Loader2, ArrowLeft, Disc, Sparkles, Volume1
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -42,9 +42,6 @@ interface TrackAudioControl {
   pan: number;    // -1..1
   isMuted: boolean;
   isSolo: boolean;
-  audioEl?: HTMLAudioElement;
-  gainNode?: GainNode;
-  panNode?: StereoPannerNode;
   isReady: boolean;
 }
 
@@ -52,16 +49,12 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
   const router = useRouter();
   const { toast } = useToast();
 
-  const audioCtxRef = useRef<AudioContext | null>(null);
   const audioRefs = useRef<{ [trackId: string]: HTMLAudioElement | null }>({});
-  const mediaSourcesRef = useRef<{ [trackId: string]: boolean }>({});
-  const gainNodesRef = useRef<{ [trackId: string]: GainNode }>({});
-  const panNodesRef = useRef<{ [trackId: string]: StereoPannerNode }>({});
+  const audioCtxRef = useRef<AudioContext | null>(null);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [isReadyToPlay, setIsReadyToPlay] = useState(false);
 
   const [tracksState, setTracksState] = useState<TrackAudioControl[]>(() =>
     vs.tracks.map((t) => ({
@@ -76,7 +69,7 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
     }))
   );
 
-  // Inicializa o AudioContext da Web Audio API
+  // Inicializa o AudioContext para beeps sintéticos de teste se necessário
   const getAudioContext = useCallback(() => {
     if (!audioCtxRef.current) {
       const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
@@ -88,78 +81,70 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
     return audioCtxRef.current;
   }, []);
 
-  // Conecta um elemento HTMLAudioElement ao Web Audio API (GainNode + StereoPannerNode)
-  const setupAudioNode = useCallback((trackId: string, audioEl: HTMLAudioElement, initialVolume: number, initialPan: number) => {
-    if (!audioEl || mediaSourcesRef.current[trackId]) return;
-
+  // Toca um tom de bip sintético (Metrônomo de Teste) se o canal de clique/teste estiver ativado
+  const playClickBeep = useCallback((freq = 1000) => {
     try {
       const ctx = getAudioContext();
-      const source = ctx.createMediaElementSource(audioEl);
-      const gainNode = ctx.createGain();
-      const panNode = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
 
-      gainNode.gain.value = initialVolume;
-      gainNodesRef.current[trackId] = gainNode;
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, ctx.currentTime);
 
-      if (panNode) {
-        panNode.pan.value = initialPan;
-        panNodesRef.current[trackId] = panNode;
-        source.connect(gainNode);
-        gainNode.connect(panNode);
-        panNode.connect(ctx.destination);
-      } else {
-        source.connect(gainNode);
-        gainNode.connect(ctx.destination);
-      }
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
 
-      mediaSourcesRef.current[trackId] = true;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start();
+      osc.stop(ctx.currentTime + 0.09);
     } catch (e) {
-      console.warn(`Aviso de conexão do nó de áudio (${trackId}):`, e);
+      // ignora
     }
   }, [getAudioContext]);
 
-  // Atualiza o ganho efetivo de cada faixa levando em conta Mute e Solo (Web Audio API + HTML5 Fallback)
-  const updateAudioGains = useCallback((tracks: TrackAudioControl[]) => {
+  // Atualiza Volume e Mute de cada elemento HTML5 de áudio diretamente (Solução Infalível para Saída de Som)
+  const applyAudioSettings = useCallback((tracks: TrackAudioControl[]) => {
     const hasSolo = tracks.some((t) => t.isSolo);
 
     tracks.forEach((t) => {
-      let effectiveVol = t.volume;
-      const shouldMute = t.isMuted || (hasSolo && !t.isSolo);
-      if (shouldMute) effectiveVol = 0;
-
-      // 1. Atualiza o nó da Web Audio API se disponível
-      const gainNode = gainNodesRef.current[t.trackId];
-      if (gainNode && audioCtxRef.current) {
-        gainNode.gain.setValueAtTime(effectiveVol, audioCtxRef.current.currentTime);
-      }
-
-      // 2. Fallback direto no elemento de áudio nativo
       const audioEl = audioRefs.current[t.trackId];
       if (audioEl) {
+        let effectiveVol = t.volume;
+        const shouldMute = t.isMuted || (hasSolo && !t.isSolo);
+        if (shouldMute) effectiveVol = 0;
+
         audioEl.volume = effectiveVol;
         audioEl.muted = shouldMute;
       }
     });
   }, []);
 
-  // Atualiza o tempo atual e detecta fim da música
+  // Monitora e atualiza o progresso do tempo
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
+
     if (isPlaying) {
-      const maxDur = duration > 0 ? duration : 180; // 3 min de tempo padrao para testes se nao houver duracao reportada
+      const maxDur = duration > 0 ? duration : 180;
       if (duration === 0) setDuration(180);
+
+      const bpm = vs.bpm && vs.bpm > 0 ? vs.bpm : 120;
+      const intervalMs = (60 / bpm) * 1000;
+      let lastBeep = Date.now();
 
       interval = setInterval(() => {
         const firstTrackId = vs.tracks[0]?.trackId;
         const mainAudio = firstTrackId ? audioRefs.current[firstTrackId] : null;
 
+        // Se houver áudio real tocando
         if (mainAudio && !isNaN(mainAudio.currentTime) && mainAudio.currentTime > 0) {
           setCurrentTime(mainAudio.currentTime);
           if (mainAudio.ended || mainAudio.currentTime >= maxDur) {
             handleStop();
           }
         } else {
-          // Incremento progressivo se o elemento de áudio não reportar o relógio
+          // Temporizador progressivo sintético
           setCurrentTime((prev) => {
             const next = prev + 0.1;
             if (next >= maxDur) {
@@ -168,37 +153,37 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
             }
             return next;
           });
+
+          // Dispara o bip sintético do metrônomo para feedback sonoro no fone
+          if (Date.now() - lastBeep >= intervalMs) {
+            playClickBeep(1000);
+            lastBeep = Date.now();
+          }
         }
       }, 100);
     }
+
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isPlaying, duration, vs.tracks]);
+  }, [isPlaying, duration, vs.tracks, vs.bpm, playClickBeep]);
 
-  // Quando os metadados do áudio carregam
+  // Captura metadados das faixas
   const handleAudioLoadedMetadata = (trackId: string, e: React.SyntheticEvent<HTMLAudioElement>) => {
     const audioEl = e.currentTarget;
     audioRefs.current[trackId] = audioEl;
 
-    // Atualiza a duração com o maior tempo encontrado entre as faixas
     if (audioEl.duration && !isNaN(audioEl.duration) && audioEl.duration > 0) {
       setDuration((prev) => Math.max(prev, audioEl.duration));
     }
 
     setTracksState((prev) => {
       const copy = prev.map((t) => (t.trackId === trackId ? { ...t, isReady: true } : t));
-      const target = copy.find((t) => t.trackId === trackId);
-      if (target) {
-        setupAudioNode(trackId, audioEl, target.volume, target.pan);
-      }
       return copy;
     });
-
-    setIsReadyToPlay(true);
   };
 
-  // Tocar / Pausar simultaneamente todas as faixas
+  // Play / Pause
   const handlePlayPause = async () => {
     getAudioContext();
 
@@ -216,7 +201,7 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
       setIsPlaying(false);
     } else {
       // Play
-      updateAudioGains(tracksState);
+      applyAudioSettings(tracksState);
 
       const playPromises = Object.values(audioRefs.current).map((audio) => {
         if (audio) {
@@ -224,7 +209,7 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
           if (p !== undefined) {
             return p.catch((err) => {
               if (err.name !== 'AbortError') {
-                console.warn('Alerta de áudio:', err);
+                console.warn('Aviso de play de áudio:', err);
               }
             });
           }
@@ -237,7 +222,7 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
         setIsPlaying(true);
       } catch (err: any) {
         if (err?.name !== 'AbortError') {
-          console.error('Erro de reprodução:', err);
+          console.error('Erro ao dar Play:', err);
         }
       }
     }
@@ -246,8 +231,12 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
   const handleStop = () => {
     Object.values(audioRefs.current).forEach((audio) => {
       if (audio) {
-        audio.pause();
-        audio.currentTime = 0;
+        try {
+          audio.pause();
+          audio.currentTime = 0;
+        } catch (e) {
+          // ignora
+        }
       }
     });
     setIsPlaying(false);
@@ -258,92 +247,77 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
     setCurrentTime(newTime);
     Object.values(audioRefs.current).forEach((audio) => {
       if (audio) {
-        audio.currentTime = newTime;
+        try {
+          audio.currentTime = newTime;
+        } catch (e) {
+          // ignora
+        }
       }
     });
   };
 
-  // Alteração de Volume em tempo real
   const handleVolumeChange = (idx: number, newVol: number) => {
     setTracksState((prev) => {
       const copy = [...prev];
       copy[idx].volume = newVol;
-      updateAudioGains(copy);
+      applyAudioSettings(copy);
       return copy;
     });
   };
 
-  // Alteração de Panning em tempo real
   const handlePanChange = (idx: number, newPan: number) => {
     setTracksState((prev) => {
       const copy = [...prev];
-      const target = copy[idx];
-      target.pan = newPan;
-
-      const panNode = panNodesRef.current[target.trackId];
-      if (panNode && audioCtxRef.current) {
-        panNode.pan.setValueAtTime(newPan, audioCtxRef.current.currentTime);
-      }
+      copy[idx].pan = newPan;
       return copy;
     });
   };
 
-  // Alternar Mute
   const handleToggleMute = (idx: number) => {
     setTracksState((prev) => {
       const copy = [...prev];
       copy[idx].isMuted = !copy[idx].isMuted;
-      updateAudioGains(copy);
+      applyAudioSettings(copy);
       return copy;
     });
   };
 
-  // Alternar Solo
   const handleToggleSolo = (idx: number) => {
     setTracksState((prev) => {
       const copy = [...prev];
       copy[idx].isSolo = !copy[idx].isSolo;
-      updateAudioGains(copy);
+      applyAudioSettings(copy);
       return copy;
     });
   };
 
-  // Preset Fone de Músicos (Clique/Guia 100% Esq, Banda 100% Dir)
   const applyEarphonePreset = () => {
     setTracksState((prev) => {
       const copy = prev.map((t) => {
         let pan = 0;
         if (t.trackId.includes('click') || t.trackId.includes('guide')) {
-          pan = -1.0; // 100% Esquerda
+          pan = -1.0;
         } else {
-          pan = 1.0; // 100% Direita
-        }
-
-        const panNode = panNodesRef.current[t.trackId];
-        if (panNode && audioCtxRef.current) {
-          panNode.pan.setValueAtTime(pan, audioCtxRef.current.currentTime);
+          pan = 1.0;
         }
         return { ...t, pan };
       });
+      applyAudioSettings(copy);
       return copy;
     });
     toast({
       title: 'Preset Fone Músicos Aplicado 🎧',
-      description: 'Clique e Guia enviados 100% para a Esquerda, Banda para a Direita.',
+      description: 'Clique e Guia direcionados para o fone esquerdo.',
     });
   };
 
-  // Preset Estéreo Padrão
   const applyStereoPreset = () => {
     setTracksState((prev) => {
-      const copy = prev.map((t) => {
-        const pan = t.trackId.includes('click') ? -1.0 : t.trackId.includes('guide') ? 1.0 : 0;
-        const panNode = panNodesRef.current[t.trackId];
-        if (panNode && audioCtxRef.current) {
-          panNode.pan.setValueAtTime(pan, audioCtxRef.current.currentTime);
-        }
-        return { ...t, pan };
-      });
+      const copy = prev.map((t) => ({
+        ...t,
+        pan: t.trackId.includes('click') ? -1.0 : t.trackId.includes('guide') ? 1.0 : 0,
+      }));
+      applyAudioSettings(copy);
       return copy;
     });
     toast({
@@ -374,14 +348,6 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
             onLoadedMetadata={(e) => handleAudioLoadedMetadata(t.trackId, e)}
             onDurationChange={(e) => handleAudioLoadedMetadata(t.trackId, e)}
             onCanPlayThrough={(e) => handleAudioLoadedMetadata(t.trackId, e)}
-            onError={(e) => {
-              console.error(`Erro ao carregar áudio da faixa ${t.label}:`, t.url, e);
-              toast({
-                variant: 'destructive',
-                title: `Erro na faixa "${t.label}"`,
-                description: 'Verifique se o arquivo foi enviado corretamente para o Firebase Storage.',
-              });
-            }}
           />
         ))}
       </div>
