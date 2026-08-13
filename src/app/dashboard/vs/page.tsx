@@ -163,20 +163,33 @@ export default function VsMainStagePage() {
     fetchCatalogAndWorshipPlan();
   }, []);
 
-  // Transmite o estado de reprodução para as telas de palco (/public/vs-igreja e /public/vs-banda)
-  useEffect(() => {
+  // Transmite o estado de reprodução REAL do player para as telas de palco
+  // Chamado pelo callback onPlayStateChange do VSMultitrackPlayer
+  const handlePlayerPlayStateChange = useCallback(async (playerIsPlaying: boolean) => {
     if (!firestore) return;
     try {
       const syncRef = doc(firestore, 'vs_live_sync', 'current');
-      setDoc(syncRef, {
+      await setDoc(syncRef, {
         currentSongIndex,
-        isPlaying,
+        isPlaying: playerIsPlaying,
         updatedAt: serverTimestamp(),
       }, { merge: true });
     } catch (e) {
       console.warn('Erro ao transmitir estado de palco:', e);
     }
-  }, [currentSongIndex, isPlaying]);
+  }, [currentSongIndex]);
+
+  // Também sincroniza quando a música troca (independente do play)
+  useEffect(() => {
+    if (!firestore) return;
+    try {
+      const syncRef = doc(firestore, 'vs_live_sync', 'current');
+      setDoc(syncRef, { currentSongIndex, updatedAt: serverTimestamp() }, { merge: true });
+    } catch (e) {
+      console.warn('Erro ao transmitir índice de música:', e);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSongIndex]);
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
 
@@ -761,7 +774,10 @@ export default function VsMainStagePage() {
 
               {/* COLUNA DA DIREITA: PLAYER MAIN STAGE & MULTITRACK MIXER */}
               <div className="lg:col-span-8 space-y-6">
-                <VSMultitrackPlayer vs={currentSong as VsData} />
+                <VSMultitrackPlayer
+                  vs={currentSong as VsData}
+                  onPlayStateChange={handlePlayerPlayStateChange}
+                />
               </div>
             </div>
           )}

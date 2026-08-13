@@ -14,6 +14,7 @@ export default function VSBandaPublicPage() {
   const [setlistSongs, setSetlistSongs] = useState<VsData[]>([]);
   const [currentSongIndex, setCurrentSongIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [externalIsPlaying, setExternalIsPlaying] = useState<boolean | undefined>(undefined);
 
   useEffect(() => {
     async function loadData() {
@@ -90,6 +91,9 @@ export default function VSBandaPublicPage() {
           if (data.currentSongIndex !== undefined) {
             setCurrentSongIndex(data.currentSongIndex);
           }
+          if (data.isPlaying !== undefined) {
+            setExternalIsPlaying(data.isPlaying);
+          }
         }
       });
       return () => unsub();
@@ -144,7 +148,11 @@ export default function VSBandaPublicPage() {
 
       {/* PLAYER CONFIGURADO PARA BANDA (COM CLIQUE E GUIA) */}
       {currentSong ? (
-        <VSMultitrackPlayer vs={currentSong} outputMode="band_monitors" />
+        <VSMultitrackPlayer
+          vs={currentSong}
+          outputMode="band_monitors"
+          externalIsPlaying={externalIsPlaying}
+        />
       ) : (
         <div className="p-12 text-center text-slate-500">Carregando canal da Banda...</div>
       )}

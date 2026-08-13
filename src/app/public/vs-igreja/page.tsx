@@ -14,6 +14,8 @@ export default function VSIgrejaPublicPage() {
   const [setlistSongs, setSetlistSongs] = useState<VsData[]>([]);
   const [currentSongIndex, setCurrentSongIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [externalIsPlaying, setExternalIsPlaying] = useState<boolean | undefined>(undefined);
+
   useEffect(() => {
     async function loadData() {
       if (!firestore) return;
@@ -89,6 +91,9 @@ export default function VSIgrejaPublicPage() {
           if (data.currentSongIndex !== undefined) {
             setCurrentSongIndex(data.currentSongIndex);
           }
+          if (data.isPlaying !== undefined) {
+            setExternalIsPlaying(data.isPlaying);
+          }
         }
       });
       return () => unsub();
@@ -143,7 +148,11 @@ export default function VSIgrejaPublicPage() {
 
       {/* PLAYER CONFIGURADO PARA OUTPUT HOUSE PA */}
       {currentSong ? (
-        <VSMultitrackPlayer vs={currentSong} outputMode="house_pa" />
+        <VSMultitrackPlayer
+          vs={currentSong}
+          outputMode="house_pa"
+          externalIsPlaying={externalIsPlaying}
+        />
       ) : (
         <div className="p-12 text-center text-slate-500">Carregando canal da Igreja...</div>
       )}

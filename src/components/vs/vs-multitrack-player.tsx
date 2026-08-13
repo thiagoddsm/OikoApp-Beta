@@ -43,6 +43,10 @@ export interface VsData {
 interface VSMultitrackPlayerProps {
   vs: VsData;
   outputMode?: 'all' | 'house_pa' | 'band_monitors';
+  /** Quando verdadeiro, o player liga-se; quando falso, pausa. Usado pelas telas públicas para sincronizar com o console principal. */
+  externalIsPlaying?: boolean;
+  /** Callback chamado sempre que o estado interno de play/pause muda (para o console poder transmitir). */
+  onPlayStateChange?: (isPlaying: boolean) => void;
 }
 
 interface TrackAudioControl {
@@ -59,7 +63,7 @@ interface TrackAudioControl {
 // Lista de notas musicais em semitons para transposição dinâmica (Pitch Shift)
 const MUSIC_KEYS = ['C', 'C# / Db', 'D', 'D# / Eb', 'E', 'F', 'F# / Gb', 'G', 'G# / Ab', 'A', 'A# / Bb', 'B'];
 
-export function VSMultitrackPlayer({ vs, outputMode = 'all' }: VSMultitrackPlayerProps) {
+export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, onPlayStateChange }: VSMultitrackPlayerProps) {
   const router = useRouter();
   const { toast } = useToast();
 
@@ -363,6 +367,27 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all' }: VSMultitrackPlaye
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  // Notifica o parent sempre que o isPlaying interno mudar
+  useEffect(() => {
+    onPlayStateChange?.(isPlaying);
+  }, [isPlaying, onPlayStateChange]);
+
+  // Responde ao comando externo de play/pause (telas públicas sincronizadas)
+  const externalIsPlayingRef = useRef<boolean | undefined>(undefined);
+  useEffect(() => {
+    if (externalIsPlaying === undefined) return;
+    // Dispara apenas quando o valor externo MUDA e é diferente do estado atual
+    if (externalIsPlayingRef.current === externalIsPlaying) return;
+    externalIsPlayingRef.current = externalIsPlaying;
+
+    if (externalIsPlaying && !isPlaying) {
+      handlePlayPause();
+    } else if (!externalIsPlaying && isPlaying) {
+      handlePlayPause();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalIsPlaying]);
 
   // Referência ao timestamp de início para clock baseado em wall-clock (independente do áudio)
   const playStartTimeRef = useRef<number>(0);   // Date.now() ao apertar Play
