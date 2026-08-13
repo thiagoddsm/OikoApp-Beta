@@ -157,16 +157,71 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
     }))
   );
 
+  // Master Equalizer BiquadFilterNodes Refs
+  const masterLowEqRef = useRef<BiquadFilterNode | null>(null);
+  const masterMidEqRef = useRef<BiquadFilterNode | null>(null);
+  const masterHighEqRef = useRef<BiquadFilterNode | null>(null);
+
+  // Estados de Equalizador Master (dB: -12 a +12)
+  const [eqLow, setEqLow] = useState(0);   // Bass (80 Hz)
+  const [eqMid, setEqMid] = useState(0);   // Mids (1000 Hz)
+  const [eqHigh, setEqHigh] = useState(0); // Treble (8000 Hz)
+  const [activeEqPreset, setActiveEqPreset] = useState<'flat' | 'praise' | 'worship' | 'acoustic'>('flat');
+
   const getAudioContext = useCallback(() => {
     if (!audioCtxRef.current) {
       const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
-      audioCtxRef.current = new AudioCtxClass();
+      const ctx = new AudioCtxClass();
+      audioCtxRef.current = ctx;
+
+      // Cria nó Master Equalizer de 3 Bandas
+      const lowEq = ctx.createBiquadFilter();
+      lowEq.type = 'lowshelf';
+      lowEq.frequency.value = 100;
+
+      const midEq = ctx.createBiquadFilter();
+      midEq.type = 'peaking';
+      midEq.frequency.value = 1000;
+      midEq.Q.value = 1.0;
+
+      const highEq = ctx.createBiquadFilter();
+      highEq.type = 'highshelf';
+      highEq.frequency.value = 8000;
+
+      lowEq.connect(midEq);
+      midEq.connect(highEq);
+      highEq.connect(ctx.destination);
+
+      masterLowEqRef.current = lowEq;
+      masterMidEqRef.current = midEq;
+      masterHighEqRef.current = highEq;
     }
     if (audioCtxRef.current.state === 'suspended') {
       audioCtxRef.current.resume();
     }
     return audioCtxRef.current;
   }, []);
+
+  const applyMasterEq = (low: number, mid: number, high: number) => {
+    setEqLow(low);
+    setEqMid(mid);
+    setEqHigh(high);
+    if (masterLowEqRef.current) masterLowEqRef.current.gain.value = low;
+    if (masterMidEqRef.current) masterMidEqRef.current.gain.value = mid;
+    if (masterHighEqRef.current) masterHighEqRef.current.gain.value = high;
+  };
+
+  const applyEqPreset = (preset: 'flat' | 'praise' | 'worship' | 'acoustic') => {
+    setActiveEqPreset(preset);
+    if (preset === 'flat') applyMasterEq(0, 0, 0);
+    else if (preset === 'praise') applyMasterEq(4, -1, 3); // Grave & Agudo encorpados
+    else if (preset === 'worship') applyMasterEq(2, 2, -2); // Médios aveludados para oração
+    else if (preset === 'acoustic') applyMasterEq(-2, 3, 4); // Brilho de violões/voz
+    toast({
+      title: `Preset EQ Aplicado: ${preset.toUpperCase()} 🎛️`,
+      description: `Equalização master ajustada para o estilo da ministração.`,
+    });
+  };
 
   const setupAudioNode = (trackId: string, audioEl: HTMLAudioElement) => {
     try {
@@ -178,7 +233,13 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
         
         source.connect(gainNode);
         gainNode.connect(panNode);
-        panNode.connect(ctx.destination);
+        
+        // Conecta ao Master Equalizer (se disponível) ou à saída final
+        if (masterLowEqRef.current) {
+          panNode.connect(masterLowEqRef.current);
+        } else {
+          panNode.connect(ctx.destination);
+        }
         
         mediaSourcesRef.current[trackId] = source;
         gainNodesRef.current[trackId] = gainNode;
@@ -695,6 +756,51 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
             >
               <Radio size={14} /> Estéreo
             </Button>
+          </div>
+        </div>
+
+        {/* PAINEL DE EQUALIZADOR MASTER DA MESA (BIQUAD FILTERS PRESETS) */}
+        <div className="pt-3 border-t border-slate-900 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+          <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+            <Sliders size={14} className="text-emerald-400" /> Presets de EQ Master
+          </span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              type="button"
+              onClick={() => applyEqPreset('flat')}
+              className={`px-3 py-1 rounded-xl font-bold text-[11px] transition-all ${
+                activeEqPreset === 'flat' ? 'bg-slate-800 text-white border border-slate-700' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Flat (Original)
+            </button>
+            <button
+              type="button"
+              onClick={() => applyEqPreset('praise')}
+              className={`px-3 py-1 rounded-xl font-bold text-[11px] transition-all ${
+                activeEqPreset === 'praise' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'text-slate-400 hover:text-emerald-400'
+              }`}
+            >
+              🔥 Louvor Agitado
+            </button>
+            <button
+              type="button"
+              onClick={() => applyEqPreset('worship')}
+              className={`px-3 py-1 rounded-xl font-bold text-[11px] transition-all ${
+                activeEqPreset === 'worship' ? 'bg-sky-500/20 text-sky-400 border border-sky-500/40' : 'text-slate-400 hover:text-sky-400'
+              }`}
+            >
+              🕊️ Ministração / Oração
+            </button>
+            <button
+              type="button"
+              onClick={() => applyEqPreset('acoustic')}
+              className={`px-3 py-1 rounded-xl font-bold text-[11px] transition-all ${
+                activeEqPreset === 'acoustic' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40' : 'text-slate-400 hover:text-amber-400'
+              }`}
+            >
+              🎸 Acústico / Voz & Violão
+            </button>
           </div>
         </div>
       </Card>
