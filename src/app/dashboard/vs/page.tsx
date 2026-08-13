@@ -18,6 +18,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { VSMultitrackPlayer, VsData } from '@/components/vs/vs-multitrack-player';
 
 const { firestore } = initializeFirebase();
 
@@ -29,17 +30,10 @@ type VsEntry = {
   key?: string;
   timeSignature?: string;
   duration?: number;
-  tracks: { trackId: string; label: string }[];
+  tracks: { trackId: string; label: string; url?: string; defaultPan?: number; defaultVolume?: number }[];
   status?: string;
   createdAt?: any;
 };
-
-interface MixerChannelState {
-  name: string;
-  volume: number; // 0..1
-  isMuted: boolean;
-  isSolo: boolean;
-}
 
 export default function VsMainStagePage() {
   const { toast } = useToast();
@@ -65,24 +59,6 @@ export default function VsMainStagePage() {
   const [currentSectionLabel, setCurrentSectionLabel] = useState('INTRO');
   const [queuedSectionLabel, setQueuedSectionLabel] = useState<string | null>(null);
   const [countdownBeats, setCountdownBeats] = useState<number | null>(null);
-
-  // Estado dos 14 Canais da Mesa Multitrack de Áudio
-  const [channelsState, setChannelsState] = useState<MixerChannelState[]>([
-    { name: 'CLICK', volume: 0.8, isMuted: false, isSolo: false },
-    { name: 'GUIDE', volume: 0.85, isMuted: false, isSolo: false },
-    { name: 'KICK', volume: 0.9, isMuted: false, isSolo: false },
-    { name: 'SNARE', volume: 0.75, isMuted: false, isSolo: false },
-    { name: 'TOM 1', volume: 0.8, isMuted: false, isSolo: false },
-    { name: 'TOM 2', volume: 0.8, isMuted: false, isSolo: false },
-    { name: 'OH L', volume: 0.7, isMuted: false, isSolo: false },
-    { name: 'OH R', volume: 0.7, isMuted: false, isSolo: false },
-    { name: 'BASS DI', volume: 0.85, isMuted: false, isSolo: false },
-    { name: 'BASS AMP', volume: 0.8, isMuted: false, isSolo: false },
-    { name: 'GTR 1', volume: 0.85, isMuted: false, isSolo: false },
-    { name: 'GTR 2', volume: 0.75, isMuted: false, isSolo: false },
-    { name: 'KEYS L', volume: 0.9, isMuted: false, isSolo: false },
-    { name: 'KEYS R', volume: 0.9, isMuted: false, isSolo: false },
-  ]);
 
   // Carrega o catálogo do Firestore
   useEffect(() => {
@@ -234,31 +210,6 @@ export default function VsMainStagePage() {
     toast({
       title: `Seção Enfileirada: ${label} ⏳`,
       description: `Entrará na virada do compasso (em 4 tempos).`,
-    });
-  };
-
-  // Funções de Ajuste de Canais da Mesa Multitrack (Volume, Mute e Solo)
-  const handleChannelVolumeChange = (idx: number, newVol: number) => {
-    setChannelsState((prev) => {
-      const copy = [...prev];
-      copy[idx].volume = newVol;
-      return copy;
-    });
-  };
-
-  const handleToggleChannelMute = (idx: number) => {
-    setChannelsState((prev) => {
-      const copy = [...prev];
-      copy[idx].isMuted = !copy[idx].isMuted;
-      return copy;
-    });
-  };
-
-  const handleToggleChannelSolo = (idx: number) => {
-    setChannelsState((prev) => {
-      const copy = [...prev];
-      copy[idx].isSolo = !copy[idx].isSolo;
-      return copy;
     });
   };
 
@@ -708,171 +659,7 @@ export default function VsMainStagePage() {
 
               {/* COLUNA DA DIREITA: PLAYER MAIN STAGE & MULTITRACK MIXER */}
               <div className="lg:col-span-8 space-y-6">
-                {/* CARD PRINCIPAL DA MÚSICA EM EXECUÇÃO */}
-                <Card className="bg-[#121824] border-slate-800 text-white rounded-3xl p-6 shadow-2xl space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        onClick={() => {
-                          if (currentSongIndex > 0) setCurrentSongIndex((prev) => prev - 1);
-                          setSongCurrentTime(0);
-                        }}
-                        className="size-12 rounded-2xl border-slate-800 bg-[#182030] text-slate-300 hover:text-white"
-                      >
-                        <SkipBack size={20} />
-                      </Button>
-
-                      <Button
-                        size="icon"
-                        onClick={() => setIsPlaying(!isPlaying)}
-                        className="size-14 rounded-2xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 shadow-[0_0_20px_rgba(6,182,212,0.5)] transition-all"
-                      >
-                        {isPlaying ? <Pause size={28} /> : <Play size={28} className="ml-1 fill-slate-950" />}
-                      </Button>
-
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        onClick={() => {
-                          setIsPlaying(false);
-                          setSongCurrentTime(0);
-                        }}
-                        className="size-12 rounded-2xl border-rose-500/40 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20"
-                      >
-                        <Square size={20} />
-                      </Button>
-                    </div>
-
-                    <div className="text-center">
-                      <h2 className="text-2xl font-black italic text-cyan-400 tracking-tight">{currentSong.title}</h2>
-                      <p className="text-xs text-slate-400 font-semibold">
-                        {currentSong.artist || 'Hillsong'} • {currentSong.bpm || 132} BPM • Key: {currentSong.key || 'D'}
-                      </p>
-                    </div>
-
-                    <div className="text-right">
-                      <span className="text-[10px] font-black uppercase text-slate-400 block">ELAPSED / REMAINING</span>
-                      <span className="text-xl font-black font-mono text-white">
-                        {formatClockTime(songCurrentTime)} / {formatClockTime(currentSong.duration || 270)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* VISUALIZADOR DE ONDA MULTITRACK (ARRANGEMENT VIEW) */}
-                  <div className="bg-[#0b0f17] border border-slate-800 rounded-2xl p-4 space-y-3 relative overflow-hidden">
-                    <div className="grid grid-cols-6 gap-1 text-[10px] font-black font-mono text-slate-300">
-                      <button type="button" onClick={() => handleQueueSection('INTRO')} className="p-1.5 rounded-lg bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/30 text-left">INTRO</button>
-                      <button type="button" onClick={() => handleQueueSection('VERSE 1')} className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 text-left">VERSE 1</button>
-                      <button type="button" onClick={() => handleQueueSection('CHORUS')} className="p-1.5 rounded-lg bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:bg-rose-500/30 text-left">CHORUS</button>
-                      <button type="button" onClick={() => handleQueueSection('VERSE 2')} className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 text-left">VERSE 2</button>
-                      <button type="button" onClick={() => handleQueueSection('BRIDGE')} className="p-1.5 rounded-lg bg-purple-500/20 text-purple-400 border border-purple-500/30 hover:bg-purple-500/30 text-left">BRIDGE</button>
-                      <button type="button" onClick={() => handleQueueSection('OUTRO')} className="p-1.5 rounded-lg bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/30 text-left">OUTRO</button>
-                    </div>
-
-                    <div className="space-y-2 py-2">
-                      {[1, 2, 3, 4].map((waveIndex) => (
-                        <div key={waveIndex} className="h-5 flex items-center gap-1 opacity-80">
-                          {Array.from({ length: 50 }).map((_, i) => (
-                            <div
-                              key={i}
-                              className="w-1 bg-emerald-400/80 rounded-full transition-all duration-300"
-                              style={{
-                                height: `${Math.max(15, Math.sin(i * 0.5 + waveIndex + (isPlaying ? songCurrentTime * 0.2 : 0)) * 100)}%`
-                              }}
-                            />
-                          ))}
-                        </div>
-                      ))}
-                    </div>
-
-                    <div
-                      className="absolute top-0 bottom-0 w-0.5 bg-white shadow-[0_0_12px_rgba(255,255,255,1)] z-10 transition-all duration-300"
-                      style={{ left: `${(songCurrentTime / (currentSong.duration || 270)) * 100}%` }}
-                    />
-                  </div>
-                </Card>
-
-                {/* MESA DE SOM MULTITRACK DE 14 CANAIS FUNCIONAL NO RODAPÉ */}
-                <Card className="bg-[#121824] border-slate-800 text-white rounded-3xl p-6 shadow-2xl space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-black italic tracking-tight text-white flex items-center gap-2">
-                      <Sliders size={18} className="text-emerald-400" /> MULTITRACK MIXER (14 CANAIS FUNCIONAIS)
-                    </h3>
-                    <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 font-bold text-[10px]">
-                      14 Faders Ativos
-                    </Badge>
-                  </div>
-
-                  <div className="grid grid-cols-4 sm:grid-cols-7 lg:grid-cols-[repeat(14,minmax(0,1fr))] gap-2 overflow-x-auto pt-2">
-                    {channelsState.map((ch, idx) => {
-                      const dbText = ch.isMuted
-                        ? 'MUTED'
-                        : `${(ch.volume * 24 - 18).toFixed(1)} dB`;
-
-                      return (
-                        <div key={ch.name} className="bg-[#0b0f17] p-2 rounded-2xl border border-slate-800/80 flex flex-col items-center space-y-2">
-                          <span className="text-[9px] font-black text-slate-300 truncate w-full text-center">{ch.name}</span>
-
-                          {/* Botões Mute & Solo */}
-                          <div className="flex gap-1">
-                            <button
-                              type="button"
-                              onClick={() => handleToggleChannelSolo(idx)}
-                              className={`text-[8px] font-bold px-1.5 py-0.5 rounded border transition-colors ${
-                                ch.isSolo
-                                  ? 'bg-amber-500 text-slate-950 border-amber-400 font-black'
-                                  : 'bg-slate-900 text-slate-400 hover:text-white border-slate-800'
-                              }`}
-                            >
-                              S
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => handleToggleChannelMute(idx)}
-                              className={`text-[8px] font-bold px-1.5 py-0.5 rounded border transition-colors ${
-                                ch.isMuted
-                                  ? 'bg-rose-600 text-white border-rose-500 font-black'
-                                  : 'bg-slate-900 text-slate-400 hover:text-rose-400 border-slate-800'
-                              }`}
-                            >
-                              M
-                            </button>
-                          </div>
-
-                          {/* Slider Vertical de Vômetro LED Animado */}
-                          <div className="w-4 h-28 bg-slate-900 rounded-lg p-0.5 flex flex-col justify-end gap-0.5 border border-slate-800 relative">
-                            {Array.from({ length: 10 }).map((_, ledIdx) => {
-                              const levelPct = ch.isMuted ? 0 : ch.volume * (isPlaying ? Math.abs(Math.sin((songCurrentTime + idx) * 0.8)) * 0.4 + 0.6 : 0.7);
-                              const isActive = (10 - ledIdx) * 10 <= levelPct * 100;
-
-                              return (
-                                <div
-                                  key={ledIdx}
-                                  className={`w-full h-2 rounded-xs transition-all duration-150 ${
-                                    isActive
-                                      ? ledIdx < 2
-                                        ? 'bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.8)]'
-                                        : ledIdx < 4
-                                        ? 'bg-amber-400'
-                                        : 'bg-emerald-400 shadow-[0_0_6px_rgba(16,185,129,0.8)]'
-                                      : 'bg-slate-800/40'
-                                  }`}
-                                />
-                              );
-                            })}
-                          </div>
-
-                          <span className="text-[8px] font-mono font-bold text-slate-400 truncate w-full text-center">
-                            {dbText}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </Card>
+                <VSMultitrackPlayer vs={currentSong as VsData} />
               </div>
             </div>
           )}
@@ -910,7 +697,13 @@ export default function VsMainStagePage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60">
-                    {catalog.map((vs, idx) => (
+                    {catalog
+                      .filter((vs) =>
+                        !searchQuery ||
+                        vs.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        (vs.artist && vs.artist.toLowerCase().includes(searchQuery.toLowerCase()))
+                      )
+                      .map((vs, idx) => (
                       <tr key={vs.id} className="hover:bg-[#161e2e] transition-colors">
                         <td className="p-4 font-mono text-slate-500">{idx + 1}</td>
                         <td className="p-4 font-bold text-white">

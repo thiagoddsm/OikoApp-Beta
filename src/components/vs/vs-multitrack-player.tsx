@@ -61,6 +61,9 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
 
   const audioRefs = useRef<{ [trackId: string]: HTMLAudioElement | null }>({});
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const mediaSourcesRef = useRef<{ [trackId: string]: MediaElementAudioSourceNode | null }>({});
+  const gainNodesRef = useRef<{ [trackId: string]: GainNode | null }>({});
+  const panNodesRef = useRef<{ [trackId: string]: StereoPannerNode | null }>({});
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -115,6 +118,27 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
     return audioCtxRef.current;
   }, []);
 
+  const setupAudioNode = (trackId: string, audioEl: HTMLAudioElement) => {
+    try {
+      const ctx = getAudioContext();
+      if (!mediaSourcesRef.current[trackId]) {
+        const source = ctx.createMediaElementSource(audioEl);
+        const gainNode = ctx.createGain();
+        const panNode = ctx.createStereoPanner();
+        
+        source.connect(gainNode);
+        gainNode.connect(panNode);
+        panNode.connect(ctx.destination);
+        
+        mediaSourcesRef.current[trackId] = source;
+        gainNodesRef.current[trackId] = gainNode;
+        panNodesRef.current[trackId] = panNode;
+      }
+    } catch (e) {
+      console.warn('Erro ao criar MediaElementSource, fallback nativo será usado:', e);
+    }
+  };
+
   const playClickBeep = useCallback((freq = 1000) => {
     try {
       const ctx = getAudioContext();
@@ -141,17 +165,38 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
     const hasSolo = tracks.some((t) => t.isSolo);
 
     tracks.forEach((t) => {
-      const audioEl = audioRefs.current[t.trackId];
-      if (audioEl) {
-        let effectiveVol = t.volume;
-        const shouldMute = t.isMuted || (hasSolo && !t.isSolo);
-        if (shouldMute) effectiveVol = 0;
+      let effectiveVol = t.volume;
+      const shouldMute = t.isMuted || (hasSolo && !t.isSolo);
+      if (shouldMute) effectiveVol = 0;
 
+      const gainNode = gainNodesRef.current[t.trackId];
+      const panNode = panNodesRef.current[t.trackId];
+      const audioEl = audioRefs.current[t.trackId];
+      
+      if (gainNode) {
+        // Web Audio routing
+        gainNode.gain.value = effectiveVol;
+      } else if (audioEl) {
+        // Native fallback
         audioEl.volume = effectiveVol;
         audioEl.muted = shouldMute;
       }
+      
+      if (panNode) {
+        panNode.pan.value = t.pan;
+      }
     });
   }, []);
+
+  const currentTimeRef = useRef(currentTime);
+  const loopModeRef = useRef(loopMode);
+  const currentSectionRef = useRef(currentSection);
+  const tracksStateRef = useRef(tracksState);
+
+  useEffect(() => { currentTimeRef.current = currentTime; }, [currentTime]);
+  useEffect(() => { loopModeRef.current = loopMode; }, [loopMode]);
+  useEffect(() => { currentSectionRef.current = currentSection; }, [currentSection]);
+  useEffect(() => { tracksStateRef.current = tracksState; }, [tracksState]);
 
   // Monitora e atualiza o progresso do tempo + Lógica de Loop de Seção
   useEffect(() => {
@@ -169,16 +214,16 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
         const firstTrackId = vs.tracks[0]?.trackId;
         const mainAudio = firstTrackId ? audioRefs.current[firstTrackId] : null;
 
-        let nextTime = currentTime;
+        let nextTime = currentTimeRef.current;
 
         if (mainAudio && !isNaN(mainAudio.currentTime) && mainAudio.currentTime > 0) {
           nextTime = mainAudio.currentTime;
         } else {
-          nextTime = currentTime + 0.1;
+          nextTime = currentTimeRef.current + 0.1;
 
           if (Date.now() - lastBeep >= intervalMs) {
-            const hasSolo = tracksState.some((t) => t.isSolo);
-            const clickTrack = tracksState.find((t) => t.trackId.includes('click'));
+            const hasSolo = tracksStateRef.current.some((t) => t.isSolo);
+            const clickTrack = tracksStateRef.current.find((t) => t.trackId.includes('click'));
             const isClickMuted = clickTrack ? (clickTrack.isMuted || (hasSolo && !clickTrack.isSolo)) : false;
 
             if (!isClickMuted) {
@@ -189,16 +234,18 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
         }
 
         // LÓGICA DE LOOP DE SEÇÃO AO VIVO
-        if (loopMode !== 'none' && currentSection) {
-          if (nextTime >= currentSection.endTime - 0.2) {
-            nextTime = currentSection.startTime;
-            handleSeek(currentSection.startTime);
+        const activeLoopMode = loopModeRef.current;
+        const activeSection = currentSectionRef.current;
+        if (activeLoopMode !== 'none' && activeSection) {
+          if (nextTime >= activeSection.endTime - 0.2) {
+            nextTime = activeSection.startTime;
+            handleSeek(activeSection.startTime);
 
-            if (loopMode === 'single') {
+            if (activeLoopMode === 'single') {
               setLoopMode('none');
               toast({
                 title: 'Loop 1x Concluído 🔁',
-                description: `A seção "${currentSection.label}" foi repetida. Seguindo o arranjo normalmente.`,
+                description: `A seção "${activeSection.label}" foi repetida. Seguindo o arranjo normalmente.`,
               });
             }
           }
@@ -215,11 +262,13 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isPlaying, duration, vs.tracks, vs.bpm, playClickBeep, loopMode, currentSection, currentTime]);
+  }, [isPlaying, duration, vs.tracks, vs.bpm, playClickBeep]);
 
   const handleAudioLoadedMetadata = (trackId: string, e: React.SyntheticEvent<HTMLAudioElement>) => {
     const audioEl = e.currentTarget;
     audioRefs.current[trackId] = audioEl;
+
+    setupAudioNode(trackId, audioEl);
 
     if (audioEl.duration && !isNaN(audioEl.duration) && audioEl.duration > 0) {
       setDuration((prev) => Math.max(prev, audioEl.duration));
@@ -304,7 +353,15 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
   };
 
   const handlePanChange = (idx: number, newPan: number) => {
-    setTracksState((prev) => prev.map((t, i) => (i === idx ? { ...t, pan: newPan } : t)));
+    setTracksState((prev) => {
+      const copy = prev.map((t, i) => (i === idx ? { ...t, pan: newPan } : t));
+      const track = copy[idx];
+      const panNode = panNodesRef.current[track.trackId];
+      if (panNode) {
+        panNode.pan.value = newPan;
+      }
+      return copy;
+    });
   };
 
   const handleToggleMute = (idx: number) => {
@@ -370,6 +427,7 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
             ref={(el) => { if (el) audioRefs.current[t.trackId] = el; }}
             src={t.url}
             preload="auto"
+            crossOrigin="anonymous"
             onLoadedMetadata={(e) => handleAudioLoadedMetadata(t.trackId, e)}
             onDurationChange={(e) => handleAudioLoadedMetadata(t.trackId, e)}
             onCanPlayThrough={(e) => handleAudioLoadedMetadata(t.trackId, e)}
