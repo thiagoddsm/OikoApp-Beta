@@ -231,6 +231,29 @@ export default function VsMainStagePage() {
     }
   };
 
+  // Excluir VS do Catálogo Geral (Firestore)
+  const handleDeleteVsFromCatalog = async (vsId: string, vsTitle: string) => {
+    if (!confirm(`Tem certeza que deseja excluir "${vsTitle}" do catálogo?`)) return;
+    try {
+      if (firestore) {
+        await deleteDoc(doc(firestore, 'vs_catalog', vsId));
+      }
+      setCatalog((prev) => prev.filter((item) => item.id !== vsId));
+      setSetlistSongs((prev) => prev.filter((item) => item.id !== vsId));
+      toast({
+        title: 'VS Excluída com Sucesso 🗑️',
+        description: `"${vsTitle}" foi removida do catálogo.`,
+      });
+    } catch (e) {
+      console.error('Erro ao excluir VS:', e);
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao excluir VS',
+        description: 'Não foi possível remover a música do banco de dados.',
+      });
+    }
+  };
+
   // GERAÇÃO AUTOMÁTICA DE ROTEIRO PDF DO CULTO
   const handleGeneratePdfReport = () => {
     try {
@@ -614,7 +637,7 @@ export default function VsMainStagePage() {
 
                     return (
                       <div
-                        key={song.id || idx}
+                        key={`${song.id}-${idx}`}
                         onClick={() => {
                           setCurrentSongIndex(idx);
                           setSongCurrentTime(0);
@@ -726,6 +749,20 @@ export default function VsMainStagePage() {
                               <Play size={12} className="fill-slate-950" /> Testar
                             </Button>
                           </Link>
+                          <Link href={`/dashboard/vs/upload?edit=${vs.id}`}>
+                            <Button size="sm" variant="outline" className="h-8 font-bold text-[11px] border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800 rounded-xl gap-1">
+                              Editar
+                            </Button>
+                          </Link>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDeleteVsFromCatalog(vs.id, vs.title)}
+                            className="h-8 w-8 p-0 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl"
+                            title="Excluir do catálogo"
+                          >
+                            <Trash2 size={14} />
+                          </Button>
                         </td>
                       </tr>
                     ))}
