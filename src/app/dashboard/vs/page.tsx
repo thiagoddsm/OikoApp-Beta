@@ -304,30 +304,53 @@ export default function VsMainStagePage() {
     }
   };
 
-  // Ir ao Vivo: transmite a playlist ativa para as telas de palco
+  // Ir ao Vivo: transmite a playlist ativa COMPLETA para as telas de palco
   const handleGoLive = useCallback(async () => {
     if (!firestore) return;
     const nextIsLive = !isLive;
     try {
       const syncRef = doc(firestore, 'vs_live_sync', 'current');
+
+      // Serializa o setlist completo (incluindo tracks/bpm/key/sections de cada música)
+      const setlistPayload = nextIsLive ? setlistSongs.map((s) => ({
+        id: s.id,
+        title: s.title,
+        artist: s.artist || '',
+        bpm: s.bpm || 120,
+        key: s.key || 'C',
+        timeSignature: s.timeSignature || '4/4',
+        duration: s.duration || 270,
+        tracks: (s.tracks || []).map((t) => ({
+          trackId: t.trackId,
+          label: t.label,
+          url: t.url || '',
+          defaultPan: t.defaultPan ?? 0,
+          defaultVolume: t.defaultVolume ?? 1,
+        })),
+        sections: s.sections || [],
+      })) : [];
+
       await setDoc(syncRef, {
         isLive: nextIsLive,
-        currentSongIndex,
+        currentSongIndex: nextIsLive ? currentSongIndex : 0,
         setlistTitle,
         setlistSongCount: setlistSongs.length,
+        // Transmite o setlist completo — as telas públicas usam este dado
+        setlist: setlistPayload,
         updatedAt: serverTimestamp(),
       }, { merge: true });
+
       setIsLive(nextIsLive);
       toast({
         title: nextIsLive ? '🔴 Transmissão Iniciada!' : '⬛ Transmissão Encerrada',
         description: nextIsLive
-          ? `As telas Mesa PA e Retorno da Banda receberam a playlist "${setlistTitle}".`
+          ? `${setlistSongs.length} músicas de "${setlistTitle}" enviadas para Mesa PA e Banda.`
           : 'As telas de palco foram desconectadas da transmissão.',
       });
     } catch (e: any) {
       toast({ variant: 'destructive', title: 'Erro ao ir ao vivo', description: e.message });
     }
-  }, [isLive, currentSongIndex, setlistTitle, setlistSongs.length]);
+  }, [isLive, currentSongIndex, setlistTitle, setlistSongs]);
 
   // Excluir VS do Catálogo Geral (Firestore)
   const handleDeleteVsFromCatalog = async (vsId: string, vsTitle: string) => {

@@ -89,6 +89,7 @@ export default function VSBandaPublicPage() {
       const unsub = onSnapshot(syncRef, (snap) => {
         if (snap.exists()) {
           const data = snap.data();
+
           if (data.currentSongIndex !== undefined) {
             setCurrentSongIndex(data.currentSongIndex);
           }
@@ -97,6 +98,14 @@ export default function VSBandaPublicPage() {
           }
           if (data.isLive !== undefined) {
             setIsLive(data.isLive);
+          }
+
+          // Quando ao vivo, usa o setlist COMPLETO do console principal
+          if (data.isLive && Array.isArray(data.setlist) && data.setlist.length > 0) {
+            const liveSetlist = data.setlist as VsData[];
+            setSetlistSongs(liveSetlist);
+            const idx = data.currentSongIndex ?? 0;
+            setCurrentSong(liveSetlist[idx] || liveSetlist[0]);
           }
         }
       });
