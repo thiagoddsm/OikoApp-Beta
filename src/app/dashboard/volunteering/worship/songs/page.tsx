@@ -48,6 +48,7 @@ import {
   Radio,
   Sliders,
   Sparkles,
+  Upload,
 } from 'lucide-react';
 
 const { firestore } = initializeFirebase();
@@ -271,46 +272,54 @@ export default function SongsLibraryPage() {
                       )}
                     </div>
 
-                    {/* Attachments quick view */}
-                    {((song.attachments && song.attachments.length > 0) || song.youtubeUrl || song.vsId) && (
-                      <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                        {song.vsId && (
-                          <Link
-                            href={`/dashboard/vs/${song.vsId}`}
-                            target="_blank"
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-50 border border-emerald-300 text-[10px] font-bold text-emerald-800 hover:bg-emerald-100 transition-colors"
-                          >
-                            <Sliders className="h-3 w-3 text-emerald-600" />
-                            <span>Abrir VS Player</span>
-                          </Link>
-                        )}
-                        {song.youtubeUrl && (
-                          <a
-                            href={song.youtubeUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded bg-red-50 border border-red-200 text-[10px] font-medium text-red-650 hover:bg-red-100 transition-colors"
-                          >
-                            <Youtube className="h-3 w-3 text-red-600" />
-                            <span>YouTube</span>
-                          </a>
-                        )}
-                        {song.attachments && song.attachments.map((att, idx) => (
-                          <a
-                            key={idx}
-                            href={att.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded bg-white border border-slate-200 text-[10px] text-slate-600 hover:text-violet-600 hover:border-violet-200 transition-colors"
-                          >
-                            {att.type === 'pdf' && <FileText className="h-3 w-3 text-red-500" />}
-                            {att.type === 'mp3' && <Volume2 className="h-3 w-3 text-blue-500" />}
-                            {att.type === 'link' && <ExternalLink className="h-3 w-3 text-emerald-500" />}
-                            <span className="truncate max-w-[80px]">{att.name}</span>
-                          </a>
-                        ))}
-                      </div>
-                    )}
+                    {/* Attachments & VS action buttons */}
+                    <div className="flex items-center gap-1.5 mt-2 flex-wrap pt-1 border-t border-slate-200">
+                      {song.vsId ? (
+                        <Link
+                          href={`/dashboard/vs/${song.vsId}`}
+                          target="_blank"
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-50 border border-emerald-300 text-[10px] font-bold text-emerald-800 hover:bg-emerald-100 transition-colors"
+                        >
+                          <Sliders className="h-3 w-3 text-emerald-600 animate-pulse" />
+                          <span>Abrir VS Player</span>
+                        </Link>
+                      ) : (
+                        <Link
+                          href={`/dashboard/vs/upload?songId=${song.id}&title=${encodeURIComponent(song.title)}&artist=${encodeURIComponent(song.artist || '')}&key=${encodeURIComponent(song.key || '')}&bpm=${song.bpm || ''}`}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded bg-violet-50 border border-violet-200 text-[10px] font-bold text-violet-700 hover:bg-violet-100 hover:border-violet-300 transition-colors"
+                        >
+                          <Upload className="h-3 w-3 text-violet-600" />
+                          <span>Inserir VS na Música</span>
+                        </Link>
+                      )}
+
+                      {song.youtubeUrl && (
+                        <a
+                          href={song.youtubeUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded bg-red-50 border border-red-200 text-[10px] font-medium text-red-650 hover:bg-red-100 transition-colors"
+                        >
+                          <Youtube className="h-3 w-3 text-red-600" />
+                          <span>YouTube</span>
+                        </a>
+                      )}
+
+                      {song.attachments && song.attachments.map((att, idx) => (
+                        <a
+                          key={idx}
+                          href={att.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded bg-white border border-slate-200 text-[10px] text-slate-600 hover:text-violet-600 hover:border-violet-200 transition-colors"
+                        >
+                          {att.type === 'pdf' && <FileText className="h-3 w-3 text-red-500" />}
+                          {att.type === 'mp3' && <Volume2 className="h-3 w-3 text-blue-500" />}
+                          {att.type === 'link' && <ExternalLink className="h-3 w-3 text-emerald-500" />}
+                          <span className="truncate max-w-[80px]">{att.name}</span>
+                        </a>
+                      ))}
+                    </div>
 
                     {song.notes && (
                       <blockquote className="border-l-2 border-slate-300 pl-2.5 py-0.5 text-xs text-slate-500 italic mt-2.5">

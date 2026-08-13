@@ -56,7 +56,11 @@ import {
   Plus,
   Grid3X3,
   Volume2,
+  Radio,
+  Sliders,
+  Upload,
 } from 'lucide-react';
+import Link from 'next/link';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useEventsData, useMembersData, useVolunteeringServiceData } from '@/hooks/useDomainData';
@@ -704,19 +708,27 @@ function SongsLibrary() {
                   )}
                 </div>
 
-                {/* Youtube and VS links */}
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  {song.vsId && (
-                    <a
+                {/* Actions: Inserir VS, Oiko Live VS, Youtube */}
+                <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-slate-100">
+                  {song.vsId ? (
+                    <Link
                       href={`/dashboard/vs/${song.vsId}`}
                       target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-50 border border-emerald-300 text-[10px] font-bold text-emerald-800 hover:bg-emerald-100 transition-colors"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-300 text-[10px] font-black text-emerald-800 hover:bg-emerald-100 transition-all shadow-xs"
                     >
-                      <Volume2 className="h-3 w-3 text-emerald-600" />
-                      <span>Oiko Live VS</span>
-                    </a>
+                      <Sliders className="h-3 w-3 text-emerald-600 animate-pulse" />
+                      <span>Abrir VS Player</span>
+                    </Link>
+                  ) : (
+                    <Link
+                      href={`/dashboard/vs/upload?songId=${song.id}&title=${encodeURIComponent(song.title)}&artist=${encodeURIComponent(song.artist || '')}&key=${encodeURIComponent(song.key || '')}&bpm=${song.bpm || ''}`}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-violet-50 border border-violet-200 text-[10px] font-bold text-violet-700 hover:bg-violet-100 hover:border-violet-300 transition-all"
+                    >
+                      <Upload className="h-3 w-3 text-violet-600" />
+                      <span>Inserir VS na Música</span>
+                    </Link>
                   )}
+
                   {song.youtubeUrl && (
                     <a
                       href={song.youtubeUrl}

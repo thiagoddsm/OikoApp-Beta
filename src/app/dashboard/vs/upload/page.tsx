@@ -1,8 +1,6 @@
-'use client';
-
-import React, { useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { collection, addDoc, setDoc, doc, serverTimestamp } from 'firebase/firestore';
+import React, { useState, useRef, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { collection, addDoc, setDoc, doc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { initializeFirebase } from '@/firebase';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -13,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Upload, Play, ArrowLeft, CheckCircle2, Music2, Sliders, 
-  Loader2, Disc, Headphones, Sparkles, AlertTriangle, FileAudio
+  Loader2, Disc, Headphones, Sparkles, AlertTriangle, FileAudio, Radio
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
@@ -39,16 +37,31 @@ type TrackUpload = {
   status: 'idle' | 'uploading' | 'done' | 'error';
 };
 
-export default function VsUploadPage() {
+function VsUploadContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
 
-  const [title, setTitle] = useState('');
-  const [artist, setArtist] = useState('');
-  const [bpm, setBpm] = useState('');
-  const [key, setKey] = useState('');
+  const linkedSongId = searchParams.get('songId') || '';
+  const paramTitle = searchParams.get('title') || '';
+  const paramArtist = searchParams.get('artist') || '';
+  const paramKey = searchParams.get('key') || '';
+  const paramBpm = searchParams.get('bpm') || '';
+
+  const [title, setTitle] = useState(paramTitle);
+  const [artist, setArtist] = useState(paramArtist);
+  const [bpm, setBpm] = useState(paramBpm);
+  const [key, setKey] = useState(paramKey);
   const [timeSignature, setTimeSignature] = useState('4/4');
   const [notes, setNotes] = useState('');
+
+  // Se veio com songId, preenche com os dados da música se os params não vieram completos
+  useEffect(() => {
+    if (paramTitle) setTitle(paramTitle);
+    if (paramArtist) setArtist(paramArtist);
+    if (paramKey) setKey(paramKey);
+    if (paramBpm) setBpm(paramBpm);
+  }, [paramTitle, paramArtist, paramKey, paramBpm]);
 
   const [tracks, setTracks] = useState<TrackUpload[]>(
     TRACK_SLOTS.map((slot) => ({
@@ -151,12 +164,15 @@ export default function VsUploadPage() {
           notes: notes.trim() || '',
           tracks: uploadedTrackMeta,
           status: 'active',
+          linkedSongId: linkedSongId || undefined,
           createdAt: serverTimestamp(),
         });
 
         // 🔗 Sincroniza e vincula automaticamente na Biblioteca de Músicas (worship_songs)
         try {
-          const librarySongDoc = doc(firestore, 'worship_songs', vsId);
+          // Se foi iniciado a partir de uma música existente da biblioteca, atualiza ela com o vsId
+          const targetSongId = linkedSongId || vsId;
+          const librarySongDoc = doc(firestore, 'worship_songs', targetSongId);
           await setDoc(librarySongDoc, {
             title: title.trim(),
             artist: artist.trim() || '',
@@ -178,7 +194,7 @@ export default function VsUploadPage() {
       }
 
       setSuccessId(vsId);
-      toast({ title: 'VS Cadastrada com Sucesso! 🚀', description: 'Você já pode testá-la no navegador.' });
+      toast({ title: 'VS Cadastrada com Sucesso! 🚀', description: linkedSongId ? 'A música da Biblioteca foi vinculada a esta VS!' : 'Você já pode testá-la no navegador.' });
     } catch (err: any) {
       console.error('Erro ao criar VS:', err);
       toast({ variant: 'destructive', title: 'Erro ao cadastrar VS', description: err.message });
@@ -249,19 +265,39 @@ export default function VsUploadPage() {
 
   return (
     <div className="p-4 sm:p-8 max-w-5xl mx-auto space-y-8">
+      {/* Botão Voltar */}
+      <div className="flex items-center justify-between">
+        <Link href={linkedSongId ? "/dashboard/volunteering/worship" : "/dashboard/vs"}>
+          <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white gap-2 font-bold text-xs rounded-xl">
+            <ArrowLeft size={16} /> {linkedSongId ? "Voltar à Biblioteca de Músicas" : "Voltar ao Oiko Live"}
+          </Button>
+        </Link>
+        <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 font-bold uppercase tracking-wider text-[10px]">
+          Multitrack DAW Stems
+        </Badge>
+      </div>
+
+      {/* Banner de Vinculação com Música da Biblioteca */}
+      {linkedSongId && (
+        <div className="flex items-center gap-3 p-4 bg-emerald-950/40 border border-emerald-500/30 rounded-2xl">
+          <div className="size-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+            <Radio size={20} className="animate-pulse" />
+          </div>
+          <div>
+            <h3 className="text-sm font-black text-emerald-400">Inserindo VS para música da Biblioteca</h3>
+            <p className="text-xs text-slate-300">
+              Ao concluir o upload das faixas, a música <strong>"{title || 'Selecionada'}"</strong> ficará automaticamente vinculada ao Oiko Live e disponível com multitrack nos cultos.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Cabeçalho da Página */}
       <div className="flex items-center justify-between gap-4 bg-slate-900 text-white p-6 sm:p-8 rounded-3xl shadow-2xl border border-slate-800">
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <Button size="icon" variant="ghost" onClick={() => router.back()} className="size-8 text-slate-400 hover:text-white rounded-full">
-              <ArrowLeft size={18} />
-            </Button>
-            <Badge className="bg-indigo-500/20 text-indigo-400 border-indigo-500/30 font-bold uppercase tracking-wider text-[10px]">
-              Estúdio de Upload
-            </Badge>
-          </div>
           <h1 className="text-2xl sm:text-3xl font-black italic tracking-tight flex items-center gap-2">
-            <Upload size={28} className="text-indigo-400" /> Upload de Virtual Sound (VS)
+            <Upload size={28} className="text-emerald-400" /> 
+            {linkedSongId ? `Inserir VS: ${title || 'Música'}` : 'Upload de Virtual Sound (VS)'}
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 font-medium">
             Envie os arquivos multitrack (Clique, Guia, Base) para cadastrar no catálogo do Oiko Live.
@@ -434,5 +470,17 @@ export default function VsUploadPage() {
         </div>
       </form>
     </div>
+  );
+}
+
+export default function VsUploadPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="size-8 animate-spin text-emerald-400" />
+      </div>
+    }>
+      <VsUploadContent />
+    </Suspense>
   );
 }
