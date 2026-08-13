@@ -118,18 +118,26 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
     }
   }, [getAudioContext]);
 
-  // Atualiza o ganho efetivo de cada faixa levando em conta Mute e Solo
+  // Atualiza o ganho efetivo de cada faixa levando em conta Mute e Solo (Web Audio API + HTML5 Fallback)
   const updateAudioGains = useCallback((tracks: TrackAudioControl[]) => {
     const hasSolo = tracks.some((t) => t.isSolo);
 
     tracks.forEach((t) => {
+      let effectiveVol = t.volume;
+      const shouldMute = t.isMuted || (hasSolo && !t.isSolo);
+      if (shouldMute) effectiveVol = 0;
+
+      // 1. Atualiza o nó da Web Audio API se disponível
       const gainNode = gainNodesRef.current[t.trackId];
       if (gainNode && audioCtxRef.current) {
-        let effectiveVol = t.volume;
-        if (t.isMuted) effectiveVol = 0;
-        if (hasSolo && !t.isSolo) effectiveVol = 0;
-
         gainNode.gain.setValueAtTime(effectiveVol, audioCtxRef.current.currentTime);
+      }
+
+      // 2. Fallback direto no elemento de áudio nativo
+      const audioEl = audioRefs.current[t.trackId];
+      if (audioEl) {
+        audioEl.volume = effectiveVol;
+        audioEl.muted = shouldMute;
       }
     });
   }, []);
@@ -340,16 +348,27 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
 
   return (
     <div className="w-full max-w-5xl mx-auto space-y-6">
-      {/* ELEMENTOS DE ÁUDIO OCULTOS EM SEGUNDO PLANO */}
+      {/* ELEMENTOS DE ÁUDIO EM SEGUNDO PLANO */}
       <div className="hidden">
         {vs.tracks.map((t) => (
           <audio
             key={t.trackId}
-            ref={(el) => { audioRefs.current[t.trackId] = el; }}
+            ref={(el) => { 
+              if (el) audioRefs.current[t.trackId] = el; 
+            }}
             src={t.url}
             preload="auto"
-            crossOrigin="anonymous"
             onLoadedMetadata={(e) => handleAudioLoadedMetadata(t.trackId, e)}
+            onDurationChange={(e) => handleAudioLoadedMetadata(t.trackId, e)}
+            onCanPlayThrough={(e) => handleAudioLoadedMetadata(t.trackId, e)}
+            onError={(e) => {
+              console.error(`Erro ao carregar áudio da faixa ${t.label}:`, t.url, e);
+              toast({
+                variant: 'destructive',
+                title: `Erro na faixa "${t.label}"`,
+                description: 'Verifique se o arquivo foi enviado corretamente para o Firebase Storage.',
+              });
+            }}
           />
         ))}
       </div>
