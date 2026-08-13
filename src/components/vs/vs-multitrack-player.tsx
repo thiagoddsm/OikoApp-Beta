@@ -42,6 +42,7 @@ export interface VsData {
 
 interface VSMultitrackPlayerProps {
   vs: VsData;
+  outputMode?: 'all' | 'house_pa' | 'band_monitors';
 }
 
 interface TrackAudioControl {
@@ -58,7 +59,7 @@ interface TrackAudioControl {
 // Lista de notas musicais em semitons para transposição dinâmica (Pitch Shift)
 const MUSIC_KEYS = ['C', 'C# / Db', 'D', 'D# / Eb', 'E', 'F', 'F# / Gb', 'G', 'G# / Ab', 'A', 'A# / Bb', 'B'];
 
-export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
+export function VSMultitrackPlayer({ vs, outputMode = 'all' }: VSMultitrackPlayerProps) {
   const router = useRouter();
   const { toast } = useToast();
 
@@ -301,7 +302,14 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
 
     tracks.forEach((t) => {
       let effectiveVol = t.volume;
-      const shouldMute = t.isMuted || (hasSolo && !t.isSolo);
+      const isClickOrGuide = t.trackId.includes('click') || t.trackId.includes('guide');
+
+      // Se for saída de som da Igreja (House PA), Muta automaticamente o clique e a voz guia
+      let shouldMute = t.isMuted || (hasSolo && !t.isSolo);
+      if (outputMode === 'house_pa' && isClickOrGuide) {
+        shouldMute = true;
+      }
+
       if (shouldMute) effectiveVol = 0;
 
       const gainNode = gainNodesRef.current[t.trackId];
@@ -321,7 +329,7 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
         panNode.pan.value = t.pan;
       }
     });
-  }, []);
+  }, [outputMode]);
 
   const currentTimeRef = useRef(currentTime);
   const loopModeRef = useRef(loopMode);

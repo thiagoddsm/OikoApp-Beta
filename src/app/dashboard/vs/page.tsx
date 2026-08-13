@@ -621,6 +621,26 @@ export default function VsMainStagePage() {
               >
                 <Radio size={16} /> Routing (Saídas USB L/R)
               </button>
+
+              <div className="pt-2 border-t border-slate-800/60 space-y-1">
+                <span className="text-[9px] font-black uppercase text-slate-500 tracking-wider px-1">Links de Palco</span>
+                <a
+                  href="/public/vs-igreja"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl font-bold text-xs text-rose-400 hover:bg-rose-500/10 border border-rose-500/20 transition-all"
+                >
+                  <Radio size={14} /> 🔊 Mesa PA (Igreja)
+                </a>
+                <a
+                  href="/public/vs-banda"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl font-bold text-xs text-amber-400 hover:bg-amber-500/10 border border-amber-500/20 transition-all"
+                >
+                  <Headphones size={14} /> 🎧 Retorno (Banda)
+                </a>
+              </div>
             </nav>
 
             {/* STATUS DO SISTEMA NA SIDEBAR */}
