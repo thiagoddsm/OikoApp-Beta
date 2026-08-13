@@ -54,7 +54,8 @@ import {
   Youtube,
   ExternalLink,
   Plus,
-  Grid3X3
+  Grid3X3,
+  Volume2,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -703,9 +704,20 @@ function SongsLibrary() {
                   )}
                 </div>
 
-                {/* Youtube link */}
-                {song.youtubeUrl && (
-                  <div>
+                {/* Youtube and VS links */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {song.vsId && (
+                    <a
+                      href={`/dashboard/vs/${song.vsId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-50 border border-emerald-300 text-[10px] font-bold text-emerald-800 hover:bg-emerald-100 transition-colors"
+                    >
+                      <Volume2 className="h-3 w-3 text-emerald-600" />
+                      <span>Oiko Live VS</span>
+                    </a>
+                  )}
+                  {song.youtubeUrl && (
                     <a
                       href={song.youtubeUrl}
                       target="_blank"
@@ -715,8 +727,8 @@ function SongsLibrary() {
                       <Youtube className="h-3.5 w-3.5 text-red-600" />
                       <span>YouTube</span>
                     </a>
-                  </div>
-                )}
+                  )}
+                </div>
 
                 {/* Attachments */}
                 {song.attachments && song.attachments.length > 0 && (

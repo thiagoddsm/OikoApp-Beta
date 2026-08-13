@@ -28,6 +28,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import Link from 'next/link';
+import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { initializeFirebase } from '@/firebase';
+import { Badge } from '@/components/ui/badge';
 import {
   Music,
   PlusCircle,
@@ -41,7 +45,12 @@ import {
   ExternalLink,
   Search,
   Youtube,
+  Radio,
+  Sliders,
+  Sparkles,
 } from 'lucide-react';
+
+const { firestore } = initializeFirebase();
 
 export default function SongsLibraryPage() {
   const { librarySongs, isLoading, createLibrarySong, updateLibrarySong, deleteLibrarySong } = useWorship();
@@ -51,14 +60,33 @@ export default function SongsLibraryPage() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingSong, setEditingSong] = useState<LibrarySong | null>(null);
 
+  // VS Catalog list for selection dropdown
+  const [vsCatalogList, setVsCatalogList] = useState<{ id: string; title: string; artist?: string; key?: string; bpm?: number }[]>([]);
+
   // Form states
   const [title, setTitle] = useState('');
   const [artist, setArtist] = useState('');
   const [key, setKey] = useState('');
   const [bpm, setBpm] = useState<number | ''>('');
   const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [vsId, setVsId] = useState('');
   const [notes, setNotes] = useState('');
   const [attachments, setAttachments] = useState<SongAttachment[]>([]);
+
+  // Carrega catálogo de VSs ao abrir a página
+  React.useEffect(() => {
+    async function loadVsCatalog() {
+      if (!firestore) return;
+      try {
+        const q = query(collection(firestore, 'vs_catalog'), orderBy('createdAt', 'desc'));
+        const snap = await getDocs(q);
+        setVsCatalogList(snap.docs.map(d => ({ id: d.id, ...d.data() } as any)));
+      } catch (e) {
+        console.warn('Erro ao carregar catálogo de VS:', e);
+      }
+    }
+    loadVsCatalog();
+  }, []);
 
   // Add Attachment form states
   const [newAttName, setNewAttName] = useState('');
@@ -72,6 +100,7 @@ export default function SongsLibraryPage() {
     setKey('');
     setBpm('');
     setYoutubeUrl('');
+    setVsId('');
     setNotes('');
     setAttachments([]);
     setNewAttName('');
@@ -87,6 +116,7 @@ export default function SongsLibraryPage() {
     setKey(song.key || '');
     setBpm(song.bpm || '');
     setYoutubeUrl(song.youtubeUrl || '');
+    setVsId(song.vsId || '');
     setNotes(song.notes || '');
     setAttachments(song.attachments || []);
     setNewAttName('');
@@ -107,6 +137,7 @@ export default function SongsLibraryPage() {
       key: key.trim() || undefined,
       bpm: bpm ? Number(bpm) : undefined,
       youtubeUrl: youtubeUrl.trim() || undefined,
+      vsId: vsId.trim() || undefined,
       notes: notes.trim() || undefined,
       attachments: attachments.length > 0 ? attachments : undefined,
     };
@@ -114,10 +145,10 @@ export default function SongsLibraryPage() {
     try {
       if (editingSong) {
         await updateLibrarySong(editingSong.id, payload);
-        toast({ title: 'Música atualizada com sucesso!' });
+        toast({ title: 'Música atualizada com sucesso! 🎶' });
       } else {
         await createLibrarySong(payload);
-        toast({ title: 'Música adicionada à biblioteca!' });
+        toast({ title: 'Música adicionada à biblioteca! 🎶' });
       }
       setEditorOpen(false);
     } catch (error) {
@@ -212,12 +243,19 @@ export default function SongsLibraryPage() {
                   className="flex items-start justify-between p-4 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white hover:border-violet-200 transition-all group"
                 >
                   <div className="space-y-1.5 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-semibold text-sm text-slate-800 truncate">{song.title}</span>
                       {song.key && (
                         <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200">
                           {song.key}
                         </span>
+                      )}
+                      {song.vsId && (
+                        <Link href={`/dashboard/vs/${song.vsId}`} target="_blank">
+                          <Badge className="bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 border-emerald-300 text-[10px] font-bold gap-1 cursor-pointer">
+                            <Radio size={10} className="animate-pulse text-emerald-600" /> Oiko Live VS
+                          </Badge>
+                        </Link>
                       )}
                     </div>
                     {song.artist && (
@@ -228,11 +266,24 @@ export default function SongsLibraryPage() {
                       {song.attachments && song.attachments.length > 0 && (
                         <span>Anexos: {song.attachments.length}</span>
                       )}
+                      {song.vsId && (
+                        <span className="text-emerald-600 font-black">Multitrack Vinculada ✓</span>
+                      )}
                     </div>
 
                     {/* Attachments quick view */}
-                    {((song.attachments && song.attachments.length > 0) || song.youtubeUrl) && (
+                    {((song.attachments && song.attachments.length > 0) || song.youtubeUrl || song.vsId) && (
                       <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                        {song.vsId && (
+                          <Link
+                            href={`/dashboard/vs/${song.vsId}`}
+                            target="_blank"
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-50 border border-emerald-300 text-[10px] font-bold text-emerald-800 hover:bg-emerald-100 transition-colors"
+                          >
+                            <Sliders className="h-3 w-3 text-emerald-600" />
+                            <span>Abrir VS Player</span>
+                          </Link>
+                        )}
                         {song.youtubeUrl && (
                           <a
                             href={song.youtubeUrl}
@@ -351,6 +402,43 @@ export default function SongsLibraryPage() {
                 value={youtubeUrl}
                 onChange={e => setYoutubeUrl(e.target.value)}
               />
+            </div>
+
+            {/* Vínculo com Oiko Live VS */}
+            <div className="space-y-2 p-3 bg-emerald-50/60 rounded-xl border border-emerald-200">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="song-vs-id" className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+                  <Radio size={14} className="text-emerald-600" /> Vincular a Multitrack (Oiko Live VS)
+                </Label>
+                {vsId && (
+                  <Badge className="bg-emerald-600 text-white text-[9px] font-bold">Vinculado</Badge>
+                )}
+              </div>
+              <select
+                id="song-vs-id"
+                value={vsId}
+                onChange={e => {
+                  const selectedId = e.target.value;
+                  setVsId(selectedId);
+                  const foundVs = vsCatalogList.find(v => v.id === selectedId);
+                  if (foundVs) {
+                    if (!key && foundVs.key) setKey(foundVs.key);
+                    if (!bpm && foundVs.bpm) setBpm(foundVs.bpm);
+                    if (!artist && foundVs.artist) setArtist(foundVs.artist);
+                  }
+                }}
+                className="w-full h-9 px-3 rounded-md border border-emerald-300 bg-white text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                <option value="">Nenhuma VS vinculada</option>
+                {vsCatalogList.map(vs => (
+                  <option key={vs.id} value={vs.id}>
+                    {vs.title} {vs.artist ? `(${vs.artist})` : ''} — {vs.bpm ? `${vs.bpm} BPM` : ''} {vs.key ? `[Tom ${vs.key}]` : ''}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[10px] text-emerald-700">
+                Ao vincular uma VS, os instrumentistas e a mesa de som terão acesso direto aos faders de Clique, Guia e Stems.
+              </p>
             </div>
 
             <div className="space-y-2">

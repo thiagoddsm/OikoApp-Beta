@@ -153,6 +153,28 @@ export default function VsUploadPage() {
           status: 'active',
           createdAt: serverTimestamp(),
         });
+
+        // 🔗 Sincroniza e vincula automaticamente na Biblioteca de Músicas (worship_songs)
+        try {
+          const librarySongDoc = doc(firestore, 'worship_songs', vsId);
+          await setDoc(librarySongDoc, {
+            title: title.trim(),
+            artist: artist.trim() || '',
+            bpm: bpm ? Number(bpm) : undefined,
+            key: key || '',
+            vsId: vsId,
+            notes: notes.trim() || '',
+            attachments: uploadedTrackMeta.map(t => ({
+              name: `Stem: ${t.label}`,
+              url: t.url,
+              type: 'mp3' as const
+            })),
+            updatedAt: serverTimestamp(),
+            createdAt: serverTimestamp(),
+          }, { merge: true });
+        } catch (libErr) {
+          console.warn('Aviso: erro ao sincronizar com Biblioteca de Músicas:', libErr);
+        }
       }
 
       setSuccessId(vsId);

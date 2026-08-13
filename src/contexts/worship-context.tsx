@@ -90,6 +90,7 @@ export type LibrarySong = {
   bpm?: number;     // BPM padrão
   attachments?: SongAttachment[];
   youtubeUrl?: string;
+  vsId?: string;     // ID do Multitrack/VS vinculado no Oiko Live
   notes?: string;
   tenantId: string;
   createdAt?: Timestamp;

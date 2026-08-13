@@ -71,7 +71,43 @@ export default function VsMainStagePage() {
         const qCatalog = query(collection(firestore, 'vs_catalog'), orderBy('createdAt', 'desc'));
         const snapCatalog = await getDocs(qCatalog);
         const catalogData = snapCatalog.docs.map((d) => ({ id: d.id, ...d.data() } as VsEntry));
-        setCatalog(catalogData);
+
+        // 1.1 Carrega também a Biblioteca Geral de Músicas (worship_songs) para permitir incluir qualquer música
+        try {
+          const qLib = query(collection(firestore, 'worship_songs'), orderBy('createdAt', 'desc'));
+          const snapLib = await getDocs(qLib);
+          const libSongs = snapLib.docs.map((d) => {
+            const data = d.data();
+            // Se a música já existir no catalogData pelo vsId ou pelo título, não duplica
+            const existing = catalogData.find(c => c.id === d.id || (data.vsId && c.id === data.vsId) || c.title.toLowerCase().trim() === data.title?.toLowerCase()?.trim());
+            if (existing) return null;
+
+            return {
+              id: data.vsId || d.id,
+              title: data.title || 'Sem título',
+              artist: data.artist || '',
+              bpm: data.bpm || 120,
+              key: data.key || 'C',
+              timeSignature: '4/4',
+              duration: 270,
+              tracks: [
+                { trackId: 'click', label: 'Clique (Metrônomo)', defaultPan: -1.0, defaultVolume: 1.0 },
+                { trackId: 'guide', label: 'Guia (Voz Regência)', defaultPan: 1.0, defaultVolume: 1.0 },
+                { trackId: 'backing', label: 'Playback / Instrumental', defaultPan: 0.0, defaultVolume: 1.0 },
+                { trackId: 'extra1', label: 'Teclados / Pads', defaultPan: 0.0, defaultVolume: 0.8 },
+              ],
+              sections: [],
+              status: 'active',
+            } as VsEntry;
+          }).filter(Boolean) as VsEntry[];
+
+          // Unifica catálogo com as músicas da biblioteca
+          const mergedCatalog = [...catalogData, ...libSongs];
+          setCatalog(mergedCatalog);
+        } catch (libErr) {
+          console.warn('Aviso ao carregar worship_songs:', libErr);
+          setCatalog(catalogData);
+        }
 
         // 2. Busca o Plano de Culto (Worship Plan) mais recente ou do dia
         const qPlans = query(collection(firestore, 'worship_plans'), orderBy('createdAt', 'desc'));
