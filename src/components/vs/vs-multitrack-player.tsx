@@ -16,7 +16,7 @@ import { useRouter } from 'next/navigation';
 export interface VsTrack {
   trackId: string;
   label: string;
-  url: string;
+  url?: string;
   defaultPan?: number;
   defaultVolume?: number;
 }
@@ -48,7 +48,7 @@ interface VSMultitrackPlayerProps {
 interface TrackAudioControl {
   trackId: string;
   label: string;
-  url: string;
+  url?: string;
   volume: number; // 0..1
   pan: number;    // -1..1
   isMuted: boolean;
