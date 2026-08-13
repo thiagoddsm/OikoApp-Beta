@@ -223,6 +223,8 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
     });
   };
 
+  const analyserNodesRef = useRef<{ [trackId: string]: AnalyserNode | null }>({});
+
   const setupAudioNode = (trackId: string, audioEl: HTMLAudioElement) => {
     try {
       const ctx = getAudioContext();
@@ -230,20 +232,24 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
         const source = ctx.createMediaElementSource(audioEl);
         const gainNode = ctx.createGain();
         const panNode = ctx.createStereoPanner();
+        const analyserNode = ctx.createAnalyser();
+        analyserNode.fftSize = 64;
         
         source.connect(gainNode);
         gainNode.connect(panNode);
+        panNode.connect(analyserNode);
         
         // Conecta ao Master Equalizer (se disponível) ou à saída final
         if (masterLowEqRef.current) {
-          panNode.connect(masterLowEqRef.current);
+          analyserNode.connect(masterLowEqRef.current);
         } else {
-          panNode.connect(ctx.destination);
+          analyserNode.connect(ctx.destination);
         }
         
         mediaSourcesRef.current[trackId] = source;
         gainNodesRef.current[trackId] = gainNode;
         panNodesRef.current[trackId] = panNode;
+        analyserNodesRef.current[trackId] = analyserNode;
       }
     } catch (e) {
       console.warn('Erro ao criar MediaElementSource, fallback nativo será usado:', e);
