@@ -309,6 +309,29 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
   useEffect(() => { currentSectionRef.current = currentSection; }, [currentSection]);
   useEffect(() => { tracksStateRef.current = tracksState; }, [tracksState]);
 
+  // ATALHOS DE TECLADO DE PALCO (HOTKEYS: Espaço=Play/Pause, S=Stop, L=Loop, M=Mute)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignora se o usuário estiver digitando em um input
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) return;
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        handlePlayPause();
+      } else if (e.code === 'KeyS') {
+        e.preventDefault();
+        handleStop();
+      } else if (e.code === 'KeyL') {
+        e.preventDefault();
+        setLoopMode((prev) => (prev === 'none' ? 'single' : prev === 'single' ? 'infinite' : 'none'));
+        toast({ title: 'Atalho de Palco: Loop Alternado 🔁' });
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // Monitora e atualiza o progresso do tempo + Lógica de Loop de Seção
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
