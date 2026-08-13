@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { 
   Play, Pause, Square, RotateCcw, Volume2, VolumeX, Sliders, Headphones, 
-  Music, Radio, Loader2, ArrowLeft, Disc, Sparkles, Volume1
+  Radio, Loader2, ArrowLeft, Disc, Sparkles
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -34,7 +34,7 @@ interface VSMultitrackPlayerProps {
   vs: VsData;
 }
 
-interface InternalTrack {
+interface TrackAudioControl {
   trackId: string;
   label: string;
   url: string;
@@ -42,12 +42,10 @@ interface InternalTrack {
   pan: number;    // -1..1
   isMuted: boolean;
   isSolo: boolean;
-  buffer: AudioBuffer | null;
+  audioEl?: HTMLAudioElement;
   gainNode?: GainNode;
   panNode?: StereoPannerNode;
-  sourceNode?: AudioBufferSourceNode;
-  isLoading: boolean;
-  hasError: boolean;
+  isReady: boolean;
 }
 
 export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
@@ -55,17 +53,17 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
   const { toast } = useToast();
 
   const audioCtxRef = useRef<AudioContext | null>(null);
-  const startTimeRef = useRef<number>(0);
-  const pauseOffsetRef = useRef<number>(0);
-  const animFrameRef = useRef<number | null>(null);
+  const audioRefs = useRef<{ [trackId: string]: HTMLAudioElement | null }>({});
+  const mediaSourcesRef = useRef<{ [trackId: string]: boolean }>({});
+  const gainNodesRef = useRef<{ [trackId: string]: GainNode }>({});
+  const panNodesRef = useRef<{ [trackId: string]: StereoPannerNode }>({});
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [isBuffersLoading, setIsBuffersLoading] = useState(true);
-  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [isReadyToPlay, setIsReadyToPlay] = useState(false);
 
-  const [tracksState, setTracksState] = useState<InternalTrack[]>(() =>
+  const [tracksState, setTracksState] = useState<TrackAudioControl[]>(() =>
     vs.tracks.map((t) => ({
       trackId: t.trackId,
       label: t.label,
@@ -74,14 +72,12 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
       pan: t.defaultPan !== undefined ? t.defaultPan : 0,
       isMuted: false,
       isSolo: false,
-      buffer: null,
-      isLoading: true,
-      hasError: false,
+      isReady: false,
     }))
   );
 
-  // Inicializa o AudioContext
-  const getAudioContext = () => {
+  // Inicializa o AudioContext da Web Audio API
+  const getAudioContext = useCallback(() => {
     if (!audioCtxRef.current) {
       const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
       audioCtxRef.current = new AudioCtxClass();
@@ -90,288 +86,196 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
       audioCtxRef.current.resume();
     }
     return audioCtxRef.current;
-  };
+  }, []);
 
-  // Carrega os buffers de áudio de cada faixa
-  useEffect(() => {
-    let isCancelled = false;
+  // Conecta um elemento HTMLAudioElement ao Web Audio API (GainNode + StereoPannerNode)
+  const setupAudioNode = useCallback((trackId: string, audioEl: HTMLAudioElement, initialVolume: number, initialPan: number) => {
+    if (!audioEl || mediaSourcesRef.current[trackId]) return;
 
-    async function loadAllBuffers() {
-      setIsBuffersLoading(true);
+    try {
       const ctx = getAudioContext();
-      let loadedCount = 0;
-      let maxDur = 0;
+      const source = ctx.createMediaElementSource(audioEl);
+      const gainNode = ctx.createGain();
+      const panNode = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
 
-      const updated = await Promise.all(
-        vs.tracks.map(async (t) => {
-          if (!t.url) {
-            return {
-              trackId: t.trackId,
-              label: t.label,
-              url: '',
-              volume: t.defaultVolume ?? 1,
-              pan: t.defaultPan ?? 0,
-              isMuted: false,
-              isSolo: false,
-              buffer: null,
-              isLoading: false,
-              hasError: true,
-            };
-          }
+      gainNode.gain.value = initialVolume;
+      gainNodesRef.current[trackId] = gainNode;
 
-          try {
-            const res = await fetch(t.url);
-            const arrayBuffer = await res.arrayBuffer();
-            const decodedBuffer = await ctx.decodeAudioData(arrayBuffer);
-
-            if (decodedBuffer.duration > maxDur) {
-              maxDur = decodedBuffer.duration;
-            }
-
-            loadedCount++;
-            if (!isCancelled) {
-              setLoadingProgress(Math.round((loadedCount / vs.tracks.length) * 100));
-            }
-
-            return {
-              trackId: t.trackId,
-              label: t.label,
-              url: t.url,
-              volume: t.defaultVolume ?? 1,
-              pan: t.defaultPan ?? 0,
-              isMuted: false,
-              isSolo: false,
-              buffer: decodedBuffer,
-              isLoading: false,
-              hasError: false,
-            };
-          } catch (err) {
-            console.error(`Erro ao carregar faixa ${t.label}:`, err);
-            return {
-              trackId: t.trackId,
-              label: t.label,
-              url: t.url,
-              volume: t.defaultVolume ?? 1,
-              pan: t.defaultPan ?? 0,
-              isMuted: false,
-              isSolo: false,
-              buffer: null,
-              isLoading: false,
-              hasError: true,
-            };
-          }
-        })
-      );
-
-      if (!isCancelled) {
-        setTracksState(updated);
-        setDuration(maxDur);
-        setIsBuffersLoading(false);
-      }
-    }
-
-    loadAllBuffers();
-
-    return () => {
-      isCancelled = true;
-      stopAudio();
-    };
-  }, [vs]);
-
-  // Atualiza o progresso de tempo durante a reprodução
-  const updateProgress = () => {
-    if (!audioCtxRef.current || !isPlaying) return;
-    const elapsed = audioCtxRef.current.currentTime - startTimeRef.current + pauseOffsetRef.current;
-    
-    if (elapsed >= duration && duration > 0) {
-      handleStop();
-      return;
-    }
-
-    setCurrentTime(elapsed);
-    animFrameRef.current = requestAnimationFrame(updateProgress);
-  };
-
-  useEffect(() => {
-    if (isPlaying) {
-      animFrameRef.current = requestAnimationFrame(updateProgress);
-    } else if (animFrameRef.current) {
-      cancelAnimationFrame(animFrameRef.current);
-    }
-    return () => {
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-    };
-  }, [isPlaying, duration]);
-
-  // Conecta e dispara as faixas de áudio
-  const playAudio = (offset = 0) => {
-    const ctx = getAudioContext();
-    stopSourcesOnly();
-
-    const hasSolo = tracksState.some((t) => t.isSolo);
-
-    const newTracks = tracksState.map((t) => {
-      if (!t.buffer) return t;
-
-      const source = ctx.createBufferSource();
-      source.buffer = t.buffer;
-
-      const gain = ctx.createGain();
-      const pan = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
-
-      // Regra de Solo e Mute
-      let effectiveVol = t.volume;
-      if (t.isMuted) effectiveVol = 0;
-      if (hasSolo && !t.isSolo) effectiveVol = 0;
-
-      gain.gain.value = effectiveVol;
-
-      if (pan) {
-        pan.pan.value = t.pan;
-        source.connect(gain);
-        gain.connect(pan);
-        pan.connect(ctx.destination);
+      if (panNode) {
+        panNode.pan.value = initialPan;
+        panNodesRef.current[trackId] = panNode;
+        source.connect(gainNode);
+        gainNode.connect(panNode);
+        panNode.connect(ctx.destination);
       } else {
-        source.connect(gain);
-        gain.connect(ctx.destination);
+        source.connect(gainNode);
+        gainNode.connect(ctx.destination);
       }
 
-      source.start(0, offset);
+      mediaSourcesRef.current[trackId] = true;
+    } catch (e) {
+      console.warn(`Aviso de conexão do nó de áudio (${trackId}):`, e);
+    }
+  }, [getAudioContext]);
 
-      return {
-        ...t,
-        gainNode: gain,
-        panNode: pan || undefined,
-        sourceNode: source,
-      };
+  // Atualiza o ganho efetivo de cada faixa levando em conta Mute e Solo
+  const updateAudioGains = useCallback((tracks: TrackAudioControl[]) => {
+    const hasSolo = tracks.some((t) => t.isSolo);
+
+    tracks.forEach((t) => {
+      const gainNode = gainNodesRef.current[t.trackId];
+      if (gainNode && audioCtxRef.current) {
+        let effectiveVol = t.volume;
+        if (t.isMuted) effectiveVol = 0;
+        if (hasSolo && !t.isSolo) effectiveVol = 0;
+
+        gainNode.gain.setValueAtTime(effectiveVol, audioCtxRef.current.currentTime);
+      }
     });
+  }, []);
 
-    setTracksState(newTracks);
-    startTimeRef.current = ctx.currentTime;
-    pauseOffsetRef.current = offset;
-    setIsPlaying(true);
-  };
+  // Atualiza o tempo atual e detecta fim da música
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (isPlaying) {
+      interval = setInterval(() => {
+        const firstTrackId = vs.tracks[0]?.trackId;
+        const mainAudio = firstTrackId ? audioRefs.current[firstTrackId] : null;
+        if (mainAudio) {
+          setCurrentTime(mainAudio.currentTime);
 
-  const stopSourcesOnly = () => {
-    tracksState.forEach((t) => {
-      if (t.sourceNode) {
-        try {
-          t.sourceNode.stop();
-          t.sourceNode.disconnect();
-        } catch (e) {
-          // ignora se já parou
+          if (mainAudio.ended || (duration > 0 && mainAudio.currentTime >= duration)) {
+            handleStop();
+          }
         }
+      }, 100);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isPlaying, duration, vs.tracks]);
+
+  // Quando os metadados do áudio carregam
+  const handleAudioLoadedMetadata = (trackId: string, e: React.SyntheticEvent<HTMLAudioElement>) => {
+    const audioEl = e.currentTarget;
+    audioRefs.current[trackId] = audioEl;
+
+    // Atualiza a duração com o maior tempo encontrado entre as faixas
+    if (audioEl.duration && !isNaN(audioEl.duration) && audioEl.duration > 0) {
+      setDuration((prev) => Math.max(prev, audioEl.duration));
+    }
+
+    setTracksState((prev) => {
+      const copy = prev.map((t) => (t.trackId === trackId ? { ...t, isReady: true } : t));
+      const target = copy.find((t) => t.trackId === trackId);
+      if (target) {
+        setupAudioNode(trackId, audioEl, target.volume, target.pan);
       }
+      return copy;
     });
+
+    setIsReadyToPlay(true);
   };
 
-  const stopAudio = () => {
-    stopSourcesOnly();
-    setIsPlaying(false);
-  };
-
-  const handlePlayPause = () => {
-    if (isBuffersLoading) return;
+  // Tocar / Pausar simultaneamente todas as faixas
+  const handlePlayPause = async () => {
+    const ctx = getAudioContext();
 
     if (isPlaying) {
-      if (audioCtxRef.current) {
-        pauseOffsetRef.current += audioCtxRef.current.currentTime - startTimeRef.current;
-      }
-      stopAudio();
+      // Pause
+      Object.values(audioRefs.current).forEach((audio) => {
+        if (audio) audio.pause();
+      });
+      setIsPlaying(false);
     } else {
-      playAudio(pauseOffsetRef.current);
+      // Play
+      updateAudioGains(tracksState);
+
+      const playPromises = Object.values(audioRefs.current).map((audio) => {
+        if (audio) return audio.play();
+        return Promise.resolve();
+      });
+
+      try {
+        await Promise.all(playPromises);
+        setIsPlaying(true);
+      } catch (err) {
+        console.error('Erro ao dar Play nos elementos de áudio:', err);
+        toast({
+          variant: 'destructive',
+          title: 'Erro de Reprodução',
+          description: 'Clique na tela para habilitar a reprodução de áudio pelo navegador.',
+        });
+      }
     }
   };
 
   const handleStop = () => {
-    stopAudio();
-    pauseOffsetRef.current = 0;
+    Object.values(audioRefs.current).forEach((audio) => {
+      if (audio) {
+        audio.pause();
+        audio.currentTime = 0;
+      }
+    });
+    setIsPlaying(false);
     setCurrentTime(0);
   };
 
   const handleSeek = (newTime: number) => {
-    pauseOffsetRef.current = newTime;
     setCurrentTime(newTime);
-    if (isPlaying) {
-      playAudio(newTime);
-    }
+    Object.values(audioRefs.current).forEach((audio) => {
+      if (audio) {
+        audio.currentTime = newTime;
+      }
+    });
   };
 
-  // Atualização de Volume e Pan em tempo real sem interrupção
-  const handleVolumeChange = (index: number, newVol: number) => {
+  // Alteração de Volume em tempo real
+  const handleVolumeChange = (idx: number, newVol: number) => {
     setTracksState((prev) => {
       const copy = [...prev];
-      const target = copy[index];
-      target.volume = newVol;
-
-      const hasSolo = copy.some((t) => t.isSolo);
-      let effectiveVol = newVol;
-      if (target.isMuted) effectiveVol = 0;
-      if (hasSolo && !target.isSolo) effectiveVol = 0;
-
-      if (target.gainNode) {
-        target.gainNode.gain.setValueAtTime(effectiveVol, audioCtxRef.current?.currentTime || 0);
-      }
+      copy[idx].volume = newVol;
+      updateAudioGains(copy);
       return copy;
     });
   };
 
-  const handlePanChange = (index: number, newPan: number) => {
+  // Alteração de Panning em tempo real
+  const handlePanChange = (idx: number, newPan: number) => {
     setTracksState((prev) => {
       const copy = [...prev];
-      const target = copy[index];
+      const target = copy[idx];
       target.pan = newPan;
 
-      if (target.panNode) {
-        target.panNode.pan.setValueAtTime(newPan, audioCtxRef.current?.currentTime || 0);
+      const panNode = panNodesRef.current[target.trackId];
+      if (panNode && audioCtxRef.current) {
+        panNode.pan.setValueAtTime(newPan, audioCtxRef.current.currentTime);
       }
       return copy;
     });
   };
 
-  const handleToggleMute = (index: number) => {
+  // Alternar Mute
+  const handleToggleMute = (idx: number) => {
     setTracksState((prev) => {
       const copy = [...prev];
-      const target = copy[index];
-      target.isMuted = !target.isMuted;
-
-      const hasSolo = copy.some((t) => t.isSolo);
-      
-      copy.forEach((t) => {
-        let effectiveVol = t.volume;
-        if (t.isMuted) effectiveVol = 0;
-        if (hasSolo && !t.isSolo) effectiveVol = 0;
-        if (t.gainNode) {
-          t.gainNode.gain.setValueAtTime(effectiveVol, audioCtxRef.current?.currentTime || 0);
-        }
-      });
-
+      copy[idx].isMuted = !copy[idx].isMuted;
+      updateAudioGains(copy);
       return copy;
     });
   };
 
-  const handleToggleSolo = (index: number) => {
+  // Alternar Solo
+  const handleToggleSolo = (idx: number) => {
     setTracksState((prev) => {
       const copy = [...prev];
-      const target = copy[index];
-      target.isSolo = !target.isSolo;
-
-      const hasSolo = copy.some((t) => t.isSolo);
-
-      copy.forEach((t) => {
-        let effectiveVol = t.volume;
-        if (t.isMuted) effectiveVol = 0;
-        if (hasSolo && !t.isSolo) effectiveVol = 0;
-        if (t.gainNode) {
-          t.gainNode.gain.setValueAtTime(effectiveVol, audioCtxRef.current?.currentTime || 0);
-        }
-      });
-
+      copy[idx].isSolo = !copy[idx].isSolo;
+      updateAudioGains(copy);
       return copy;
     });
   };
 
-  // Preset Rápido: Fone dos Músicos (Clique/Guia 100% Esq, Base 100% Dir)
+  // Preset Fone de Músicos (Clique/Guia 100% Esq, Banda 100% Dir)
   const applyEarphonePreset = () => {
     setTracksState((prev) => {
       const copy = prev.map((t) => {
@@ -382,26 +286,28 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
           pan = 1.0; // 100% Direita
         }
 
-        if (t.panNode) {
-          t.panNode.pan.setValueAtTime(pan, audioCtxRef.current?.currentTime || 0);
+        const panNode = panNodesRef.current[t.trackId];
+        if (panNode && audioCtxRef.current) {
+          panNode.pan.setValueAtTime(pan, audioCtxRef.current.currentTime);
         }
         return { ...t, pan };
       });
       return copy;
     });
     toast({
-      title: 'Preset Fone de Músicos Aplicado 🎧',
-      description: 'Clique e Guia enviados 100% para a Esquerda, Banda/Base para a Direita.',
+      title: 'Preset Fone Músicos Aplicado 🎧',
+      description: 'Clique e Guia enviados 100% para a Esquerda, Banda para a Direita.',
     });
   };
 
-  // Preset Rápido: Estéreo Padrão
+  // Preset Estéreo Padrão
   const applyStereoPreset = () => {
     setTracksState((prev) => {
       const copy = prev.map((t) => {
         const pan = t.trackId.includes('click') ? -1.0 : t.trackId.includes('guide') ? 1.0 : 0;
-        if (t.panNode) {
-          t.panNode.pan.setValueAtTime(pan, audioCtxRef.current?.currentTime || 0);
+        const panNode = panNodesRef.current[t.trackId];
+        if (panNode && audioCtxRef.current) {
+          panNode.pan.setValueAtTime(pan, audioCtxRef.current.currentTime);
         }
         return { ...t, pan };
       });
@@ -414,6 +320,7 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
   };
 
   const formatTime = (seconds: number) => {
+    if (isNaN(seconds) || seconds < 0) return '00:00';
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
@@ -421,6 +328,20 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
 
   return (
     <div className="w-full max-w-5xl mx-auto space-y-6">
+      {/* ELEMENTOS DE ÁUDIO OCULTOS EM SEGUNDO PLANO */}
+      <div className="hidden">
+        {vs.tracks.map((t) => (
+          <audio
+            key={t.trackId}
+            ref={(el) => { audioRefs.current[t.trackId] = el; }}
+            src={t.url}
+            preload="auto"
+            crossOrigin="anonymous"
+            onLoadedMetadata={(e) => handleAudioLoadedMetadata(t.trackId, e)}
+          />
+        ))}
+      </div>
+
       {/* Cabeçalho do Player Multitrack */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900 text-white p-6 rounded-3xl shadow-2xl border border-slate-800">
         <div className="space-y-1">
@@ -443,8 +364,8 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {vs.bpm && (
-            <Badge variant="outline" className="bg-slate-800 border-slate-700 text-white font-mono text-xs px-3 py-1">
+          {vs.bpm && vs.bpm > 0 && (
+            <Badge variant="outline" className="bg-slate-800 border-slate-700 text-emerald-400 font-mono text-xs px-3 py-1 font-bold">
               🎵 {vs.bpm} BPM
             </Badge>
           )}
@@ -454,7 +375,7 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
             </Badge>
           )}
           {vs.timeSignature && (
-            <Badge variant="outline" className="bg-slate-800 border-slate-700 text-sky-400 font-mono text-xs px-3 py-1">
+            <Badge variant="outline" className="bg-slate-800 border-slate-700 text-sky-400 font-mono text-xs px-3 py-1 font-bold">
               ⏱ {vs.timeSignature}
             </Badge>
           )}
@@ -464,90 +385,75 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
       {/* Control Bar Principal (Play/Pause, Slider, Presets) */}
       <Card className="bg-slate-950 text-white border-slate-800 shadow-2xl rounded-3xl overflow-hidden">
         <CardContent className="p-6 space-y-6">
-          {isBuffersLoading ? (
-            <div className="py-8 flex flex-col items-center justify-center space-y-3">
-              <Loader2 className="size-10 text-emerald-500 animate-spin" />
-              <p className="text-sm font-bold text-slate-300">Carregando Multitracks na Memória ({loadingProgress}%)...</p>
-              <div className="w-64 h-2 bg-slate-800 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-emerald-500 transition-all duration-200"
-                  style={{ width: `${loadingProgress}%` }}
-                />
-              </div>
+          {/* Barra de Progresso do Áudio */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs font-mono text-slate-400 font-bold">
+              <span>{formatTime(currentTime)}</span>
+              <span>{formatTime(duration)}</span>
             </div>
-          ) : (
-            <>
-              {/* Barra de Progresso do Áudio */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs font-mono text-slate-400 font-bold">
-                  <span>{formatTime(currentTime)}</span>
-                  <span>{formatTime(duration)}</span>
-                </div>
-                <Slider
-                  value={[currentTime]}
-                  min={0}
-                  max={duration || 1}
-                  step={0.1}
-                  onValueChange={(val) => handleSeek(val[0])}
-                  className="cursor-pointer"
-                />
-              </div>
+            <Slider
+              value={[currentTime]}
+              min={0}
+              max={duration || 1}
+              step={0.1}
+              onValueChange={(val) => handleSeek(val[0])}
+              className="cursor-pointer"
+            />
+          </div>
 
-              {/* Botões Principais de Controle */}
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
-                <div className="flex items-center gap-3">
-                  <Button
-                    size="icon"
-                    onClick={handlePlayPause}
-                    className="size-14 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95 transition-all"
-                  >
-                    {isPlaying ? <Pause size={28} /> : <Play size={28} className="ml-1" />}
-                  </Button>
+          {/* Botões Principais de Controle */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+            <div className="flex items-center gap-3">
+              <Button
+                size="icon"
+                onClick={handlePlayPause}
+                className="size-14 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95 transition-all"
+              >
+                {isPlaying ? <Pause size={28} /> : <Play size={28} className="ml-1" />}
+              </Button>
 
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    onClick={handleStop}
-                    className="size-12 rounded-2xl border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-300"
-                    title="Parar e Rebobinar"
-                  >
-                    <Square size={20} />
-                  </Button>
+              <Button
+                size="icon"
+                variant="outline"
+                onClick={handleStop}
+                className="size-12 rounded-2xl border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-300"
+                title="Parar e Rebobinar"
+              >
+                <Square size={20} />
+              </Button>
 
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    onClick={() => handleSeek(0)}
-                    className="size-12 rounded-2xl border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-300"
-                    title="Voltar ao início"
-                  >
-                    <RotateCcw size={20} />
-                  </Button>
-                </div>
+              <Button
+                size="icon"
+                variant="outline"
+                onClick={() => handleSeek(0)}
+                className="size-12 rounded-2xl border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-300"
+                title="Voltar ao início"
+              >
+                <RotateCcw size={20} />
+              </Button>
+            </div>
 
-                {/* Presets Rápidos de Fone */}
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={applyEarphonePreset}
-                    className="h-10 px-4 rounded-xl text-xs font-bold border-indigo-500/40 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 gap-1.5"
-                  >
-                    <Headphones size={14} /> Preset Fone Músicos (L/R)
-                  </Button>
+            {/* Presets Rápidos de Fone */}
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={applyEarphonePreset}
+                className="h-10 px-4 rounded-xl text-xs font-bold border-indigo-500/40 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 gap-1.5"
+              >
+                <Headphones size={14} /> Preset Fone Músicos (L/R)
+              </Button>
 
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={applyStereoPreset}
-                    className="h-10 px-4 rounded-xl text-xs font-bold border-slate-800 bg-slate-900 text-slate-300 hover:bg-slate-800 gap-1.5"
-                  >
-                    <Radio size={14} /> Estéreo Padrão
-                  </Button>
-                </div>
-              </div>
-            </>
-          )}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={applyStereoPreset}
+                className="h-10 px-4 rounded-xl text-xs font-bold border-slate-800 bg-slate-900 text-slate-300 hover:bg-slate-800 gap-1.5"
+              >
+                <Radio size={14} /> Estéreo Padrão
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -560,7 +466,7 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
           <span className="text-xs text-slate-500 font-bold">{tracksState.length} Canais Ativos</span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {tracksState.map((track, idx) => {
             const isClickOrGuide = track.trackId.includes('click') || track.trackId.includes('guide');
 
