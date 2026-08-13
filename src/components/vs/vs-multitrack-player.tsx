@@ -297,6 +297,65 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
     }
   }, [getAudioContext]);
 
+  // Síntese de Voz Guia Sonora (sintetizador de contagem/chamada de seção)
+  const playGuideCue = useCallback((message: string, vol = 0.5) => {
+    try {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(message);
+        utterance.lang = 'pt-BR';
+        utterance.rate = 1.2;
+        utterance.pitch = 1.0;
+        utterance.volume = Math.max(0, Math.min(1, vol));
+        window.speechSynthesis.speak(utterance);
+      }
+    } catch (e) {}
+  }, []);
+
+  // Sintetizador de Pad / Acorde Instrumental Harmônico de Fundo (Worship Ambient Pad)
+  const synthPadOscsRef = useRef<OscillatorNode[]>([]);
+  const synthPadGainRef = useRef<GainNode | null>(null);
+
+  const startAmbientPad = useCallback((noteFreq = 261.63, vol = 0.4) => {
+    try {
+      const ctx = getAudioContext();
+      // Para osciladores anteriores se houver
+      synthPadOscsRef.current.forEach(osc => { try { osc.stop(); } catch(e) {} });
+      synthPadOscsRef.current = [];
+
+      const masterPadGain = ctx.createGain();
+      masterPadGain.gain.setValueAtTime(Math.max(0, Math.min(1, vol * 0.35)), ctx.currentTime);
+      masterPadGain.connect(ctx.destination);
+      synthPadGainRef.current = masterPadGain;
+
+      // Cria acorde aveludado de adoração (Fundamental, Quinta, Oitava)
+      const freqs = [noteFreq, noteFreq * 1.4983, noteFreq * 2.0];
+      freqs.forEach((f) => {
+        const osc = ctx.createOscillator();
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 800;
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(f, ctx.currentTime);
+        osc.connect(filter);
+        filter.connect(masterPadGain);
+        osc.start();
+        synthPadOscsRef.current.push(osc);
+      });
+    } catch (e) {}
+  }, [getAudioContext]);
+
+  const stopAmbientPad = useCallback(() => {
+    try {
+      synthPadOscsRef.current.forEach(osc => { try { osc.stop(); } catch(e) {} });
+      synthPadOscsRef.current = [];
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    } catch (e) {}
+  }, []);
+
   const applyAudioSettings = useCallback((tracks: TrackAudioControl[]) => {
     const hasSolo = tracks.some((t) => t.isSolo);
 
@@ -448,6 +507,11 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
             playStartTimeRef.current = Date.now();
             playStartPosRef.current = activeSection.startTime;
 
+            const guideTrack = tracksStateRef.current.find(t => t.trackId.includes('guide'));
+            if (guideTrack && !guideTrack.isMuted && outputMode !== 'house_pa') {
+              playGuideCue(`Repetindo ${activeSection.label}`, guideTrack.volume);
+            }
+
             if (activeLoopMode === 'single') {
               setLoopMode('none');
               toast({
@@ -504,8 +568,10 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
       if (ctx.state === 'suspended') ctx.resume();
 
       // Dispara reprodução de todas as faixas que possuem URL de áudio
+      let hasAnyAudioFile = false;
       Object.entries(audioRefs.current).forEach(([trackId, audio]) => {
         if (audio && audio.src && audio.src !== window.location.href) {
+          hasAnyAudioFile = true;
           try {
             audio.currentTime = currentTimeRef.current;
             setupAudioNode(trackId, audio);
@@ -523,6 +589,28 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
         }
       });
 
+      // Se as faixas não tiverem arquivos MP3 cadastrados (modo sintético/demo/ao vivo),
+      // inicia o sintetizador harmônico de Pad de Adoração (tom da música) para Backing e Pads
+      if (!hasAnyAudioFile) {
+        const keyFreqMap: Record<string, number> = {
+          'C': 261.63, 'C#': 277.18, 'Db': 277.18, 'D': 293.66, 'D#': 311.13, 'Eb': 311.13,
+          'E': 329.63, 'F': 349.23, 'F#': 369.99, 'Gb': 369.99, 'G': 392.00, 'G#': 415.30,
+          'Ab': 415.30, 'A': 440.00, 'A#': 466.16, 'Bb': 466.16, 'B': 493.88,
+        };
+        const baseKey = (currentKey || 'C').split('/')[0].trim();
+        const freq = keyFreqMap[baseKey] || 261.63;
+        
+        const padTrack = tracksState.find(t => t.trackId.includes('backing') || t.trackId.includes('extra'));
+        const padVol = padTrack && !padTrack.isMuted ? padTrack.volume : 0.4;
+        startAmbientPad(freq, padVol);
+
+        // Guia de voz anuncia a primeira seção
+        const guideTrack = tracksState.find(t => t.trackId.includes('guide'));
+        if (guideTrack && !guideTrack.isMuted && outputMode !== 'house_pa') {
+          playGuideCue(`Entrando na ${currentSection.label}`, guideTrack.volume);
+        }
+      }
+
       // Aplica volume/mute/pan atualizado para todas as faixas
       applyAudioSettings(tracksState);
 
@@ -532,6 +620,7 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
   };
 
   const handleStop = () => {
+    stopAmbientPad();
     Object.values(audioRefs.current).forEach((audio) => {
       if (audio) {
         try {
@@ -651,7 +740,7 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
     <div className="w-full max-w-5xl mx-auto space-y-6">
       {/* ELEMENTOS DE ÁUDIO EM SEGUNDO PLANO */}
       <div className="hidden">
-        {vs.tracks.map((t) => (
+        {vs.tracks.filter((t) => !!t.url).map((t) => (
           <audio
             key={t.trackId}
             ref={(el) => { if (el) audioRefs.current[t.trackId] = el; }}
