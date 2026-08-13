@@ -252,33 +252,21 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
     try {
       const ctx = getAudioContext();
       if (!mediaSourcesRef.current[trackId]) {
-        // Tenta conectar ao Web Audio graph para controle fino de Pan e EQ Master
         try {
           const source = ctx.createMediaElementSource(audioEl);
           const gainNode = ctx.createGain();
           const panNode = ctx.createStereoPanner();
-          const analyserNode = ctx.createAnalyser();
-          analyserNode.fftSize = 64;
           
           source.connect(gainNode);
           gainNode.connect(panNode);
-          panNode.connect(analyserNode);
-          
-          // Conecta ao Master Equalizer (se disponível) ou à saída final dos falantes
-          if (masterLowEqRef.current) {
-            analyserNode.connect(masterLowEqRef.current);
-          } else {
-            analyserNode.connect(ctx.destination);
-          }
+          panNode.connect(ctx.destination);
           
           mediaSourcesRef.current[trackId] = source;
           gainNodesRef.current[trackId] = gainNode;
           panNodesRef.current[trackId] = panNode;
-          analyserNodesRef.current[trackId] = analyserNode;
         } catch (webaudioErr) {
-          // Se o navegador barrar o createMediaElementSource (ex: CORS em storage remoto),
-          // o áudio continuará tocando normalmente pelo elemento nativo <audio>
-          console.warn('Web Audio node fallback para HTML5 nativo:', webaudioErr);
+          // Se houver restrição CORS no storage, o elemento nativo HTML5 Audio garante o som
+          console.warn('Fallback para áudio nativo na track:', trackId, webaudioErr);
         }
       }
     } catch (e) {
