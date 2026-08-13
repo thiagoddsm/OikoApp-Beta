@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { collection, getDocs, deleteDoc, doc, query, orderBy, setDoc, serverTimestamp } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
@@ -8,11 +8,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { 
   Play, Pause, Square, SkipBack, SkipForward, Flag, Clock, Settings, FileText, 
   Plus, Search, Sliders, Music, Radio, Volume2, Headphones, Sparkles, Lock, 
   HelpCircle, Disc, CheckCircle2, ChevronRight, Layers, ArrowLeft, Smartphone,
-  Monitor, AlertCircle, Wifi, RefreshCw, Zap
+  Monitor, AlertCircle, Wifi, RefreshCw, Zap, VolumeX, Trash2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import jsPDF from 'jspdf';
@@ -33,6 +34,13 @@ type VsEntry = {
   createdAt?: any;
 };
 
+interface MixerChannelState {
+  name: string;
+  volume: number; // 0..1
+  isMuted: boolean;
+  isSolo: boolean;
+}
+
 export default function VsMainStagePage() {
   const { toast } = useToast();
 
@@ -43,6 +51,7 @@ export default function VsMainStagePage() {
   const [catalog, setCatalog] = useState<VsEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isAddSongDialogOpen, setIsAddSongDialogOpen] = useState(false);
 
   // Setlist do Culto Atual
   const [setlistTitle, setSetlistTitle] = useState('Culto de Domingo - Noite');
@@ -52,10 +61,28 @@ export default function VsMainStagePage() {
   // Estados do Player & Seção Enfileirada (Queued Section)
   const [isPlaying, setIsPlaying] = useState(false);
   const [serviceElapsedSeconds, setServiceElapsedSeconds] = useState(2052); // 00:34:12 de culto
-  const [songCurrentTime, setSongCurrentTime] = useState(222); // 03:42 de música
-  const [currentSectionLabel, setCurrentSectionLabel] = useState('VERSE 1');
+  const [songCurrentTime, setSongCurrentTime] = useState(0); // tempo da música
+  const [currentSectionLabel, setCurrentSectionLabel] = useState('INTRO');
   const [queuedSectionLabel, setQueuedSectionLabel] = useState<string | null>(null);
   const [countdownBeats, setCountdownBeats] = useState<number | null>(null);
+
+  // Estado dos 14 Canais da Mesa Multitrack de Áudio
+  const [channelsState, setChannelsState] = useState<MixerChannelState[]>([
+    { name: 'CLICK', volume: 0.8, isMuted: false, isSolo: false },
+    { name: 'GUIDE', volume: 0.85, isMuted: false, isSolo: false },
+    { name: 'KICK', volume: 0.9, isMuted: false, isSolo: false },
+    { name: 'SNARE', volume: 0.75, isMuted: false, isSolo: false },
+    { name: 'TOM 1', volume: 0.8, isMuted: false, isSolo: false },
+    { name: 'TOM 2', volume: 0.8, isMuted: false, isSolo: false },
+    { name: 'OH L', volume: 0.7, isMuted: false, isSolo: false },
+    { name: 'OH R', volume: 0.7, isMuted: false, isSolo: false },
+    { name: 'BASS DI', volume: 0.85, isMuted: false, isSolo: false },
+    { name: 'BASS AMP', volume: 0.8, isMuted: false, isSolo: false },
+    { name: 'GTR 1', volume: 0.85, isMuted: false, isSolo: false },
+    { name: 'GTR 2', volume: 0.75, isMuted: false, isSolo: false },
+    { name: 'KEYS L', volume: 0.9, isMuted: false, isSolo: false },
+    { name: 'KEYS R', volume: 0.9, isMuted: false, isSolo: false },
+  ]);
 
   // Carrega o catálogo do Firestore
   useEffect(() => {
@@ -69,6 +96,41 @@ export default function VsMainStagePage() {
 
         if (data.length > 0) {
           setSetlistSongs(data);
+        } else {
+          // Demo fallback se não houver registros
+          const demoSongs: VsEntry[] = [
+            {
+              id: 'demo_1',
+              title: 'Vitorioso És',
+              artist: 'Gabriel Guedes',
+              bpm: 132,
+              key: 'D',
+              timeSignature: '4/4',
+              duration: 270,
+              tracks: [{ trackId: '1', label: 'All Tracks' }]
+            },
+            {
+              id: 'demo_2',
+              title: 'Ousado Amor',
+              artist: 'Isaias Saad',
+              bpm: 68,
+              key: 'F#m',
+              timeSignature: '6/8',
+              duration: 345,
+              tracks: [{ trackId: '1', label: 'All Tracks' }]
+            },
+            {
+              id: 'demo_3',
+              title: 'Lugar Secreto',
+              artist: 'Gabriela Rocha',
+              bpm: 74,
+              key: 'C',
+              timeSignature: '4/4',
+              duration: 370,
+              tracks: [{ trackId: '1', label: 'All Tracks' }]
+            }
+          ];
+          setSetlistSongs(demoSongs);
         }
       } catch (e) {
         console.error('Erro ao carregar catálogo:', e);
@@ -79,13 +141,39 @@ export default function VsMainStagePage() {
     fetchCatalog();
   }, []);
 
-  // Temporizadores do Culto e Contagem de Virada de Seção
+  // Temporizadores do Culto, Música e Virada de Seção em Tempo Real
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
+
     if (isPlaying) {
       interval = setInterval(() => {
         setServiceElapsedSeconds((prev) => prev + 1);
-        setSongCurrentTime((prev) => prev + 1);
+
+        setSongCurrentTime((prev) => {
+          const maxDur = currentSong?.duration || 270;
+          const next = prev + 1;
+
+          // Atualiza o nome da seção com base na porcentagem de tempo
+          const ratio = next / maxDur;
+          if (ratio < 0.15) setCurrentSectionLabel('INTRO');
+          else if (ratio < 0.35) setCurrentSectionLabel('VERSE 1');
+          else if (ratio < 0.55) setCurrentSectionLabel('CHORUS');
+          else if (ratio < 0.75) setCurrentSectionLabel('VERSE 2');
+          else if (ratio < 0.90) setCurrentSectionLabel('BRIDGE');
+          else setCurrentSectionLabel('OUTRO');
+
+          // Se a música acabar, pula para a próxima
+          if (next >= maxDur) {
+            if (currentSongIndex < setlistSongs.length - 1) {
+              setCurrentSongIndex((i) => i + 1);
+              return 0;
+            } else {
+              setIsPlaying(false);
+              return 0;
+            }
+          }
+          return next;
+        });
 
         // Se houver uma seção enfileirada (QUEUED), faz a contagem regressiva para a virada
         if (queuedSectionLabel) {
@@ -105,27 +193,22 @@ export default function VsMainStagePage() {
         }
       }, 1000);
     }
+
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isPlaying, queuedSectionLabel, toast]);
+  }, [isPlaying, queuedSectionLabel, toast, currentSongIndex, setlistSongs.length]);
 
   // Música em reprodução no momento
-  const currentSong = setlistSongs[currentSongIndex] || catalog[0] || {
+  const currentSong = setlistSongs[currentSongIndex] || {
     id: 'demo_1',
     title: 'Vitorioso És',
     artist: 'Gabriel Guedes',
     bpm: 132,
     key: 'D',
     timeSignature: '4/4',
-    tracks: [
-      { trackId: 'click', label: 'Click' },
-      { trackId: 'guide', label: 'Guide' },
-      { trackId: 'kick', label: 'Kick' },
-      { trackId: 'snare', label: 'Snare' },
-      { trackId: 'bass', label: 'Bass DI' },
-      { trackId: 'keys', label: 'Keys L/R' }
-    ]
+    duration: 270,
+    tracks: []
   };
 
   const totalSetlistDurationSeconds = useMemo(() => {
@@ -152,6 +235,49 @@ export default function VsMainStagePage() {
       title: `Seção Enfileirada: ${label} ⏳`,
       description: `Entrará na virada do compasso (em 4 tempos).`,
     });
+  };
+
+  // Funções de Ajuste de Canais da Mesa Multitrack (Volume, Mute e Solo)
+  const handleChannelVolumeChange = (idx: number, newVol: number) => {
+    setChannelsState((prev) => {
+      const copy = [...prev];
+      copy[idx].volume = newVol;
+      return copy;
+    });
+  };
+
+  const handleToggleChannelMute = (idx: number) => {
+    setChannelsState((prev) => {
+      const copy = [...prev];
+      copy[idx].isMuted = !copy[idx].isMuted;
+      return copy;
+    });
+  };
+
+  const handleToggleChannelSolo = (idx: number) => {
+    setChannelsState((prev) => {
+      const copy = [...prev];
+      copy[idx].isSolo = !copy[idx].isSolo;
+      return copy;
+    });
+  };
+
+  // Adicionar Música do Catálogo ao Repertório
+  const handleAddSongToSetlist = (song: VsEntry) => {
+    setSetlistSongs((prev) => [...prev, song]);
+    setIsAddSongDialogOpen(false);
+    toast({
+      title: 'Música Adicionada ao Repertório 🎵',
+      description: `"${song.title}" foi incluída no culto.`,
+    });
+  };
+
+  // Remover Música do Repertório
+  const handleRemoveSongFromSetlist = (index: number) => {
+    setSetlistSongs((prev) => prev.filter((_, i) => i !== index));
+    if (currentSongIndex >= index && currentSongIndex > 0) {
+      setCurrentSongIndex((prev) => prev - 1);
+    }
   };
 
   // GERAÇÃO AUTOMÁTICA DE ROTEIRO PDF DO CULTO
@@ -215,7 +341,7 @@ export default function VsMainStagePage() {
         {/* Header do Remote Pad */}
         <div className="flex items-center justify-between py-2 border-b border-slate-800/80">
           <div className="flex items-center gap-2">
-            <span className="text-emerald-400 font-black text-lg tracking-tight">OIKO LIVE</span>
+            <span className="text-cyan-400 font-black text-lg tracking-tight">OIKO LIVE REMOTE</span>
           </div>
 
           <div className="flex items-center gap-3 text-slate-400">
@@ -228,7 +354,6 @@ export default function VsMainStagePage() {
               <Monitor size={14} className="mr-1" /> Desktop
             </Button>
             <Settings size={18} />
-            <RefreshCw size={18} />
             <Wifi size={18} className="text-emerald-400" />
           </div>
         </div>
@@ -243,7 +368,7 @@ export default function VsMainStagePage() {
             -3.2 <span className="text-lg text-slate-400 font-normal">dB</span>
           </p>
           <div className="w-full h-3 bg-slate-900 rounded-full overflow-hidden p-0.5 border border-slate-800">
-            <div className="h-full bg-cyan-400 rounded-full shadow-[0_0_10px_rgba(6,182,212,0.8)]" style={{ width: '70%' }} />
+            <div className="h-full bg-cyan-400 rounded-full shadow-[0_0_10px_rgba(6,182,212,0.8)] transition-all duration-300" style={{ width: isPlaying ? '75%' : '0%' }} />
           </div>
         </div>
 
@@ -324,19 +449,13 @@ export default function VsMainStagePage() {
 
         {/* NAVEGAÇÃO DE TABS DO REMOTE PAD */}
         <div className="flex items-center justify-around py-3 border-t border-slate-800/80 text-[10px] font-bold text-slate-400">
-          <button type="button" className="flex flex-col items-center gap-1 hover:text-cyan-400">
-            <Play size={16} /> Play
-          </button>
-
           <button type="button" className="flex flex-col items-center gap-1 text-cyan-400">
             <Smartphone size={16} /> Pads
           </button>
-
-          <button type="button" className="flex flex-col items-center gap-1 hover:text-cyan-400">
+          <button type="button" className="flex flex-col items-center gap-1 hover:text-cyan-400" onClick={() => setViewMode('desktop')}>
             <Sliders size={16} /> Mixer
           </button>
-
-          <button type="button" className="flex flex-col items-center gap-1 hover:text-cyan-400">
+          <button type="button" className="flex flex-col items-center gap-1 hover:text-cyan-400" onClick={() => setViewMode('desktop')}>
             <Music size={16} /> Setlist
           </button>
         </div>
@@ -373,7 +492,6 @@ export default function VsMainStagePage() {
 
         {/* CONTADORES GIGANTES NEON (TEMPO DE CULTO & TEMPO RESTANTE) */}
         <div className="flex items-center gap-8 sm:gap-12">
-          {/* Tempo de Culto (Verde Neon) */}
           <div className="text-center">
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-0.5">
               TEMPO DE CULTO
@@ -385,7 +503,6 @@ export default function VsMainStagePage() {
 
           <div className="h-8 w-px bg-slate-800 hidden sm:block" />
 
-          {/* Tempo Restante (Rosa/Coral Neon) */}
           <div className="text-center">
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-0.5">
               TEMPO RESTANTE
@@ -427,8 +544,12 @@ export default function VsMainStagePage() {
                 <span className="text-xs font-black text-white truncate">Main Stage</span>
               </div>
               <p className="text-[10px] text-slate-400 font-medium">Sunday Service • Set A</p>
-              <Button size="sm" className="w-full h-8 text-[11px] font-bold bg-emerald-500 hover:bg-emerald-600 text-slate-950 rounded-xl gap-1">
-                <Plus size={14} /> New Setlist
+              <Button
+                size="sm"
+                onClick={() => setIsAddSongDialogOpen(true)}
+                className="w-full h-8 text-[11px] font-bold bg-emerald-500 hover:bg-emerald-600 text-slate-950 rounded-xl gap-1"
+              >
+                <Plus size={14} /> Adicionar Música
               </Button>
             </div>
 
@@ -512,153 +633,352 @@ export default function VsMainStagePage() {
           </div>
         </aside>
 
-        {/* WORKSPACE CENTRAL: ARRANGEMENT VIEW & MULTITRACK MIXER 16 CANAIS */}
+        {/* WORKSPACE CENTRAL: ARRANGEMENT VIEW & MULTITRACK MIXER 14 CANAIS */}
         <main className="flex-1 overflow-y-auto p-6 space-y-6 bg-[#0a0d14]">
           {activeTab === 'current_set' && (
-            <div className="space-y-6">
-              {/* TOP PLAYER BAR & TIMELINE MARCADORES COLORIDOS DE SEÇÃO */}
-              <Card className="bg-[#121824] border-slate-800 text-white rounded-3xl p-6 shadow-2xl space-y-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      onClick={() => setSongCurrentTime(0)}
-                      className="size-12 rounded-2xl border-slate-800 bg-[#182030] text-slate-300 hover:text-white"
-                    >
-                      <SkipBack size={20} />
-                    </Button>
-
-                    <Button
-                      size="icon"
-                      onClick={() => setIsPlaying(!isPlaying)}
-                      className="size-14 rounded-2xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 shadow-[0_0_20px_rgba(6,182,212,0.5)] transition-all"
-                    >
-                      {isPlaying ? <Pause size={28} /> : <Play size={28} className="ml-1 fill-slate-950" />}
-                    </Button>
-
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      onClick={() => {
-                        setIsPlaying(false);
-                        setSongCurrentTime(0);
-                      }}
-                      className="size-12 rounded-2xl border-rose-500/40 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20"
-                    >
-                      <Square size={20} />
-                    </Button>
-                  </div>
-
-                  {/* Nome da Música Atual */}
-                  <div className="text-center">
-                    <h2 className="text-2xl font-black italic text-cyan-400 tracking-tight">{currentSong.title}</h2>
-                    <p className="text-xs text-slate-400 font-semibold">
-                      {currentSong.artist || 'Hillsong'} • {currentSong.bpm || 132} BPM • Key: {currentSong.key || 'D'}
-                    </p>
-                  </div>
-
-                  <div className="text-right">
-                    <span className="text-[10px] font-black uppercase text-slate-400 block">ELAPSED / REMAINING</span>
-                    <span className="text-xl font-black font-mono text-white">
-                      {formatClockTime(songCurrentTime)} / {formatClockTime(currentSong.duration || 270)}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* COLUNA DA ESQUERDA: LISTA DE MÚSICAS DO CULTO (SETLIST) */}
+              <div className="lg:col-span-4 space-y-4">
+                <div className="flex items-center justify-between bg-[#121824] p-4 rounded-2xl border border-slate-800">
+                  <div>
+                    <h2 className="text-base font-black italic text-white">{setlistTitle}</h2>
+                    <span className="text-[10px] text-slate-400 font-medium">
+                      {setlistSongs.length} Músicas • Duração: {formatClockTime(totalSetlistDurationSeconds)}
                     </span>
                   </div>
+
+                  <Button
+                    size="sm"
+                    onClick={() => setIsAddSongDialogOpen(true)}
+                    className="h-8 px-2.5 text-[10px] font-bold bg-emerald-500 hover:bg-emerald-600 text-slate-950 rounded-xl gap-1"
+                  >
+                    <Plus size={12} /> Add
+                  </Button>
                 </div>
 
-                {/* VISUALIZADOR DE ONDA MULTITRACK (ARRANGEMENT VIEW DE 4 ONDAS) */}
-                <div className="bg-[#0b0f17] border border-slate-800 rounded-2xl p-4 space-y-4 relative overflow-hidden">
-                  {/* SEÇÕES COLORIDAS NO TOPO DA TIMELINE */}
-                  <div className="grid grid-cols-6 gap-1 text-[10px] font-black font-mono text-slate-300">
-                    <div className="p-1.5 rounded-lg bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">INTRO</div>
-                    <div className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">VERSE 1</div>
-                    <div className="p-1.5 rounded-lg bg-rose-500/20 text-rose-400 border border-rose-500/30">CHORUS</div>
-                    <div className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">VERSE 2</div>
-                    <div className="p-1.5 rounded-lg bg-purple-500/20 text-purple-400 border border-purple-500/30">BRIDGE</div>
-                    <div className="p-1.5 rounded-lg bg-rose-500/20 text-rose-400 border border-rose-500/30">CHORUS 2</div>
-                  </div>
+                {/* LISTA DAS FAIXAS DO REPERTÓRIO */}
+                <div className="space-y-2">
+                  {setlistSongs.map((song, idx) => {
+                    const isSelected = idx === currentSongIndex;
 
-                  {/* Linhas Neon de Áudio Waveform */}
-                  <div className="space-y-3 py-2">
-                    {[1, 2, 3, 4].map((waveIndex) => (
-                      <div key={waveIndex} className="h-6 flex items-center gap-1 opacity-80">
-                        {Array.from({ length: 60 }).map((_, i) => (
-                          <div
-                            key={i}
-                            className="w-1 bg-emerald-400/80 rounded-full"
-                            style={{ height: `${Math.max(15, Math.sin(i * 0.5 + waveIndex) * 100)}%` }}
-                          />
-                        ))}
+                    return (
+                      <div
+                        key={song.id || idx}
+                        onClick={() => {
+                          setCurrentSongIndex(idx);
+                          setSongCurrentTime(0);
+                        }}
+                        className={`p-3.5 rounded-2xl border cursor-pointer transition-all duration-200 flex items-center justify-between ${
+                          isSelected
+                            ? 'bg-[#182232] border-emerald-500 shadow-xl ring-2 ring-emerald-500/30'
+                            : 'bg-[#121824] border-slate-800 hover:border-slate-700 hover:bg-[#161e2e]'
+                        }`}
+                      >
+                        <div className="space-y-0.5 truncate">
+                          <h3 className={`text-xs font-black italic truncate ${isSelected ? 'text-emerald-400' : 'text-white'}`}>
+                            {song.title}
+                          </h3>
+                          <p className="text-[10px] text-slate-400 font-medium">
+                            BPM: {song.bpm || 120} • Key: {song.key || 'C'} • {formatClockTime(song.duration || 270)}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {isSelected && (
+                            <Badge className="bg-emerald-500 text-slate-950 font-black text-[9px] uppercase px-2 py-0.5">
+                              PLAYING
+                            </Badge>
+                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveSongFromSetlist(idx);
+                            }}
+                            className="text-slate-600 hover:text-rose-400 p-1"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </div>
-                    ))}
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* COLUNA DA DIREITA: PLAYER MAIN STAGE & MULTITRACK MIXER */}
+              <div className="lg:col-span-8 space-y-6">
+                {/* CARD PRINCIPAL DA MÚSICA EM EXECUÇÃO */}
+                <Card className="bg-[#121824] border-slate-800 text-white rounded-3xl p-6 shadow-2xl space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        onClick={() => {
+                          if (currentSongIndex > 0) setCurrentSongIndex((prev) => prev - 1);
+                          setSongCurrentTime(0);
+                        }}
+                        className="size-12 rounded-2xl border-slate-800 bg-[#182030] text-slate-300 hover:text-white"
+                      >
+                        <SkipBack size={20} />
+                      </Button>
+
+                      <Button
+                        size="icon"
+                        onClick={() => setIsPlaying(!isPlaying)}
+                        className="size-14 rounded-2xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 shadow-[0_0_20px_rgba(6,182,212,0.5)] transition-all"
+                      >
+                        {isPlaying ? <Pause size={28} /> : <Play size={28} className="ml-1 fill-slate-950" />}
+                      </Button>
+
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        onClick={() => {
+                          setIsPlaying(false);
+                          setSongCurrentTime(0);
+                        }}
+                        className="size-12 rounded-2xl border-rose-500/40 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20"
+                      >
+                        <Square size={20} />
+                      </Button>
+                    </div>
+
+                    <div className="text-center">
+                      <h2 className="text-2xl font-black italic text-cyan-400 tracking-tight">{currentSong.title}</h2>
+                      <p className="text-xs text-slate-400 font-semibold">
+                        {currentSong.artist || 'Hillsong'} • {currentSong.bpm || 132} BPM • Key: {currentSong.key || 'D'}
+                      </p>
+                    </div>
+
+                    <div className="text-right">
+                      <span className="text-[10px] font-black uppercase text-slate-400 block">ELAPSED / REMAINING</span>
+                      <span className="text-xl font-black font-mono text-white">
+                        {formatClockTime(songCurrentTime)} / {formatClockTime(currentSong.duration || 270)}
+                      </span>
+                    </div>
                   </div>
 
-                  {/* Cursor da Linha do Tempo */}
-                  <div
-                    className="absolute top-0 bottom-0 w-0.5 bg-white shadow-[0_0_12px_rgba(255,255,255,1)] z-10"
-                    style={{ left: `${(songCurrentTime / (currentSong.duration || 270)) * 100}%` }}
+                  {/* VISUALIZADOR DE ONDA MULTITRACK (ARRANGEMENT VIEW) */}
+                  <div className="bg-[#0b0f17] border border-slate-800 rounded-2xl p-4 space-y-3 relative overflow-hidden">
+                    <div className="grid grid-cols-6 gap-1 text-[10px] font-black font-mono text-slate-300">
+                      <button type="button" onClick={() => handleQueueSection('INTRO')} className="p-1.5 rounded-lg bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/30 text-left">INTRO</button>
+                      <button type="button" onClick={() => handleQueueSection('VERSE 1')} className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 text-left">VERSE 1</button>
+                      <button type="button" onClick={() => handleQueueSection('CHORUS')} className="p-1.5 rounded-lg bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:bg-rose-500/30 text-left">CHORUS</button>
+                      <button type="button" onClick={() => handleQueueSection('VERSE 2')} className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 text-left">VERSE 2</button>
+                      <button type="button" onClick={() => handleQueueSection('BRIDGE')} className="p-1.5 rounded-lg bg-purple-500/20 text-purple-400 border border-purple-500/30 hover:bg-purple-500/30 text-left">BRIDGE</button>
+                      <button type="button" onClick={() => handleQueueSection('OUTRO')} className="p-1.5 rounded-lg bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/30 text-left">OUTRO</button>
+                    </div>
+
+                    <div className="space-y-2 py-2">
+                      {[1, 2, 3, 4].map((waveIndex) => (
+                        <div key={waveIndex} className="h-5 flex items-center gap-1 opacity-80">
+                          {Array.from({ length: 50 }).map((_, i) => (
+                            <div
+                              key={i}
+                              className="w-1 bg-emerald-400/80 rounded-full transition-all duration-300"
+                              style={{
+                                height: `${Math.max(15, Math.sin(i * 0.5 + waveIndex + (isPlaying ? songCurrentTime * 0.2 : 0)) * 100)}%`
+                              }}
+                            />
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div
+                      className="absolute top-0 bottom-0 w-0.5 bg-white shadow-[0_0_12px_rgba(255,255,255,1)] z-10 transition-all duration-300"
+                      style={{ left: `${(songCurrentTime / (currentSong.duration || 270)) * 100}%` }}
+                    />
+                  </div>
+                </Card>
+
+                {/* MESA DE SOM MULTITRACK DE 14 CANAIS FUNCIONAL NO RODAPÉ */}
+                <Card className="bg-[#121824] border-slate-800 text-white rounded-3xl p-6 shadow-2xl space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-black italic tracking-tight text-white flex items-center gap-2">
+                      <Sliders size={18} className="text-emerald-400" /> MULTITRACK MIXER (14 CANAIS FUNCIONAIS)
+                    </h3>
+                    <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 font-bold text-[10px]">
+                      14 Faders Ativos
+                    </Badge>
+                  </div>
+
+                  <div className="grid grid-cols-4 sm:grid-cols-7 lg:grid-cols-[repeat(14,minmax(0,1fr))] gap-2 overflow-x-auto pt-2">
+                    {channelsState.map((ch, idx) => {
+                      const dbText = ch.isMuted
+                        ? 'MUTED'
+                        : `${(ch.volume * 24 - 18).toFixed(1)} dB`;
+
+                      return (
+                        <div key={ch.name} className="bg-[#0b0f17] p-2 rounded-2xl border border-slate-800/80 flex flex-col items-center space-y-2">
+                          <span className="text-[9px] font-black text-slate-300 truncate w-full text-center">{ch.name}</span>
+
+                          {/* Botões Mute & Solo */}
+                          <div className="flex gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleChannelSolo(idx)}
+                              className={`text-[8px] font-bold px-1.5 py-0.5 rounded border transition-colors ${
+                                ch.isSolo
+                                  ? 'bg-amber-500 text-slate-950 border-amber-400 font-black'
+                                  : 'bg-slate-900 text-slate-400 hover:text-white border-slate-800'
+                              }`}
+                            >
+                              S
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleToggleChannelMute(idx)}
+                              className={`text-[8px] font-bold px-1.5 py-0.5 rounded border transition-colors ${
+                                ch.isMuted
+                                  ? 'bg-rose-600 text-white border-rose-500 font-black'
+                                  : 'bg-slate-900 text-slate-400 hover:text-rose-400 border-slate-800'
+                              }`}
+                            >
+                              M
+                            </button>
+                          </div>
+
+                          {/* Slider Vertical de Vômetro LED Animado */}
+                          <div className="w-4 h-28 bg-slate-900 rounded-lg p-0.5 flex flex-col justify-end gap-0.5 border border-slate-800 relative">
+                            {Array.from({ length: 10 }).map((_, ledIdx) => {
+                              const levelPct = ch.isMuted ? 0 : ch.volume * (isPlaying ? Math.abs(Math.sin((songCurrentTime + idx) * 0.8)) * 0.4 + 0.6 : 0.7);
+                              const isActive = (10 - ledIdx) * 10 <= levelPct * 100;
+
+                              return (
+                                <div
+                                  key={ledIdx}
+                                  className={`w-full h-2 rounded-xs transition-all duration-150 ${
+                                    isActive
+                                      ? ledIdx < 2
+                                        ? 'bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.8)]'
+                                        : ledIdx < 4
+                                        ? 'bg-amber-400'
+                                        : 'bg-emerald-400 shadow-[0_0_6px_rgba(16,185,129,0.8)]'
+                                      : 'bg-slate-800/40'
+                                  }`}
+                                />
+                              );
+                            })}
+                          </div>
+
+                          <span className="text-[8px] font-mono font-bold text-slate-400 truncate w-full text-center">
+                            {dbText}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </Card>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'library' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between bg-[#121824] p-4 rounded-2xl border border-slate-800">
+                <div className="relative w-72">
+                  <Search size={16} className="absolute left-3 top-2.5 text-slate-500" />
+                  <Input
+                    placeholder="Buscar no catálogo de VS..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="h-9 pl-9 text-xs bg-[#0b0f17] border-slate-800 text-white placeholder:text-slate-600 rounded-xl"
                   />
                 </div>
-              </Card>
 
-              {/* MESA DE SOM MULTITRACK DE 16 CANAIS NO RODAPÉ (MULTITRACK MIXER 16 CH) */}
-              <Card className="bg-[#121824] border-slate-800 text-white rounded-3xl p-6 shadow-2xl space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-black italic tracking-tight text-white flex items-center gap-2">
-                    <Sliders size={18} className="text-emerald-400" /> MULTITRACK MIXER (16 CANAIS)
-                  </h3>
-                  <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 font-bold text-[10px]">
-                    16 Canais USB Ativos
-                  </Badge>
-                </div>
+                <Link href="/dashboard/vs/upload">
+                  <Button size="sm" className="font-bold text-xs bg-emerald-500 hover:bg-emerald-600 text-slate-950 rounded-xl gap-1.5">
+                    <Plus size={14} /> Novo Upload de VS
+                  </Button>
+                </Link>
+              </div>
 
-                <div className="grid grid-cols-4 sm:grid-cols-8 lg:grid-cols-[repeat(14,minmax(0,1fr))] gap-2 overflow-x-auto pt-2">
-                  {[
-                    { name: 'CLICK', db: '-12.4' },
-                    { name: 'GUIDE', db: '-6.0' },
-                    { name: 'KICK', db: '-0.2' },
-                    { name: 'SNARE', db: '-18.0' },
-                    { name: 'TOM 1', db: '-1.6' },
-                    { name: 'TOM 2', db: '-3.8' },
-                    { name: 'OH L', db: '-3.2' },
-                    { name: 'OH R', db: '-7.6' },
-                    { name: 'BASS DI', db: '-14.2' },
-                    { name: 'BASS M..', db: '-5.0' },
-                    { name: 'GTR 1', db: '-1.8' },
-                    { name: 'GTR 2', db: '-8.8' },
-                    { name: 'KEYS L', db: '-2.0' },
-                    { name: 'KEYS R', db: '-13.2' },
-                  ].map((ch) => (
-                    <div key={ch.name} className="bg-[#0b0f17] p-2 rounded-2xl border border-slate-800/80 flex flex-col items-center space-y-2">
-                      <span className="text-[9px] font-black text-slate-300 truncate w-full text-center">{ch.name}</span>
-
-                      {/* Botões Mute & Solo Pequenos */}
-                      <div className="flex gap-1">
-                        <button type="button" className="text-[8px] font-bold px-1 py-0.5 rounded bg-slate-900 text-slate-400 hover:text-white border border-slate-800">S</button>
-                        <button type="button" className="text-[8px] font-bold px-1 py-0.5 rounded bg-slate-900 text-slate-400 hover:text-rose-400 border border-slate-800">M</button>
-                      </div>
-
-                      {/* Slider Vômetro com LED Verde */}
-                      <div className="w-4 h-32 bg-slate-900 rounded-lg p-0.5 flex flex-col justify-end gap-0.5 border border-slate-800">
-                        {Array.from({ length: 10 }).map((_, idx) => (
-                          <div
-                            key={idx}
-                            className={`w-full h-2 rounded-xs ${
-                              idx < 2 ? 'bg-rose-500' : idx < 4 ? 'bg-amber-400' : 'bg-emerald-400'
-                            }`}
-                          />
-                        ))}
-                      </div>
-
-                      <span className="text-[9px] font-mono font-bold text-slate-400">{ch.db}</span>
-                    </div>
-                  ))}
-                </div>
-              </Card>
+              <div className="bg-[#121824] border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
+                <table className="w-full text-left text-xs text-slate-300">
+                  <thead className="bg-[#182030] text-emerald-400 font-bold uppercase tracking-wider border-b border-slate-800">
+                    <tr>
+                      <th className="p-4">#</th>
+                      <th className="p-4">Música / Artista</th>
+                      <th className="p-4">Tom</th>
+                      <th className="p-4">BPM</th>
+                      <th className="p-4">Duração</th>
+                      <th className="p-4 text-right">Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {catalog.map((vs, idx) => (
+                      <tr key={vs.id} className="hover:bg-[#161e2e] transition-colors">
+                        <td className="p-4 font-mono text-slate-500">{idx + 1}</td>
+                        <td className="p-4 font-bold text-white">
+                          {vs.title}
+                          {vs.artist && <span className="block text-[11px] text-slate-400 font-normal">{vs.artist}</span>}
+                        </td>
+                        <td className="p-4 font-bold text-amber-400">{vs.key || 'C'}</td>
+                        <td className="p-4 font-mono text-emerald-400">{vs.bpm || 120}</td>
+                        <td className="p-4 font-mono">{formatClockTime(vs.duration || 270)}</td>
+                        <td className="p-4 text-right flex justify-end gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => handleAddSongToSetlist(vs)}
+                            className="h-8 font-bold text-[11px] bg-slate-800 hover:bg-slate-700 text-white rounded-xl gap-1"
+                          >
+                            <Plus size={12} /> Add Set
+                          </Button>
+                          <Link href={`/dashboard/vs/${vs.id}`}>
+                            <Button size="sm" className="h-8 font-bold text-[11px] bg-emerald-500 hover:bg-emerald-600 text-slate-950 rounded-xl gap-1">
+                              <Play size={12} className="fill-slate-950" /> Testar
+                            </Button>
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </main>
       </div>
+
+      {/* DIÁLOGO DE ADICIONAR MÚSICA AO REPERTÓRIO DO CULTO */}
+      <Dialog open={isAddSongDialogOpen} onOpenChange={setIsAddSongDialogOpen}>
+        <DialogContent className="bg-[#121824] border-slate-800 text-white rounded-3xl max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black italic text-emerald-400">Adicionar Música ao Repertório</DialogTitle>
+            <DialogDescription className="text-xs text-slate-400">
+              Selecione uma música do seu catálogo de VSs salvas para incluir no culto.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2 max-h-60 overflow-y-auto py-2">
+            {catalog.map((song) => (
+              <div
+                key={song.id}
+                onClick={() => handleAddSongToSetlist(song)}
+                className="p-3 bg-[#182030] hover:bg-[#1e293b] rounded-2xl border border-slate-800 cursor-pointer flex items-center justify-between"
+              >
+                <div>
+                  <h4 className="text-xs font-bold text-white">{song.title}</h4>
+                  <p className="text-[10px] text-slate-400">{song.artist} • {song.bpm} BPM • Tom: {song.key}</p>
+                </div>
+                <Button size="sm" className="h-7 text-[10px] font-bold bg-emerald-500 text-slate-950">
+                  <Plus size={12} /> Incluir
+                </Button>
+              </div>
+            ))}
+          </div>
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsAddSongDialogOpen(false)} className="text-xs font-bold text-slate-400">
+              Cancelar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* FOOTER CYBERPUNK INFINITAMENTE PRO */}
       <footer className="bg-[#0b0f17] border-t border-slate-800/80 px-6 py-2 flex items-center justify-between text-[11px] text-slate-500">
