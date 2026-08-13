@@ -22,11 +22,13 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { CreateOrEditCellDialog } from '../page';
 
 type UserType = {
   id: string; name: string; photoURL?: string;
   contacts?: { cellPhone?: string; phone?: string };
   churchData?: { baptismDate?: any; membershipRoll?: string };
+  hierarchy?: { role?: string; celulaId?: string };
   status?: string;
   batizado?: string;
   dataBatismo?: string;
@@ -145,6 +147,7 @@ export default function CellDetailPage() {
 
   // --- Add member state ---
   const [isAddMemberOpen, setAddMemberOpen] = useState(false);
+  const [isEditCellOpen, setIsEditCellOpen] = useState(false);
   const [memberSearchTerm, setMemberSearchTerm] = useState('');
   const filteredNonMembers = useMemo(() =>
     nonMembers.filter(u => u.name?.toLowerCase().includes(memberSearchTerm.toLowerCase())).slice(0, 8),
@@ -531,8 +534,14 @@ export default function CellDetailPage() {
         <TabsContent value="about" className="mt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-black flex items-center gap-2"><Info className="h-4 w-4"/>Informações Gerais</CardTitle>
+              <CardHeader className="pb-3 flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-base font-black flex items-center gap-2"><Info className="h-4 w-4"/>Informações Gerais</CardTitle>
+                  <CardDescription className="text-xs">Dados de liderança, endereço e reuniões da célula.</CardDescription>
+                </div>
+                <Button size="sm" variant="outline" className="h-8 gap-1 font-bold text-xs" onClick={() => setIsEditCellOpen(true)}>
+                  <Pencil className="h-3.5 w-3.5" /> Editar Célula
+                </Button>
               </CardHeader>
               <CardContent className="space-y-4 text-sm">
                 {[
@@ -587,6 +596,20 @@ export default function CellDetailPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Modal de Edição da Célula */}
+      {allUsers && areas && redes && cell && (
+        <CreateOrEditCellDialog
+          open={isEditCellOpen}
+          onOpenChange={setIsEditCellOpen}
+          users={allUsers}
+          supervisors={allUsers.filter(u => u.hierarchy?.role === 'supervisor' || u.hierarchy?.role === 'admin')}
+          areas={areas}
+          redes={redes}
+          existingCell={cell as any}
+          isSupervisor={true}
+        />
+      )}
 
       {/* Dialog — Adicionar Membro */}
       <Dialog open={isAddMemberOpen} onOpenChange={setAddMemberOpen}>

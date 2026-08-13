@@ -83,7 +83,7 @@ interface CreateOrEditCellDialogProps {
   isSupervisor: boolean;
 }
 
-function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas, redes, existingCell, isSupervisor }: CreateOrEditCellDialogProps) {
+export function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas, redes, existingCell, isSupervisor }: CreateOrEditCellDialogProps) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
