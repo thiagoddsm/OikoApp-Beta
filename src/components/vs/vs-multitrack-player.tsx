@@ -154,9 +154,15 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
             return next;
           });
 
-          // Dispara o bip sintético do metrônomo para feedback sonoro no fone
+          // Dispara o bip sintético do metrônomo se a faixa de Clique não estiver em Mute
           if (Date.now() - lastBeep >= intervalMs) {
-            playClickBeep(1000);
+            const hasSolo = tracksState.some((t) => t.isSolo);
+            const clickTrack = tracksState.find((t) => t.trackId.includes('click'));
+            const isClickMuted = clickTrack ? (clickTrack.isMuted || (hasSolo && !clickTrack.isSolo)) : false;
+
+            if (!isClickMuted) {
+              playClickBeep(1000);
+            }
             lastBeep = Date.now();
           }
         }
@@ -258,8 +264,7 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
 
   const handleVolumeChange = (idx: number, newVol: number) => {
     setTracksState((prev) => {
-      const copy = [...prev];
-      copy[idx].volume = newVol;
+      const copy = prev.map((t, i) => (i === idx ? { ...t, volume: newVol } : t));
       applyAudioSettings(copy);
       return copy;
     });
@@ -267,16 +272,14 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
 
   const handlePanChange = (idx: number, newPan: number) => {
     setTracksState((prev) => {
-      const copy = [...prev];
-      copy[idx].pan = newPan;
+      const copy = prev.map((t, i) => (i === idx ? { ...t, pan: newPan } : t));
       return copy;
     });
   };
 
   const handleToggleMute = (idx: number) => {
     setTracksState((prev) => {
-      const copy = [...prev];
-      copy[idx].isMuted = !copy[idx].isMuted;
+      const copy = prev.map((t, i) => (i === idx ? { ...t, isMuted: !t.isMuted } : t));
       applyAudioSettings(copy);
       return copy;
     });
@@ -284,8 +287,7 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
 
   const handleToggleSolo = (idx: number) => {
     setTracksState((prev) => {
-      const copy = [...prev];
-      copy[idx].isSolo = !copy[idx].isSolo;
+      const copy = prev.map((t, i) => (i === idx ? { ...t, isSolo: !t.isSolo } : t));
       applyAudioSettings(copy);
       return copy;
     });
