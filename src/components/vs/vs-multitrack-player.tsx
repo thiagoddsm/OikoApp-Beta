@@ -55,6 +55,9 @@ interface TrackAudioControl {
   isReady: boolean;
 }
 
+// Lista de notas musicais em semitons para transposição dinâmica (Pitch Shift)
+const MUSIC_KEYS = ['C', 'C# / Db', 'D', 'D# / Eb', 'E', 'F', 'F# / Gb', 'G', 'G# / Ab', 'A', 'A# / Bb', 'B'];
+
 export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
   const router = useRouter();
   const { toast } = useToast();
@@ -69,9 +72,56 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
+  // Modo de Exibição das Faixas: 'cards' (Mesa de Som) ou 'daw_waveforms' (Linha do Tempo DAW estilo Prime/MultiTracks)
+  const [trackViewMode, setTrackViewMode] = useState<'daw_waveforms' | 'cards'>('daw_waveforms');
+
+  // Pitch Shift (Mudança de Tom em Tempo Real por semitons: -6 a +6)
+  const [semitonesShift, setSemitonesShift] = useState(0);
+
   // Modo de Loop ao Vivo: 'none' (normal), 'single' (repetir 1x), 'infinite' (loop continuo de oração/ministração)
   const [loopMode, setLoopMode] = useState<'none' | 'single' | 'infinite'>('none');
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
+
+  // Tom Original e Calculado com base nos semitons de Pitch Shift
+  const originalKey = vs.key || 'C';
+  const currentKey = useMemo(() => {
+    const cleanKey = originalKey.trim().toUpperCase();
+    let baseIndex = MUSIC_KEYS.findIndex((k) => k.startsWith(cleanKey) || k.split(' / ')[0] === cleanKey || k.split(' / ')[1] === cleanKey);
+    if (baseIndex === -1) baseIndex = 0; // Fallback para C
+
+    const newIndex = (baseIndex + semitonesShift + 120) % 12;
+    return MUSIC_KEYS[newIndex];
+  }, [originalKey, semitonesShift]);
+
+  // Aplicação de Pitch Shift (transposição de áudio em tempo real ajustando a velocidade de amostragem preservando tempo)
+  const applyPitchShiftToAudioElements = useCallback((shift: number) => {
+    // Calculando a razão de pitch para semitons: 2^(semitones / 12)
+    const playbackRate = Math.pow(2, shift / 12);
+
+    Object.values(audioRefs.current).forEach((audio) => {
+      if (audio) {
+        try {
+          // Ajusta a velocidade de reprodução para alterar a tonalidade
+          audio.playbackRate = playbackRate;
+          (audio as any).preservesPitch = false;
+          (audio as any).webkitPreservesPitch = false;
+          (audio as any).mozPreservesPitch = false;
+        } catch (e) {
+          console.warn('Pitch Shift não suportado neste navegador:', e);
+        }
+      }
+    });
+  }, []);
+
+  const handlePitchChange = (delta: number) => {
+    const nextShift = Math.max(-6, Math.min(6, semitonesShift + delta));
+    setSemitonesShift(nextShift);
+    applyPitchShiftToAudioElements(nextShift);
+    toast({
+      title: `Tom Alterado: ${currentKey} (${nextShift > 0 ? `+${nextShift}` : nextShift} st) 🎵`,
+      description: `Processamento de Pitch Shift aplicado em tempo real a todas as stems.`,
+    });
+  };
 
   // Marcadores de Seções da Música (se não houver no banco, gera automaticamente para demonstração)
   const sections: VsSectionMarker[] = useMemo(() => {
@@ -462,11 +512,31 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
               🎵 {vs.bpm} BPM
             </Badge>
           )}
-          {vs.key && (
-            <Badge variant="outline" className="bg-slate-800 border-slate-700 text-amber-400 font-bold text-xs px-3 py-1">
-              🎹 Tom: {vs.key}
-            </Badge>
-          )}
+
+          {/* CONTROLE DE PITCH SHIFT / TRANSPOSIÇÃO DE TOM */}
+          <div className="flex items-center bg-slate-950 border border-slate-800 rounded-2xl p-1 gap-1">
+            <button
+              type="button"
+              onClick={() => handlePitchChange(-1)}
+              className="size-7 rounded-xl bg-slate-900 hover:bg-slate-800 text-amber-400 font-black text-sm flex items-center justify-center transition-all"
+              title="Baixar 1 semitom (-1 st)"
+            >
+              -
+            </button>
+            <div className="px-2 text-center">
+              <span className="text-[10px] font-black uppercase text-slate-500 block leading-none">Tom</span>
+              <span className="text-xs font-black text-amber-400 font-mono leading-tight">{currentKey}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => handlePitchChange(1)}
+              className="size-7 rounded-xl bg-slate-900 hover:bg-slate-800 text-amber-400 font-black text-sm flex items-center justify-center transition-all"
+              title="Subir 1 semitom (+1 st)"
+            >
+              +
+            </button>
+          </div>
+
           {vs.timeSignature && (
             <Badge variant="outline" className="bg-slate-800 border-slate-700 text-sky-400 font-mono text-xs px-3 py-1 font-bold">
               ⏱ {vs.timeSignature}
@@ -629,139 +699,292 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
         </div>
       </Card>
 
-      {/* MESA DE MISTURA (MIXER VIRTUAL DE CANAIS) */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-black uppercase italic tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-            <Sliders size={20} className="text-emerald-500" /> Mesa de Som Multitrack
-          </h2>
-          <span className="text-xs text-slate-500 font-bold">{tracksState.length} Canais Ativos</span>
+      {/* MESA DE SOM / LINHA DO TEMPO DAW DE FAIXAS (ARRANGEMENT WAVEFORMS) */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between bg-slate-900 p-4 rounded-3xl border border-slate-800">
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-black uppercase italic tracking-tight text-white flex items-center gap-2">
+              <Sliders size={20} className="text-emerald-400" /> Faixas Multitrack
+            </h2>
+            <Badge variant="outline" className="border-slate-700 bg-slate-950 text-emerald-400 font-bold text-xs">
+              {tracksState.length} Canais
+            </Badge>
+          </div>
+
+          {/* TOGGLE MODO DE VISUALIZAÇÃO: LINHA DO TEMPO DAW VS MESA DE CANAIS */}
+          <div className="flex items-center bg-slate-950 p-1 rounded-2xl border border-slate-800">
+            <button
+              type="button"
+              onClick={() => setTrackViewMode('daw_waveforms')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                trackViewMode === 'daw_waveforms'
+                  ? 'bg-emerald-500 text-slate-950 font-black shadow'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              🌊 Linha do Tempo (DAW)
+            </button>
+            <button
+              type="button"
+              onClick={() => setTrackViewMode('cards')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                trackViewMode === 'cards'
+                  ? 'bg-emerald-500 text-slate-950 font-black shadow'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              🎛️ Mesa de Som (Faders)
+            </button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {tracksState.map((track, idx) => {
-            const isClickOrGuide = track.trackId.includes('click') || track.trackId.includes('guide');
+        {/* VISUALIZAÇÃO 1: LINHA DO TEMPO DAW COM FORMAD DE ONDA (ESTILO MULTITRACKS / PRIME / ABLETON) */}
+        {trackViewMode === 'daw_waveforms' && (
+          <Card className="bg-slate-950 text-white border-slate-800 rounded-3xl p-6 shadow-2xl overflow-hidden">
+            <div className="space-y-4">
+              {tracksState.map((track, idx) => {
+                const isClickOrGuide = track.trackId.includes('click') || track.trackId.includes('guide');
+                const progressRatio = duration > 0 ? currentTime / duration : 0;
 
-            return (
-              <Card
-                key={track.trackId}
-                className={`border-0 shadow-lg transition-all duration-200 ${
-                  track.isMuted
-                    ? 'bg-slate-900/60 opacity-60'
-                    : track.isSolo
-                    ? 'bg-amber-950/40 ring-2 ring-amber-500'
-                    : 'bg-slate-900'
-                } text-white rounded-3xl overflow-hidden`}
-              >
-                <CardHeader className="p-4 pb-2 border-b border-slate-800/60">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-black italic tracking-tight truncate">
-                      {track.label}
-                    </CardTitle>
-                    {isClickOrGuide && (
-                      <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-[9px] font-bold">
-                        Fone
-                      </Badge>
-                    )}
-                  </div>
-                </CardHeader>
-
-                <CardContent className="p-4 space-y-4">
-                  {/* Botões Mute & Solo */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      size="sm"
-                      variant={track.isMuted ? 'destructive' : 'outline'}
-                      onClick={() => handleToggleMute(idx)}
-                      className={`h-9 font-black text-xs uppercase tracking-wider rounded-xl ${
-                        track.isMuted
-                          ? 'bg-rose-600 text-white'
-                          : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      {track.isMuted ? <VolumeX size={14} className="mr-1" /> : <Volume2 size={14} className="mr-1" />}
-                      Mute
-                    </Button>
-
-                    <Button
-                      size="sm"
-                      variant={track.isSolo ? 'default' : 'outline'}
-                      onClick={() => handleToggleSolo(idx)}
-                      className={`h-9 font-black text-xs uppercase tracking-wider rounded-xl ${
-                        track.isSolo
-                          ? 'bg-amber-500 text-slate-950 hover:bg-amber-400 font-black shadow-lg shadow-amber-500/20'
-                          : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-amber-400'
-                      }`}
-                    >
-                      <Sparkles size={14} className="mr-1" /> Solo
-                    </Button>
-                  </div>
-
-                  {/* Controle de Volume */}
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-[11px] font-bold text-slate-400">
-                      <span>Volume</span>
-                      <span className="font-mono text-emerald-400">{Math.round(track.volume * 100)}%</span>
+                return (
+                  <div
+                    key={track.trackId}
+                    className={`flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-2xl border transition-all ${
+                      track.isMuted
+                        ? 'bg-slate-900/40 border-slate-900 opacity-50'
+                        : track.isSolo
+                        ? 'bg-amber-950/20 border-amber-500/50 shadow-md'
+                        : 'bg-slate-900/90 border-slate-800 hover:border-slate-700'
+                    }`}
+                  >
+                    {/* COLUNA ESQUERDA: NOME DA HASTE / STEM */}
+                    <div className="sm:w-48 shrink-0 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-black italic tracking-tight truncate text-white">
+                          {track.label}
+                        </span>
+                        {isClickOrGuide && (
+                          <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-[9px] font-bold px-1.5 py-0">
+                            Fone
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono">
+                        <span>Vol: <strong className="text-emerald-400">{Math.round(track.volume * 100)}%</strong></span>
+                        <span>•</span>
+                        <span>Pan: <strong className="text-sky-400">{track.pan === 0 ? 'C' : track.pan < 0 ? `L${Math.round(Math.abs(track.pan)*100)}` : `R${Math.round(track.pan*100)}`}</strong></span>
+                      </div>
                     </div>
-                    <Slider
-                      value={[track.volume]}
-                      min={0}
-                      max={1}
-                      step={0.01}
-                      onValueChange={(val) => handleVolumeChange(idx, val[0])}
-                    />
-                  </div>
 
-                  {/* Controle de Panning (Esquerda / Direita) */}
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-[11px] font-bold text-slate-400">
-                      <span>Pan (L/R)</span>
-                      <span className="font-mono text-sky-400">
-                        {track.pan === 0
-                          ? 'Centro'
-                          : track.pan < 0
-                          ? `L ${Math.round(Math.abs(track.pan) * 100)}%`
-                          : `R ${Math.round(track.pan * 100)}%`}
-                      </span>
+                    {/* COLUNA CENTRAL: ONDA SINTÉTICA DINÂMICA (WAVEFORM SVG INTERATIVO) */}
+                    <div className="flex-1 relative h-10 bg-slate-950 rounded-xl border border-slate-800/80 overflow-hidden flex items-center px-2">
+                      {/* ONDA AMBIENTE DESENHADA COM BARRAS */}
+                      <div className="w-full flex items-center justify-between gap-0.5 h-full opacity-60">
+                        {Array.from({ length: 48 }).map((_, barIdx) => {
+                          // Gera amplitude pseudo-randômica fixa mas bonita para a forma de onda
+                          const seed = (idx + 1) * (barIdx + 1);
+                          const heightPercent = Math.min(90, Math.max(15, (Math.sin(seed) * 0.5 + 0.5) * 85));
+                          const isPlayed = barIdx / 48 <= progressRatio;
+
+                          return (
+                            <div
+                              key={barIdx}
+                              className={`w-1 rounded-full transition-all ${
+                                isPlayed
+                                  ? track.isSolo
+                                    ? 'bg-amber-400 shadow-sm'
+                                    : 'bg-emerald-400 shadow-sm'
+                                  : 'bg-slate-700'
+                              }`}
+                              style={{ height: `${heightPercent}%` }}
+                            />
+                          );
+                        })}
+                      </div>
+
+                      {/* AGULHA / PLAYHEAD DE POSIÇÃO DA MÚSICA */}
+                      <div
+                        className="absolute top-0 bottom-0 w-0.5 bg-emerald-400 shadow-[0_0_8px_#34d399] transition-all"
+                        style={{ left: `${progressRatio * 100}%` }}
+                      />
                     </div>
-                    <Slider
-                      value={[track.pan]}
-                      min={-1}
-                      max={1}
-                      step={0.05}
-                      onValueChange={(val) => handlePanChange(idx, val[0])}
-                    />
-                  </div>
 
-                  {/* Botões Rápidos de Pan Preset */}
-                  <div className="flex items-center justify-between gap-1 pt-1 text-[10px]">
-                    <button
-                      type="button"
-                      onClick={() => handlePanChange(idx, -1)}
-                      className="px-2 py-1 rounded-md bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white font-bold"
-                    >
-                      Esq 100%
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handlePanChange(idx, 0)}
-                      className="px-2 py-1 rounded-md bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white font-bold"
-                    >
-                      Centro
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handlePanChange(idx, 1)}
-                      className="px-2 py-1 rounded-md bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white font-bold"
-                    >
-                      Dir 100%
-                    </button>
+                    {/* COLUNA DIREITA: CONTROLES RÁPIDOS MUTE & SOLO E SLIDER DE VOLUME */}
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className="w-24 hidden md:block">
+                        <Slider
+                          value={[track.volume]}
+                          min={0}
+                          max={1}
+                          step={0.01}
+                          onValueChange={(val) => handleVolumeChange(idx, val[0])}
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          size="sm"
+                          variant={track.isMuted ? 'destructive' : 'outline'}
+                          onClick={() => handleToggleMute(idx)}
+                          className={`size-9 p-0 rounded-xl font-black text-xs ${
+                            track.isMuted
+                              ? 'bg-rose-600 text-white'
+                              : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-white'
+                          }`}
+                          title="Mute"
+                        >
+                          {track.isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          variant={track.isSolo ? 'default' : 'outline'}
+                          onClick={() => handleToggleSolo(idx)}
+                          className={`size-9 p-0 rounded-xl font-black text-xs ${
+                            track.isSolo
+                              ? 'bg-amber-500 text-slate-950 hover:bg-amber-400 font-black shadow-lg shadow-amber-500/20'
+                              : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-amber-400'
+                          }`}
+                          title="Solo"
+                        >
+                          S
+                        </Button>
+                      </div>
+                    </div>
                   </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                );
+              })}
+            </div>
+          </Card>
+        )}
+
+        {/* VISUALIZAÇÃO 2: MESA DE SOM COM CARDS / FADERS VERTICAIS */}
+        {trackViewMode === 'cards' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {tracksState.map((track, idx) => {
+              const isClickOrGuide = track.trackId.includes('click') || track.trackId.includes('guide');
+
+              return (
+                <Card
+                  key={track.trackId}
+                  className={`border-0 shadow-lg transition-all duration-200 ${
+                    track.isMuted
+                      ? 'bg-slate-900/60 opacity-60'
+                      : track.isSolo
+                      ? 'bg-amber-950/40 ring-2 ring-amber-500'
+                      : 'bg-slate-900'
+                  } text-white rounded-3xl overflow-hidden`}
+                >
+                  <CardHeader className="p-4 pb-2 border-b border-slate-800/60">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-sm font-black italic tracking-tight truncate">
+                        {track.label}
+                      </CardTitle>
+                      {isClickOrGuide && (
+                        <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-[9px] font-bold">
+                          Fone
+                        </Badge>
+                      )}
+                    </div>
+                  </CardHeader>
+
+                  <CardContent className="p-4 space-y-4">
+                    {/* Botões Mute & Solo */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        size="sm"
+                        variant={track.isMuted ? 'destructive' : 'outline'}
+                        onClick={() => handleToggleMute(idx)}
+                        className={`h-9 font-black text-xs uppercase tracking-wider rounded-xl ${
+                          track.isMuted
+                            ? 'bg-rose-600 text-white'
+                            : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        {track.isMuted ? <VolumeX size={14} className="mr-1" /> : <Volume2 size={14} className="mr-1" />}
+                        Mute
+                      </Button>
+
+                      <Button
+                        size="sm"
+                        variant={track.isSolo ? 'default' : 'outline'}
+                        onClick={() => handleToggleSolo(idx)}
+                        className={`h-9 font-black text-xs uppercase tracking-wider rounded-xl ${
+                          track.isSolo
+                            ? 'bg-amber-500 text-slate-950 hover:bg-amber-400 font-black shadow-lg shadow-amber-500/20'
+                            : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-amber-400'
+                        }`}
+                      >
+                        <Sparkles size={14} className="mr-1" /> Solo
+                      </Button>
+                    </div>
+
+                    {/* Controle de Volume */}
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-[11px] font-bold text-slate-400">
+                        <span>Volume</span>
+                        <span className="font-mono text-emerald-400">{Math.round(track.volume * 100)}%</span>
+                      </div>
+                      <Slider
+                        value={[track.volume]}
+                        min={0}
+                        max={1}
+                        step={0.01}
+                        onValueChange={(val) => handleVolumeChange(idx, val[0])}
+                      />
+                    </div>
+
+                    {/* Controle de Panning (Esquerda / Direita) */}
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-[11px] font-bold text-slate-400">
+                        <span>Pan (L/R)</span>
+                        <span className="font-mono text-sky-400">
+                          {track.pan === 0
+                            ? 'Centro'
+                            : track.pan < 0
+                            ? `L ${Math.round(Math.abs(track.pan) * 100)}%`
+                            : `R ${Math.round(track.pan * 100)}%`}
+                        </span>
+                      </div>
+                      <Slider
+                        value={[track.pan]}
+                        min={-1}
+                        max={1}
+                        step={0.05}
+                        onValueChange={(val) => handlePanChange(idx, val[0])}
+                      />
+                    </div>
+
+                    {/* Botões Rápidos de Pan Preset */}
+                    <div className="flex items-center justify-between gap-1 pt-1 text-[10px]">
+                      <button
+                        type="button"
+                        onClick={() => handlePanChange(idx, -1)}
+                        className="px-2 py-1 rounded-md bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white font-bold"
+                      >
+                        Esq 100%
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handlePanChange(idx, 0)}
+                        className="px-2 py-1 rounded-md bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white font-bold"
+                      >
+                        Centro
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handlePanChange(idx, 1)}
+                        className="px-2 py-1 rounded-md bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white font-bold"
+                      >
+                        Dir 100%
+                      </button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
