@@ -493,10 +493,14 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all' }: VSMultitrackPlaye
   const handleSeek = (newTime: number) => {
     setCurrentTime(newTime);
     Object.values(audioRefs.current).forEach((audio) => {
-      if (audio) {
+      if (audio && !isNaN(newTime)) {
         try {
-          audio.currentTime = newTime;
-        } catch (e) {}
+          if (audio.readyState >= 1) { // HAVE_METADATA ou superior
+            audio.currentTime = newTime;
+          }
+        } catch (e) {
+          console.warn('Seek ignorado para áudio ainda não carregado:', e);
+        }
       }
     });
   };

@@ -95,6 +95,13 @@ export default function VSIgrejaPublicPage() {
     }
   }, []);
 
+  // Atualiza a música ativa quando o índice mudar via broadcast
+  useEffect(() => {
+    if (setlistSongs.length > 0 && setlistSongs[currentSongIndex]) {
+      setCurrentSong(setlistSongs[currentSongIndex]);
+    }
+  }, [currentSongIndex, setlistSongs]);
+
   return (
     <div className="min-h-screen bg-[#07090e] text-white p-4 sm:p-6 space-y-6">
       {/* HEADER DA MESA DE SOM / PA IGREJA */}
