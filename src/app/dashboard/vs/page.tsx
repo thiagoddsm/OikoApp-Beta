@@ -31,6 +31,7 @@ type VsEntry = {
   timeSignature?: string;
   duration?: number;
   tracks: { trackId: string; label: string; url?: string; defaultPan?: number; defaultVolume?: number }[];
+  sections?: any[];
   status?: string;
   createdAt?: any;
 };
@@ -60,18 +61,58 @@ export default function VsMainStagePage() {
   const [queuedSectionLabel, setQueuedSectionLabel] = useState<string | null>(null);
   const [countdownBeats, setCountdownBeats] = useState<number | null>(null);
 
-  // Carrega o catálogo do Firestore
+  // Carrega o catálogo de VSs + Ordem de Culto Ativa do Worship Module
   useEffect(() => {
-    async function fetchCatalog() {
+    async function fetchCatalogAndWorshipPlan() {
       if (!firestore) return;
       try {
-        const q = query(collection(firestore, 'vs_catalog'), orderBy('createdAt', 'desc'));
-        const snap = await getDocs(q);
-        const data = snap.docs.map((d) => ({ id: d.id, ...d.data() } as VsEntry));
-        setCatalog(data);
+        // 1. Carrega Catálogo VS
+        const qCatalog = query(collection(firestore, 'vs_catalog'), orderBy('createdAt', 'desc'));
+        const snapCatalog = await getDocs(qCatalog);
+        const catalogData = snapCatalog.docs.map((d) => ({ id: d.id, ...d.data() } as VsEntry));
+        setCatalog(catalogData);
 
-        if (data.length > 0) {
-          setSetlistSongs(data);
+        // 2. Busca o Plano de Culto (Worship Plan) mais recente ou do dia
+        const qPlans = query(collection(firestore, 'worship_plans'), orderBy('createdAt', 'desc'));
+        const snapPlans = await getDocs(qPlans);
+        let worshipSetlist: VsEntry[] = [];
+
+        if (!snapPlans.empty) {
+          const latestPlanDoc = snapPlans.docs[0];
+          const planData = latestPlanDoc.data();
+
+          if (planData.title) {
+            setSetlistTitle(`Ordem de Culto: ${planData.title}`);
+          }
+
+          if (Array.isArray(planData.items)) {
+            const songItems = planData.items.filter((i: any) => i.type === 'song');
+            
+            worshipSetlist = songItems.map((item: any) => {
+              // Tenta vincular pela vsId ou pelo título da música no catálogo de VS
+              const matchedVs = catalogData.find(
+                (vs) => (item.vsId && vs.id === item.vsId) || vs.title.toLowerCase().trim() === item.title.toLowerCase().trim()
+              );
+
+              return {
+                id: matchedVs?.id || `worship_${item.id}`,
+                title: item.title,
+                artist: item.arrangement || matchedVs?.artist || '',
+                bpm: item.bpm || matchedVs?.bpm || 120,
+                key: item.key || matchedVs?.key || 'C',
+                timeSignature: matchedVs?.timeSignature || '4/4',
+                duration: item.durationSeconds || matchedVs?.duration || 270,
+                tracks: matchedVs?.tracks || [{ trackId: '1', label: 'All Tracks' }],
+                sections: matchedVs?.sections || [],
+              };
+            });
+          }
+        }
+
+        if (worshipSetlist.length > 0) {
+          setSetlistSongs(worshipSetlist);
+        } else if (catalogData.length > 0) {
+          setSetlistSongs(catalogData);
         } else {
           // Demo fallback se não houver registros
           const demoSongs: VsEntry[] = [
@@ -95,26 +136,16 @@ export default function VsMainStagePage() {
               duration: 345,
               tracks: [{ trackId: '1', label: 'All Tracks' }]
             },
-            {
-              id: 'demo_3',
-              title: 'Lugar Secreto',
-              artist: 'Gabriela Rocha',
-              bpm: 74,
-              key: 'C',
-              timeSignature: '4/4',
-              duration: 370,
-              tracks: [{ trackId: '1', label: 'All Tracks' }]
-            }
           ];
           setSetlistSongs(demoSongs);
         }
       } catch (e) {
-        console.error('Erro ao carregar catálogo:', e);
+        console.error('Erro ao carregar catálogo e ordem de culto:', e);
       } finally {
         setLoading(false);
       }
     }
-    fetchCatalog();
+    fetchCatalogAndWorshipPlan();
   }, []);
 
   // Temporizadores do Culto, Música e Virada de Seção em Tempo Real

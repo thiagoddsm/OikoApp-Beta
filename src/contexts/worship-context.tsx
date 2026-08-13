@@ -40,6 +40,7 @@ export type WorshipItem = {
   arrangement?: string;
   attachments?: SongAttachment[];
   youtubeUrl?: string;
+  vsId?: string;
   // PCS-inspired row color tag
   color?: 'none' | 'purple' | 'blue' | 'green' | 'yellow' | 'red' | 'gray';
 };

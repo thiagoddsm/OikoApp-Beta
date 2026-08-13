@@ -229,6 +229,7 @@ function SortableRow({ item, onChange, onDelete }: SortableItemProps) {
                             attachments: song.attachments || [],
                             youtubeUrl: song.youtubeUrl || '',
                             notes: song.notes || '',
+                            vsId: (song as any).vsId || song.id,
                           });
                         }}
                         className="flex flex-col items-start gap-0.5 py-1.5 cursor-pointer"

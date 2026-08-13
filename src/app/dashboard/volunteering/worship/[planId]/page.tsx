@@ -53,7 +53,8 @@ import {
   ListMusic,
   CalendarRange,
   Files,
-  Volume2
+  Volume2,
+  Sliders
 } from 'lucide-react';
 import { useEventsData, useMembersData, useVolunteeringServiceData } from '@/hooks/useDomainData';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -754,6 +755,11 @@ function PlanEditorInner({ planId }: { planId: string }) {
           <Button variant="outline" size="sm" className="h-8 text-xs text-red-600 border-red-200 bg-red-50 hover:bg-red-100" onClick={handleTransmitLive} disabled={isTransmitting}>
             {isTransmitting ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Radio className="mr-1.5 h-3.5 w-3.5" />}
             Ao Vivo
+          </Button>
+
+          <Button variant="outline" size="sm" className="h-8 text-xs text-emerald-600 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 font-bold" onClick={() => router.push('/dashboard/vs')}>
+            <Sliders className="mr-1.5 h-3.5 w-3.5 text-emerald-600" />
+            Oiko Live VS
           </Button>
 
           <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setShowApplyDialog(true)}>
