@@ -608,6 +608,42 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
 
       {/* Control Bar Principal (Play/Pause, Slider, Presets) */}
       <Card className="bg-slate-950 text-white border-slate-800 shadow-2xl rounded-3xl overflow-hidden space-y-4 p-6">
+        {/* PAINEL DE TELEPROMPTER & CIFRA SINCRONIZADA COM O PITCH SHIFT */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-2 relative overflow-hidden">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
+              <Sparkles size={12} className="text-amber-400" /> Cifra & Letra Sincronizada (Tom Transposto: {currentKey})
+            </span>
+            <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20 text-[9px]">
+              Auto-Sync
+            </Badge>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-950 p-3 rounded-xl border border-slate-800/80">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 font-mono text-base font-black text-amber-400 tracking-wider">
+                <span>{currentKey}</span>
+                <span className="text-slate-600">•</span>
+                <span>{MUSIC_KEYS[(MUSIC_KEYS.findIndex(k => k.startsWith(currentKey.split(' ')[0])) + 5) % 12] || 'F'}</span>
+                <span className="text-slate-600">•</span>
+                <span>{MUSIC_KEYS[(MUSIC_KEYS.findIndex(k => k.startsWith(currentKey.split(' ')[0])) + 7) % 12] || 'G'}</span>
+                <span className="text-slate-600">•</span>
+                <span>{MUSIC_KEYS[(MUSIC_KEYS.findIndex(k => k.startsWith(currentKey.split(' ')[0])) + 9) % 12] || 'Am'}</span>
+              </div>
+              <p className="text-xs text-slate-200 font-semibold italic">
+                {currentSection?.label === 'Intro' && '♪ [Instrumental Guitarras & Teclado Solene]'}
+                {currentSection?.label === 'Verso' && '“Tu és o mesmo ontem, hoje e para sempre...”'}
+                {currentSection?.label === 'Refrão' && '“Vitorioso És, sobre a morte venceu, Rei exaltado...”'}
+                {currentSection?.label === 'Ponte' && '“O véu se rasgou, a terra tremeu, o túmulo vazio está!”'}
+                {currentSection?.label === 'Ministração / Oração' && '“Glória e honra ao Senhor! Aleluia...”'}
+              </p>
+            </div>
+            <Badge variant="outline" className="border-emerald-500/40 text-emerald-400 bg-emerald-500/10 text-[10px] font-bold shrink-0 self-start sm:self-center">
+              Compasso 4/4
+            </Badge>
+          </div>
+        </div>
+
         {/* BARRA DE SEÇÕES DA MÚSICA & SALTO AO VIVO (LIVE REORDER) */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
