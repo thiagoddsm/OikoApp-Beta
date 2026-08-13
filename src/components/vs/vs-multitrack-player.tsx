@@ -279,7 +279,7 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
     }
   };
 
-  const playClickBeep = useCallback((freq = 1000) => {
+  const playClickBeep = useCallback((freq = 1000, vol = 0.3) => {
     try {
       const ctx = getAudioContext();
       const osc = ctx.createOscillator();
@@ -288,8 +288,9 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
       osc.type = 'sine';
       osc.frequency.setValueAtTime(freq, ctx.currentTime);
 
-      gain.gain.setValueAtTime(0.3, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+      const targetVol = Math.max(0, Math.min(1, vol));
+      gain.gain.setValueAtTime(targetVol, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.08);
 
       osc.connect(gain);
       gain.connect(ctx.destination);
@@ -320,20 +321,29 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
       const panNode = panNodesRef.current[t.trackId];
       const audioEl = audioRefs.current[t.trackId];
       
-      if (gainNode) {
-        // Web Audio routing
-        gainNode.gain.value = effectiveVol;
-      } else if (audioEl) {
-        // Native fallback
+      // Sempre ajusta o elemento de áudio nativo E o nó Web Audio simultaneamente
+      if (audioEl) {
         audioEl.volume = effectiveVol;
         audioEl.muted = shouldMute;
       }
+
+      if (gainNode) {
+        try {
+          gainNode.gain.setValueAtTime(effectiveVol, getAudioContext().currentTime);
+        } catch (e) {
+          gainNode.gain.value = effectiveVol;
+        }
+      }
       
       if (panNode) {
-        panNode.pan.value = t.pan;
+        try {
+          panNode.pan.setValueAtTime(t.pan, getAudioContext().currentTime);
+        } catch (e) {
+          panNode.pan.value = t.pan;
+        }
       }
     });
-  }, [outputMode]);
+  }, [outputMode, getAudioContext]);
 
   const currentTimeRef = useRef(currentTime);
   const loopModeRef = useRef(loopMode);
@@ -425,7 +435,8 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
             const clickTrack = tracksStateRef.current.find((t) => t.trackId.includes('click'));
             const isClickMuted = clickTrack ? (clickTrack.isMuted || (hasSolo && !clickTrack.isSolo)) : false;
             if (!isClickMuted && outputMode !== 'house_pa') {
-              playClickBeep(1000);
+              const clickVol = clickTrack ? clickTrack.volume : 0.5;
+              playClickBeep(1000, clickVol);
             }
             lastBeep = Date.now();
           }
