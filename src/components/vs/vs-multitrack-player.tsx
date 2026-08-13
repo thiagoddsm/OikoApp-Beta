@@ -179,12 +179,18 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
 
   // Tocar / Pausar simultaneamente todas as faixas
   const handlePlayPause = async () => {
-    const ctx = getAudioContext();
+    getAudioContext();
 
     if (isPlaying) {
       // Pause
       Object.values(audioRefs.current).forEach((audio) => {
-        if (audio) audio.pause();
+        if (audio) {
+          try {
+            audio.pause();
+          } catch (e) {
+            // ignora
+          }
+        }
       });
       setIsPlaying(false);
     } else {
@@ -192,20 +198,26 @@ export function VSMultitrackPlayer({ vs }: VSMultitrackPlayerProps) {
       updateAudioGains(tracksState);
 
       const playPromises = Object.values(audioRefs.current).map((audio) => {
-        if (audio) return audio.play();
+        if (audio) {
+          const p = audio.play();
+          if (p !== undefined) {
+            return p.catch((err) => {
+              if (err.name !== 'AbortError') {
+                console.warn('Alerta de áudio:', err);
+              }
+            });
+          }
+        }
         return Promise.resolve();
       });
 
       try {
         await Promise.all(playPromises);
         setIsPlaying(true);
-      } catch (err) {
-        console.error('Erro ao dar Play nos elementos de áudio:', err);
-        toast({
-          variant: 'destructive',
-          title: 'Erro de Reprodução',
-          description: 'Clique na tela para habilitar a reprodução de áudio pelo navegador.',
-        });
+      } catch (err: any) {
+        if (err?.name !== 'AbortError') {
+          console.error('Erro de reprodução:', err);
+        }
       }
     }
   };
