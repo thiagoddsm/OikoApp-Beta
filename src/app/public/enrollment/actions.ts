@@ -71,21 +71,35 @@ export async function submitEnrollmentRequest(data: {
 
         let finalName = data.name;
         let finalPhone = data.phone;
-        let finalEmail = data.email;
+        let finalEmail = data.email?.toLowerCase().trim();
 
-        // Se é um membro reconhecido, buscamos os dados reais no servidor
+        // 1. Se userId for fornecido, busca os dados no Firestore
         if (data.userId) {
             const userDoc = await db.collection('users').doc(data.userId).get();
             if (userDoc.exists) {
                 const realData = userDoc.data()!;
-                finalName = realData.name;
-                finalPhone = realData.phone;
-                finalEmail = realData.email;
+                finalName = realData.name || finalName;
+                finalPhone = realData.phone || finalPhone;
+                finalEmail = realData.email || finalEmail;
             }
         }
 
-        if (!finalName || !finalEmail) {
-            throw new Error("Dados de identificação ausentes.");
+        // 2. Se não tem userId mas tem email, busca pelo e-mail
+        if (!finalName && finalEmail) {
+            const userSnap = await db.collection('users').where('email', '==', finalEmail).get();
+            if (!userSnap.empty) {
+                const realData = userSnap.docs[0].data();
+                finalName = realData.name;
+                finalPhone = realData.phone || finalPhone;
+            }
+        }
+
+        if (!finalName) {
+            finalName = finalEmail ? finalEmail.split('@')[0] : 'Aluno Inscrito';
+        }
+
+        if (!finalEmail) {
+            throw new Error("E-mail é obrigatório para realizar a inscrição.");
         }
 
         const docRef = await db.collection('enrollment_requests').add({

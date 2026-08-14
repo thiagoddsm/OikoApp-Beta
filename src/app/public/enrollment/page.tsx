@@ -619,9 +619,9 @@ function EnrollmentForm() {
 
                 const result = await submitEnrollmentRequest({
                     userId: foundUser?.userId,
-                    name: mode === 'new' ? formData.name : undefined,
-                    email: emailInput.toLowerCase().trim(),
-                    phone: mode === 'new' ? formData.phone : undefined,
+                    name: finalName || formData.name || undefined,
+                    email: finalEmail,
+                    phone: finalPhone || formData.phone || undefined,
                     courseId: selectedCourseId,
                     classId: selectedClassId || undefined,
                     paymentMethod,
