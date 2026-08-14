@@ -249,17 +249,17 @@ function TheoFlixContent() {
     setLessonNotes('');
   };
 
-  const handleMarkAsCompleted = () => {
+  const handleMarkAsCompleted = (bypassQuiz = false) => {
     if (!user || !selectedCourse || !currentEpisode || !firestore) return;
     
     // Check for quiz
-    if (currentEpisode.quiz?.enabled && currentEpisode.quiz.questions?.length > 0 && !quizSubmitted) {
+    if (!bypassQuiz && currentEpisode.quiz?.enabled && currentEpisode.quiz.questions?.length > 0 && !quizSubmitted) {
         setIsQuizOpen(true);
         setQuizAnswers(currentEpisode.quiz.questions.map(q => q.type === 'essay' ? '' : -1));
         return;
     }
 
-    const episodeIndex = selectedCourse.episodes.findIndex(e => e.youtubeId === currentEpisode.youtubeId);
+    const episodeIndex = selectedCourse.episodes.findIndex(e => e.youtubeId === currentEpisode.youtubeId || e.title === currentEpisode.title);
     const episodeKey = currentEpisode.youtubeId || currentEpisode.title.replace(/\s+/g, '_');
     
     // Salva as respostas discursivas se houver
@@ -367,7 +367,8 @@ function TheoFlixContent() {
           // Save attempt to firestore and sync online attendance
           if (user && firestore && selectedCourse) {
               const matchedSyllabusId = (currentEpisode as any)?.syllabusId || (currentEpisode as any)?.id;
-              const epIdx = selectedCourse.episodes?.findIndex((e: any) => e.title === currentEpisode.title) ?? 0;
+              const epIdx = selectedCourse.episodes?.findIndex((e: any) => e.youtubeId === currentEpisode.youtubeId || e.title === currentEpisode.title) ?? 0;
+              const episodeKey = currentEpisode.youtubeId || currentEpisode.title.replace(/\s+/g, '_');
 
               addDocumentNonBlocking(collection(firestore, 'theoflix_quiz_attempts'), {
                   userId: user.uid,
@@ -391,6 +392,26 @@ function TheoFlixContent() {
                   aiFeedback: finalFeedback || null,
                   submittedAt: new Date().toISOString()
               });
+
+              // Grava IMEDIATAMENTE o progresso da aula no documento do usuário
+              const nowISO = new Date().toISOString();
+              const startTimeISO = watchStartTime || nowISO;
+              const timeSpentSeconds = Math.max(1, Math.round((new Date(nowISO).getTime() - new Date(startTimeISO).getTime()) / 1000));
+              const watchedMinutes = Math.max(1, Math.round(timeSpentSeconds / 60));
+
+              updateDocumentNonBlocking(doc(firestore, 'users', user.uid), {
+                  [`journey.theoflixProgress.${selectedCourse.id}.${episodeKey}`]: {
+                      completed: true,
+                      startedAt: startTimeISO,
+                      completedAt: nowISO,
+                      timeSpentSeconds,
+                      watchedMinutes
+                  }
+              });
+
+              if (epIdx > -1) {
+                  markAttendanceByTheoflix(user.uid, selectedCourse.id, epIdx, lessonNotes, currentEpisode.youtubeId);
+              }
 
               try {
                   const studentClass = classes.find((c: any) => c.students?.includes(user.uid) && (c.courseId === selectedCourse.id || c.courseId === (selectedCourse as any).linkedPhysicalCourseId));
@@ -416,7 +437,7 @@ function TheoFlixContent() {
           toast({ title: "Respostas enviadas!", description: "Sua aula foi marcada como assistida." });
           setTimeout(() => {
               setIsQuizOpen(false);
-              handleMarkAsCompleted();
+              handleMarkAsCompleted(true);
           }, 3000);
       } catch (error: any) {
           console.error("Erro ao avaliar quiz:", error);
@@ -866,7 +887,7 @@ function TheoFlixContent() {
                     </div>
                     
                     <div className="flex flex-col gap-3">
-                        <Button onClick={handleMarkAsCompleted} className="w-full h-12 font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg">
+                        <Button onClick={() => handleMarkAsCompleted(false)} className="w-full h-12 font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg">
                             <BookCheck className="mr-2 size-5"/> Marcar como Concluída
                         </Button>
                         <Button 
