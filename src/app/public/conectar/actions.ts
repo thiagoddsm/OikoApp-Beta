@@ -150,6 +150,10 @@ export async function submitSolicitacao(data: {
   conjuge?: string;
   addressStreet?: string;
   addressCep?: string;
+  bairro?: string;
+  idade?: string;
+  decisaoProximoPasso?: string;
+  decisaoPublicaCulto?: string;
   intentType: 'VISITANDO' | 'GC' | 'CURSOS' | 'BATISMO' | 'MEMBRESIA' | 'VOLUNTARIADO' | 'ACONSELHAMENTO' | 'ATUALIZACAO';
   intentDetails?: Record<string, any>;
   entryPoint?: string;
@@ -193,16 +197,26 @@ export async function submitSolicitacao(data: {
       email: cleanEmail || existingData.email || '',
       cpf: data.cpf || existingData.cpf || '',
       dataNascimento: data.dataNascimento || existingData.dataNascimento || '',
+      idade: data.idade || existingData.idade || '',
       estadoCivil: data.estadoCivil || existingData.estadoCivil || '',
       conjuge: data.conjuge ? formatName(data.conjuge) : (existingData.conjuge || ''),
       address: {
         street: data.addressStreet || existingData.address?.street || '',
         cep: data.addressCep || existingData.address?.cep || '',
+        neighborhood: data.bairro || existingData.address?.neighborhood || '',
       },
+      bairro: data.bairro || existingData.bairro || '',
       situacaoCaminhada: newSituacao,
       integrationStatus: newSituacao.toLowerCase(),
       updatedAt: now,
     };
+
+    if (data.decisaoProximoPasso) {
+      updatedProfile.decisaoProximoPasso = data.decisaoProximoPasso;
+    }
+    if (data.decisaoPublicaCulto) {
+      updatedProfile.decisaoPublicaCulto = data.decisaoPublicaCulto;
+    }
 
     if (!updatedProfile.createdAt) {
       updatedProfile.createdAt = now;
@@ -220,7 +234,14 @@ export async function submitSolicitacao(data: {
       personId: targetUserId,
       intentType: data.intentType,
       entryPoint: data.entryPoint || 'PUBLIC_LINK',
-      details: data.intentDetails || {},
+      details: {
+        ...(data.intentDetails || {}),
+        bairro: data.bairro || '',
+        idade: data.idade || '',
+        estadoCivil: data.estadoCivil || '',
+        decisaoProximoPasso: data.decisaoProximoPasso || '',
+        decisaoPublicaCulto: data.decisaoPublicaCulto || '',
+      },
       status: 'RECEBIDA',
       createdAt: now,
     };

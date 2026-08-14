@@ -104,6 +104,8 @@ export default function ConectarPage() {
     email: '',
     cpf: '',
     dataNascimento: '',
+    idade: '',
+    bairro: '',
     estadoCivil: '',
     conjuge: '',
     addressStreet: '',
@@ -112,7 +114,12 @@ export default function ConectarPage() {
     observacoes: '',
     celulaId: '',
     areaInteresseId: '',
+    decisaoProximoPasso: '',
+    decisaoPublicaCulto: '',
   });
+
+  // Sub-passo para o formulário de Visitando (Página 1, 2 e 3)
+  const [visitorSubStep, setVisitorSubStep] = useState<number>(1);
 
   const [cells, setCells] = useState<{ id: string; nome: string; leaderName?: string }[]>([]);
   const [areas, setAreas] = useState<{ id: string; name: string }[]>([]);
@@ -251,12 +258,20 @@ export default function ConectarPage() {
         email: formData.email,
         cpf: formData.cpf,
         dataNascimento: formData.dataNascimento,
+        idade: formData.idade,
+        bairro: formData.bairro,
         estadoCivil: formData.estadoCivil,
         conjuge: formData.conjuge,
         addressStreet: formData.addressStreet,
         addressCep: formData.addressCep,
+        decisaoProximoPasso: formData.decisaoProximoPasso,
+        decisaoPublicaCulto: formData.decisaoPublicaCulto,
         intentType: selectedIntent.key,
         intentDetails: {
+          bairro: formData.bairro,
+          idade: formData.idade,
+          decisaoProximoPasso: formData.decisaoProximoPasso,
+          decisaoPublicaCulto: formData.decisaoPublicaCulto,
           comoConheceu: formData.comoConheceu,
           observacoes: formData.observacoes,
           celulaId: formData.celulaId,
@@ -442,195 +457,443 @@ export default function ConectarPage() {
               <form onSubmit={handleSubmit} className="space-y-6">
                 
                 {/* Dados Pessoais Essenciais */}
-                <div className="space-y-4">
-                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 border-b pb-1">
-                    1. Dados de Identificação
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="name" className="text-xs font-bold text-slate-900">Nome Completo *</Label>
-                      <Input
-                        id="name"
-                        required
-                        value={formData.name}
-                        onChange={e => setFormData({ ...formData, name: e.target.value })}
-                        className="h-11 border-slate-300 text-slate-900 bg-white"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="phone" className="text-xs font-bold text-slate-900">WhatsApp (com DDD) *</Label>
-                      <Input
-                        id="phone"
-                        required
-                        type="tel"
-                        value={formData.phone}
-                        onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                        className="h-11 border-slate-300 text-slate-900 bg-white"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="email" className="text-xs font-bold text-slate-900">E-mail (Opcional)</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={formData.email}
-                        onChange={e => setFormData({ ...formData, email: e.target.value })}
-                        className="h-11 border-slate-300 text-slate-900 bg-white"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="dataNascimento" className="text-xs font-bold text-slate-900">Data de Nascimento (Opcional)</Label>
-                      <Input
-                        id="dataNascimento"
-                        type="date"
-                        value={formData.dataNascimento}
-                        onChange={e => setFormData({ ...formData, dataNascimento: e.target.value })}
-                        className="h-11 border-slate-300 text-slate-900 bg-white"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Campos Dinâmicos para GC (Estado Civil + Endereço) */}
-                {selectedIntent.key === 'GC' && (
-                  <div className="space-y-4 pt-2">
-                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 border-b pb-1">
-                      2. Família e Endereço Residencial (Célula/GC)
-                    </h4>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
-                        <Label htmlFor="estadoCivil" className="text-xs font-bold text-slate-900">Estado Civil</Label>
-                        <Select value={formData.estadoCivil} onValueChange={(v) => setFormData({ ...formData, estadoCivil: v })}>
-                          <SelectTrigger className="h-11 border-slate-300 text-slate-900 bg-white">
-                            <SelectValue placeholder="Selecione..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Solteiro(a)">Solteiro(a)</SelectItem>
-                            <SelectItem value="Casado(a)">Casado(a)</SelectItem>
-                            <SelectItem value="União Estável">União Estável</SelectItem>
-                            <SelectItem value="Divorciado(a)">Divorciado(a)</SelectItem>
-                            <SelectItem value="Viúvo(a)">Viúvo(a)</SelectItem>
-                          </SelectContent>
-                        </Select>
+                {/* ======================================================== */}
+                {/* FLUXO ESPECÍFICO: ESTOU VISITANDO A IGREJA (3 PÁGINAS)   */}
+                {/* ======================================================== */}
+                {selectedIntent.key === 'VISITANDO' ? (
+                  <div className="space-y-6">
+                    {/* Indicador de Páginas do Visitante */}
+                    <div className="flex items-center justify-between border-b pb-4">
+                      <div className="flex items-center gap-2">
+                        <span className="flex items-center justify-center size-6 rounded-full bg-primary text-white text-xs font-black">
+                          {visitorSubStep}
+                        </span>
+                        <span className="text-xs font-black uppercase text-slate-800 tracking-wider">
+                          {visitorSubStep === 1 && 'Página 1: Informações de Contato'}
+                          {visitorSubStep === 2 && 'Página 2: Mais Detalhes (Decisão)'}
+                          {visitorSubStep === 3 && 'Página 3: Finalização e Mensagem'}
+                        </span>
                       </div>
+                      <span className="text-xs font-bold text-slate-400">
+                        Passo {visitorSubStep} de {(formData.decisaoProximoPasso === 'Decidi entregar minha vida a Cristo' || formData.decisaoProximoPasso === 'Estou me reconciliando com Jesus') ? 3 : 2}
+                      </span>
+                    </div>
 
-                      {isCasado && (
-                        <div className="space-y-1.5 animate-in fade-in duration-200">
-                          <Label htmlFor="conjuge" className="text-xs font-bold text-slate-900">Nome do Cônjuge</Label>
+                    {/* --- PÁGINA 1: INFORMAÇÕES DE CONTATO --- */}
+                    {visitorSubStep === 1 && (
+                      <div className="space-y-5 animate-in fade-in duration-300">
+                        <div className="p-3.5 bg-amber-500/10 border border-amber-200 rounded-2xl">
+                          <p className="text-xs text-amber-900 font-medium leading-relaxed">
+                            👋 <em>Este formulário destina-se aos Visitantes da IBManhã e àqueles que se decidiram publicamente em nossos cultos.</em>
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <Label htmlFor="vis_name" className="text-xs font-bold text-slate-900">Nome *</Label>
+                            <Input
+                              id="vis_name"
+                              required
+                              placeholder="Seu nome completo"
+                              value={formData.name}
+                              onChange={e => setFormData({ ...formData, name: e.target.value })}
+                              className="h-11 border-slate-300 text-slate-900 bg-white"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <Label htmlFor="vis_phone" className="text-xs font-bold text-slate-900">Telefone / WhatsApp *</Label>
+                            <Input
+                              id="vis_phone"
+                              required
+                              type="tel"
+                              placeholder="(00) 00000-0000"
+                              value={formData.phone}
+                              onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                              className="h-11 border-slate-300 text-slate-900 bg-white"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <Label htmlFor="vis_bairro" className="text-xs font-bold text-slate-900">Bairro *</Label>
+                            <Input
+                              id="vis_bairro"
+                              required
+                              placeholder="Ex: Taquara, Barra, Freguesia..."
+                              value={formData.bairro}
+                              onChange={e => setFormData({ ...formData, bairro: e.target.value })}
+                              className="h-11 border-slate-300 text-slate-900 bg-white"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <Label htmlFor="vis_idade" className="text-xs font-bold text-slate-900">Idade *</Label>
+                            <Input
+                              id="vis_idade"
+                              required
+                              placeholder="Ex: 28"
+                              value={formData.idade}
+                              onChange={e => setFormData({ ...formData, idade: e.target.value })}
+                              className="h-11 border-slate-300 text-slate-900 bg-white"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-xs font-bold text-slate-900">Estado Civil *</Label>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {['Solteiro', 'Casado', 'Divorciado', 'Viúvo', 'União estável'].map((ec) => (
+                              <button
+                                key={ec}
+                                type="button"
+                                onClick={() => setFormData({ ...formData, estadoCivil: ec })}
+                                className={`p-3 rounded-xl border text-xs font-bold text-left transition-all ${
+                                  formData.estadoCivil === ec
+                                    ? 'bg-primary text-white border-primary shadow-sm'
+                                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                                }`}
+                              >
+                                {ec}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="space-y-2 pt-2">
+                          <Label className="text-xs font-bold text-slate-900">Decisão / Próximo Passo *</Label>
+                          <div className="space-y-2">
+                            {[
+                              'Gostaria de participar de um GC',
+                              'Estou só visitando a igreja',
+                              'Estou procurando uma igreja para congregar',
+                              'Decidi entregar minha vida a Cristo',
+                              'Estou me reconciliando com Jesus',
+                            ].map((opt) => (
+                              <button
+                                key={opt}
+                                type="button"
+                                onClick={() => setFormData({ ...formData, decisaoProximoPasso: opt })}
+                                className={`w-full p-3.5 rounded-2xl border text-xs font-bold text-left flex items-center justify-between transition-all ${
+                                  formData.decisaoProximoPasso === opt
+                                    ? 'bg-primary/10 border-primary text-primary shadow-xs'
+                                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                                }`}
+                              >
+                                <span>{opt}</span>
+                                {formData.decisaoProximoPasso === opt && (
+                                  <CheckCircle className="size-4 text-primary shrink-0 ml-2" />
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end pt-4">
+                          <Button
+                            type="button"
+                            onClick={() => {
+                              if (!formData.name.trim() || !formData.phone.trim() || !formData.bairro.trim() || !formData.idade.trim() || !formData.estadoCivil || !formData.decisaoProximoPasso) {
+                                toast({
+                                  variant: 'destructive',
+                                  title: 'Campos Obrigatórios',
+                                  description: 'Por favor, preencha todos os campos da Página 1 para prosseguir.'
+                                });
+                                return;
+                              }
+                              // Se for decisão de entrega/reconciliação, vai para a Página 2 (Mais detalhes).
+                              // Caso contrário, pula direto para a Página 3 (Comentários e Finalização).
+                              const hasDecisionDetail = formData.decisaoProximoPasso === 'Decidi entregar minha vida a Cristo' || formData.decisaoProximoPasso === 'Estou me reconciliando com Jesus';
+                              setVisitorSubStep(hasDecisionDetail ? 2 : 3);
+                            }}
+                            className="h-12 px-8 rounded-2xl font-black text-sm uppercase tracking-wider text-white gap-2"
+                          >
+                            Avançar <ArrowRight className="size-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* --- PÁGINA 2: MAIS DETALHES (CONDICIONAL) --- */}
+                    {visitorSubStep === 2 && (
+                      <div className="space-y-6 animate-in fade-in duration-300">
+                        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl">
+                          <h5 className="font-black text-sm text-emerald-950 uppercase tracking-tight flex items-center gap-1.5">
+                            <Sparkles className="size-4 text-emerald-600" /> Celebrando sua decisão com Jesus!
+                          </h5>
+                          <p className="text-xs text-emerald-800 mt-1">
+                            Você selecionou: <strong>"{formData.decisaoProximoPasso}"</strong>. Queremos orar e caminhar ao seu lado.
+                          </p>
+                        </div>
+
+                        <div className="space-y-3">
+                          <Label className="text-xs font-bold text-slate-900">
+                            Essa pessoa tomou essa decisão publicamente (durante o culto)? *
+                          </Label>
+                          <div className="grid grid-cols-2 gap-3">
+                            {['sim', 'não'].map((resp) => (
+                              <button
+                                key={resp}
+                                type="button"
+                                onClick={() => setFormData({ ...formData, decisaoPublicaCulto: resp })}
+                                className={`p-4 rounded-2xl border text-sm font-black uppercase text-center transition-all ${
+                                  formData.decisaoPublicaCulto === resp
+                                    ? 'bg-primary text-white border-primary shadow-md'
+                                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                                }`}
+                              >
+                                {resp}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-4">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setVisitorSubStep(1)}
+                            className="h-12 px-6 rounded-2xl font-bold text-xs"
+                          >
+                            <ArrowLeft className="size-4 mr-1" /> Voltar
+                          </Button>
+                          <Button
+                            type="button"
+                            onClick={() => {
+                              if (!formData.decisaoPublicaCulto) {
+                                toast({
+                                  variant: 'destructive',
+                                  title: 'Campo Obrigatório',
+                                  description: 'Informe se a decisão foi tomada publicamente durante o culto.'
+                                });
+                                return;
+                              }
+                              setVisitorSubStep(3);
+                            }}
+                            className="h-12 px-8 rounded-2xl font-black text-sm uppercase tracking-wider text-white gap-2"
+                          >
+                            Avançar <ArrowRight className="size-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* --- PÁGINA 3: FINALIZAÇÃO (COMENTÁRIOS) --- */}
+                    {visitorSubStep === 3 && (
+                      <div className="space-y-6 animate-in fade-in duration-300">
+                        <div className="space-y-2">
+                          <Label htmlFor="vis_comentarios" className="text-xs font-bold text-slate-900">
+                            Comentários <span className="text-slate-400 font-normal">(Opcional)</span>
+                          </Label>
+                          <textarea
+                            id="vis_comentarios"
+                            rows={4}
+                            placeholder="Escreva aqui qualquer mensagem, pedido de oração ou observação para a equipe de acolhimento..."
+                            value={formData.observacoes}
+                            onChange={e => setFormData({ ...formData, observacoes: e.target.value })}
+                            className="w-full p-3.5 rounded-2xl border border-slate-300 text-sm text-slate-900 bg-white focus:ring-2 focus:ring-primary focus:outline-none"
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between pt-4">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                              const hasDecisionDetail = formData.decisaoProximoPasso === 'Decidi entregar minha vida a Cristo' || formData.decisaoProximoPasso === 'Estou me reconciliando com Jesus';
+                              setVisitorSubStep(hasDecisionDetail ? 2 : 1);
+                            }}
+                            className="h-12 px-6 rounded-2xl font-bold text-xs"
+                          >
+                            <ArrowLeft className="size-4 mr-1" /> Voltar
+                          </Button>
+
+                          <Button
+                            type="submit"
+                            disabled={isSubmitting}
+                            className="h-14 px-8 rounded-2xl font-black text-sm uppercase tracking-wider shadow-lg text-white gap-2"
+                          >
+                            {isSubmitting ? <Loader2 className="animate-spin size-4 mr-2" /> : <CheckCircle className="size-4 mr-2" />}
+                            Enviar Cadastro de Visitante
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    {/* DEMAIS FLUXOS (GC, Voluntariado, etc.) */}
+                    <div className="space-y-4">
+                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 border-b pb-1">
+                        1. Dados de Identificação
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="name" className="text-xs font-bold text-slate-900">Nome Completo *</Label>
                           <Input
-                            id="conjuge"
-                            placeholder="Nome completo do cônjuge"
-                            value={formData.conjuge}
-                            onChange={e => setFormData({ ...formData, conjuge: e.target.value })}
+                            id="name"
+                            required
+                            value={formData.name}
+                            onChange={e => setFormData({ ...formData, name: e.target.value })}
                             className="h-11 border-slate-300 text-slate-900 bg-white"
                           />
                         </div>
-                      )}
-
-                      <div className="space-y-1.5 col-span-1 md:col-span-2">
-                        <Label htmlFor="addressStreet" className="text-xs font-bold text-slate-900">Endereço Residencial (Google Maps)</Label>
-                        <GooglePlacesAutocomplete
-                          defaultValue={formData.addressStreet}
-                          onAddressSelect={handleAddressSelect}
-                          placeholder="Rua, Nº, Bairro, Cidade - UF"
-                        />
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <Label htmlFor="addressCep" className="text-xs font-bold text-slate-900">CEP</Label>
-                        <Input
-                          id="addressCep"
-                          placeholder="00000-000"
-                          value={formData.addressCep}
-                          onChange={e => setFormData({ ...formData, addressCep: e.target.value })}
-                          className="h-11 border-slate-300 text-slate-900 bg-white"
-                        />
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <Label htmlFor="celulaId" className="text-xs font-bold text-slate-900">Preferência por Célula/GC</Label>
-                        <Select value={formData.celulaId} onValueChange={(v) => setFormData({ ...formData, celulaId: v })}>
-                          <SelectTrigger className="h-11 border-slate-300 text-slate-900 bg-white">
-                            <SelectValue placeholder="Selecione um GC (ou indicação automática)..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {cells.map(c => (
-                              <SelectItem key={c.id} value={c.id}>
-                                {c.nome} {c.leaderName ? `(${c.leaderName})` : ''}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="phone" className="text-xs font-bold text-slate-900">WhatsApp (com DDD) *</Label>
+                          <Input
+                            id="phone"
+                            required
+                            type="tel"
+                            value={formData.phone}
+                            onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                            className="h-11 border-slate-300 text-slate-900 bg-white"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="email" className="text-xs font-bold text-slate-900">E-mail (Opcional)</Label>
+                          <Input
+                            id="email"
+                            type="email"
+                            value={formData.email}
+                            onChange={e => setFormData({ ...formData, email: e.target.value })}
+                            className="h-11 border-slate-300 text-slate-900 bg-white"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="dataNascimento" className="text-xs font-bold text-slate-900">Data de Nascimento (Opcional)</Label>
+                          <Input
+                            id="dataNascimento"
+                            type="date"
+                            value={formData.dataNascimento}
+                            onChange={e => setFormData({ ...formData, dataNascimento: e.target.value })}
+                            className="h-11 border-slate-300 text-slate-900 bg-white"
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
 
-                {/* Campos Dinâmicos para Voluntariado */}
-                {selectedIntent.key === 'VOLUNTARIADO' && (
-                  <div className="space-y-4 pt-2">
-                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 border-b pb-1">
-                      2. Área de Ministério
-                    </h4>
-                    <div className="space-y-2">
-                      <Label htmlFor="areaInteresseId" className="text-xs font-bold text-slate-900">Em qual área você gostaria de servir?</Label>
-                      <Select value={formData.areaInteresseId} onValueChange={(v) => setFormData({ ...formData, areaInteresseId: v })}>
-                        <SelectTrigger className="h-11 border-slate-300 text-slate-900 bg-white">
-                          <SelectValue placeholder="Selecione uma área de serviço..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {areas.map(a => (
-                            <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                )}
+                    {/* Campos Dinâmicos para GC (Estado Civil + Endereço) */}
+                    {selectedIntent.key === 'GC' && (
+                      <div className="space-y-4 pt-2">
+                        <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 border-b pb-1">
+                          2. Família e Endereço Residencial (Célula/GC)
+                        </h4>
 
-                {/* Campos Dinâmicos para Visitando */}
-                {selectedIntent.key === 'VISITANDO' && (
-                  <div className="space-y-4 pt-2">
-                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 border-b pb-1">
-                      2. Informações de Visita
-                    </h4>
-                    <div className="space-y-2">
-                      <Label htmlFor="comoConheceu" className="text-xs font-bold text-slate-900">Como conheceu nossa igreja?</Label>
-                      <Input
-                        id="comoConheceu"
-                        placeholder="Ex: Redes Sociais, Um amigo me convidou..."
-                        value={formData.comoConheceu}
-                        onChange={e => setFormData({ ...formData, comoConheceu: e.target.value })}
-                        className="h-11 border-slate-300 text-slate-900 bg-white"
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <Label htmlFor="estadoCivil" className="text-xs font-bold text-slate-900">Estado Civil</Label>
+                            <Select value={formData.estadoCivil} onValueChange={(v) => setFormData({ ...formData, estadoCivil: v })}>
+                              <SelectTrigger className="h-11 border-slate-300 text-slate-900 bg-white">
+                                <SelectValue placeholder="Selecione..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Solteiro(a)">Solteiro(a)</SelectItem>
+                                <SelectItem value="Casado(a)">Casado(a)</SelectItem>
+                                <SelectItem value="União Estável">União Estável</SelectItem>
+                                <SelectItem value="Divorciado(a)">Divorciado(a)</SelectItem>
+                                <SelectItem value="Viúvo(a)">Viúvo(a)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {isCasado && (
+                            <div className="space-y-1.5 animate-in fade-in duration-200">
+                              <Label htmlFor="conjuge" className="text-xs font-bold text-slate-900">Nome do Cônjuge</Label>
+                              <Input
+                                id="conjuge"
+                                placeholder="Nome completo do cônjuge"
+                                value={formData.conjuge}
+                                onChange={e => setFormData({ ...formData, conjuge: e.target.value })}
+                                className="h-11 border-slate-300 text-slate-900 bg-white"
+                              />
+                            </div>
+                          )}
+
+                          <div className="space-y-1.5 col-span-1 md:col-span-2">
+                            <Label htmlFor="addressStreet" className="text-xs font-bold text-slate-900">Endereço Residencial (Google Maps)</Label>
+                            <GooglePlacesAutocomplete
+                              defaultValue={formData.addressStreet}
+                              onAddressSelect={handleAddressSelect}
+                              placeholder="Rua, Nº, Bairro, Cidade - UF"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <Label htmlFor="addressCep" className="text-xs font-bold text-slate-900">CEP</Label>
+                            <Input
+                              id="addressCep"
+                              placeholder="00000-000"
+                              value={formData.addressCep}
+                              onChange={e => setFormData({ ...formData, addressCep: e.target.value })}
+                              className="h-11 border-slate-300 text-slate-900 bg-white"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <Label htmlFor="celulaId" className="text-xs font-bold text-slate-900">Preferência por Célula/GC</Label>
+                            <Select value={formData.celulaId} onValueChange={(v) => setFormData({ ...formData, celulaId: v })}>
+                              <SelectTrigger className="h-11 border-slate-300 text-slate-900 bg-white">
+                                <SelectValue placeholder="Selecione um GC (ou indicação automática)..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {cells.map(c => (
+                                  <SelectItem key={c.id} value={c.id}>
+                                    {c.nome} {c.leaderName ? `(${c.leaderName})` : ''}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Campos Dinâmicos para Voluntariado */}
+                    {selectedIntent.key === 'VOLUNTARIADO' && (
+                      <div className="space-y-4 pt-2">
+                        <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 border-b pb-1">
+                          2. Área de Ministério
+                        </h4>
+                        <div className="space-y-2">
+                          <Label htmlFor="areaInteresseId" className="text-xs font-bold text-slate-900">Em qual área você gostaria de servir?</Label>
+                          <Select value={formData.areaInteresseId} onValueChange={(v) => setFormData({ ...formData, areaInteresseId: v })}>
+                            <SelectTrigger className="h-11 border-slate-300 text-slate-900 bg-white">
+                              <SelectValue placeholder="Selecione uma área de serviço..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {areas.map(a => (
+                                <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Observações Gerais */}
+                    <div className="space-y-2 pt-2">
+                      <Label htmlFor="observacoes" className="text-xs font-bold text-slate-900">
+                        Alguma observação ou mensagem para a liderança? <span className="text-slate-400 font-normal">(Opcional)</span>
+                      </Label>
+                      <textarea
+                        id="observacoes"
+                        rows={3}
+                        placeholder="Escreva qualquer detalhe relevante para o seu acompanhamento..."
+                        value={formData.observacoes}
+                        onChange={e => setFormData({ ...formData, observacoes: e.target.value })}
+                        className="w-full p-3 rounded-xl border border-slate-300 text-sm text-slate-900 bg-white focus:ring-2 focus:ring-primary focus:outline-none"
                       />
                     </div>
-                  </div>
+
+                    <Button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="w-full h-14 rounded-2xl font-black text-base uppercase tracking-wider shadow-lg text-white"
+                    >
+                      {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle className="mr-2" />}
+                      Enviar Solicitação
+                    </Button>
+                  </>
                 )}
-
-                {/* Observações Gerais */}
-                <div className="space-y-2 pt-2">
-                  <Label htmlFor="observacoes" className="text-xs font-bold text-slate-900">
-                    Alguma observação ou mensagem para a liderança? <span className="text-slate-400 font-normal">(Opcional)</span>
-                  </Label>
-                  <textarea
-                    id="observacoes"
-                    rows={3}
-                    placeholder="Escreva qualquer detalhe relevante para o seu acompanhamento..."
-                    value={formData.observacoes}
-                    onChange={e => setFormData({ ...formData, observacoes: e.target.value })}
-                    className="w-full p-3 rounded-xl border border-slate-300 text-sm text-slate-900 bg-white focus:ring-2 focus:ring-primary focus:outline-none"
-                  />
-                </div>
-
-                <Button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full h-14 rounded-2xl font-black text-base uppercase tracking-wider shadow-lg text-white"
-                >
-                  {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle className="mr-2" />}
-                  Enviar Solicitação
-                </Button>
 
               </form>
             </CardContent>
