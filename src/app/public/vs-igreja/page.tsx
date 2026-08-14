@@ -24,6 +24,48 @@ export default function VSIgrejaPublicPage() {
         const snapCatalog = await getDocs(qCatalog);
         const catalogData = snapCatalog.docs.map((d) => ({ id: d.id, ...d.data() } as VsData));
 
+        let mergedCatalog: VsData[] = [...catalogData];
+        try {
+          const qLib = query(collection(firestore, 'worship_songs'), orderBy('createdAt', 'desc'));
+          const snapLib = await getDocs(qLib);
+          const libSongs = snapLib.docs.map((d) => {
+            const data = d.data();
+            const existing = catalogData.find(c => c.id === d.id || (data.vsId && c.id === data.vsId) || c.title?.toLowerCase().trim() === data.title?.toLowerCase()?.trim());
+            if (existing) return null;
+
+            let songTracks = data.tracks;
+            if ((!songTracks || songTracks.length === 0) && Array.isArray(data.attachments) && data.attachments.length > 0) {
+              songTracks = data.attachments.map((att: any, attIdx: number) => ({
+                trackId: att.trackId || `track_${attIdx}`,
+                label: att.name?.replace(/^Stem:\s*/, '') || `Faixa ${attIdx + 1}`,
+                url: att.url,
+                defaultPan: att.defaultPan ?? 0,
+                defaultVolume: att.defaultVolume ?? 1,
+              }));
+            }
+
+            return {
+              id: data.vsId || d.id,
+              title: data.title || 'Sem título',
+              artist: data.artist || '',
+              bpm: data.bpm || 120,
+              key: data.key || 'C',
+              timeSignature: '4/4',
+              tracks: songTracks && songTracks.length > 0 ? songTracks : [
+                { trackId: 'click', label: 'Clique (Metrônomo)', defaultPan: -1.0, defaultVolume: 1.0 },
+                { trackId: 'guide', label: 'Guia (Voz Regência)', defaultPan: 1.0, defaultVolume: 1.0 },
+                { trackId: 'pad', label: 'Pad Contínuo (Tom)', defaultPan: 0.0, defaultVolume: 0.8 },
+                { trackId: 'backing', label: 'Playback / Instrumental', defaultPan: 0.0, defaultVolume: 1.0 },
+                { trackId: 'extra1', label: 'Teclados / Pads', defaultPan: 0.0, defaultVolume: 0.8 },
+              ],
+              sections: [],
+            } as VsData;
+          }).filter(Boolean) as VsData[];
+          mergedCatalog = [...catalogData, ...libSongs];
+        } catch (libErr) {
+          console.warn('Aviso worship_songs em vs-igreja:', libErr);
+        }
+
         const qPlans = query(collection(firestore, 'worship_plans'), orderBy('createdAt', 'desc'));
         const snapPlans = await getDocs(qPlans);
         let worshipSetlist: VsData[] = [];
@@ -33,12 +75,16 @@ export default function VSIgrejaPublicPage() {
           if (Array.isArray(planData.items)) {
             const songItems = planData.items.filter((i: any) => i.type === 'song');
             worshipSetlist = songItems.map((item: any) => {
-              const matchedVs = catalogData.find(
-                (vs) => (item.vsId && vs.id === item.vsId) || vs.title.toLowerCase().trim() === item.title.toLowerCase().trim()
+              const matchedVs = mergedCatalog.find(
+                (vs) =>
+                  (item.vsId && vs.id === item.vsId) ||
+                  (item.id && vs.id === item.id) ||
+                  (item.songId && vs.id === item.songId) ||
+                  (item.title && vs.title && vs.title.toLowerCase().trim() === item.title.toLowerCase().trim())
               );
               return {
-                id: matchedVs?.id || `worship_${item.id}`,
-                title: item.title,
+                id: matchedVs?.id || item.vsId || `worship_${item.id}`,
+                title: item.title || matchedVs?.title || 'Sem título',
                 artist: item.arrangement || matchedVs?.artist || '',
                 bpm: item.bpm || matchedVs?.bpm || 120,
                 key: item.key || matchedVs?.key || 'C',
@@ -46,6 +92,7 @@ export default function VSIgrejaPublicPage() {
                 tracks: matchedVs?.tracks && matchedVs.tracks.length > 0 ? matchedVs.tracks : [
                   { trackId: 'click', label: 'Clique (Metrônomo)', defaultPan: -1.0, defaultVolume: 1.0 },
                   { trackId: 'guide', label: 'Guia (Voz Regência)', defaultPan: 1.0, defaultVolume: 1.0 },
+                  { trackId: 'pad', label: 'Pad Contínuo (Tom)', defaultPan: 0.0, defaultVolume: 0.8 },
                   { trackId: 'backing', label: 'Playback / Instrumental', defaultPan: 0.0, defaultVolume: 1.0 },
                   { trackId: 'extra1', label: 'Teclados / Pads', defaultPan: 0.0, defaultVolume: 0.8 },
                 ],
@@ -55,7 +102,7 @@ export default function VSIgrejaPublicPage() {
           }
         }
 
-        const songsToUse = worshipSetlist.length > 0 ? worshipSetlist : catalogData.length > 0 ? catalogData : [
+        const songsToUse = worshipSetlist.length > 0 ? worshipSetlist : mergedCatalog.length > 0 ? mergedCatalog : [
           {
             id: 'demo_1',
             title: 'Vitorioso És',
