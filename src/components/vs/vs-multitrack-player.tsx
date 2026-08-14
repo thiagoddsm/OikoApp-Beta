@@ -262,7 +262,7 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
           
           source.connect(gainNode);
           gainNode.connect(panNode);
-          panNode.connect(ctx.destination);
+          panNode.connect(masterLowEqRef.current || ctx.destination);
           
           mediaSourcesRef.current[trackId] = source;
           gainNodesRef.current[trackId] = gainNode;
@@ -620,9 +620,13 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
         }
       });
 
-      // Se as faixas não tiverem arquivos MP3 cadastrados (modo sintético/demo/ao vivo),
-      // inicia o sintetizador harmônico de Pad de Adoração (tom da música) para Backing e Pads
-      if (!hasAnyAudioFile) {
+      // Inicia o sintetizador harmônico de Pad de Adoração (tom da música)
+      // sempre que o canal de Pad não tiver um arquivo MP3 próprio carregado
+      const padTrack = tracksState.find(t => t.trackId === 'pad' || t.trackId.includes('pad'));
+      const padAudioEl = padTrack ? audioRefs.current[padTrack.trackId] : null;
+      const padHasRealAudio = !!(padAudioEl && padAudioEl.src && padAudioEl.src !== window.location.href);
+
+      if (!padHasRealAudio) {
         const keyFreqMap: Record<string, number> = {
           'C': 261.63, 'C#': 277.18, 'Db': 277.18, 'D': 293.66, 'D#': 311.13, 'Eb': 311.13,
           'E': 329.63, 'F': 349.23, 'F#': 369.99, 'Gb': 369.99, 'G': 392.00, 'G#': 415.30,
@@ -631,18 +635,19 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
         const baseKey = (currentKey || 'C').split('/')[0].trim();
         const freq = keyFreqMap[baseKey] || 261.63;
         
-        const padTrack = tracksState.find(t => t.trackId === 'pad' || t.trackId.includes('pad') || t.trackId.includes('backing') || t.trackId.includes('extra'));
         const hasSolo = tracksState.some(t => t.isSolo);
         const shouldMutePad = padTrack ? (padTrack.isMuted || (hasSolo && !padTrack.isSolo)) : false;
         const padVol = shouldMutePad ? 0 : (padTrack ? padTrack.volume : 0.75);
         const padPan = padTrack ? padTrack.pan : 0;
         startAmbientPad(freq, padVol, padPan);
+      }
 
-        // Guia de voz anuncia a primeira seção
-        const guideTrack = tracksState.find(t => t.trackId.includes('guide'));
-        if (guideTrack && !guideTrack.isMuted && outputMode !== 'house_pa') {
-          playGuideCue(`Entrando na ${currentSection.label}`, guideTrack.volume);
-        }
+      // Guia de voz anuncia a primeira seção (em modo sintético/sem áudio real de guia)
+      const guideTrack = tracksState.find(t => t.trackId.includes('guide'));
+      const guideAudioEl = guideTrack ? audioRefs.current[guideTrack.trackId] : null;
+      const guideHasRealAudio = !!(guideAudioEl && guideAudioEl.src && guideAudioEl.src !== window.location.href);
+      if (!guideHasRealAudio && guideTrack && !guideTrack.isMuted && outputMode !== 'house_pa') {
+        playGuideCue(`Entrando na ${currentSection.label}`, guideTrack.volume);
       }
 
       // Aplica volume/mute/pan atualizado para todas as faixas
