@@ -149,8 +149,18 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
     return sections.find((sec) => currentTime >= sec.startTime && currentTime < sec.endTime) || sections[0];
   }, [sections, currentTime]);
 
-  const [tracksState, setTracksState] = useState<TrackAudioControl[]>(() =>
-    vs.tracks.map((t) => ({
+  const normalizeTracks = useCallback((incomingTracks: VsTrack[]) => {
+    const list = [...incomingTracks];
+    const hasPad = list.some(t => t.trackId === 'pad' || t.trackId.includes('pad'));
+    if (!hasPad) {
+      list.push({
+        trackId: 'pad',
+        label: 'Pad Contínuo (Tom)',
+        defaultPan: 0,
+        defaultVolume: 0.75,
+      });
+    }
+    return list.map((t) => ({
       trackId: t.trackId,
       label: t.label,
       url: t.url,
@@ -158,27 +168,20 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
       pan: t.defaultPan !== undefined ? t.defaultPan : 0,
       isMuted: false,
       isSolo: false,
-      isReady: false,
-    }))
+      isReady: !t.url || true,
+    }));
+  }, []);
+
+  const [tracksState, setTracksState] = useState<TrackAudioControl[]>(() =>
+    normalizeTracks(vs.tracks || [])
   );
 
   // Recarrega as pistas quando a música selecionada mudar (vs.id)
   useEffect(() => {
     if (vs && vs.tracks) {
-      setTracksState(
-        vs.tracks.map((t) => ({
-          trackId: t.trackId,
-          label: t.label,
-          url: t.url,
-          volume: t.defaultVolume !== undefined ? t.defaultVolume : 1,
-          pan: t.defaultPan !== undefined ? t.defaultPan : 0,
-          isMuted: false,
-          isSolo: false,
-          isReady: false,
-        }))
-      );
+      setTracksState(normalizeTracks(vs.tracks));
     }
-  }, [vs.id, vs.tracks]);
+  }, [vs.id, vs.tracks, normalizeTracks]);
 
   // Master Equalizer BiquadFilterNodes Refs
   const masterLowEqRef = useRef<BiquadFilterNode | null>(null);
@@ -315,8 +318,9 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
   // Sintetizador de Pad / Acorde Instrumental Harmônico de Fundo (Worship Ambient Pad)
   const synthPadOscsRef = useRef<OscillatorNode[]>([]);
   const synthPadGainRef = useRef<GainNode | null>(null);
+  const synthPadPanRef = useRef<StereoPannerNode | null>(null);
 
-  const startAmbientPad = useCallback((noteFreq = 261.63, vol = 0.4) => {
+  const startAmbientPad = useCallback((noteFreq = 261.63, vol = 0.75, pan = 0) => {
     try {
       const ctx = getAudioContext();
       // Para osciladores anteriores se houver
@@ -324,9 +328,20 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
       synthPadOscsRef.current = [];
 
       const masterPadGain = ctx.createGain();
-      masterPadGain.gain.setValueAtTime(Math.max(0, Math.min(1, vol * 0.35)), ctx.currentTime);
-      masterPadGain.connect(ctx.destination);
+      masterPadGain.gain.setValueAtTime(Math.max(0, Math.min(1, vol * 0.45)), ctx.currentTime);
+
+      let panner: StereoPannerNode | null = null;
+      try {
+        panner = ctx.createStereoPanner();
+        panner.pan.setValueAtTime(pan, ctx.currentTime);
+        masterPadGain.connect(panner);
+        panner.connect(masterLowEqRef.current || ctx.destination);
+      } catch (e) {
+        masterPadGain.connect(masterLowEqRef.current || ctx.destination);
+      }
+
       synthPadGainRef.current = masterPadGain;
+      synthPadPanRef.current = panner;
 
       // Cria acorde aveludado de adoração (Fundamental, Quinta, Oitava)
       const freqs = [noteFreq, noteFreq * 1.4983, noteFreq * 2.0];
@@ -334,7 +349,7 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
         const osc = ctx.createOscillator();
         const filter = ctx.createBiquadFilter();
         filter.type = 'lowpass';
-        filter.frequency.value = 800;
+        filter.frequency.value = 850;
 
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(f, ctx.currentTime);
@@ -343,7 +358,9 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
         osc.start();
         synthPadOscsRef.current.push(osc);
       });
-    } catch (e) {}
+    } catch (e) {
+      console.warn('Erro ao inicializar Pad contínuo:', e);
+    }
   }, [getAudioContext]);
 
   const stopAmbientPad = useCallback(() => {
@@ -362,6 +379,7 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
     tracks.forEach((t) => {
       let effectiveVol = t.volume;
       const isClickOrGuide = t.trackId.includes('click') || t.trackId.includes('guide');
+      const isPadTrack = t.trackId === 'pad' || t.trackId.includes('pad');
 
       // Se for saída de som da Igreja (House PA), Muta automaticamente o clique e a voz guia
       let shouldMute = t.isMuted || (hasSolo && !t.isSolo);
@@ -370,6 +388,19 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
       }
 
       if (shouldMute) effectiveVol = 0;
+
+      // Atualiza o controle do PAD ao vivo
+      if (isPadTrack && synthPadGainRef.current) {
+        try {
+          const ctx = getAudioContext();
+          synthPadGainRef.current.gain.setValueAtTime(effectiveVol * 0.45, ctx.currentTime);
+          if (synthPadPanRef.current) {
+            synthPadPanRef.current.pan.setValueAtTime(t.pan, ctx.currentTime);
+          }
+        } catch (e) {
+          synthPadGainRef.current.gain.value = effectiveVol * 0.45;
+        }
+      }
 
       const gainNode = gainNodesRef.current[t.trackId];
       const panNode = panNodesRef.current[t.trackId];
@@ -600,9 +631,12 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
         const baseKey = (currentKey || 'C').split('/')[0].trim();
         const freq = keyFreqMap[baseKey] || 261.63;
         
-        const padTrack = tracksState.find(t => t.trackId.includes('backing') || t.trackId.includes('extra'));
-        const padVol = padTrack && !padTrack.isMuted ? padTrack.volume : 0.4;
-        startAmbientPad(freq, padVol);
+        const padTrack = tracksState.find(t => t.trackId === 'pad' || t.trackId.includes('pad') || t.trackId.includes('backing') || t.trackId.includes('extra'));
+        const hasSolo = tracksState.some(t => t.isSolo);
+        const shouldMutePad = padTrack ? (padTrack.isMuted || (hasSolo && !padTrack.isSolo)) : false;
+        const padVol = shouldMutePad ? 0 : (padTrack ? padTrack.volume : 0.75);
+        const padPan = padTrack ? padTrack.pan : 0;
+        startAmbientPad(freq, padVol, padPan);
 
         // Guia de voz anuncia a primeira seção
         const guideTrack = tracksState.find(t => t.trackId.includes('guide'));

@@ -142,8 +142,9 @@ export default function VsMainStagePage() {
                 tracks: matchedVs?.tracks && matchedVs.tracks.length > 0 ? matchedVs.tracks : [
                   { trackId: 'click', label: 'Clique (Metrônomo)', defaultPan: -1.0, defaultVolume: 1.0 },
                   { trackId: 'guide', label: 'Guia (Voz Regência)', defaultPan: 1.0, defaultVolume: 1.0 },
+                  { trackId: 'pad', label: 'Pad Contínuo (Tom)', defaultPan: 0.0, defaultVolume: 0.8 },
                   { trackId: 'backing', label: 'Playback / Instrumental', defaultPan: 0.0, defaultVolume: 1.0 },
-                  { trackId: 'extra1', label: 'Teclados / Pads', defaultPan: 0.0, defaultVolume: 0.8 },
+                  { trackId: 'extra1', label: 'Teclados / Synths', defaultPan: 0.0, defaultVolume: 0.8 },
                 ],
                 sections: matchedVs?.sections || [],
               };
@@ -169,6 +170,7 @@ export default function VsMainStagePage() {
               tracks: [
                 { trackId: 'click', label: 'Clique (Metrônomo)', defaultPan: -1.0, defaultVolume: 1.0 },
                 { trackId: 'guide', label: 'Guia (Voz Regência)', defaultPan: 1.0, defaultVolume: 1.0 },
+                { trackId: 'pad', label: 'Pad Contínuo (Tom)', defaultPan: 0.0, defaultVolume: 0.8 },
                 { trackId: 'backing', label: 'Playback / Instrumental', defaultPan: 0.0, defaultVolume: 1.0 },
                 { trackId: 'extra1', label: 'Teclados / Synths', defaultPan: 0.0, defaultVolume: 0.8 },
               ]
@@ -184,6 +186,7 @@ export default function VsMainStagePage() {
               tracks: [
                 { trackId: 'click', label: 'Clique (Metrônomo)', defaultPan: -1.0, defaultVolume: 1.0 },
                 { trackId: 'guide', label: 'Guia (Voz Regência)', defaultPan: 1.0, defaultVolume: 1.0 },
+                { trackId: 'pad', label: 'Pad Contínuo (Tom)', defaultPan: 0.0, defaultVolume: 0.8 },
                 { trackId: 'backing', label: 'Playback / Instrumental', defaultPan: 0.0, defaultVolume: 1.0 },
                 { trackId: 'extra1', label: 'Violão & Cordas', defaultPan: 0.0, defaultVolume: 0.8 },
               ]
