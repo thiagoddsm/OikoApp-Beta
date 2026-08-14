@@ -15,10 +15,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Users, TrendingUp, AlertTriangle, MessageSquare, HeartHandshake, BarChart2, ClipboardList, CheckCircle2, Clock, Eye, Pencil, CalendarDays, UserPlus, DollarSign, Star, FileText, Trash2, ChevronLeft, ChevronRight, Filter, Activity, Rocket, AlertCircle, ShieldAlert } from 'lucide-react';
+import { Loader2, Users, TrendingUp, AlertTriangle, MessageSquare, HeartHandshake, BarChart2, ClipboardList, CheckCircle2, Clock, Eye, Pencil, CalendarDays, UserPlus, DollarSign, Star, FileText, Trash2, ChevronLeft, ChevronRight, Filter, Activity, Rocket, AlertCircle, ShieldAlert, Bot, Send } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { triggerGcReportForCell } from '@/app/actions/whatsapp-actions';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, CartesianGrid } from 'recharts';
 
 type PresencaDoc = {
@@ -246,6 +247,10 @@ export default function SupervisorPage() {
   const [filterAreaId, setFilterAreaId] = useState('');
   const [filterCellId, setFilterCellId] = useState('');
 
+  // Estados de reenvio de Bot do WhatsApp
+  const [sendingCellId, setSendingCellId] = useState<string | null>(null);
+  const [isSendingBatch, setIsSendingBatch] = useState(false);
+
   // Regras configuráveis do Radar de Faltas
   const [radarConfig, setRadarConfig] = useState({ minAtencao: 3, minAlerta: 4, maxAlerta: 8 });
   const [isRulesDialogOpen, setIsRulesDialogOpen] = useState(false);
@@ -442,6 +447,83 @@ export default function SupervisorPage() {
     });
     return status;
   }, [allCells, logsAll, recentLogs, reportWeekOffset]);
+
+  // Contagem de células pendentes no período selecionado
+  const pendingCellsCount = useMemo(() => {
+    if (!allCells) return 0;
+    return allCells.filter(cell => !cellReportStatus[cell.id]?.sent).length;
+  }, [allCells, cellReportStatus]);
+
+  // Reenviar Bot do WhatsApp para uma célula específica
+  const handleResendBot = async (cellId: string, cellNome: string) => {
+    setSendingCellId(cellId);
+    try {
+      const res = await triggerGcReportForCell(cellId);
+      if (res.success) {
+        toast({
+          title: 'Bot do WhatsApp Enviado! 🚀',
+          description: `O formulário do relatório foi enviado para o líder do GC ${cellNome}.`,
+        });
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Não foi possível enviar o Bot',
+          description: res.error || 'Verifique se o líder possui telefone cadastrado no sistema.',
+        });
+      }
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao disparar Bot',
+        description: error.message || 'Ocorreu um erro ao comunicar com a API do WhatsApp.',
+      });
+    } finally {
+      setSendingCellId(null);
+    }
+  };
+
+  // Reenviar Bot do WhatsApp para todas as células pendentes da semana
+  const handleResendAllPending = async () => {
+    if (!allCells) return;
+    const pendingCells = allCells.filter(cell => !cellReportStatus[cell.id]?.sent);
+    if (pendingCells.length === 0) {
+      toast({
+        title: 'Tudo em dia!',
+        description: 'Não há GCs pendentes para a semana selecionada.',
+      });
+      return;
+    }
+
+    if (!window.confirm(`Deseja disparar o bot de cobrança do relatório via WhatsApp para ${pendingCells.length} líder(es) de GC pendentes?`)) {
+      return;
+    }
+
+    setIsSendingBatch(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    try {
+      for (const cell of pendingCells) {
+        try {
+          const res = await triggerGcReportForCell(cell.id);
+          if (res.success) {
+            successCount++;
+          } else {
+            failCount++;
+          }
+        } catch {
+          failCount++;
+        }
+      }
+
+      toast({
+        title: 'Disparo em Lote Concluído! 🚀',
+        description: `${successCount} bot(s) enviado(s) aos líderes no WhatsApp. ${failCount > 0 ? `(${failCount} falha(s))` : ''}`,
+      });
+    } finally {
+      setIsSendingBatch(false);
+    }
+  };
 
   // Alertas Luz Vermelha — busca histórico de 90 dias para calcular faltas consecutivas
   const alertasQuery = useMemoFirebase(() => {
@@ -1074,13 +1156,31 @@ export default function SupervisorPage() {
               <button onClick={() => setReportWeekOffset(w => Math.max(0, w - 1))} disabled={reportWeekOffset === 0} className="p-1.5 border rounded-lg hover:bg-muted disabled:opacity-40"><ChevronRight className="h-4 w-4" /></button>
             </div>
             <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-black flex items-center gap-2">
-                  <ClipboardList className="h-4 w-4" /> Relatórios da Semana
-                </CardTitle>
-                <CardDescription>
-                  Status dos relatórios de cada célula com base no dia de reunião cadastrado
-                </CardDescription>
+              <CardHeader className="pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <CardTitle className="text-base font-black flex items-center gap-2">
+                    <ClipboardList className="h-4 w-4" /> Relatórios da Semana
+                  </CardTitle>
+                  <CardDescription>
+                    Status dos relatórios de cada célula com base no dia de reunião cadastrado
+                  </CardDescription>
+                </div>
+                {pendingCellsCount > 0 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs font-bold gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-300 shadow-sm shrink-0"
+                    onClick={handleResendAllPending}
+                    disabled={isSendingBatch || !!sendingCellId}
+                  >
+                    {isSendingBatch ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-600" />
+                    ) : (
+                      <Bot className="h-3.5 w-3.5 text-emerald-600" />
+                    )}
+                    {isSendingBatch ? 'Enviando...' : `Cobrar Pendentes no WhatsApp (${pendingCellsCount})`}
+                  </Button>
+                )}
               </CardHeader>
               <CardContent>
                 {!allCells?.length ? (
@@ -1122,6 +1222,21 @@ export default function SupervisorPage() {
                                 <Badge variant="outline" className="text-amber-700 border-amber-300 font-bold text-[11px] gap-1">
                                   <Clock className="h-3 w-3" /> Pendente
                                 </Badge>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 text-[11px] font-bold gap-1 bg-white hover:bg-emerald-50 text-emerald-700 border-emerald-300"
+                                  onClick={() => handleResendBot(cell.id, cell.nome)}
+                                  disabled={sendingCellId === cell.id || isSendingBatch}
+                                  title="Enviar formulário pelo WhatsApp para o líder"
+                                >
+                                  {sendingCellId === cell.id ? (
+                                    <Loader2 className="h-3 w-3 animate-spin text-emerald-600" />
+                                  ) : (
+                                    <Bot className="h-3 w-3 text-emerald-600" />
+                                  )}
+                                  Reenviar Bot
+                                </Button>
                                 <Button size="sm" variant="outline" className="h-7 text-[11px] font-bold" asChild>
                                   <Link href={`/dashboard/gc/report?cellId=${cell.id}`}>Preencher</Link>
                                 </Button>
