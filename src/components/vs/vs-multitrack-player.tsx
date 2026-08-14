@@ -254,6 +254,10 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
   const setupAudioNode = (trackId: string, audioEl: HTMLAudioElement) => {
     try {
       const ctx = getAudioContext();
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
+
       if (!mediaSourcesRef.current[trackId]) {
         try {
           const source = ctx.createMediaElementSource(audioEl);
@@ -597,6 +601,9 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
 
       // Ativa o AudioContext (necessário após gesto do usuário)
       if (ctx.state === 'suspended') ctx.resume();
+
+      // Aplica volume/mute/pan atualizado para todas as faixas ANTES do play
+      applyAudioSettings(tracksState);
 
       // Dispara reprodução de todas as faixas que possuem URL de áudio
       let hasAnyAudioFile = false;
