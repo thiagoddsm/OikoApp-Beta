@@ -148,12 +148,15 @@ function getStudentStatus(
   // reposição nativa
   if (att?.repositions?.some((r: any) => r.studentId === userId)) return 'makeup';
 
-  // 1. Checar reposição presencial/online em outra turma do mesmo curso
-  if (course) {
-    const modIndex = sessionIndex !== -1 ? sessionIndex : getModuleIndexForDate(dateStr, cls, course.syllabus || []);
+  // 1. Checar reposição presencial/online em outra turma do mesmo curso correspondente a ESTE módulo
+  const modIndex = sessionIndex !== -1 ? sessionIndex : (course ? getModuleIndexForDate(dateStr, cls, course.syllabus || []) : -1);
+
+  if (course && modIndex !== -1) {
     const otherClasses = (allClasses || []).filter(c => c.id !== cls.id && c.courseId === cls.courseId);
     for (const otherClass of otherClasses) {
       const foundAtt = otherClass.attendance?.find((a: any) => {
+        const otherModIndex = getModuleIndexForDate(a.date, otherClass, course?.syllabus || []);
+        if (otherModIndex !== modIndex) return false;
         const isP = a.presentStudentIds?.includes(userId) || a.onlineStudentIds?.includes(userId);
         const isR = a.repositions?.some((r: any) => r.studentId === userId);
         return isP || isR;
@@ -163,25 +166,30 @@ function getStudentStatus(
   }
 
   // 2. Checar quiz / avaliação online aprovada no TheoFlix para esta aula
-  const modIndex = sessionIndex !== -1 ? sessionIndex : (course ? getModuleIndexForDate(dateStr, cls, course.syllabus || []) : -1);
-  if (quizAttempts && quizAttempts.length > 0) {
+  if (quizAttempts && quizAttempts.length > 0 && modIndex !== -1) {
     const hasQuiz = quizAttempts.some((qAtt: any) => {
-      if (qAtt.userId !== userId && qAtt.userEmail !== userId) return false;
+      const matchesUser = qAtt.userId === userId || (qAtt.userEmail && qAtt.userEmail.toLowerCase() === userId.toLowerCase());
+      if (!matchesUser) return false;
       if (qAtt.approved === false) return false;
-      if (qAtt.moduleIndex === modIndex || qAtt.episodeIndex === modIndex) return true;
-      
+
       const qCourse = (qAtt.courseId || '').toLowerCase();
-      const isCourseMatch = qCourse === (cls.courseId || '').toLowerCase() || qCourse === 'crescer' || qCourse === 'discipular';
+      const isCourseMatch = qCourse === (cls.courseId || '').toLowerCase() || qCourse === (course?.name || '').toLowerCase() || qCourse === 'crescer' || qCourse === 'discipular';
       if (!isCourseMatch) return false;
-      if (modIndex === 0) return true; // Aula 1 concluida EAD
+
+      if (qAtt.moduleIndex === modIndex || qAtt.episodeIndex === modIndex) return true;
       return false;
     });
     if (hasQuiz) return 'online';
   }
 
-  // reposição via extraSession deste módulo
+  // 3. Reposição via extraSession deste módulo específico
   const repoSessions = (cls.extraSessions || []).filter((s: any) => s.isRepositionOnly);
   for (const rs of repoSessions) {
+    const rsModIndex = rs.syllabusId 
+      ? (course?.syllabus || []).findIndex((item: any) => item.id === rs.syllabusId)
+      : -1;
+    if (rsModIndex !== -1 && rsModIndex !== modIndex) continue;
+
     const rsStr = rs.startTime ? `${rs.date}T${rs.startTime}` : `${rs.date}-extra`;
     const rsAtt = (cls.attendance || []).find((a: any) => a.date === rsStr);
     if (rsAtt?.presentStudentIds?.includes(userId) || rsAtt?.onlineStudentIds?.includes(userId)) {
