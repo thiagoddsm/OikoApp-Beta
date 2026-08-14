@@ -21,10 +21,22 @@ import Link from 'next/link';
 const { firestore, storage } = initializeFirebase();
 
 const TRACK_SLOTS = [
-  { id: 'click', label: 'Clique (Metrônomo)', defaultPan: -1.0, description: 'Track de marcação de tempo. Pan 100% esquerda.' },
-  { id: 'guide', label: 'Guia (Voz Principal)', defaultPan: 1.0, description: 'Voz guia para o músico. Pan 100% direita.' },
-  { id: 'backing', label: 'Instrumental / Backing', defaultPan: 0.0, description: 'Base musical completa. Pan centro.' },
-  { id: 'extra1', label: 'Faixa Extra 1 (opcional)', defaultPan: 0.0, description: 'Percussão, cordas ou efeitos extra.' },
+  { id: 'click', label: '1. Clique (Metrônomo)', defaultPan: -1.0, description: 'Track de marcação de tempo. Pan 100% esquerda.' },
+  { id: 'guide', label: '2. Guia (Voz Regência)', defaultPan: 1.0, description: 'Voz guia para o músico. Pan 100% direita.' },
+  { id: 'pad', label: '3. Pad Contínuo (Worship)', defaultPan: 0.0, description: 'Ambiência e harmonia no tom da música.' },
+  { id: 'drums', label: '4. Bateria / Loops', defaultPan: 0.0, description: 'Bateria acústica, percussão ou loops eletrônicos.' },
+  { id: 'bass', label: '5. Baixo / Synth Bass', defaultPan: 0.0, description: 'Linhas de contrabaixo ou synth bass.' },
+  { id: 'ac_gtr', label: '6. Violão (Acoustic)', defaultPan: -0.3, description: 'Violão base ou fingerpicking.' },
+  { id: 'el_gtr1', label: '7. Guitarra 1 (Rhythm)', defaultPan: -0.6, description: 'Guitarras de base, drives ou ambiência.' },
+  { id: 'el_gtr2', label: '8. Guitarra 2 (Lead)', defaultPan: 0.6, description: 'Solos, riffs melódicos e delays.' },
+  { id: 'keys', label: '9. Piano / Teclados', defaultPan: 0.0, description: 'Piano acústico, Rhodes e teclados.' },
+  { id: 'synths', label: '10. Synths / Arpeggiators', defaultPan: 0.2, description: 'Sintetizadores melódicos e arpejos.' },
+  { id: 'strings', label: '11. Cordas / Orquestra', defaultPan: 0.0, description: 'Violinos, cellos e arranjos de cordas.' },
+  { id: 'brass', label: '12. Metais / Horns', defaultPan: 0.3, description: 'Trompetes, trombones e sax.' },
+  { id: 'backing_vocals', label: '13. Backing Vocals', defaultPan: 0.0, description: 'Harmonias vocais e coro de fundo.' },
+  { id: 'fx', label: '14. FX / Risers / Efeitos', defaultPan: 0.0, description: 'Transições, risers, sub-drops e impactos.' },
+  { id: 'backing', label: '15. Playback / Instrumental Geral', defaultPan: 0.0, description: 'Base musical mista ou playback estéreo.' },
+  { id: 'extra1', label: '16. Faixa Extra (Personalizada)', defaultPan: 0.0, description: 'Stem adicional personalizada para o arranjo.' },
 ];
 
 type TrackUpload = {
