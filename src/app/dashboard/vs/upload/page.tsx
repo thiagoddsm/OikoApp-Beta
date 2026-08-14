@@ -107,9 +107,18 @@ function VsUploadContent() {
     async function loadVsData() {
       setIsLoadingEdit(true);
       try {
-        const snap = await getDoc(doc(firestore, 'vs_catalog', editId));
-        if (snap.exists()) {
-          const data = snap.data();
+        let snap = await getDoc(doc(firestore, 'vs_catalog', editId));
+        let data = snap.exists() ? snap.data() : null;
+
+        // Se não encontrou em vs_catalog, tenta buscar em worship_songs (músicas gerais)
+        if (!data) {
+          const songSnap = await getDoc(doc(firestore, 'worship_songs', editId));
+          if (songSnap.exists()) {
+            data = songSnap.data();
+          }
+        }
+
+        if (data) {
           if (data.title) setTitle(data.title);
           if (data.artist) setArtist(data.artist);
           if (data.bpm !== undefined && data.bpm !== null) setBpm(String(data.bpm));
