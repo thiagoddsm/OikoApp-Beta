@@ -132,11 +132,6 @@ function getStudentStatus(
   cls: Class,
   userId: string,
   today: Date,
-function getStudentStatus(
-  dateStr: string,
-  cls: Class,
-  userId: string,
-  today: Date,
   allClasses: Class[] = [],
   quizAttempts: any[] = [],
   course: any = null,
