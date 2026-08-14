@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useFirebase, useMemoFirebase, useCollection } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
-import { useVolunteering, type Class } from '@/contexts/volunteering-context';
+import { VolunteeringProvider, useVolunteering, getResolvedSchedule, type Class } from '@/contexts/volunteering-context';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { format, parseISO, addWeeks, addMonths, isBefore, startOfDay } from 'date-fns';
@@ -36,8 +36,19 @@ const safeParseISO = (dateStr: string): Date => {
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
-/** Calcula todas as datas de aula de uma turma (mesmo algoritmo do log do professor) */
-function resolveClassSchedule(cls: Class): { dateStr: string; isExtra: boolean; isRepositionOnly: boolean }[] {
+/** Calcula todas as datas de aula de uma turma usando a mesma função oficial do diário do professor */
+function resolveClassSchedule(cls: Class, course: any = null): { dateStr: string; isExtra: boolean; isRepositionOnly: boolean; syllabusItem?: any }[] {
+  if (!cls) return [];
+  const resolved = getResolvedSchedule(cls, course);
+  if (resolved && resolved.length > 0) {
+    return resolved.map(item => ({
+      dateStr: item.dateStr,
+      isExtra: !!item.isExtra,
+      isRepositionOnly: !!item.isRepositionOnly,
+      syllabusItem: item.syllabusItem,
+    }));
+  }
+
   const items: { dateStr: string; isExtra: boolean; isRepositionOnly: boolean }[] = [];
   if (!cls.startDate) return items;
 
@@ -218,7 +229,7 @@ interface ClassAttendanceCardProps {
 function ClassAttendanceCard({ cls, courseName, userId, today, allClasses = [], quizAttempts = [], course = null }: ClassAttendanceCardProps) {
   const [expanded, setExpanded] = useState(false);
 
-  const schedule = useMemo(() => resolveClassSchedule(cls), [cls]);
+  const schedule = useMemo(() => resolveClassSchedule(cls, course), [cls, course]);
 
   // Apenas sessões já ocorridas (não futuras) e não somente-reposição
   const pastSessions = useMemo(() =>
@@ -475,15 +486,16 @@ export function StudentDashboard() {
   const totalMissed = useMemo(() => {
     if (!user) return 0;
     return myClasses.reduce((acc, cls) => {
-      const schedule = resolveClassSchedule(cls);
+      const course = courseMap.get(cls.courseId) || null;
+      const schedule = resolveClassSchedule(cls, course);
       const past = schedule.filter(s => {
         if (s.isRepositionOnly) return false;
         return !isBefore(today, startOfDay(parseISO(s.dateStr.split('T')[0])));
       });
-      const missed = past.filter(s => getStudentStatus(s.dateStr, cls, user.uid, today) === 'absent');
+      const missed = past.filter((s, idx) => getStudentStatus(s.dateStr, cls, user.uid, today, classes || [], quizAttempts || [], course, idx) === 'absent');
       return acc + missed.length;
     }, 0);
-  }, [myClasses, user, today]);
+  }, [myClasses, user, today, courseMap, classes, quizAttempts]);
 
   if (isLoading) {
     return (
