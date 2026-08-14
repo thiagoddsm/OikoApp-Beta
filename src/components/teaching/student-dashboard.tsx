@@ -20,6 +20,7 @@ import { format, parseISO, addWeeks, addMonths, isBefore, startOfDay } from 'dat
 import { ptBR } from 'date-fns/locale';
 import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
 import { CertificateView } from './certificate-view';
+import { getModuleCompletion } from '@/domain/teaching/module-completion';
 
 const safeParseISO = (dateStr: string): Date => {
   if (!dateStr || typeof dateStr !== 'string') return new Date(NaN);
@@ -131,10 +132,17 @@ function getStudentStatus(
   cls: Class,
   userId: string,
   today: Date,
+function getStudentStatus(
+  dateStr: string,
+  cls: Class,
+  userId: string,
+  today: Date,
   allClasses: Class[] = [],
   quizAttempts: any[] = [],
   course: any = null,
-  sessionIndex: number = -1
+  sessionIndex: number = -1,
+  userEmail?: string,
+  studentJourney?: any
 ): SessionStatus {
   const sessionDate = startOfDay(safeParseISO(dateStr));
   if (isNaN(sessionDate.getTime())) return 'pending';
@@ -144,45 +152,39 @@ function getStudentStatus(
 
   if (att?.presentStudentIds?.includes(userId)) return 'present';
   if (att?.onlineStudentIds?.includes(userId)) return 'online';
-
-  // reposição nativa
   if (att?.repositions?.some((r: any) => r.studentId === userId)) return 'makeup';
 
-  // 1. Checar reposição presencial/online em outra turma do mesmo curso correspondente a ESTE módulo
+  // 1. Checar via orquestrador oficial getModuleCompletion (mesma fonte de verdade da secretaria/perfil)
   const modIndex = sessionIndex !== -1 ? sessionIndex : (course ? getModuleIndexForDate(dateStr, cls, course.syllabus || []) : -1);
 
-  if (course && modIndex !== -1) {
-    const otherClasses = (allClasses || []).filter(c => c.id !== cls.id && c.courseId === cls.courseId);
-    for (const otherClass of otherClasses) {
-      const foundAtt = otherClass.attendance?.find((a: any) => {
-        const otherModIndex = getModuleIndexForDate(a.date, otherClass, course?.syllabus || []);
-        if (otherModIndex !== modIndex) return false;
-        const isP = a.presentStudentIds?.includes(userId) || a.onlineStudentIds?.includes(userId);
-        const isR = a.repositions?.some((r: any) => r.studentId === userId);
-        return isP || isR;
-      });
-      if (foundAtt) return 'makeup';
+  if (modIndex !== -1) {
+    const isMembership = Boolean(
+      cls.courseId === 'pertencer' ||
+      cls.courseId === 'membros' ||
+      /^(pertencer|curso de membro|curso de membros)/i.test(course?.name || '')
+    );
+
+    const completion = getModuleCompletion({
+      studentId: userId,
+      studentEmail: userEmail,
+      studentJourney: studentJourney,
+      course: course || { id: cls.courseId },
+      modIndex,
+      modId: (modIndex + 1).toString(),
+      modules: course?.syllabus || [],
+      courseClasses: allClasses.length > 0 ? allClasses : [cls],
+      quizAttempts: quizAttempts || [],
+      isMembership
+    });
+
+    if (completion.isDone) {
+      if (completion.isRepo) return 'makeup';
+      if (completion.isOnline) return 'online';
+      return 'present';
     }
   }
 
-  // 2. Checar quiz / avaliação online aprovada no TheoFlix para esta aula
-  if (quizAttempts && quizAttempts.length > 0 && modIndex !== -1) {
-    const hasQuiz = quizAttempts.some((qAtt: any) => {
-      const matchesUser = qAtt.userId === userId || (qAtt.userEmail && qAtt.userEmail.toLowerCase() === userId.toLowerCase());
-      if (!matchesUser) return false;
-      if (qAtt.approved === false) return false;
-
-      const qCourse = (qAtt.courseId || '').toLowerCase();
-      const isCourseMatch = qCourse === (cls.courseId || '').toLowerCase() || qCourse === (course?.name || '').toLowerCase() || qCourse === 'crescer' || qCourse === 'discipular';
-      if (!isCourseMatch) return false;
-
-      if (qAtt.moduleIndex === modIndex || qAtt.episodeIndex === modIndex) return true;
-      return false;
-    });
-    if (hasQuiz) return 'online';
-  }
-
-  // 3. Reposição via extraSession deste módulo específico
+  // 2. Reposição via extraSession deste módulo específico
   const repoSessions = (cls.extraSessions || []).filter((s: any) => s.isRepositionOnly);
   for (const rs of repoSessions) {
     const rsModIndex = rs.syllabusId 
@@ -191,8 +193,8 @@ function getStudentStatus(
     if (rsModIndex !== -1 && rsModIndex !== modIndex) continue;
 
     const rsStr = rs.startTime ? `${rs.date}T${rs.startTime}` : `${rs.date}-extra`;
-    const rsAtt = (cls.attendance || []).find((a: any) => a.date === rsStr);
-    if (rsAtt?.presentStudentIds?.includes(userId) || rsAtt?.onlineStudentIds?.includes(userId)) {
+    const rsAtt = (cls.attendance || []).find((a: any) => a.date === rsStr || a.date === rs.date || a.date?.startsWith(rs.date));
+    if (rsAtt?.presentStudentIds?.includes(userId) || rsAtt?.onlineStudentIds?.includes(userId) || rsAtt?.repositions?.some((r: any) => r.studentId === userId)) {
       return 'makeup';
     }
   }
@@ -228,13 +230,25 @@ interface ClassAttendanceCardProps {
   cls: Class;
   courseName: string;
   userId: string;
+  userEmail?: string;
+  studentJourney?: any;
   today: Date;
   allClasses?: Class[];
   quizAttempts?: any[];
   course?: any;
 }
 
-function ClassAttendanceCard({ cls, courseName, userId, today, allClasses = [], quizAttempts = [], course = null }: ClassAttendanceCardProps) {
+function ClassAttendanceCard({
+  cls,
+  courseName,
+  userId,
+  userEmail,
+  studentJourney,
+  today,
+  allClasses = [],
+  quizAttempts = [],
+  course = null
+}: ClassAttendanceCardProps) {
   const [expanded, setExpanded] = useState(false);
 
   const schedule = useMemo(() => resolveClassSchedule(cls, course), [cls, course]);
@@ -254,9 +268,9 @@ function ClassAttendanceCard({ cls, courseName, userId, today, allClasses = [], 
   const sessionStatuses = useMemo(() =>
     pastSessions.map((s, idx) => ({
       ...s,
-      status: getStudentStatus(s.dateStr, cls, userId, today, allClasses, quizAttempts, course, idx)
+      status: getStudentStatus(s.dateStr, cls, userId, today, allClasses, quizAttempts, course, idx, userEmail, studentJourney)
     })),
-    [pastSessions, cls, userId, today, allClasses, quizAttempts, course]
+    [pastSessions, cls, userId, today, allClasses, quizAttempts, course, userEmail, studentJourney]
   );
 
   const presentCount = sessionStatuses.filter(s => s.status === 'present' || s.status === 'online' || s.status === 'makeup').length;
@@ -489,6 +503,7 @@ export function StudentDashboard() {
 
   const courseMap = useMemo(() => new Map(courses.map(c => [c.id, c])), [courses]);
   const teacherMap = useMemo(() => new Map(users.map(u => [u.id, u])), [users]);
+  const currentUserProfile = useMemo(() => users.find(u => u.id === user?.uid), [users, user]);
 
   // Resumo global: total de faltas em aberto
   const totalMissed = useMemo(() => {
@@ -500,10 +515,10 @@ export function StudentDashboard() {
         if (s.isRepositionOnly) return false;
         return !isBefore(today, startOfDay(parseISO(s.dateStr.split('T')[0])));
       });
-      const missed = past.filter((s, idx) => getStudentStatus(s.dateStr, cls, user.uid, today, classes || [], quizAttempts || [], course, idx) === 'absent');
+      const missed = past.filter((s, idx) => getStudentStatus(s.dateStr, cls, user.uid, today, classes || [], quizAttempts || [], course, idx, user.email || currentUserProfile?.email, currentUserProfile?.journey) === 'absent');
       return acc + missed.length;
     }, 0);
-  }, [myClasses, user, today, courseMap, classes, quizAttempts]);
+  }, [myClasses, user, today, courseMap, classes, quizAttempts, currentUserProfile]);
 
   if (isLoading) {
     return (
@@ -645,6 +660,8 @@ export function StudentDashboard() {
                 cls={cls}
                 courseName={courseMap.get(cls.courseId)?.name || 'Curso'}
                 userId={user.uid}
+                userEmail={user.email || currentUserProfile?.email}
+                studentJourney={currentUserProfile?.journey}
                 today={today}
                 allClasses={classes || []}
                 quizAttempts={quizAttempts || []}

@@ -40,18 +40,48 @@ export function evaluateAttendanceRequirement(params: ModuleCompletionParams): a
 export function evaluateRepositionRequirement(params: ModuleCompletionParams, hasRegularAttendance: boolean): any {
   if (hasRegularAttendance) return null;
   const { studentId, modIndex, course, courseClasses } = params;
-  const otherClasses = courseClasses.filter(c => !c.students?.includes(studentId));
 
-  for (const otherClass of otherClasses) {
-    const foundAtt = otherClass.attendance?.find((att: any) => {
-      if (getModuleIndexForDate(att.date, otherClass, course?.syllabus || []) === modIndex) {
-        const isPresentInOther = att.presentStudentIds?.includes(studentId) || att.onlineStudentIds?.includes(studentId);
-        const isExplicitRepo = att.repositions?.some((r: any) => r.studentId === studentId);
-        return isPresentInOther || isExplicitRepo;
+  for (const aClass of courseClasses) {
+    const foundAtt = aClass.attendance?.find((att: any) => {
+      // 1. Checar se a data bate com o modIndex desta turma
+      const dateModIndex = getModuleIndexForDate(att.date, aClass, course?.syllabus || []);
+      const isPresent = att.presentStudentIds?.includes(studentId) || att.onlineStudentIds?.includes(studentId);
+      const isExplicitRepo = att.repositions?.some((r: any) => r.studentId === studentId);
+
+      if (dateModIndex === modIndex && (isPresent || isExplicitRepo)) {
+        return true;
       }
-      return false;
+
+      // 2. Checar se há reposição explícita registrada apontando para este modIndex ou syllabusId
+      const repoForMod = att.repositions?.find((r: any) => {
+        if (r.studentId !== studentId) return false;
+        if (r.moduleIndex !== undefined && Number(r.moduleIndex) === modIndex) return true;
+        if (r.syllabusId && course?.syllabus) {
+          const sIdx = course.syllabus.findIndex((s: any) => s.id === r.syllabusId);
+          if (sIdx === modIndex) return true;
+        }
+        return false;
+      });
+
+      return Boolean(repoForMod);
     });
+
     if (foundAtt) return foundAtt;
+
+    // 3. Checar extraSessions desta turma
+    const repoSessions = (aClass.extraSessions || []).filter((s: any) => s.isRepositionOnly);
+    for (const rs of repoSessions) {
+      const rsModIndex = rs.syllabusId 
+        ? (course?.syllabus || []).findIndex((item: any) => item.id === rs.syllabusId)
+        : -1;
+      if (rsModIndex !== -1 && rsModIndex !== modIndex) continue;
+
+      const rsStr = rs.startTime ? `${rs.date}T${rs.startTime}` : `${rs.date}-extra`;
+      const rsAtt = (aClass.attendance || []).find((a: any) => a.date === rsStr || a.date === rs.date || a.date?.startsWith(rs.date));
+      if (rsAtt?.presentStudentIds?.includes(studentId) || rsAtt?.onlineStudentIds?.includes(studentId) || rsAtt?.repositions?.some((r: any) => r.studentId === studentId)) {
+        return rsAtt;
+      }
+    }
   }
 
   return null;
