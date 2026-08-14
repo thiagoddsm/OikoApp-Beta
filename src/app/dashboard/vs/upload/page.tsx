@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Upload, Play, ArrowLeft, CheckCircle2, Music2, Sliders, 
-  Loader2, Disc, Headphones, Sparkles, AlertTriangle, FileAudio, Radio
+  Loader2, Disc, Headphones, Sparkles, AlertTriangle, FileAudio, Radio, Edit3, Trash2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
@@ -56,6 +56,7 @@ function VsUploadContent() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
 
+  const editId = searchParams.get('edit') || '';
   const linkedSongId = searchParams.get('songId') || '';
   const paramTitle = searchParams.get('title') || '';
   const paramArtist = searchParams.get('artist') || '';
@@ -68,14 +69,7 @@ function VsUploadContent() {
   const [key, setKey] = useState(paramKey);
   const [timeSignature, setTimeSignature] = useState('4/4');
   const [notes, setNotes] = useState('');
-
-  // Se veio com songId, preenche com os dados da música se os params não vieram completos
-  useEffect(() => {
-    if (paramTitle) setTitle(paramTitle);
-    if (paramArtist) setArtist(paramArtist);
-    if (paramKey) setKey(paramKey);
-    if (paramBpm) setBpm(paramBpm);
-  }, [paramTitle, paramArtist, paramKey, paramBpm]);
+  const [isLoadingEdit, setIsLoadingEdit] = useState(!!editId);
 
   const [tracks, setTracks] = useState<TrackUpload[]>(
     TRACK_SLOTS.map((slot) => ({
@@ -96,10 +90,110 @@ function VsUploadContent() {
 
   const fileRefs = useRef<(HTMLInputElement | null)[]>([]);
 
+  // 1. Carrega parâmetros vindos da URL
+  useEffect(() => {
+    if (!editId) {
+      if (paramTitle) setTitle(paramTitle);
+      if (paramArtist) setArtist(paramArtist);
+      if (paramKey) setKey(paramKey);
+      if (paramBpm) setBpm(paramBpm);
+    }
+  }, [paramTitle, paramArtist, paramKey, paramBpm, editId]);
+
+  // 2. Se for modo EDIÇÃO (?edit=ID), busca os dados reais da VS no Firestore
+  useEffect(() => {
+    if (!editId || !firestore) return;
+
+    async function loadVsData() {
+      setIsLoadingEdit(true);
+      try {
+        const snap = await getDoc(doc(firestore, 'vs_catalog', editId));
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.title) setTitle(data.title);
+          if (data.artist) setArtist(data.artist);
+          if (data.bpm !== undefined && data.bpm !== null) setBpm(String(data.bpm));
+          if (data.key) setKey(data.key);
+          if (data.timeSignature) setTimeSignature(data.timeSignature);
+          if (data.notes) setNotes(data.notes);
+
+          if (Array.isArray(data.tracks) && data.tracks.length > 0) {
+            setTracks((prev) =>
+              prev.map((slot) => {
+                const existing = data.tracks.find(
+                  (t: any) => t.trackId === slot.slotId || t.slotId === slot.slotId
+                );
+                if (existing && existing.url) {
+                  return {
+                    ...slot,
+                    defaultPan: existing.defaultPan !== undefined ? existing.defaultPan : slot.defaultPan,
+                    defaultVolume: existing.defaultVolume !== undefined ? existing.defaultVolume : 1.0,
+                    url: existing.url,
+                    storagePath: existing.storagePath || '',
+                    status: 'done',
+                    progress: 100,
+                    label: existing.label || slot.label,
+                  };
+                }
+                return slot;
+              })
+            );
+          }
+        } else {
+          toast({
+            variant: 'destructive',
+            title: 'VS Não Encontrada',
+            description: `Não encontramos nenhuma VS com o ID ${editId}.`,
+          });
+        }
+      } catch (err: any) {
+        console.error('Erro ao carregar VS para edição:', err);
+        toast({
+          variant: 'destructive',
+          title: 'Erro ao carregar dados',
+          description: err.message,
+        });
+      } finally {
+        setIsLoadingEdit(false);
+      }
+    }
+
+    loadVsData();
+  }, [editId]);
+
   function handleFileChange(idx: number, file: File | null) {
     setTracks((prev) =>
-      prev.map((t, i) => (i === idx ? { ...t, file, status: 'idle', progress: 0, url: '', storagePath: '' } : t))
+      prev.map((t, i) =>
+        i === idx
+          ? {
+              ...t,
+              file,
+              status: file ? 'idle' : t.url ? 'done' : 'idle',
+              progress: file ? 0 : t.url ? 100 : 0,
+            }
+          : t
+      )
     );
+  }
+
+  function handleRemoveTrackAudio(idx: number) {
+    setTracks((prev) =>
+      prev.map((t, i) =>
+        i === idx
+          ? {
+              ...t,
+              file: null,
+              url: '',
+              storagePath: '',
+              status: 'idle',
+              progress: 0,
+            }
+          : t
+      )
+    );
+    if (fileRefs.current[idx]) {
+      fileRefs.current[idx]!.value = '';
+    }
   }
 
   function handlePanChange(idx: number, pan: number) {
@@ -107,7 +201,7 @@ function VsUploadContent() {
   }
 
   async function uploadTrackFile(track: TrackUpload, vsId: string, idx: number): Promise<{ url: string; storagePath: string }> {
-    if (!track.file || !storage) return { url: '', storagePath: '' };
+    if (!track.file || !storage) return { url: track.url || '', storagePath: track.storagePath || '' };
 
     const ext = track.file.name.split('.').pop();
     const storagePath = `vs/${vsId}/${track.slotId}.${ext}`;
@@ -141,20 +235,21 @@ function VsUploadContent() {
       return;
     }
 
-    const selectedTracks = tracks.filter((t) => t.file !== null);
-    if (selectedTracks.length === 0) {
-      toast({ variant: 'destructive', title: 'Nenhum Áudio Selecionado', description: 'Selecione pelo menos um arquivo MP3/WAV/AAC.' });
+    const hasAudio = tracks.some((t) => t.file !== null || t.url.trim() !== '');
+    if (!hasAudio) {
+      toast({ variant: 'destructive', title: 'Nenhum Áudio Selecionado', description: 'Selecione pelo menos um arquivo MP3/WAV ou mantenha uma faixa existente.' });
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const vsId = `vs_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+      const vsId = editId || `vs_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
       const uploadedTrackMeta: any[] = [];
 
       for (let i = 0; i < tracks.length; i++) {
         const tr = tracks[i];
         if (tr.file) {
+          // Upload novo arquivo
           const { url, storagePath } = await uploadTrackFile(tr, vsId, i);
           uploadedTrackMeta.push({
             trackId: tr.slotId,
@@ -164,60 +259,86 @@ function VsUploadContent() {
             defaultPan: tr.defaultPan,
             defaultVolume: tr.defaultVolume,
           });
+        } else if (tr.url) {
+          // Mantém áudio pré-existente
+          uploadedTrackMeta.push({
+            trackId: tr.slotId,
+            label: tr.label,
+            url: tr.url,
+            storagePath: tr.storagePath || '',
+            defaultPan: tr.defaultPan,
+            defaultVolume: tr.defaultVolume,
+          });
         }
       }
 
       if (firestore) {
-        await setDoc(doc(firestore, 'vs_catalog', vsId), {
-          id: vsId,
-          title: title.trim(),
-          artist: artist.trim() || '',
-          bpm: bpm ? Number(bpm) : 0,
-          key: key || '',
-          timeSignature: timeSignature || '4/4',
-          notes: notes.trim() || '',
-          tracks: uploadedTrackMeta,
-          status: 'active',
-          linkedSongId: linkedSongId || undefined,
-          createdAt: serverTimestamp(),
-        });
+        const vsDocRef = doc(firestore, 'vs_catalog', vsId);
+        await setDoc(
+          vsDocRef,
+          {
+            id: vsId,
+            title: title.trim(),
+            artist: artist.trim() || '',
+            bpm: bpm ? Number(bpm) : 0,
+            key: key || '',
+            timeSignature: timeSignature || '4/4',
+            notes: notes.trim() || '',
+            tracks: uploadedTrackMeta,
+            status: 'active',
+            linkedSongId: linkedSongId || undefined,
+            updatedAt: serverTimestamp(),
+            ...(editId ? {} : { createdAt: serverTimestamp() }),
+          },
+          { merge: true }
+        );
 
         // 🔗 Sincroniza e vincula automaticamente na Biblioteca de Músicas (worship_songs)
         try {
-          // Se foi iniciado a partir de uma música existente da biblioteca, atualiza ela com o vsId
           const targetSongId = linkedSongId || vsId;
           const librarySongDoc = doc(firestore, 'worship_songs', targetSongId);
-          await setDoc(librarySongDoc, {
-            title: title.trim(),
-            artist: artist.trim() || '',
-            bpm: bpm ? Number(bpm) : undefined,
-            key: key || '',
-            vsId: vsId,
-            notes: notes.trim() || '',
-            attachments: uploadedTrackMeta.map(t => ({
-              name: `Stem: ${t.label}`,
-              url: t.url,
-              type: 'mp3' as const
-            })),
-            updatedAt: serverTimestamp(),
-            createdAt: serverTimestamp(),
-          }, { merge: true });
+          await setDoc(
+            librarySongDoc,
+            {
+              title: title.trim(),
+              artist: artist.trim() || '',
+              bpm: bpm ? Number(bpm) : undefined,
+              key: key || '',
+              vsId: vsId,
+              notes: notes.trim() || '',
+              attachments: uploadedTrackMeta.map((t) => ({
+                name: `Stem: ${t.label}`,
+                url: t.url,
+                type: 'mp3' as const,
+              })),
+              updatedAt: serverTimestamp(),
+              ...(editId ? {} : { createdAt: serverTimestamp() }),
+            },
+            { merge: true }
+          );
         } catch (libErr) {
           console.warn('Aviso: erro ao sincronizar com Biblioteca de Músicas:', libErr);
         }
       }
 
       setSuccessId(vsId);
-      toast({ title: 'VS Cadastrada com Sucesso! 🚀', description: linkedSongId ? 'A música da Biblioteca foi vinculada a esta VS!' : 'Você já pode testá-la no navegador.' });
+      toast({
+        title: editId ? 'VS Atualizada com Sucesso! ✨' : 'VS Cadastrada com Sucesso! 🚀',
+        description: editId
+          ? 'As alterações da música e faixas foram salvas.'
+          : linkedSongId
+          ? 'A música da Biblioteca foi vinculada a esta VS!'
+          : 'Você já pode testá-la no navegador.',
+      });
     } catch (err: any) {
-      console.error('Erro ao criar VS:', err);
-      toast({ variant: 'destructive', title: 'Erro ao cadastrar VS', description: err.message });
+      console.error('Erro ao salvar VS:', err);
+      toast({ variant: 'destructive', title: 'Erro ao salvar VS', description: err.message });
     } finally {
       setIsSubmitting(false);
     }
   }
 
-  // TELA DE SUCESSO DO UPLOAD
+  // TELA DE SUCESSO DO UPLOAD / EDIÇÃO
   if (successId) {
     return (
       <div className="max-w-2xl mx-auto p-4 sm:p-8 space-y-6">
@@ -228,7 +349,7 @@ function VsUploadContent() {
 
           <div className="space-y-2">
             <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 font-bold uppercase tracking-wider text-[10px]">
-              Upload Concluído
+              {editId ? 'Edição Salva' : 'Upload Concluído'}
             </Badge>
             <h1 className="text-2xl sm:text-3xl font-black italic tracking-tight">{title || 'Música Cadastrada'}</h1>
             <p className="text-xs sm:text-sm text-slate-400 font-medium max-w-md mx-auto">
@@ -242,7 +363,6 @@ function VsUploadContent() {
           </div>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4 border-t border-slate-800">
-            {/* BOTÃO PRINCIPAL DE TESTAR NO NAVEGADOR AGORA */}
             <Link href={`/dashboard/vs/${successId}`} className="w-full sm:w-auto">
               <Button size="lg" className="w-full font-black text-xs sm:text-sm bg-emerald-500 hover:bg-emerald-600 text-slate-950 shadow-lg shadow-emerald-500/20 rounded-2xl gap-2 h-12 px-6">
                 <Play size={18} className="fill-slate-950" /> Testar & Mixar no Navegador Agora
@@ -260,16 +380,31 @@ function VsUploadContent() {
               variant="ghost"
               onClick={() => {
                 setSuccessId(null);
-                setTitle('');
-                setArtist('');
-                setBpm('');
-                setKey('');
-                setNotes('');
-                setTracks(TRACK_SLOTS.map((s) => ({ slotId: s.id, label: s.label, defaultPan: s.defaultPan, defaultVolume: 1.0, file: null, progress: 0, url: '', storagePath: '', status: 'idle' })));
+                if (editId) {
+                  router.push('/dashboard/vs');
+                } else {
+                  setTitle('');
+                  setArtist('');
+                  setBpm('');
+                  setKey('');
+                  setTracks(
+                    TRACK_SLOTS.map((slot) => ({
+                      slotId: slot.id,
+                      label: slot.label,
+                      defaultPan: slot.defaultPan,
+                      defaultVolume: 1.0,
+                      file: null,
+                      progress: 0,
+                      url: '',
+                      storagePath: '',
+                      status: 'idle',
+                    }))
+                  );
+                }
               }}
-              className="w-full sm:w-auto font-bold text-xs sm:text-sm text-slate-400 hover:text-white rounded-2xl h-12"
+              className="w-full sm:w-auto font-bold text-xs text-slate-400 hover:text-white"
             >
-              + Cadastrar Outra VS
+              {editId ? 'Concluir' : 'Enviar Outra Música'}
             </Button>
           </div>
         </Card>
@@ -277,25 +412,42 @@ function VsUploadContent() {
     );
   }
 
-  return (
-    <div className="p-4 sm:p-8 max-w-5xl mx-auto space-y-8">
-      {/* Botão Voltar */}
-      <div className="flex items-center justify-between">
-        <Link href={linkedSongId ? "/dashboard/volunteering/worship" : "/dashboard/vs"}>
-          <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white gap-2 font-bold text-xs rounded-xl">
-            <ArrowLeft size={16} /> {linkedSongId ? "Voltar à Biblioteca de Músicas" : "Voltar ao Oiko Live"}
-          </Button>
-        </Link>
-        <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 font-bold uppercase tracking-wider text-[10px]">
-          Multitrack DAW Stems
-        </Badge>
+  // TELA DE CARREGAMENTO (SE ESTIVER ABRINDO EDIÇÃO)
+  if (isLoadingEdit) {
+    return (
+      <div className="max-w-4xl mx-auto p-8 flex flex-col items-center justify-center min-h-[400px] gap-4">
+        <Loader2 size={36} className="animate-spin text-emerald-400" />
+        <p className="text-sm font-bold text-slate-400">Carregando dados da Virtual Sound...</p>
       </div>
+    );
+  }
 
-      {/* Banner de Vinculação com Música da Biblioteca */}
-      {linkedSongId && (
-        <div className="flex items-center gap-3 p-4 bg-emerald-950/40 border border-emerald-500/30 rounded-2xl">
+  return (
+    <div className="max-w-4xl mx-auto p-4 sm:p-8 space-y-6">
+      {/* Botão Voltar */}
+      <Link href="/dashboard/vs" className="inline-flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-white transition-colors">
+        <ArrowLeft size={16} /> Voltar para o Catálogo de VS
+      </Link>
+
+      {/* Banner Informativo se for vinculação da Biblioteca ou Edição */}
+      {editId && (
+        <div className="p-4 bg-indigo-950/40 border border-indigo-800/50 rounded-2xl flex items-center gap-3">
+          <div className="size-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
+            <Edit3 size={20} />
+          </div>
+          <div>
+            <h3 className="text-sm font-black text-indigo-400">Modo de Edição de Virtual Sound</h3>
+            <p className="text-xs text-slate-300">
+              Você está editando a VS existente <strong>"{title || editId}"</strong>. As faixas já gravadas estão preservadas abaixo e você pode alterar informações ou substituir arquivos.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {linkedSongId && !editId && (
+        <div className="p-4 bg-emerald-950/40 border border-emerald-800/50 rounded-2xl flex items-center gap-3">
           <div className="size-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
-            <Radio size={20} className="animate-pulse" />
+            <Sparkles size={20} />
           </div>
           <div>
             <h3 className="text-sm font-black text-emerald-400">Inserindo VS para música da Biblioteca</h3>
@@ -310,11 +462,13 @@ function VsUploadContent() {
       <div className="flex items-center justify-between gap-4 bg-slate-900 text-white p-6 sm:p-8 rounded-3xl shadow-2xl border border-slate-800">
         <div className="space-y-1">
           <h1 className="text-2xl sm:text-3xl font-black italic tracking-tight flex items-center gap-2">
-            <Upload size={28} className="text-emerald-400" /> 
-            {linkedSongId ? `Inserir VS: ${title || 'Música'}` : 'Upload de Virtual Sound (VS)'}
+            {editId ? <Edit3 size={28} className="text-indigo-400" /> : <Upload size={28} className="text-emerald-400" />}
+            {editId ? `Editar VS: ${title || 'Música'}` : linkedSongId ? `Inserir VS: ${title || 'Música'}` : 'Upload de Virtual Sound (VS)'}
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 font-medium">
-            Envie os arquivos multitrack (Clique, Guia, Base) para cadastrar no catálogo do Oiko Live.
+            {editId
+              ? 'Edite as propriedades musicais e gerencie os canais de áudio da Virtual Sound.'
+              : 'Envie os arquivos multitrack (Clique, Guia, Base) para cadastrar no catálogo do Oiko Live.'}
           </p>
         </div>
       </div>
@@ -416,9 +570,16 @@ function VsUploadContent() {
               >
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                   <div>
-                    <span className="font-black text-sm text-white flex items-center gap-2">
-                      <FileAudio size={16} className="text-emerald-400" /> {tr.label}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-black text-sm text-white flex items-center gap-2">
+                        <FileAudio size={16} className="text-emerald-400" /> {tr.label}
+                      </span>
+                      {tr.url && !tr.file && (
+                        <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] font-bold">
+                          Áudio Gravado
+                        </Badge>
+                      )}
+                    </div>
                     <p className="text-xs text-slate-500 font-medium">
                       {TRACK_SLOTS[idx]?.description}
                     </p>
@@ -432,52 +593,126 @@ function VsUploadContent() {
                     onChange={(e) => handleFileChange(idx, e.target.files?.[0] || null)}
                   />
 
-                  <Button
-                    type="button"
-                    variant={tr.file ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => fileRefs.current[idx]?.click()}
-                    className={`h-9 px-4 rounded-xl font-bold text-xs gap-1.5 ${
-                      tr.file
-                        ? 'bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black'
-                        : 'border-slate-800 bg-slate-900 text-slate-300 hover:bg-slate-800'
-                    }`}
-                  >
-                    <Upload size={14} />
-                    {tr.file ? tr.file.name : 'Selecionar Arquivo'}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {tr.url && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveTrackAudio(idx)}
+                        className="h-9 px-2 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 rounded-xl"
+                        title="Remover faixa de áudio"
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                    )}
+
+                    <Button
+                      type="button"
+                      variant={tr.file ? 'default' : tr.url ? 'outline' : 'outline'}
+                      size="sm"
+                      onClick={() => fileRefs.current[idx]?.click()}
+                      className={`h-9 px-4 rounded-xl font-bold text-xs gap-1.5 ${
+                        tr.file
+                          ? 'bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black'
+                          : tr.url
+                          ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20'
+                          : 'border-slate-800 bg-slate-900 text-slate-300 hover:bg-slate-800'
+                      }`}
+                    >
+                      <Upload size={14} />
+                      {tr.file ? tr.file.name : tr.url ? 'Substituir Arquivo' : 'Selecionar Arquivo'}
+                    </Button>
+                  </div>
                 </div>
 
+                {/* Status e progresso do upload */}
                 {tr.status === 'uploading' && (
                   <div className="space-y-1">
-                    <div className="flex justify-between text-[10px] font-mono text-slate-400 font-bold">
-                      <span>Enviando...</span>
+                    <div className="flex justify-between text-[11px] font-bold text-slate-400">
+                      <span>Enviando áudio...</span>
                       <span>{Math.round(tr.progress)}%</span>
                     </div>
-                    <div className="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-400 transition-all" style={{ width: `${tr.progress}%` }} />
+                    <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-emerald-500 transition-all duration-300"
+                        style={{ width: `${tr.progress}%` }}
+                      />
                     </div>
                   </div>
                 )}
+
+                {/* Pan Slider (Balanço L/R Padrão) */}
+                <div className="pt-2 border-t border-slate-900 flex items-center gap-3 text-xs">
+                  <span className="text-slate-400 font-bold text-[11px] min-w-[75px]">
+                    Pan Padrão:
+                  </span>
+                  <div className="flex-1 flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-slate-500">L (100%)</span>
+                    <input
+                      type="range"
+                      min="-1.0"
+                      max="1.0"
+                      step="0.05"
+                      value={tr.defaultPan}
+                      onChange={(e) => handlePanChange(idx, parseFloat(e.target.value))}
+                      className="flex-1 accent-emerald-500 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
+                    />
+                    <span className="text-[10px] font-bold text-slate-500">R (100%)</span>
+                  </div>
+                  <span className="font-mono text-[11px] text-emerald-400 min-w-[45px] text-right font-bold">
+                    {tr.defaultPan === -1 ? 'L (100%)' : tr.defaultPan === 1 ? 'R (100%)' : tr.defaultPan === 0 ? 'Centro' : `${Math.round(tr.defaultPan * 100)}%`}
+                  </span>
+                </div>
               </div>
             ))}
           </CardContent>
         </Card>
 
-        {/* Botão de Envio Principal */}
-        <div className="flex justify-end pt-2">
+        {/* Card 3: Observações & Informações de Arranjo */}
+        <Card className="bg-slate-900 border-slate-800 text-white rounded-3xl shadow-xl overflow-hidden">
+          <CardHeader className="border-b border-slate-800/80 p-6">
+            <CardTitle className="text-base font-black italic tracking-tight text-slate-300">
+              Observações do Arranjo / Estrutura
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6">
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Ex: Introdução 8 compassos -> Verso 1 -> Refrão -> Ponte com solo de guitarra..."
+              rows={3}
+              className="w-full p-3 bg-slate-950 border border-slate-800 text-white placeholder:text-slate-600 text-xs rounded-xl focus:outline-none focus:border-indigo-500"
+            />
+          </CardContent>
+        </Card>
+
+        {/* Botão de Submissão */}
+        <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-4">
+          <Link href="/dashboard/vs" className="w-full sm:w-auto">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full sm:w-auto border-slate-800 bg-slate-900 text-slate-300 hover:bg-slate-800 font-bold text-xs rounded-2xl h-12 px-6"
+            >
+              Cancelar
+            </Button>
+          </Link>
+
           <Button
             type="submit"
             disabled={isSubmitting}
-            className="w-full sm:w-auto font-black text-sm bg-emerald-500 hover:bg-emerald-600 text-slate-950 shadow-xl shadow-emerald-500/20 rounded-2xl h-12 px-8 gap-2"
+            className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs sm:text-sm rounded-2xl h-12 px-8 shadow-xl shadow-emerald-500/20 gap-2"
           >
             {isSubmitting ? (
               <>
-                <Loader2 size={18} className="animate-spin" /> Enviando Arquivos...
+                <Loader2 size={16} className="animate-spin" />
+                {editId ? 'Salvando Alterações...' : 'Processando Upload...'}
               </>
             ) : (
               <>
-                <Upload size={18} /> Publicar VS no Oiko Live
+                <Upload size={16} />
+                {editId ? 'Salvar Alterações da VS' : 'Cadastrar e Fazer Upload das Faixas'}
               </>
             )}
           </Button>
@@ -489,11 +724,13 @@ function VsUploadContent() {
 
 export default function VsUploadPage() {
   return (
-    <Suspense fallback={
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="size-8 animate-spin text-emerald-400" />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="max-w-4xl mx-auto p-8 flex items-center justify-center min-h-[400px]">
+          <Loader2 size={36} className="animate-spin text-emerald-400" />
+        </div>
+      }
+    >
       <VsUploadContent />
     </Suspense>
   );
