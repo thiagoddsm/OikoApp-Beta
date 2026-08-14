@@ -251,34 +251,11 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
 
   const analyserNodesRef = useRef<{ [trackId: string]: AnalyserNode | null }>({});
 
-  const setupAudioNode = (trackId: string, audioEl: HTMLAudioElement) => {
-    try {
-      const ctx = getAudioContext();
-      if (ctx.state === 'suspended') {
-        ctx.resume();
-      }
-
-      if (!mediaSourcesRef.current[trackId]) {
-        try {
-          const source = ctx.createMediaElementSource(audioEl);
-          const gainNode = ctx.createGain();
-          const panNode = ctx.createStereoPanner();
-          
-          source.connect(gainNode);
-          gainNode.connect(panNode);
-          panNode.connect(masterLowEqRef.current || ctx.destination);
-          
-          mediaSourcesRef.current[trackId] = source;
-          gainNodesRef.current[trackId] = gainNode;
-          panNodesRef.current[trackId] = panNode;
-        } catch (webaudioErr) {
-          // Se houver restrição CORS no storage, o elemento nativo HTML5 Audio garante o som
-          console.warn('Fallback para áudio nativo na track:', trackId, webaudioErr);
-        }
-      }
-    } catch (e) {
-      console.warn('Erro ao configurar áudio:', e);
-    }
+  // Nota: usamos apenas HTMLAudioElement.volume para controle de gain.
+  // createMediaElementSource causa falhas silenciosas de CORS com Firebase Storage URLs.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const setupAudioNode = (_trackId: string, _audioEl: HTMLAudioElement) => {
+    // No-op: volume/mute are controlled directly via audioEl.volume in applyAudioSettings
   };
 
   const playClickBeep = useCallback((freq = 1000, vol = 0.3) => {
@@ -385,7 +362,7 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
       const isClickOrGuide = t.trackId.includes('click') || t.trackId.includes('guide');
       const isPadTrack = t.trackId === 'pad' || t.trackId.includes('pad');
 
-      // Se for saída de som da Igreja (House PA), Muta automaticamente o clique e a voz guia
+      // Se for saída de som da Igreja (House PA), muta click e guia
       let shouldMute = t.isMuted || (hasSolo && !t.isSolo);
       if (outputMode === 'house_pa' && isClickOrGuide) {
         shouldMute = true;
@@ -393,7 +370,7 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
 
       if (shouldMute) effectiveVol = 0;
 
-      // Atualiza o controle do PAD ao vivo
+      // Controla o PAD sintetizador (quando não há arquivo de áudio real)
       if (isPadTrack && synthPadGainRef.current) {
         try {
           const ctx = getAudioContext();
@@ -406,30 +383,11 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
         }
       }
 
-      const gainNode = gainNodesRef.current[t.trackId];
-      const panNode = panNodesRef.current[t.trackId];
+      // Controla o volume diretamente no HTMLAudioElement (mais confiável que Web Audio com CORS)
       const audioEl = audioRefs.current[t.trackId];
-      
-      // Sempre ajusta o elemento de áudio nativo E o nó Web Audio simultaneamente
       if (audioEl) {
         audioEl.volume = effectiveVol;
         audioEl.muted = shouldMute;
-      }
-
-      if (gainNode) {
-        try {
-          gainNode.gain.setValueAtTime(effectiveVol, getAudioContext().currentTime);
-        } catch (e) {
-          gainNode.gain.value = effectiveVol;
-        }
-      }
-      
-      if (panNode) {
-        try {
-          panNode.pan.setValueAtTime(t.pan, getAudioContext().currentTime);
-        } catch (e) {
-          panNode.pan.value = t.pan;
-        }
       }
     });
   }, [outputMode, getAudioContext]);
@@ -505,10 +463,15 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
       let lastBeep = Date.now();
 
       interval = setInterval(() => {
-        // Tenta usar o currentTime real do elemento de áudio principal
-        const firstTrackId = vs.tracks[0]?.trackId;
-        const mainAudio = firstTrackId ? audioRefs.current[firstTrackId] : null;
+        // Tenta usar o currentTime real do primeiro elemento de áudio com URL
+        const firstTrackWithUrl = vs.tracks.find(t => !!t.url);
+        const mainAudio = firstTrackWithUrl ? audioRefs.current[firstTrackWithUrl.trackId] : null;
         const hasRealAudio = mainAudio && !mainAudio.paused && !isNaN(mainAudio.currentTime) && mainAudio.duration > 0;
+
+        // Verifica se existe alguma track de click com arquivo de áudio real
+        const clickTrackWithUrl = vs.tracks.find(t => t.trackId.includes('click') && !!t.url);
+        const clickAudioEl = clickTrackWithUrl ? audioRefs.current[clickTrackWithUrl.trackId] : null;
+        const hasRealClickAudio = !!(clickAudioEl && clickAudioEl.src && clickAudioEl.src !== window.location.href);
 
         let nextTime: number;
         if (hasRealAudio) {
@@ -517,8 +480,10 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
           // Fallback: relógio de parede de alta precisão (Date.now)
           const elapsed = (Date.now() - playStartTimeRef.current) / 1000;
           nextTime = playStartPosRef.current + elapsed;
+        }
 
-          // Click sintético do metrônomo (só ativo quando não há áudio real e não é house_pa)
+        // Click sintético APENAS quando não há arquivo de áudio real para o click
+        if (!hasRealClickAudio && !hasRealAudio) {
           if (Date.now() - lastBeep >= beatIntervalMs) {
             const hasSolo = tracksStateRef.current.some((t) => t.isSolo);
             const clickTrack = tracksStateRef.current.find((t) => t.trackId.includes('click'));
@@ -587,7 +552,8 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
     const ctx = getAudioContext();
 
     if (isPlaying) {
-      // PAUSE: Para todos os áudios reais
+      // PAUSE: Para todos os áudios reais E o pad sintetizado
+      stopAmbientPad();
       Object.values(audioRefs.current).forEach((audio) => {
         if (audio) {
           try { audio.pause(); } catch (e) {}
@@ -605,33 +571,36 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
       // Aplica volume/mute/pan atualizado para todas as faixas ANTES do play
       applyAudioSettings(tracksState);
 
+      // Aplica volume correto em cada faixa via HTMLAudioElement.volume
+      applyAudioSettings(tracksState);
+
       // Dispara reprodução de todas as faixas que possuem URL de áudio
       let hasAnyAudioFile = false;
-      Object.entries(audioRefs.current).forEach(([trackId, audio]) => {
-        if (audio && audio.src && audio.src !== window.location.href) {
+      vs.tracks.filter(t => !!t.url).forEach((track) => {
+        const audio = audioRefs.current[track.trackId];
+        if (audio) {
           hasAnyAudioFile = true;
           try {
-            audio.currentTime = currentTimeRef.current;
-            setupAudioNode(trackId, audio);
+            if (Math.abs(audio.currentTime - currentTimeRef.current) > 0.5) {
+              audio.currentTime = currentTimeRef.current;
+            }
             const playPromise = audio.play();
             if (playPromise !== undefined) {
               playPromise.catch((err) => {
                 if (err.name !== 'AbortError' && err.name !== 'NotSupportedError') {
-                  console.warn(`Áudio da faixa ${trackId} não reproduziu:`, err);
+                  console.warn(`Faixa ${track.trackId} não reproduziu:`, err);
                 }
               });
             }
           } catch (e) {
-            console.warn(`Erro ao iniciar faixa ${trackId}:`, e);
+            console.warn(`Erro ao iniciar faixa ${track.trackId}:`, e);
           }
         }
       });
 
-      // Inicia o sintetizador harmônico de Pad de Adoração (tom da música)
-      // sempre que o canal de Pad não tiver um arquivo MP3 próprio carregado
+      // Inicia o sintetizador harmônico de Pad APENAS quando não há arquivo MP3 real de pad
       const padTrack = tracksState.find(t => t.trackId === 'pad' || t.trackId.includes('pad'));
-      const padAudioEl = padTrack ? audioRefs.current[padTrack.trackId] : null;
-      const padHasRealAudio = !!(padAudioEl && padAudioEl.src && padAudioEl.src !== window.location.href);
+      const padHasRealAudio = !!(padTrack?.url);
 
       if (!padHasRealAudio) {
         const keyFreqMap: Record<string, number> = {
@@ -641,12 +610,14 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
         };
         const baseKey = (currentKey || 'C').split('/')[0].trim();
         const freq = keyFreqMap[baseKey] || 261.63;
-        
         const hasSolo = tracksState.some(t => t.isSolo);
         const shouldMutePad = padTrack ? (padTrack.isMuted || (hasSolo && !padTrack.isSolo)) : false;
         const padVol = shouldMutePad ? 0 : (padTrack ? padTrack.volume : 0.75);
         const padPan = padTrack ? padTrack.pan : 0;
         startAmbientPad(freq, padVol, padPan);
+      } else {
+        // Tem arquivo real: garante que o sintetizador de pad pare
+        stopAmbientPad();
       }
 
       // Guia de voz anuncia a primeira seção (em modo sintético/sem áudio real de guia)
@@ -784,15 +755,23 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
 
   return (
     <div className="w-full max-w-5xl mx-auto space-y-6">
-      {/* ELEMENTOS DE ÁUDIO EM SEGUNDO PLANO */}
+      {/* ELEMENTOS DE ÁUDIO EM SEGUNDO PLANO - sem crossOrigin para evitar bloqueios CORS do Firebase Storage */}
       <div className="hidden">
         {vs.tracks.filter((t) => !!t.url).map((t) => (
           <audio
             key={t.trackId}
-            ref={(el) => { if (el) audioRefs.current[t.trackId] = el; }}
+            ref={(el) => {
+              if (el) {
+                audioRefs.current[t.trackId] = el;
+                // Aplica volume inicial imediatamente quando o elemento é montado
+                const trackState = tracksState.find(ts => ts.trackId === t.trackId);
+                if (trackState) {
+                  el.volume = trackState.isMuted ? 0 : (trackState.volume ?? 1);
+                }
+              }
+            }}
             src={t.url}
             preload="auto"
-            crossOrigin="anonymous"
             onLoadedMetadata={(e) => handleAudioLoadedMetadata(t.trackId, e)}
             onDurationChange={(e) => handleAudioLoadedMetadata(t.trackId, e)}
             onCanPlayThrough={(e) => handleAudioLoadedMetadata(t.trackId, e)}
