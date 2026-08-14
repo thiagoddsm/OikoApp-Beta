@@ -147,8 +147,9 @@ export default function VSBandaPublicPage() {
             setIsLive(data.isLive);
           }
 
-          // Quando ao vivo, usa o setlist COMPLETO do console principal
-          if (data.isLive && Array.isArray(data.setlist) && data.setlist.length > 0) {
+          // Usa o setlist do console principal SEMPRE que existir (ao vivo ou não),
+          // pois ele contém as URLs reais das tracks já resolvidas
+          if (Array.isArray(data.setlist) && data.setlist.length > 0) {
             const liveSetlist = data.setlist as VsData[];
             setSetlistSongs(liveSetlist);
             const idx = data.currentSongIndex ?? 0;
