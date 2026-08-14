@@ -8,30 +8,18 @@ import {
   Copy, Check, Layers, Laptop
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 
 export default function DownloadCentralPage() {
   const { toast } = useToast();
-  const [copiedLink, setCopiedLink] = useState<string | null>(null);
-
-  const copyToClipboard = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedLink(label);
-    toast({
-      title: "Link Copiado!",
-      description: `O link para ${label} foi copiado para sua área de transferência.`,
-    });
-    setTimeout(() => setCopiedLink(null), 3000);
-  };
 
   const apps = [
     {
       id: "theoflix",
       name: "Theoflix Android",
       subtitle: "App do Aluno para Streaming & EAD",
-      badge: "Mobile Android",
+      badge: "APK Android Direto",
       badgeColor: "bg-purple-100 text-purple-800 border-purple-200",
       icon: GraduationCap,
       iconColor: "text-purple-600 bg-purple-50",
@@ -40,13 +28,14 @@ export default function DownloadCentralPage() {
         "Aulas e módulos em vídeo HD",
         "Progresso salvo automaticamente",
         "Quizzes e certificações",
-        "Modo offline e favoritos"
+        "Download direto sem precisar de loja"
       ],
       primaryAction: {
         label: "Baixar Theoflix (APK)",
-        href: "https://github.com/thiagoddsm/Theoflix/releases/latest",
+        href: "/theoflix.apk",
+        download: "Theoflix.apk",
         icon: Download,
-        isExternal: true
+        isDownload: true
       },
       secondaryAction: {
         label: "Repositório GitHub",
@@ -58,29 +47,30 @@ export default function DownloadCentralPage() {
     },
     {
       id: "oikolive",
-      name: "Oiko Live VS",
+      name: "Oiko Live VS (App)",
       subtitle: "Multitrack Stage & Virtual Soundcheck",
-      badge: "Desktop / Web Stage",
+      badge: "APK Android Direto",
       badgeColor: "bg-amber-100 text-amber-800 border-amber-200",
       icon: Radio,
       iconColor: "text-amber-600 bg-amber-50",
-      description: "Sistema profissional para ministério de louvor, reprodução multitrack, metrônomo, pads e controle remoto de culto.",
+      description: "App Android do sistema profissional para ministério de louvor, reprodução multitrack, metrônomo e pads.",
       features: [
-        "Mixer multitrack em tempo real",
+        "Mixer multitrack no celular",
         "Integração com a Ordem de Culto",
-        "Modo Remote Pad para celular",
-        "Roteamento de canais de áudio"
+        "Modo Remote Pad para músicos",
+        "Download direto do APK"
       ],
       primaryAction: {
-        label: "Abrir Oiko Live Stage",
-        href: "/dashboard/vs",
-        icon: Play,
-        isExternal: false
+        label: "Baixar Oiko Live (APK)",
+        href: "/oiko_live_spike.apk",
+        download: "OikoLiveVS.apk",
+        icon: Download,
+        isDownload: true
       },
       secondaryAction: {
-        label: "Remote Pad (Músicos)",
-        href: "/public/vs-banda",
-        icon: Smartphone,
+        label: "Abrir Stage Web",
+        href: "/dashboard/vs",
+        icon: Play,
         isExternal: false
       },
       gradient: "from-amber-500/10 via-transparent to-transparent border-amber-200"
@@ -93,21 +83,21 @@ export default function DownloadCentralPage() {
       badgeColor: "bg-blue-100 text-blue-800 border-blue-200",
       icon: Smartphone,
       iconColor: "text-blue-600 bg-blue-50",
-      description: "Instale o portal completo da igreja na tela inicial do seu celular (iOS ou Android) sem precisar da loja.",
+      description: "Instale o portal completo da igreja na tela inicial do seu celular (iOS ou Android) direto pelo navegador.",
       features: [
         "Check-in e Fila de Tarefas",
         "Relatórios semanais de GC",
         "Escalas de serviço e voluntários",
-        "Avisos e avisos em tempo real"
+        "Funciona em qualquer celular"
       ],
       primaryAction: {
         label: "Acessar Portal / Conectar",
         href: "/conectar",
         icon: ExternalLink,
-        isExternal: false
+        isDownload: false
       },
       secondaryAction: {
-        label: "Área de Membros",
+        label: "Painel de Membros",
         href: "/dashboard",
         icon: Laptop,
         isExternal: false
@@ -149,13 +139,13 @@ export default function DownloadCentralPage() {
       <main className="max-w-6xl mx-auto px-6 py-16 space-y-16">
         <div className="text-center space-y-4 max-w-2xl mx-auto">
           <Badge className="bg-purple-950 text-purple-300 border border-purple-800/60 font-semibold px-3 py-1 text-xs">
-            ✨ Central Oficial de Downloads & Aplicativos
+            ✨ Central Oficial de Downloads Diretos
           </Badge>
           <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white leading-tight">
-            Baixe e acesse os apps da nossa igreja
+            Baixe e instale os aplicativos no seu celular
           </h1>
           <p className="text-sm sm:text-base text-slate-400 font-normal leading-relaxed">
-            Tenha acesso exclusivo aos cursos do Theoflix, ferramentas de louvor e palco Oiko Live e ao sistema de membros na palma da sua mão.
+            Download direto dos arquivos APK para Android e acesso instantâneo ao ecossistema digital da igreja.
           </p>
         </div>
 
@@ -202,14 +192,13 @@ export default function DownloadCentralPage() {
 
                 {/* Actions */}
                 <div className="space-y-2.5 pt-6 mt-4 border-t border-slate-800/80">
-                  {app.primaryAction.isExternal ? (
+                  {app.primaryAction.isDownload ? (
                     <a 
                       href={app.primaryAction.href} 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
+                      download={app.primaryAction.download}
                       className="block w-full"
                     >
-                      <Button className="w-full bg-white hover:bg-slate-100 text-slate-950 font-bold text-xs h-11 rounded-xl shadow-md gap-2">
+                      <Button className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs h-11 rounded-xl shadow-lg shadow-purple-900/30 gap-2">
                         <app.primaryAction.icon className="w-4 h-4" />
                         {app.primaryAction.label}
                       </Button>
@@ -258,11 +247,11 @@ export default function DownloadCentralPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs text-slate-300">
             <div className="space-y-2 bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80">
-              <span className="font-bold text-purple-400 uppercase tracking-wider block">📱 Theoflix Android (APK)</span>
-              <p>1. Clique no botão de download acima e baixe o arquivo APK.</p>
-              <p>2. Abra o arquivo baixado nas notificações ou no gerenciador de arquivos.</p>
-              <p>3. Permita a instalação de fontes desconhecidas se solicitado pelo Android.</p>
-              <p>4. Abra o Theoflix e faça login com seu e-mail e senha do OikoApp!</p>
+              <span className="font-bold text-purple-400 uppercase tracking-wider block">📱 Download Direto de APK (Android)</span>
+              <p>1. Clique no botão roxo <strong>"Baixar (APK)"</strong>.</p>
+              <p>2. O arquivo é baixado direto para o seu celular (sem abrir GitHub nem telas externas).</p>
+              <p>3. Toque no arquivo baixado e confirme a instalação.</p>
+              <p>4. Abra o app e faça login com seu e-mail e senha do OikoApp!</p>
             </div>
 
             <div className="space-y-2 bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80">
