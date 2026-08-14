@@ -73,6 +73,7 @@ export default function VsMainStagePage() {
         const catalogData = snapCatalog.docs.map((d) => ({ id: d.id, ...d.data() } as VsEntry));
 
         // 1.1 Carrega também a Biblioteca Geral de Músicas (worship_songs) para permitir incluir qualquer música
+        let mergedCatalog: VsEntry[] = [...catalogData];
         try {
           const qLib = query(collection(firestore, 'worship_songs'), orderBy('createdAt', 'desc'));
           const snapLib = await getDocs(qLib);
@@ -82,6 +83,18 @@ export default function VsMainStagePage() {
             const existing = catalogData.find(c => c.id === d.id || (data.vsId && c.id === data.vsId) || c.title.toLowerCase().trim() === data.title?.toLowerCase()?.trim());
             if (existing) return null;
 
+            // Se a música em worship_songs tiver tracks salvas ou attachments, mapeia
+            let songTracks = data.tracks;
+            if ((!songTracks || songTracks.length === 0) && Array.isArray(data.attachments) && data.attachments.length > 0) {
+              songTracks = data.attachments.map((att: any, attIdx: number) => ({
+                trackId: att.trackId || `track_${attIdx}`,
+                label: att.name?.replace(/^Stem:\s*/, '') || `Faixa ${attIdx + 1}`,
+                url: att.url,
+                defaultPan: att.defaultPan ?? 0,
+                defaultVolume: att.defaultVolume ?? 1,
+              }));
+            }
+
             return {
               id: data.vsId || d.id,
               title: data.title || 'Sem título',
@@ -90,9 +103,10 @@ export default function VsMainStagePage() {
               key: data.key || 'C',
               timeSignature: '4/4',
               duration: 270,
-              tracks: [
+              tracks: songTracks && songTracks.length > 0 ? songTracks : [
                 { trackId: 'click', label: 'Clique (Metrônomo)', defaultPan: -1.0, defaultVolume: 1.0 },
                 { trackId: 'guide', label: 'Guia (Voz Regência)', defaultPan: 1.0, defaultVolume: 1.0 },
+                { trackId: 'pad', label: 'Pad Contínuo (Tom)', defaultPan: 0.0, defaultVolume: 0.8 },
                 { trackId: 'backing', label: 'Playback / Instrumental', defaultPan: 0.0, defaultVolume: 1.0 },
                 { trackId: 'extra1', label: 'Teclados / Pads', defaultPan: 0.0, defaultVolume: 0.8 },
               ],
@@ -102,7 +116,7 @@ export default function VsMainStagePage() {
           }).filter(Boolean) as VsEntry[];
 
           // Unifica catálogo com as músicas da biblioteca
-          const mergedCatalog = [...catalogData, ...libSongs];
+          mergedCatalog = [...catalogData, ...libSongs];
           setCatalog(mergedCatalog);
         } catch (libErr) {
           console.warn('Aviso ao carregar worship_songs:', libErr);
@@ -126,14 +140,18 @@ export default function VsMainStagePage() {
             const songItems = planData.items.filter((i: any) => i.type === 'song');
             
             worshipSetlist = songItems.map((item: any) => {
-              // Tenta vincular pela vsId ou pelo título da música no catálogo de VS
-              const matchedVs = catalogData.find(
-                (vs) => (item.vsId && vs.id === item.vsId) || vs.title.toLowerCase().trim() === item.title.toLowerCase().trim()
+              // Tenta vincular pela vsId, id da música (songId) ou pelo título da música no catálogo mesclado
+              const matchedVs = mergedCatalog.find(
+                (vs) =>
+                  (item.vsId && vs.id === item.vsId) ||
+                  (item.id && vs.id === item.id) ||
+                  (item.songId && vs.id === item.songId) ||
+                  (item.title && vs.title && vs.title.toLowerCase().trim() === item.title.toLowerCase().trim())
               );
 
               return {
-                id: matchedVs?.id || `worship_${item.id}`,
-                title: item.title,
+                id: matchedVs?.id || item.vsId || `worship_${item.id}`,
+                title: item.title || matchedVs?.title || 'Sem título',
                 artist: item.arrangement || matchedVs?.artist || '',
                 bpm: item.bpm || matchedVs?.bpm || 120,
                 key: item.key || matchedVs?.key || 'C',
