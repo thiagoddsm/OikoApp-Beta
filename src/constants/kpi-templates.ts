@@ -87,21 +87,21 @@ export const SYSTEM_KPI_TEMPLATES: KpiTemplate[] = [
   },
   {
     id: 'conversoes',
-    name: 'Conversões',
-    description: 'Total de conversões relatadas nos relatórios',
+    name: 'Conversões & Reconciliações',
+    description: 'Total de conversões e reconciliações registradas na Frequência de Cultos',
     iconName: 'UserPlus',
     category: 'crescimento',
     defaultDataSource: {
       type: 'field_sum',
-      collectionName: 'attendance_reports',
+      collectionName: 'registros_de_presenca',
       field: 'conversoes',
     },
     isSystemDefault: true,
   },
   {
     id: 'batismos',
-    name: 'Batismos',
-    description: 'Pessoas batizadas ou com curso de batismo concluído',
+    name: 'Aprovados no Batismo',
+    description: 'Pessoas aprovadas/concluídas no curso de Batismo',
     iconName: 'Crosshair',
     category: 'crescimento',
     defaultDataSource: {

@@ -81,11 +81,54 @@ export function useKpiEngine({
         }
 
         case 'field_sum': {
-          if (dataSource.collectionName === 'attendance_reports' && dataSource.field === 'conversoes') {
-            const total = reports?.reduce((sum, r) => sum + (Number(r.conversoes) || 0), 0) || 0;
+          // Conversões: soma tanto conversões quanto reconciliações vindas dos registros de presença nos cultos
+          if (dataSource.field === 'conversoes' || kpi.id === 'conversoes') {
+            const monthlyActuals = Array(12).fill(0);
+            let total = 0;
+
+            // 1. Pega dados da Frequência de Culto (registros_de_presenca)
+            cultos?.forEach(c => {
+              const conv = Number(c.conversoes) || 0;
+              const reconc = Number(c.reconciliacoes) || 0;
+              const sum = conv + reconc;
+              total += sum;
+
+              let date: Date | null = null;
+              if (c.data instanceof Timestamp) date = c.data.toDate();
+              else if (typeof c.data === 'string' || typeof c.data === 'number') {
+                try { date = new Date(c.data); } catch {}
+              } else if (c.date) {
+                try { date = new Date(c.date); } catch {}
+              }
+
+              if (date && date.getFullYear() === currentYear && sum > 0) {
+                monthlyActuals[date.getMonth()] += sum;
+              }
+            });
+
+            // 2. Se houver relatórios adicionais em attendance_reports, agrega se aplicável
+            if (reports && (!cultos || cultos.length === 0)) {
+              reports.forEach(r => {
+                const conv = Number(r.conversoes) || 0;
+                const reconc = Number(r.reconciliacoes) || 0;
+                const sum = conv + reconc;
+                total += sum;
+
+                let date: Date | null = null;
+                if (r.date instanceof Timestamp) date = r.date.toDate();
+                else if (typeof r.date === 'string' || typeof r.date === 'number') {
+                  try { date = new Date(r.date); } catch {}
+                }
+
+                if (date && date.getFullYear() === currentYear && sum > 0) {
+                  monthlyActuals[date.getMonth()] += sum;
+                }
+              });
+            }
+
             kpiData[kpi.id] = {
               actual: total,
-              monthlyActuals: getMonthlySum(reports, 'date', 'conversoes'),
+              monthlyActuals,
             };
           } else {
             kpiData[kpi.id] = { actual: 0, monthlyActuals: Array(12).fill(0) };
@@ -99,7 +142,12 @@ export function useKpiEngine({
           const monthlyCounts = Array(12).fill(0);
 
           cultos?.forEach(culto => {
-            const date = culto.data instanceof Timestamp ? culto.data.toDate() : null;
+            let date: Date | null = null;
+            if (culto.data instanceof Timestamp) date = culto.data.toDate();
+            else if (typeof culto.data === 'string' || typeof culto.data === 'number') {
+              try { date = new Date(culto.data); } catch {}
+            }
+
             if (date && date.getFullYear() === currentYear) {
               const month = date.getMonth();
               const isMatch = targetHorario
@@ -130,30 +178,38 @@ export function useKpiEngine({
         }
 
         case 'user_field': {
-          if (dataSource.field === 'batizado') {
-            const batismoCourse = courses?.find(c =>
-              (c.name || c.title || '').toLowerCase().includes('batismo')
-            );
-            const batismoCourseId = batismoCourse?.id;
+          // Batismo: Conta estritamente as pessoas aprovadas no curso de Batismo
+          if (dataSource.field === 'batizado' || kpi.id === 'batismos') {
+            const batismoCourses = courses?.filter(c => {
+              const name = (c.name || c.title || c.id || '').toLowerCase();
+              return name.includes('batismo') || c.linkedTheoflixId === 'batismo';
+            }) || [];
+            const batismoIds = new Set(['batismo', ...batismoCourses.map(c => c.id), ...batismoCourses.map(c => c.id?.toLowerCase())]);
 
-            const baptizedUsers = users?.filter(u => {
-              const hasDirect = u.batizado === 'sim' || u.dataBatismo || u.churchData?.baptismDate;
-              const hasCourse = batismoCourseId && u.journey?.courseStatus?.[batismoCourseId] === 'approved';
-              return hasDirect || hasCourse;
+            const approvedBaptismUsers = users?.filter(u => {
+              const cStatus = u.journey?.courseStatus || {};
+              const isApproved = Array.from(batismoIds).some(bId => {
+                const st = (cStatus[bId] || '').toLowerCase();
+                return st === 'approved' || st === 'completed' || st === 'apto' || st === 'concluido' || st === 'concluído';
+              });
+              return isApproved;
             }) || [];
 
             const monthlyActuals = Array(12).fill(0);
-            baptizedUsers.forEach(u => {
+            approvedBaptismUsers.forEach(u => {
               let date: Date | null = null;
-              if (u.dataBatismo) {
-                try { date = new Date(u.dataBatismo); } catch {}
-              } else if (u.churchData?.baptismDate instanceof Timestamp) {
-                date = u.churchData.baptismDate.toDate();
-              } else if (batismoCourseId && u.journey?.courseApprovedAt?.[batismoCourseId]) {
-                const val = u.journey.courseApprovedAt[batismoCourseId];
-                if (val instanceof Timestamp) date = val.toDate();
-                else { try { date = new Date(val); } catch {} }
-              } else if (u.createdAt instanceof Timestamp) {
+              // Procura a data de aprovação registrada no curso
+              for (const bId of Array.from(batismoIds)) {
+                if (u.journey?.courseApprovedAt?.[bId]) {
+                  const val = u.journey.courseApprovedAt[bId];
+                  if (val instanceof Timestamp) date = val.toDate();
+                  else { try { date = new Date(val); } catch {} }
+                  if (date) break;
+                }
+              }
+              if (!date && u.updatedAt instanceof Timestamp) {
+                date = u.updatedAt.toDate();
+              } else if (!date && u.createdAt instanceof Timestamp) {
                 date = u.createdAt.toDate();
               }
 
@@ -163,7 +219,7 @@ export function useKpiEngine({
             });
 
             kpiData[kpi.id] = {
-              actual: baptizedUsers.length,
+              actual: approvedBaptismUsers.length,
               monthlyActuals,
             };
           } else {
@@ -174,31 +230,49 @@ export function useKpiEngine({
 
         case 'course_completion': {
           let cid = dataSource.courseId;
+          const searchStr = (dataSource.courseName || cid || '').toLowerCase();
 
-          // Se não houver ID explícito, tenta busca por nome
-          if (!cid && dataSource.courseName) {
-            const searchStr = dataSource.courseName.toLowerCase();
-            const courseObj = courses?.find(c => {
-              const name = (c.name || c.title || '').toLowerCase();
-              return name.includes(searchStr);
-            });
-            cid = courseObj?.id;
-          }
+          // Coleta todos os IDs e aliases do curso correspondente
+          const matchingCourses = courses?.filter(c => {
+            const name = (c.name || c.title || '').toLowerCase();
+            const id = (c.id || '').toLowerCase();
+            const linked = (c.linkedTheoflixId || '').toLowerCase();
+            return (
+              (cid && id === cid.toLowerCase()) ||
+              (searchStr && (name.includes(searchStr) || id.includes(searchStr) || linked.includes(searchStr)))
+            );
+          }) || [];
+
+          const targetIds = new Set<string>();
+          if (cid) targetIds.add(cid);
+          if (searchStr) targetIds.add(searchStr);
+          matchingCourses.forEach(c => {
+            if (c.id) targetIds.add(c.id);
+            if (c.linkedTheoflixId) targetIds.add(c.linkedTheoflixId);
+          });
 
           const completedUsers = users?.filter(u => {
-            if (!cid) return false;
-            const status = (u.journey?.courseStatus?.[cid] || '').toLowerCase();
-            return status === 'approved' || status === 'completed' || status === 'apto';
+            const cStatus = u.journey?.courseStatus || {};
+            return Array.from(targetIds).some(targetId => {
+              const status = (cStatus[targetId] || '').toLowerCase();
+              return status === 'approved' || status === 'completed' || status === 'apto' || status === 'concluido' || status === 'concluído';
+            });
           }) || [];
 
           const monthlyActuals = Array(12).fill(0);
           completedUsers.forEach(u => {
             let date: Date | null = null;
-            if (cid && u.journey?.courseApprovedAt?.[cid]) {
-              const val = u.journey.courseApprovedAt[cid];
-              if (val instanceof Timestamp) date = val.toDate();
-              else { try { date = new Date(val); } catch {} }
-            } else if (u.createdAt instanceof Timestamp) {
+            for (const targetId of Array.from(targetIds)) {
+              if (u.journey?.courseApprovedAt?.[targetId]) {
+                const val = u.journey.courseApprovedAt[targetId];
+                if (val instanceof Timestamp) date = val.toDate();
+                else { try { date = new Date(val); } catch {} }
+                if (date) break;
+              }
+            }
+            if (!date && u.updatedAt instanceof Timestamp) {
+              date = u.updatedAt.toDate();
+            } else if (!date && u.createdAt instanceof Timestamp) {
               date = u.createdAt.toDate();
             }
 
