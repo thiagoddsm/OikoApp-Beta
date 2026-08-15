@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
   BarChart2, 
   BookOpen, 
@@ -20,24 +22,41 @@ import {
   XCircle, 
   ChevronDown, 
   ChevronUp, 
-  Award 
+  Award,
+  Layers,
+  MapPin,
+  Sparkles,
+  Filter,
+  X,
+  Search,
+  GraduationCap
 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { parseISO, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
+import { useMembersData, useCoursesData, useGCData } from "@/hooks/useDomainData";
+import Link from 'next/link';
 
 function GeneralTeachingReportsContent() {
   const { users } = useMembersData();
   const { courses, classes } = useCoursesData();
+  const { cells, areas, redes } = useGCData();
 
-  // Estados dos filtros
+  // Estados dos filtros acadêmicos
   const [selectedCycle, setSelectedCycle] = useState<string>('all');
   const [selectedTrack, setSelectedTrack] = useState<string>('all');
   const [selectedCourseId, setSelectedCourseId] = useState<string>('all');
   const [selectedClassId, setSelectedClassId] = useState<string>('all');
   const [dateStart, setDateStart] = useState<string>('');
   const [dateEnd, setDateEnd] = useState<string>('');
+
+  // Estados dos filtros de GC (Estrutura Celular)
+  const [selectedRedeId, setSelectedRedeId] = useState<string>('all');
+  const [selectedAreaId, setSelectedAreaId] = useState<string>('all');
+  const [selectedCellId, setSelectedCellId] = useState<string>('all');
+
+  // Busca textual na tabela nominal de alunos
+  const [studentSearchTerm, setStudentSearchTerm] = useState<string>('');
 
   // Controle de expansão das aulas por curso
   const [expandedCourses, setExpandedCourses] = useState<Record<string, boolean>>({});
@@ -55,6 +74,97 @@ function GeneralTeachingReportsContent() {
     if (dateStart && cleanDate < dateStart) return false;
     if (dateEnd && cleanDate > dateEnd) return false;
     return true;
+  };
+
+  // ── FILTRAGEM CASCATA DE GCs E ÁREAS ─────────────────────────────────────────
+  const filteredAreas = useMemo(() => {
+    if (selectedRedeId === 'all') return areas;
+    return areas.filter(a => a.redeId === selectedRedeId);
+  }, [areas, selectedRedeId]);
+
+  const filteredCells = useMemo(() => {
+    return cells.filter(c => {
+      const cStatus = (c as any).status;
+      const isAtv = cStatus === 'active' || cStatus === 'growing' || !cStatus;
+      if (!isAtv) return false;
+      if (selectedAreaId !== 'all') return c.areaId === selectedAreaId;
+      if (selectedRedeId !== 'all') {
+        const areaOfCell = areas.find(a => a.id === c.areaId);
+        return c.redeId === selectedRedeId || areaOfCell?.redeId === selectedRedeId;
+      }
+      return true;
+    });
+  }, [cells, areas, selectedRedeId, selectedAreaId]);
+
+  // Mapas rápidos para O(1) lookups
+  const cellMap = useMemo(() => {
+    const map = new Map<string, any>();
+    cells.forEach(c => map.set(c.id, c));
+    return map;
+  }, [cells]);
+
+  const userCellMap = useMemo(() => {
+    const map = new Map<string, string>();
+    users.forEach(u => {
+      const cid = u.cellId || u.hierarchy?.celulaId || u.gcId;
+      if (cid) map.set(u.id, cid);
+    });
+    return map;
+  }, [users]);
+
+  const userMap = useMemo(() => {
+    const map = new Map<string, any>();
+    users.forEach(u => map.set(u.id, u));
+    return map;
+  }, [users]);
+
+  // Status de filtro de GC ativo
+  const isGcFilterActive = selectedRedeId !== 'all' || selectedAreaId !== 'all' || selectedCellId !== 'all';
+
+  // ── MOTOR DE ESCOPO DE ALUNOS (matchingStudentIds) ───────────────────────────
+  const matchingStudentIds = useMemo(() => {
+    if (!isGcFilterActive) return null; // null = sem filtro de GC (todos)
+
+    const targetCellIds = new Set<string>();
+    cells.forEach(c => {
+      if (selectedCellId !== 'all') {
+        if (c.id === selectedCellId) targetCellIds.add(c.id);
+        return;
+      }
+      if (selectedAreaId !== 'all') {
+        if (c.areaId === selectedAreaId) targetCellIds.add(c.id);
+        return;
+      }
+      if (selectedRedeId !== 'all') {
+        const areaOfCell = areas.find(a => a.id === c.areaId);
+        if (c.redeId === selectedRedeId || areaOfCell?.redeId === selectedRedeId) {
+          targetCellIds.add(c.id);
+        }
+        return;
+      }
+    });
+
+    const studentIds = new Set<string>();
+    users.forEach(u => {
+      const cid = u.cellId || u.hierarchy?.celulaId || u.gcId;
+      if (cid && targetCellIds.has(cid)) {
+        studentIds.add(u.id);
+      }
+    });
+
+    return studentIds;
+  }, [isGcFilterActive, cells, areas, users, selectedRedeId, selectedAreaId, selectedCellId]);
+
+  // Função auxiliar para verificar se um estudante está no escopo de GC ativo
+  const isStudentInScope = (studentId: string) => {
+    if (!matchingStudentIds) return true;
+    return matchingStudentIds.has(studentId);
+  };
+
+  const clearGcFilters = () => {
+    setSelectedRedeId('all');
+    setSelectedAreaId('all');
+    setSelectedCellId('all');
   };
 
   // Filtrar turmas pelo ciclo ativo e trilho selecionado
@@ -98,7 +208,7 @@ function GeneralTeachingReportsContent() {
     setExpandedCourses(prev => ({ ...prev, [courseId]: !prev[courseId] }));
   };
 
-  // ── 1. CÁLCULO DE INSCRITOS POR CURSO ─────────────────────────────────────────
+  // ── 1. CÁLCULO DE INSCRITOS POR CURSO (COM FILTRO DE GC) ────────────────────
   const enrollmentStats = useMemo(() => {
     let totalInscritos = 0;
     const distribution: Record<string, { name: string; count: number; track: string }> = {};
@@ -107,7 +217,8 @@ function GeneralTeachingReportsContent() {
       const course = courses.find(c => c.id === cls.courseId);
       if (!course) return;
 
-      const studentCount = cls.students?.length || 0;
+      const activeStudents = (cls.students || []).filter(isStudentInScope);
+      const studentCount = activeStudents.length;
       totalInscritos += studentCount;
 
       if (!distribution[course.id]) {
@@ -124,9 +235,9 @@ function GeneralTeachingReportsContent() {
       total: totalInscritos,
       list: Object.entries(distribution).map(([id, info]) => ({ id, ...info })).sort((a, b) => b.count - a.count)
     };
-  }, [filteredClasses, courses]);
+  }, [filteredClasses, courses, matchingStudentIds]);
 
-  // ── 2. CÁLCULO DE FREQUÊNCIA E PRESENÇAS ──────────────────────────────────────
+  // ── 2. CÁLCULO DE FREQUÊNCIA E PRESENÇAS (COM FILTRO DE GC) ─────────────────
   const frequencyStats = useMemo(() => {
     let totalPossibilities = 0;
     let totalPresents = 0;
@@ -143,7 +254,8 @@ function GeneralTeachingReportsContent() {
         courseFreq[course.id] = { total: 0, presents: 0 };
       }
 
-      cls.students?.forEach(studentId => {
+      const activeStudents = (cls.students || []).filter(isStudentInScope);
+      activeStudents.forEach(studentId => {
         cls.attendance?.forEach(att => {
           if (!activeDates.has(att.date)) return;
           if (!isDateInRange(att.date)) return; // Filtro de data
@@ -177,9 +289,9 @@ function GeneralTeachingReportsContent() {
       totalPresences: totalPresents,
       courseAverages: list
     };
-  }, [filteredClasses, courses, dateStart, dateEnd]);
+  }, [filteredClasses, courses, dateStart, dateEnd, matchingStudentIds]);
 
-  // ── 3. DETALHAMENTO DE FREQUÊNCIA POR AULA ────────────────────────────────────
+  // ── 3. DETALHAMENTO DE FREQUÊNCIA POR AULA (COM FILTRO DE GC) ───────────────
   const classesAndLessonsDetail = useMemo(() => {
     const result: Record<string, {
       courseName: string;
@@ -197,7 +309,6 @@ function GeneralTeachingReportsContent() {
       if (!course) return;
 
       const resolved = getResolvedSchedule(cls, course);
-      const activeDates = new Set(resolved.map(r => r.dateStr));
 
       resolved.forEach((session, index) => {
         if (!isDateInRange(session.dateStr)) return; // Filtro de data
@@ -212,7 +323,7 @@ function GeneralTeachingReportsContent() {
         attRecord?.onlineStudentIds?.forEach(id => uniquePresents.add(id));
         attRecord?.repositions?.forEach(r => uniquePresents.add(r.studentId));
 
-        const activeStudents = cls.students || [];
+        const activeStudents = (cls.students || []).filter(isStudentInScope);
         const presentCount = Array.from(uniquePresents).filter(id => activeStudents.includes(id)).length;
         const totalStudents = activeStudents.length;
         const absentCount = Math.max(0, totalStudents - presentCount);
@@ -229,9 +340,9 @@ function GeneralTeachingReportsContent() {
     });
 
     return result;
-  }, [filteredClasses, courses, dateStart, dateEnd]);
+  }, [filteredClasses, courses, dateStart, dateEnd, matchingStudentIds]);
 
-  // ── 4. PROJEÇÃO DE APROVAÇÃO / REPROVAÇÃO ──────────────────────────────────────
+  // ── 4. PROJEÇÃO DE APROVAÇÃO / REPROVAÇÃO (COM FILTRO DE GC) ─────────────────
   const approvalProjections = useMemo(() => {
     let totalInscritos = 0;
     let elegiveisHoje = 0;
@@ -249,7 +360,7 @@ function GeneralTeachingReportsContent() {
       const minAttendanceRate = course.minAttendanceApproval || 75;
       const maxAbsencesAllowed = Math.floor((1 - (minAttendanceRate / 100)) * totalLessons);
 
-      const activeStudents = cls.students || [];
+      const activeStudents = (cls.students || []).filter(isStudentInScope);
       totalInscritos += activeStudents.length;
 
       activeStudents.forEach(studentId => {
@@ -258,7 +369,6 @@ function GeneralTeachingReportsContent() {
         let presentsCount = 0;
 
         cls.attendance?.forEach(att => {
-          // Apenas contar aulas válidas no cronograma e no intervalo de datas
           const isValidSession = resolved.some(r => r.dateStr === att.date);
           if (!isValidSession) return;
           if (!isDateInRange(att.date)) return;
@@ -281,7 +391,6 @@ function GeneralTeachingReportsContent() {
         }
 
         // PROJEÇÃO DE APROVAÇÃO:
-        // Assumindo que nas aulas restantes o aluno mantém sua frequência média histórica.
         const historicalRate = lessonsConducted > 0 ? (presentsCount / lessonsConducted) : 1.0;
         const remainingLessons = Math.max(0, totalLessons - lessonsConducted);
         const projectedPresents = presentsCount + (remainingLessons * historicalRate);
@@ -301,7 +410,118 @@ function GeneralTeachingReportsContent() {
       projAprovados,
       projReprovados
     };
-  }, [filteredClasses, courses, dateStart, dateEnd]);
+  }, [filteredClasses, courses, dateStart, dateEnd, matchingStudentIds]);
+
+  // ── 5. ACOMPANHAMENTO NOMINAL DOS ALUNOS POR GC ──────────────────────────────
+  const studentsFollowUpList = useMemo(() => {
+    const list: {
+      studentId: string;
+      studentName: string;
+      photoURL?: string;
+      phone?: string;
+      gcName: string;
+      areaName: string;
+      redeName: string;
+      courseId: string;
+      courseName: string;
+      className: string;
+      presentsCount: number;
+      absencesCount: number;
+      lessonsConducted: number;
+      totalLessons: number;
+      rate: number;
+      status: 'elegivel' | 'risco' | 'critico' | 'concluido';
+    }[] = [];
+
+    filteredClasses.forEach(cls => {
+      const course = courses.find(c => c.id === cls.courseId);
+      if (!course) return;
+
+      const resolved = getResolvedSchedule(cls, course);
+      const validSessions = resolved.filter(r => isDateInRange(r.dateStr));
+      const totalLessons = validSessions.length;
+      if (totalLessons === 0) return;
+
+      const minAttendanceRate = course.minAttendanceApproval || 75;
+      const maxAbsencesAllowed = Math.floor((1 - (minAttendanceRate / 100)) * totalLessons);
+
+      const activeStudents = (cls.students || []).filter(isStudentInScope);
+
+      activeStudents.forEach(studentId => {
+        const userObj = userMap.get(studentId);
+        const cellId = userCellMap.get(studentId);
+        const cellObj = cellId ? cellMap.get(cellId) : null;
+        const areaObj = cellObj?.areaId ? areas.find(a => a.id === cellObj.areaId) : null;
+        const redeObj = (cellObj?.redeId || areaObj?.redeId) ? redes.find(r => r.id === (cellObj?.redeId || areaObj?.redeId)) : null;
+
+        let presentsCount = 0;
+        let absencesCount = 0;
+        let lessonsConducted = 0;
+
+        cls.attendance?.forEach(att => {
+          const isValidSession = validSessions.some(r => r.dateStr === att.date);
+          if (!isValidSession) return;
+
+          lessonsConducted++;
+          const isPresent = att.presentStudentIds?.includes(studentId) || att.onlineStudentIds?.includes(studentId);
+          const isRepo = att.repositions?.some(r => r.studentId === studentId);
+
+          if (isPresent || isRepo) presentsCount++;
+          else absencesCount++;
+        });
+
+        const rate = lessonsConducted > 0 ? Math.round((presentsCount / lessonsConducted) * 100) : 100;
+
+        let status: 'elegivel' | 'risco' | 'critico' | 'concluido' = 'elegivel';
+        if (absencesCount > maxAbsencesAllowed) {
+          status = 'critico'; // Já ultrapassou o limite máximo de faltas do curso
+        } else if (absencesCount === maxAbsencesAllowed && lessonsConducted < totalLessons) {
+          status = 'risco'; // No limite máximo permitido de faltas
+        } else if (lessonsConducted === totalLessons && absencesCount <= maxAbsencesAllowed) {
+          status = 'concluido';
+        }
+
+        list.push({
+          studentId,
+          studentName: userObj?.name || 'Aluno',
+          photoURL: userObj?.profilePicture || userObj?.photoURL,
+          phone: userObj?.phone || userObj?.whatsapp,
+          gcName: cellObj?.nome || 'Sem GC vinculado',
+          areaName: areaObj?.nome || '—',
+          redeName: redeObj?.nome || '—',
+          courseId: course.id,
+          courseName: course.name,
+          className: cls.name,
+          presentsCount,
+          absencesCount,
+          lessonsConducted,
+          totalLessons,
+          rate,
+          status
+        });
+      });
+    });
+
+    // Filtro por termo de busca se houver
+    let result = list;
+    if (studentSearchTerm.trim()) {
+      const term = studentSearchTerm.toLowerCase();
+      result = result.filter(s => 
+        s.studentName.toLowerCase().includes(term) ||
+        s.gcName.toLowerCase().includes(term) ||
+        s.courseName.toLowerCase().includes(term) ||
+        s.className.toLowerCase().includes(term)
+      );
+    }
+
+    return result.sort((a, b) => {
+      const priority = { critico: 0, risco: 1, elegivel: 2, concluido: 3 };
+      if (priority[a.status] !== priority[b.status]) {
+        return priority[a.status] - priority[b.status];
+      }
+      return a.studentName.localeCompare(b.studentName);
+    });
+  }, [filteredClasses, courses, isStudentInScope, userMap, userCellMap, cellMap, areas, redes, dateStart, dateEnd, studentSearchTerm]);
 
   const handlePrint = () => {
     window.print();
@@ -344,117 +564,239 @@ function GeneralTeachingReportsContent() {
             <Award className="size-6 text-primary print-hide" />
             Dashboard Gerencial do Ensino
           </h1>
-          <p className="text-xs text-muted-foreground">
-            Acompanhe a saúde pedagógica, frequência e projeções de aprovação do Trilho de Discipulado.
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Acompanhe a saúde pedagógica, frequência e projeções de aprovação com filtros por Célula, Área e Rede.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto print-hide">
-          {/* Seletor de Trilho */}
-          <div className="w-[160px] space-y-1.5">
-            <Label className="text-[10px] font-black uppercase text-slate-500">Trilho</Label>
-            <Select value={selectedTrack} onValueChange={(val) => {
-              setSelectedTrack(val);
-              setSelectedCourseId('all');
-              setSelectedClassId('all');
-            }}>
-              <SelectTrigger className="bg-white font-bold h-10">
-                <SelectValue placeholder="Selecione o Trilho" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os Trilhos</SelectItem>
-                <SelectItem value="discipulado">Trilho de Discipulado</SelectItem>
-                <SelectItem value="biblico">Trilho Bíblico</SelectItem>
-                <SelectItem value="teologico">Trilho Teológico</SelectItem>
-                <SelectItem value="eletivo">Eletivas & Outros</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Seletor de Ciclo */}
-          <div className="w-[130px] space-y-1.5">
-            <Label className="text-[10px] font-black uppercase text-slate-500">Ciclo</Label>
-            <Select value={selectedCycle} onValueChange={(val) => {
-              setSelectedCycle(val);
-              setSelectedCourseId('all');
-              setSelectedClassId('all');
-            }}>
-              <SelectTrigger className="bg-white font-bold h-10">
-                <SelectValue placeholder="Selecione o Ciclo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os Ciclos</SelectItem>
-                {cycles.map(c => (
-                  <SelectItem key={c} value={c}>{c}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Seletor de Curso */}
-          <div className="w-[160px] space-y-1.5">
-            <Label className="text-[10px] font-black uppercase text-slate-500">Curso</Label>
-            <Select value={selectedCourseId} onValueChange={(val) => {
-              setSelectedCourseId(val);
-              setSelectedClassId('all');
-            }}>
-              <SelectTrigger className="bg-white font-bold h-10">
-                <SelectValue placeholder="Todos os Cursos" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os Cursos</SelectItem>
-                {filteredCoursesByCycle.map(course => (
-                  <SelectItem key={course.id} value={course.id}>{course.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Seletor de Turma */}
-          <div className="w-[160px] space-y-1.5">
-            <Label className="text-[10px] font-black uppercase text-slate-500">Turma</Label>
-            <Select value={selectedClassId} onValueChange={setSelectedClassId}>
-              <SelectTrigger className="bg-white font-bold h-10">
-                <SelectValue placeholder="Todas as Turmas" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas as Turmas</SelectItem>
-                {filteredClassesByCycleAndTrack
-                  .filter(c => selectedCourseId === 'all' || c.courseId === selectedCourseId)
-                  .map(cls => (
-                    <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Data Início */}
-          <div className="w-[130px] space-y-1.5">
-            <Label className="text-[10px] font-black uppercase text-slate-500 font-bold">Início</Label>
-            <input
-              type="date"
-              className="flex h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 font-bold"
-              value={dateStart}
-              onChange={(e) => setDateStart(e.target.value)}
-            />
-          </div>
-
-          {/* Data Fim */}
-          <div className="w-[130px] space-y-1.5">
-            <Label className="text-[10px] font-black uppercase text-slate-500 font-bold">Fim</Label>
-            <input
-              type="date"
-              className="flex h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 font-bold"
-              value={dateEnd}
-              onChange={(e) => setDateEnd(e.target.value)}
-            />
-          </div>
-
-          <Button onClick={handlePrint} variant="outline" className="h-10 mt-5 font-bold uppercase gap-1.5">
-            <Printer className="size-4" /> Imprimir Relatório
-          </Button>
-        </div>
+        <Button onClick={handlePrint} variant="outline" className="h-10 font-bold uppercase gap-1.5 print-hide shrink-0">
+          <Printer className="size-4" /> Imprimir Relatório
+        </Button>
       </div>
+
+      {/* ── BARRA DE FILTROS DUPLA: ACADÊMICO + ESTRUTURA CELULAR ──────────── */}
+      <Card className="shadow-sm border border-slate-100 bg-white print-hide">
+        <CardContent className="p-4 space-y-4">
+          {/* Seção 1: Filtros Acadêmicos */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+              <BookOpen className="size-3.5 text-primary" />
+              <span>Filtros Acadêmicos &amp; Turmas</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+              {/* Seletor de Trilho */}
+              <div className="space-y-1">
+                <Label className="text-[10px] font-black uppercase text-slate-500">Trilho</Label>
+                <Select value={selectedTrack} onValueChange={(val) => {
+                  setSelectedTrack(val);
+                  setSelectedCourseId('all');
+                  setSelectedClassId('all');
+                }}>
+                  <SelectTrigger className="bg-white font-bold h-9 text-xs">
+                    <SelectValue placeholder="Todos os Trilhos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" className="text-xs">Todos os Trilhos</SelectItem>
+                    <SelectItem value="discipulado" className="text-xs">Trilho de Discipulado</SelectItem>
+                    <SelectItem value="biblico" className="text-xs">Trilho Bíblico</SelectItem>
+                    <SelectItem value="teologico" className="text-xs">Trilho Teológico</SelectItem>
+                    <SelectItem value="eletivo" className="text-xs">Eletivas &amp; Outros</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Seletor de Ciclo */}
+              <div className="space-y-1">
+                <Label className="text-[10px] font-black uppercase text-slate-500">Ciclo</Label>
+                <Select value={selectedCycle} onValueChange={(val) => {
+                  setSelectedCycle(val);
+                  setSelectedCourseId('all');
+                  setSelectedClassId('all');
+                }}>
+                  <SelectTrigger className="bg-white font-bold h-9 text-xs">
+                    <SelectValue placeholder="Todos os Ciclos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" className="text-xs">Todos os Ciclos</SelectItem>
+                    {cycles.map(c => (
+                      <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Seletor de Curso */}
+              <div className="space-y-1">
+                <Label className="text-[10px] font-black uppercase text-slate-500">Curso</Label>
+                <Select value={selectedCourseId} onValueChange={(val) => {
+                  setSelectedCourseId(val);
+                  setSelectedClassId('all');
+                }}>
+                  <SelectTrigger className="bg-white font-bold h-9 text-xs">
+                    <SelectValue placeholder="Todos os Cursos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" className="text-xs">Todos os Cursos</SelectItem>
+                    {filteredCoursesByCycle.map(course => (
+                      <SelectItem key={course.id} value={course.id} className="text-xs">{course.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Seletor de Turma */}
+              <div className="space-y-1">
+                <Label className="text-[10px] font-black uppercase text-slate-500">Turma</Label>
+                <Select value={selectedClassId} onValueChange={setSelectedClassId}>
+                  <SelectTrigger className="bg-white font-bold h-9 text-xs">
+                    <SelectValue placeholder="Todas as Turmas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" className="text-xs">Todas as Turmas</SelectItem>
+                    {filteredClassesByCycleAndTrack
+                      .filter(c => selectedCourseId === 'all' || c.courseId === selectedCourseId)
+                      .map(cls => (
+                        <SelectItem key={cls.id} value={cls.id} className="text-xs">{cls.name}</SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          {/* Divisor */}
+          <div className="border-t border-slate-100" />
+
+          {/* Seção 2: Estrutura Celular (Rede, Área e GC) + Intervalo de Datas */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                <Users className="size-3.5 text-indigo-500" />
+                <span>Acompanhamento por Estrutura Celular (GC) &amp; Período</span>
+              </div>
+              {isGcFilterActive && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearGcFilters}
+                  className="h-6 text-[11px] font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-2 gap-1"
+                >
+                  <X className="size-3" /> Limpar filtros de GC
+                </Button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+              {/* Seletor de Rede */}
+              <div className="space-y-1">
+                <Label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1">
+                  <Layers className="size-2.5" /> Rede
+                </Label>
+                <Select 
+                  value={selectedRedeId} 
+                  onValueChange={(val) => {
+                    setSelectedRedeId(val);
+                    setSelectedAreaId('all');
+                    setSelectedCellId('all');
+                  }}
+                >
+                  <SelectTrigger className="bg-white font-bold h-9 text-xs">
+                    <SelectValue placeholder="Todas as Redes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" className="text-xs font-bold">Todas as Redes</SelectItem>
+                    {redes.map(r => (
+                      <SelectItem key={r.id} value={r.id} className="text-xs">{r.nome}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Seletor de Área */}
+              <div className="space-y-1">
+                <Label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1">
+                  <MapPin className="size-2.5" /> Área
+                </Label>
+                <Select 
+                  value={selectedAreaId} 
+                  onValueChange={(val) => {
+                    setSelectedAreaId(val);
+                    setSelectedCellId('all');
+                  }}
+                >
+                  <SelectTrigger className="bg-white font-bold h-9 text-xs">
+                    <SelectValue placeholder="Todas as Áreas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" className="text-xs font-bold">Todas as Áreas</SelectItem>
+                    {filteredAreas.map(a => (
+                      <SelectItem key={a.id} value={a.id} className="text-xs">{a.nome}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Seletor de GC / Célula */}
+              <div className="space-y-1">
+                <Label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1">
+                  <Sparkles className="size-2.5" /> Célula (GC)
+                </Label>
+                <Select 
+                  value={selectedCellId} 
+                  onValueChange={setSelectedCellId}
+                >
+                  <SelectTrigger className="bg-white font-bold h-9 text-xs">
+                    <SelectValue placeholder="Todas as Células" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" className="text-xs font-bold">Todos os GCs</SelectItem>
+                    {filteredCells.map(c => (
+                      <SelectItem key={c.id} value={c.id} className="text-xs">{c.nome}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Data Início */}
+              <div className="space-y-1">
+                <Label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1">
+                  <Calendar className="size-2.5" /> Início
+                </Label>
+                <input
+                  type="date"
+                  className="flex h-9 w-full rounded-md border border-input bg-white px-2.5 py-1 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-bold"
+                  value={dateStart}
+                  onChange={(e) => setDateStart(e.target.value)}
+                />
+              </div>
+
+              {/* Data Fim */}
+              <div className="space-y-1">
+                <Label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1">
+                  <Calendar className="size-2.5" /> Fim
+                </Label>
+                <input
+                  type="date"
+                  className="flex h-9 w-full rounded-md border border-input bg-white px-2.5 py-1 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-bold"
+                  value={dateEnd}
+                  onChange={(e) => setDateEnd(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Tag informativa de filtro de GC ativo */}
+            {isGcFilterActive && (
+              <div className="pt-1 flex items-center gap-2">
+                <Badge variant="secondary" className="bg-indigo-50 text-indigo-700 border border-indigo-200 text-[11px] font-bold py-0.5 gap-1.5">
+                  <Users className="size-3" />
+                  Filtrando por GC: {enrollmentStats.total} aluno(s) matriculado(s) no escopo selecionado
+                </Badge>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Indicadores do Ciclo (KPI Cards) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 print-card">
@@ -466,7 +808,9 @@ function GeneralTeachingReportsContent() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-black text-indigo-600">{enrollmentStats.total}</div>
-            <p className="text-[10px] text-muted-foreground mt-1">Alunos inscritos ativos</p>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              {isGcFilterActive ? 'Alunos do escopo celular ativo' : 'Alunos inscritos ativos'}
+            </p>
           </CardContent>
         </Card>
 
@@ -506,6 +850,143 @@ function GeneralTeachingReportsContent() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ── 6. NOVA TABELA: ACOMPANHAMENTO NOMINAL DOS ALUNOS POR GC ───────── */}
+      <Card className="shadow-sm border border-slate-100 bg-white print-card">
+        <CardHeader className="pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <CardTitle className="text-base font-black uppercase text-slate-800 flex items-center gap-2">
+                <GraduationCap className="size-4 text-indigo-600" />
+                Acompanhamento Nominal dos Alunos (Visão GC)
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Monitore o engajamento e risco de reprovação individual dos membros da sua célula nos cursos
+              </CardDescription>
+            </div>
+
+            <div className="w-full sm:w-[240px] relative print-hide">
+              <Search className="size-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar aluno, GC ou curso..."
+                value={studentSearchTerm}
+                onChange={(e) => setStudentSearchTerm(e.target.value)}
+                className="h-8 pl-8 text-xs font-semibold"
+              />
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="h-9 text-[10px] font-black uppercase text-slate-500">Aluno</TableHead>
+                <TableHead className="h-9 text-[10px] font-black uppercase text-slate-500">Célula / Estrutura</TableHead>
+                <TableHead className="h-9 text-[10px] font-black uppercase text-slate-500">Curso &amp; Turma</TableHead>
+                <TableHead className="h-9 text-[10px] font-black uppercase text-slate-500 text-center">Presenças</TableHead>
+                <TableHead className="h-9 text-[10px] font-black uppercase text-slate-500 text-center">Frequência</TableHead>
+                <TableHead className="h-9 text-[10px] font-black uppercase text-slate-500 text-center">Status Pedagógico</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {studentsFollowUpList.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-24 text-center text-xs text-muted-foreground italic">
+                    Nenhum aluno encontrado para os filtros selecionados.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                studentsFollowUpList.map((item, idx) => (
+                  <TableRow key={`${item.studentId}-${item.courseId}-${idx}`} className="hover:bg-slate-50/50">
+                    {/* Aluno */}
+                    <TableCell className="py-2.5">
+                      <div className="flex items-center gap-2.5">
+                        <Avatar className="size-8 border">
+                          <AvatarImage src={item.photoURL} alt={item.studentName} />
+                          <AvatarFallback className="text-[10px] font-black bg-indigo-50 text-indigo-700">
+                            {item.studentName.slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <Link 
+                            href={`/dashboard/people/${item.studentId}`} 
+                            className="font-bold text-xs text-slate-800 hover:text-primary hover:underline truncate block"
+                          >
+                            {item.studentName}
+                          </Link>
+                          {item.phone && (
+                            <span className="text-[10px] text-muted-foreground block">{item.phone}</span>
+                          )}
+                        </div>
+                      </div>
+                    </TableCell>
+
+                    {/* Célula */}
+                    <TableCell className="py-2.5">
+                      <div className="space-y-0.5">
+                        <span className="font-bold text-xs text-slate-800 block truncate">{item.gcName}</span>
+                        <span className="text-[10px] text-muted-foreground block truncate">
+                          {item.redeName !== '—' ? `${item.redeName} · ` : ''}{item.areaName}
+                        </span>
+                      </div>
+                    </TableCell>
+
+                    {/* Curso & Turma */}
+                    <TableCell className="py-2.5">
+                      <div className="space-y-0.5">
+                        <span className="font-bold text-xs text-slate-800 block truncate">{item.courseName}</span>
+                        <span className="text-[10px] text-muted-foreground block truncate">{item.className}</span>
+                      </div>
+                    </TableCell>
+
+                    {/* Presenças / Aulas Realizadas */}
+                    <TableCell className="py-2.5 text-center">
+                      <span className="text-xs font-bold text-slate-700">
+                        {item.presentsCount} / {item.lessonsConducted}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground block">
+                        ({item.totalLessons} no total)
+                      </span>
+                    </TableCell>
+
+                    {/* Frequência */}
+                    <TableCell className="py-2.5 text-center">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-black ${
+                        item.rate >= 75 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 
+                        item.rate >= 50 ? 'bg-amber-50 text-amber-700 border border-amber-200' : 
+                        'bg-rose-50 text-rose-700 border border-rose-200'
+                      }`}>
+                        {item.rate}%
+                      </span>
+                    </TableCell>
+
+                    {/* Status */}
+                    <TableCell className="py-2.5 text-center">
+                      {item.status === 'concluido' ? (
+                        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-300 font-bold text-[10px] gap-1">
+                          <CheckCircle2 className="size-3" /> Formado
+                        </Badge>
+                      ) : item.status === 'elegivel' ? (
+                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300 font-bold text-[10px] gap-1">
+                          <CheckCircle2 className="size-3" /> Elegível
+                        </Badge>
+                      ) : item.status === 'risco' ? (
+                        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 font-bold text-[10px] gap-1">
+                          <AlertTriangle className="size-3" /> No Limite de Faltas
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-300 font-bold text-[10px] gap-1">
+                          <XCircle className="size-3" /> Excedeu Faltas
+                        </Badge>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Distribuição de Alunos e Frequência Média por Curso */}
@@ -691,7 +1172,9 @@ function GeneralTeachingReportsContent() {
                     const minAttendanceRate = course.minAttendanceApproval || 75;
                     const maxAbsencesAllowed = Math.floor((1 - (minAttendanceRate / 100)) * totalLessons);
 
-                    cls.students?.forEach(studentId => {
+                    const activeStudents = (cls.students || []).filter(isStudentInScope);
+
+                    activeStudents.forEach(studentId => {
                       let absencesCount = 0;
                       let lessonsConducted = 0;
                       let presentsCount = 0;
