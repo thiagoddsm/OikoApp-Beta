@@ -47,8 +47,12 @@ function GeneralTeachingReportsContent() {
   const [selectedTrack, setSelectedTrack] = useState<string>('all');
   const [selectedCourseId, setSelectedCourseId] = useState<string>('all');
   const [selectedClassId, setSelectedClassId] = useState<string>('all');
-  const [dateStart, setDateStart] = useState<string>('');
-  const [dateEnd, setDateEnd] = useState<string>('');
+
+  // Filtros de Período Separados (Opção 2)
+  const [lessonDateStart, setLessonDateStart] = useState<string>('');
+  const [lessonDateEnd, setLessonDateEnd] = useState<string>('');
+  const [enrollmentDateStart, setEnrollmentDateStart] = useState<string>('');
+  const [enrollmentDateEnd, setEnrollmentDateEnd] = useState<string>('');
 
   // Estados dos filtros de GC (Estrutura Celular)
   const [selectedRedeId, setSelectedRedeId] = useState<string>('all');
@@ -68,13 +72,73 @@ function GeneralTeachingReportsContent() {
     return Array.from(set).sort((a, b) => b.localeCompare(a));
   }, [classes]);
 
-  // Helper de comparação rápida de datas (ISO string compare)
-  const isDateInRange = (dateStr: string) => {
+  // Helper de data para AULAS MINISTRADAS (Frequência & Diário)
+  const isLessonDateInRange = (dateStr: string) => {
+    if (!lessonDateStart && !lessonDateEnd) return true;
     const cleanDate = dateStr.split('T')[0];
-    if (dateStart && cleanDate < dateStart) return false;
-    if (dateEnd && cleanDate > dateEnd) return false;
+    if (lessonDateStart && cleanDate < lessonDateStart) return false;
+    if (lessonDateEnd && cleanDate > lessonDateEnd) return false;
     return true;
   };
+
+  // Mapa de datas de inscrição dos alunos (por solicitação ou cadastro)
+  const enrollmentDateMap = useMemo(() => {
+    const map = new Map<string, Date>();
+    (enrollmentRequests || []).forEach(r => {
+      const key = r.volunteerId || r.userId || r.id;
+      let d: Date | null = null;
+      if (r.createdAt?.toDate) d = r.createdAt.toDate();
+      else if (r.createdAt?.seconds) d = new Date(r.createdAt.seconds * 1000);
+      else if (r.createdAt) {
+        try { d = new Date(r.createdAt); } catch {}
+      }
+      if (d && key) {
+        const compositeKey = `${key}_${r.courseId}`;
+        map.set(compositeKey, d);
+        if (!map.has(key) || d < map.get(key)!) {
+          map.set(key, d);
+        }
+      }
+    });
+    return map;
+  }, [enrollmentRequests]);
+
+  // Helper de data para INSCRIÇÕES / MATRÍCULAS
+  const isEnrollmentDateInRange = (studentId: string, courseId?: string) => {
+    if (!enrollmentDateStart && !enrollmentDateEnd) return true;
+
+    let date: Date | null = null;
+    if (courseId && enrollmentDateMap.has(`${studentId}_${courseId}`)) {
+      date = enrollmentDateMap.get(`${studentId}_${courseId}`)!;
+    } else if (enrollmentDateMap.has(studentId)) {
+      date = enrollmentDateMap.get(studentId)!;
+    } else {
+      const u = users.find(user => user.id === studentId);
+      if (u?.journey?.enrolledAt?.[courseId || '']) {
+        const val = u.journey.enrolledAt[courseId || ''];
+        if (val?.toDate) date = val.toDate();
+        else { try { date = new Date(val); } catch {} }
+      } else if (u?.createdAt) {
+        if (u.createdAt?.toDate) date = u.createdAt.toDate();
+        else { try { date = new Date(u.createdAt); } catch {} }
+      }
+    }
+
+    if (!date) return true;
+    const cleanDate = date.toISOString().split('T')[0];
+    if (enrollmentDateStart && cleanDate < enrollmentDateStart) return false;
+    if (enrollmentDateEnd && cleanDate > enrollmentDateEnd) return false;
+    return true;
+  };
+
+  const clearDateFilters = () => {
+    setLessonDateStart('');
+    setLessonDateEnd('');
+    setEnrollmentDateStart('');
+    setEnrollmentDateEnd('');
+  };
+
+  const hasActiveDateFilter = !!(lessonDateStart || lessonDateEnd || enrollmentDateStart || enrollmentDateEnd);
 
   // ── FILTRAGEM CASCATA DE GCs E ÁREAS ─────────────────────────────────────────
   const filteredAreas = useMemo(() => {
@@ -204,11 +268,7 @@ function GeneralTeachingReportsContent() {
     return result;
   }, [filteredClassesByCycleAndTrack, selectedCourseId, selectedClassId]);
 
-  const toggleCourseExpanded = (courseId: string) => {
-    setExpandedCourses(prev => ({ ...prev, [courseId]: !prev[courseId] }));
-  };
-
-  // ── 1. CÁLCULO DE INSCRITOS POR CURSO (COM FILTRO DE GC) ────────────────────
+  // ── 1. CÁLCULO DE INSCRITOS POR CURSO (COM FILTRO DE GC & INSCRIÇÃO) ───────
   const enrollmentStats = useMemo(() => {
     let totalInscritos = 0;
     const distribution: Record<string, { name: string; count: number; track: string }> = {};
@@ -217,7 +277,9 @@ function GeneralTeachingReportsContent() {
       const course = courses.find(c => c.id === cls.courseId);
       if (!course) return;
 
-      const activeStudents = (cls.students || []).filter(isStudentInScope);
+      const activeStudents = (cls.students || []).filter(stId => 
+        isStudentInScope(stId) && isEnrollmentDateInRange(stId, course.id)
+      );
       const studentCount = activeStudents.length;
       totalInscritos += studentCount;
 
@@ -235,9 +297,9 @@ function GeneralTeachingReportsContent() {
       total: totalInscritos,
       list: Object.entries(distribution).map(([id, info]) => ({ id, ...info })).sort((a, b) => b.count - a.count)
     };
-  }, [filteredClasses, courses, matchingStudentIds]);
+  }, [filteredClasses, courses, matchingStudentIds, enrollmentDateStart, enrollmentDateEnd]);
 
-  // ── 2. CÁLCULO DE FREQUÊNCIA E PRESENÇAS (COM FILTRO DE GC) ─────────────────
+  // ── 2. CÁLCULO DE FREQUÊNCIA E PRESENÇAS (COM FILTRO DE GC & AULAS) ──────────
   const frequencyStats = useMemo(() => {
     let totalPossibilities = 0;
     let totalPresents = 0;
@@ -254,11 +316,13 @@ function GeneralTeachingReportsContent() {
         courseFreq[course.id] = { total: 0, presents: 0 };
       }
 
-      const activeStudents = (cls.students || []).filter(isStudentInScope);
+      const activeStudents = (cls.students || []).filter(stId => 
+        isStudentInScope(stId) && isEnrollmentDateInRange(stId, course.id)
+      );
       activeStudents.forEach(studentId => {
         cls.attendance?.forEach(att => {
           if (!activeDates.has(att.date)) return;
-          if (!isDateInRange(att.date)) return; // Filtro de data
+          if (!isLessonDateInRange(att.date)) return; // Filtro de data de aula ministrada
 
           const isPresent = att.presentStudentIds?.includes(studentId) || att.onlineStudentIds?.includes(studentId);
           const isRepo = att.repositions?.some(r => r.studentId === studentId);
@@ -289,9 +353,9 @@ function GeneralTeachingReportsContent() {
       totalPresences: totalPresents,
       courseAverages: list
     };
-  }, [filteredClasses, courses, dateStart, dateEnd, matchingStudentIds]);
+  }, [filteredClasses, courses, lessonDateStart, lessonDateEnd, enrollmentDateStart, enrollmentDateEnd, matchingStudentIds]);
 
-  // ── 3. DETALHAMENTO DE FREQUÊNCIA POR AULA (COM FILTRO DE GC) ───────────────
+  // ── 3. DETALHAMENTO DE FREQUÊNCIA POR AULA ────────────────────────────────────
   const classesAndLessonsDetail = useMemo(() => {
     const result: Record<string, {
       courseName: string;
@@ -311,7 +375,7 @@ function GeneralTeachingReportsContent() {
       const resolved = getResolvedSchedule(cls, course);
 
       resolved.forEach((session, index) => {
-        if (!isDateInRange(session.dateStr)) return; // Filtro de data
+        if (!isLessonDateInRange(session.dateStr)) return; // Filtro de data de aula
 
         if (!result[course.id]) {
           result[course.id] = { courseName: course.name, lessons: [] };
@@ -323,7 +387,9 @@ function GeneralTeachingReportsContent() {
         attRecord?.onlineStudentIds?.forEach(id => uniquePresents.add(id));
         attRecord?.repositions?.forEach(r => uniquePresents.add(r.studentId));
 
-        const activeStudents = (cls.students || []).filter(isStudentInScope);
+        const activeStudents = (cls.students || []).filter(stId => 
+          isStudentInScope(stId) && isEnrollmentDateInRange(stId, course.id)
+        );
         const presentCount = Array.from(uniquePresents).filter(id => activeStudents.includes(id)).length;
         const totalStudents = activeStudents.length;
         const absentCount = Math.max(0, totalStudents - presentCount);
@@ -340,9 +406,9 @@ function GeneralTeachingReportsContent() {
     });
 
     return result;
-  }, [filteredClasses, courses, dateStart, dateEnd, matchingStudentIds]);
+  }, [filteredClasses, courses, lessonDateStart, lessonDateEnd, enrollmentDateStart, enrollmentDateEnd, matchingStudentIds]);
 
-  // ── 4. PROJEÇÃO DE APROVAÇÃO / REPROVAÇÃO (COM FILTRO DE GC) ─────────────────
+  // ── 4. PROJEÇÃO DE APROVAÇÃO / REPROVAÇÃO ──────────────────────────────────────
   const approvalProjections = useMemo(() => {
     let totalInscritos = 0;
     let elegiveisHoje = 0;
@@ -354,13 +420,16 @@ function GeneralTeachingReportsContent() {
       if (!course) return;
 
       const resolved = getResolvedSchedule(cls, course);
-      const totalLessons = resolved.filter(r => isDateInRange(r.dateStr)).length;
+      const validSessions = resolved.filter(r => isLessonDateInRange(r.dateStr));
+      const totalLessons = validSessions.length;
       if (totalLessons === 0) return;
 
       const minAttendanceRate = course.minAttendanceApproval || 75;
       const maxAbsencesAllowed = Math.floor((1 - (minAttendanceRate / 100)) * totalLessons);
 
-      const activeStudents = (cls.students || []).filter(isStudentInScope);
+      const activeStudents = (cls.students || []).filter(stId => 
+        isStudentInScope(stId) && isEnrollmentDateInRange(stId, course.id)
+      );
       totalInscritos += activeStudents.length;
 
       activeStudents.forEach(studentId => {
@@ -369,9 +438,9 @@ function GeneralTeachingReportsContent() {
         let presentsCount = 0;
 
         cls.attendance?.forEach(att => {
-          const isValidSession = resolved.some(r => r.dateStr === att.date);
+          const isValidSession = validSessions.some(r => r.dateStr === att.date);
           if (!isValidSession) return;
-          if (!isDateInRange(att.date)) return;
+          if (!isLessonDateInRange(att.date)) return;
 
           lessonsConducted++;
           const isPresent = att.presentStudentIds?.includes(studentId) || att.onlineStudentIds?.includes(studentId);
@@ -390,29 +459,29 @@ function GeneralTeachingReportsContent() {
           elegiveisHoje++;
         }
 
-        // PROJEÇÃO DE APROVAÇÃO:
-        const historicalRate = lessonsConducted > 0 ? (presentsCount / lessonsConducted) : 1.0;
-        const remainingLessons = Math.max(0, totalLessons - lessonsConducted);
-        const projectedPresents = presentsCount + (remainingLessons * historicalRate);
-        const projectedRate = (projectedPresents / totalLessons) * 100;
-
-        if (projectedRate >= minAttendanceRate && isEligible) {
-          projAprovados++;
+        // PROJEÇÃO FINAL
+        if (lessonsConducted === totalLessons) {
+          if (isEligible) projAprovados++;
+          else projReprovados++;
         } else {
-          projReprovados++;
+          if (isEligible) projAprovados++;
+          else projReprovados++;
         }
       });
     });
+
+    const taxaAprovacao = totalInscritos > 0 ? Math.round((projAprovados / totalInscritos) * 100) : 0;
 
     return {
       totalInscritos,
       elegiveisHoje,
       projAprovados,
-      projReprovados
+      projReprovados,
+      taxaAprovacao
     };
-  }, [filteredClasses, courses, dateStart, dateEnd, matchingStudentIds]);
+  }, [filteredClasses, courses, lessonDateStart, lessonDateEnd, enrollmentDateStart, enrollmentDateEnd, matchingStudentIds]);
 
-  // ── 5. ACOMPANHAMENTO NOMINAL DOS ALUNOS POR GC ──────────────────────────────
+  // ── 5. TABELA NOMINAL DE ALUNOS COM STATUS PEDAGÓGICO E VISÃO GC ─────────────
   const studentsFollowUpList = useMemo(() => {
     const list: {
       studentId: string;
@@ -438,14 +507,16 @@ function GeneralTeachingReportsContent() {
       if (!course) return;
 
       const resolved = getResolvedSchedule(cls, course);
-      const validSessions = resolved.filter(r => isDateInRange(r.dateStr));
+      const validSessions = resolved.filter(r => isLessonDateInRange(r.dateStr));
       const totalLessons = validSessions.length;
       if (totalLessons === 0) return;
 
       const minAttendanceRate = course.minAttendanceApproval || 75;
       const maxAbsencesAllowed = Math.floor((1 - (minAttendanceRate / 100)) * totalLessons);
 
-      const activeStudents = (cls.students || []).filter(isStudentInScope);
+      const activeStudents = (cls.students || []).filter(stId => 
+        isStudentInScope(stId) && isEnrollmentDateInRange(stId, course.id)
+      );
 
       activeStudents.forEach(studentId => {
         const userObj = userMap.get(studentId);
@@ -461,6 +532,7 @@ function GeneralTeachingReportsContent() {
         cls.attendance?.forEach(att => {
           const isValidSession = validSessions.some(r => r.dateStr === att.date);
           if (!isValidSession) return;
+          if (!isLessonDateInRange(att.date)) return;
 
           lessonsConducted++;
           const isPresent = att.presentStudentIds?.includes(studentId) || att.onlineStudentIds?.includes(studentId);
@@ -668,12 +740,12 @@ function GeneralTeachingReportsContent() {
           {/* Divisor */}
           <div className="border-t border-slate-100" />
 
-          {/* Seção 2: Estrutura Celular (Rede, Área e GC) + Intervalo de Datas */}
+          {/* Seção 2: Estrutura Celular (Rede, Área e GC) */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
                 <Users className="size-3.5 text-indigo-500" />
-                <span>Acompanhamento por Estrutura Celular (GC) &amp; Período</span>
+                <span>Acompanhamento por Estrutura Celular (GC)</span>
               </div>
               {isGcFilterActive && (
                 <Button
@@ -687,7 +759,7 @@ function GeneralTeachingReportsContent() {
               )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {/* Seletor de Rede */}
               <div className="space-y-1">
                 <Label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1">
@@ -757,33 +829,93 @@ function GeneralTeachingReportsContent() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+          </div>
 
-              {/* Data Início */}
-              <div className="space-y-1">
-                <Label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1">
-                  <Calendar className="size-2.5" /> Início
-                </Label>
-                <input
-                  type="date"
-                  className="flex h-9 w-full rounded-md border border-input bg-white px-2.5 py-1 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-bold"
-                  value={dateStart}
-                  onChange={(e) => setDateStart(e.target.value)}
-                />
+          {/* Divisor */}
+          <div className="border-t border-slate-100" />
+
+          {/* Seção 3: Filtros por Período de Datas (Aulas vs Inscrições) */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                <Calendar className="size-3.5 text-emerald-600" />
+                <span>Filtros por Período</span>
+              </div>
+              {hasActiveDateFilter && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearDateFilters}
+                  className="h-6 text-[11px] font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-2 gap-1"
+                >
+                  <X className="size-3" /> Limpar datas do período
+                </Button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Bloco 1: Período das Aulas Ministradas */}
+              <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-200/80 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-black uppercase text-slate-700 flex items-center gap-1.5">
+                    🗓️ Período das Aulas Ministradas
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">Frequência &amp; Diário</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-[9px] font-bold uppercase text-slate-500">De (Início)</Label>
+                    <input
+                      type="date"
+                      className="flex h-8 w-full rounded-md border border-input bg-white px-2 py-1 text-xs font-bold focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      value={lessonDateStart}
+                      onChange={(e) => setLessonDateStart(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[9px] font-bold uppercase text-slate-500">Até (Fim)</Label>
+                    <input
+                      type="date"
+                      className="flex h-8 w-full rounded-md border border-input bg-white px-2 py-1 text-xs font-bold focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      value={lessonDateEnd}
+                      onChange={(e) => setLessonDateEnd(e.target.value)}
+                    />
+                  </div>
+                </div>
               </div>
 
-              {/* Data Fim */}
-              <div className="space-y-1">
-                <Label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1">
-                  <Calendar className="size-2.5" /> Fim
-                </Label>
-                <input
-                  type="date"
-                  className="flex h-9 w-full rounded-md border border-input bg-white px-2.5 py-1 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-bold"
-                  value={dateEnd}
-                  onChange={(e) => setDateEnd(e.target.value)}
-                />
+              {/* Bloco 2: Período das Inscrições / Matrículas */}
+              <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-200/80 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-black uppercase text-slate-700 flex items-center gap-1.5">
+                    📝 Período das Inscrições
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">Data da Matrícula</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-[9px] font-bold uppercase text-slate-500">De (Início)</Label>
+                    <input
+                      type="date"
+                      className="flex h-8 w-full rounded-md border border-input bg-white px-2 py-1 text-xs font-bold focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      value={enrollmentDateStart}
+                      onChange={(e) => setEnrollmentDateStart(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[9px] font-bold uppercase text-slate-500">Até (Fim)</Label>
+                    <input
+                      type="date"
+                      className="flex h-8 w-full rounded-md border border-input bg-white px-2 py-1 text-xs font-bold focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      value={enrollmentDateEnd}
+                      onChange={(e) => setEnrollmentDateEnd(e.target.value)}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
+          </div>
 
             {/* Tag informativa de filtro de GC ativo */}
             {isGcFilterActive && (
