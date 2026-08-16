@@ -84,21 +84,36 @@ function GeneralTeachingReportsContent() {
   // Mapa de datas de inscrição dos alunos (por solicitação ou cadastro)
   const enrollmentDateMap = useMemo(() => {
     const map = new Map<string, Date>();
-    (enrollmentRequests || []).forEach(r => {
-      const key = (r as any).volunteerId || (r as any).userId || r.id;
+    (enrollmentRequests || []).forEach((r: any) => {
       let d: Date | null = null;
-      if ((r.createdAt as any)?.toDate) d = (r.createdAt as any).toDate();
-      else if ((r.createdAt as any)?.seconds) d = new Date((r.createdAt as any).seconds * 1000);
+      if (r.createdAt?.toDate) d = r.createdAt.toDate();
+      else if (r.createdAt?.seconds) d = new Date(r.createdAt.seconds * 1000);
       else if (r.createdAt) {
-        try { d = new Date(r.createdAt as any); } catch {}
+        try { d = new Date(r.createdAt); } catch {}
       }
-      if (d && key) {
-        const compositeKey = `${key}_${r.courseId}`;
-        map.set(compositeKey, d);
-        if (!map.has(key) || d < map.get(key)!) {
-          map.set(key, d);
+      if (!d) return;
+
+      const keys: string[] = [];
+      if (r.volunteerId) keys.push(r.volunteerId);
+      if (r.userId) keys.push(r.userId);
+      if (r.email) keys.push(`email:${r.email.trim().toLowerCase()}`);
+      if (r.phone) {
+        const cleanPhone = r.phone.replace(/\D/g, '');
+        if (cleanPhone) keys.push(`phone:${cleanPhone}`);
+      }
+      if (r.name) keys.push(`name:${r.name.trim().toLowerCase()}`);
+
+      keys.forEach(key => {
+        if (r.courseId) {
+          const compositeKey = `${key}_${r.courseId}`;
+          if (!map.has(compositeKey) || d! > map.get(compositeKey)!) {
+            map.set(compositeKey, d!);
+          }
         }
-      }
+        if (!map.has(key) || d! > map.get(key)!) {
+          map.set(key, d!);
+        }
+      });
     });
     return map;
   }, [enrollmentRequests]);
@@ -107,24 +122,60 @@ function GeneralTeachingReportsContent() {
   const isEnrollmentDateInRange = (studentId: string, courseId?: string) => {
     if (!enrollmentDateStart && !enrollmentDateEnd) return true;
 
+    const u = userMap.get(studentId) || users.find(user => user.id === studentId);
     let date: Date | null = null;
+
+    // 1. Cruzamento por ID do aluno
     if (courseId && enrollmentDateMap.has(`${studentId}_${courseId}`)) {
       date = enrollmentDateMap.get(`${studentId}_${courseId}`)!;
     } else if (enrollmentDateMap.has(studentId)) {
       date = enrollmentDateMap.get(studentId)!;
-    } else {
-      const u = users.find(user => user.id === studentId);
-      if (u?.journey?.enrolledAt?.[courseId || '']) {
-        const val = u.journey.enrolledAt[courseId || ''];
-        if (val?.toDate) date = val.toDate();
-        else { try { date = new Date(val); } catch {} }
-      } else if (u?.createdAt) {
-        if (u.createdAt?.toDate) date = u.createdAt.toDate();
-        else { try { date = new Date(u.createdAt); } catch {} }
+    }
+
+    // 2. Cruzamento por E-mail do aluno
+    if (!date && u?.email) {
+      const emailKey = `email:${u.email.trim().toLowerCase()}`;
+      if (courseId && enrollmentDateMap.has(`${emailKey}_${courseId}`)) {
+        date = enrollmentDateMap.get(`${emailKey}_${courseId}`)!;
+      } else if (enrollmentDateMap.has(emailKey)) {
+        date = enrollmentDateMap.get(emailKey)!;
       }
     }
 
+    // 3. Cruzamento por Telefone do aluno
+    if (!date && (u?.phone || u?.whatsapp)) {
+      const cleanPhone = (u.phone || u.whatsapp || '').replace(/\D/g, '');
+      if (cleanPhone) {
+        const phoneKey = `phone:${cleanPhone}`;
+        if (courseId && enrollmentDateMap.has(`${phoneKey}_${courseId}`)) {
+          date = enrollmentDateMap.get(`${phoneKey}_${courseId}`)!;
+        } else if (enrollmentDateMap.has(phoneKey)) {
+          date = enrollmentDateMap.get(phoneKey)!;
+        }
+      }
+    }
+
+    // 4. Cruzamento por Nome do aluno
+    if (!date && u?.name) {
+      const nameKey = `name:${u.name.trim().toLowerCase()}`;
+      if (courseId && enrollmentDateMap.has(`${nameKey}_${courseId}`)) {
+        date = enrollmentDateMap.get(`${nameKey}_${courseId}`)!;
+      } else if (enrollmentDateMap.has(nameKey)) {
+        date = enrollmentDateMap.get(nameKey)!;
+      }
+    }
+
+    // 5. Cruzamento por data salva na jornada do aluno
+    if (!date && u?.journey?.enrolledAt?.[courseId || '']) {
+      const val = u.journey.enrolledAt[courseId || ''];
+      if (val?.toDate) date = val.toDate();
+      else if (val?.seconds) date = new Date(val.seconds * 1000);
+      else { try { date = new Date(val); } catch {} }
+    }
+
+    // Se não há registro de matrícula para este curso, não descartar (pois não é uma conta antiga fora do range)
     if (!date) return true;
+
     const cleanDate = date.toISOString().split('T')[0];
     if (enrollmentDateStart && cleanDate < enrollmentDateStart) return false;
     if (enrollmentDateEnd && cleanDate > enrollmentDateEnd) return false;
