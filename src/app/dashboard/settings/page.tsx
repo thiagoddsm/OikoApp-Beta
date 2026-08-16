@@ -10,6 +10,7 @@ import { Shield, Users, Loader2, AlertTriangle, Activity, ExternalLink } from "l
 import { AccessProfileManager } from '@/components/settings/access-profile-manager';
 import { UserRoleAssignment } from '@/components/settings/user-role-assignment';
 import { IntegrationsManager } from '@/components/settings/integrations-manager';
+import { AvIntegrationSettings } from '@/components/settings/av-integration-settings';
 import { FinancialSettings } from '@/components/settings/financial-settings';
 import { CertificateSettings } from '@/components/settings/certificate-settings';
 import { VolunteeringRulesSettings } from '@/components/settings/volunteering-rules-settings';
@@ -81,6 +82,23 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent>
                 <IntegrationsManager />
+            </CardContent>
+        </Card>
+
+        <Separator />
+
+        <Card>
+            <CardHeader>
+                <div className="flex items-center gap-4">
+                    <Shield className="size-6 text-primary" />
+                    <CardTitle>Central de Integração AV (Luz Lumikit + Som Behringer X32)</CardTitle>
+                </div>
+                <CardDescription>
+                  Configure o Webhook para sincronizar automaticamente a liturgia do culto, BPMs e cenas DMX de iluminação.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <AvIntegrationSettings />
             </CardContent>
         </Card>
 

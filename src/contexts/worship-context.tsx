@@ -38,9 +38,12 @@ export type WorshipItem = {
   key?: string;
   bpm?: number;
   arrangement?: string;
+  artist?: string;
   attachments?: SongAttachment[];
   youtubeUrl?: string;
   vsId?: string;
+  /** Cena de iluminação para Lumikit SHOW / DMX (ex: S1, G1, A1, F12, M2) */
+  scene?: string;
   // PCS-inspired row color tag
   color?: 'none' | 'purple' | 'blue' | 'green' | 'yellow' | 'red' | 'gray';
 };

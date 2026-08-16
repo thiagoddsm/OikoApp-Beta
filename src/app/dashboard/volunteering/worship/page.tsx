@@ -59,6 +59,7 @@ import {
   Radio,
   Sliders,
   Upload,
+  Zap,
 } from 'lucide-react';
 import Link from 'next/link';
 import { format, parseISO } from 'date-fns';
@@ -67,6 +68,7 @@ import { useEventsData, useMembersData, useVolunteeringServiceData } from '@/hoo
 import { useFirebase } from '@/firebase';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { transmitWorshipPlanToAv } from './actions';
 
 // ─── Plans list ───────────────────────────────────────────────────────────────
 
@@ -306,6 +308,24 @@ function PlansList() {
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem onClick={e => { e.stopPropagation(); router.push(`/dashboard/volunteering/worship/${plan.id}`); }}>
                                 <Pencil className="mr-2 h-4 w-4" /> Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={async (e) => { 
+                                  e.stopPropagation(); 
+                                  try {
+                                    toast({ title: 'Transmitindo...', description: 'Enviando liturgia para a Central AV...' });
+                                    const res = await transmitWorshipPlanToAv(plan);
+                                    if (res.success) {
+                                      toast({ title: '🎛️ Central AV Sincronizada!', description: `${res.totalItems} itens transmitidos para Lumikit & X32!` });
+                                    } else {
+                                      toast({ title: '❌ Falha ao transmitir', description: res.error, variant: 'destructive' });
+                                    }
+                                  } catch (err: any) {
+                                    toast({ title: '❌ Erro', description: err?.message || 'Falha na transmissão.', variant: 'destructive' });
+                                  }
+                                }}
+                              >
+                                <Zap className="mr-2 h-4 w-4 text-amber-600 fill-amber-300" /> Transmitir p/ Central AV
                               </DropdownMenuItem>
                               <DropdownMenuItem className="text-destructive" onClick={e => { e.stopPropagation(); handleDelete(plan); }}>
                                 <Trash2 className="mr-2 h-4 w-4" /> Excluir

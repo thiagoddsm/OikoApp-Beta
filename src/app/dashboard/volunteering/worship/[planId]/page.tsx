@@ -54,12 +54,13 @@ import {
   CalendarRange,
   Files,
   Volume2,
-  Sliders
+  Sliders,
+  Zap
 } from 'lucide-react';
 import { useEventsData, useMembersData, useVolunteeringServiceData } from '@/hooks/useDomainData';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { syncLiveWorshipOrder } from '../actions';
+import { syncLiveWorshipOrder, transmitWorshipPlanToAv, buildAvPayloadFromPlan, DEFAULT_AV_WEBHOOK_URL } from '../actions';
 
 // keyboard shortcut hook
 function useKeyboardShortcuts(addItem: (type: 'header' | 'item' | 'song') => void) {
@@ -96,6 +97,11 @@ function PlanEditorInner({ planId }: { planId: string }) {
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const [templateName, setTemplateName] = useState('');
   const [showApplyDialog, setShowApplyDialog] = useState(false);
+
+  // Central AV Webhook State
+  const [isTransmittingAv, setIsTransmittingAv] = useState(false);
+  const [showAvPreviewDialog, setShowAvPreviewDialog] = useState(false);
+  const [avPayloadPreview, setAvPayloadPreview] = useState<any>(null);
 
   // Rehearsal Player State
   const [selectedRehearsalSong, setSelectedRehearsalSong] = useState<WorshipItem | null>(null);
@@ -278,6 +284,63 @@ function PlanEditorInner({ planId }: { planId: string }) {
       });
     } finally {
       setIsTransmitting(false);
+    }
+  };
+
+  // ── Central AV Webhook Handlers ──────────────────────────────────────────
+  const handleOpenAvPreview = async () => {
+    if (!plan) return;
+    const currentPlanData = {
+      ...plan,
+      ...localMeta,
+      items: localItems
+    };
+    const payload = await buildAvPayloadFromPlan(currentPlanData);
+    setAvPayloadPreview(payload);
+    setShowAvPreviewDialog(true);
+  };
+
+  const handleConfirmTransmitAv = async () => {
+    if (!plan) return;
+    setIsTransmittingAv(true);
+    try {
+      const currentPlanData = {
+        ...plan,
+        ...localMeta,
+        items: localItems
+      };
+
+      // Salva o plano primeiro se houver modificações pendentes
+      if (isDirty) {
+        await updatePlan(plan.id, {
+          ...localMeta,
+          timeSlots: localTimeSlots,
+          neededPositions: localNeededPositions,
+          attachments: localAttachments
+        });
+        await updatePlanItems(plan.id, localItems);
+        setIsDirty(false);
+      }
+
+      const res = await transmitWorshipPlanToAv(currentPlanData);
+      if (!res.success) {
+        throw new Error(res.error || 'Erro ao comunicar com a Central AV.');
+      }
+
+      toast({
+        title: '🎛️ Central AV Sincronizada! 🚀',
+        description: `${res.totalItems} itens transmitidos com sucesso para a Central AV (Lumikit SHOW + Mesa X32).`,
+      });
+      setShowAvPreviewDialog(false);
+    } catch (err: any) {
+      console.error(err);
+      toast({
+        title: '❌ Falha na Transmissão AV',
+        description: err?.message || 'Não foi possível conectar com o Webhook da Central AV.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsTransmittingAv(false);
     }
   };
 
@@ -757,6 +820,22 @@ function PlanEditorInner({ planId }: { planId: string }) {
             Ao Vivo
           </Button>
 
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="h-8 text-xs font-bold text-amber-800 border-amber-300 bg-amber-50 hover:bg-amber-100 shadow-sm gap-1.5" 
+            onClick={handleOpenAvPreview} 
+            disabled={isTransmittingAv}
+            title="Transmitir ordem do culto e BPMs para Lumikit SHOW e Mesa X32"
+          >
+            {isTransmittingAv ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-600" />
+            ) : (
+              <Zap className="h-3.5 w-3.5 text-amber-600 fill-amber-400" />
+            )}
+            <span className="hidden sm:inline">Transmitir</span> Central AV
+          </Button>
+
           <Button variant="outline" size="sm" className="h-8 text-xs text-emerald-600 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 font-bold" onClick={() => router.push('/dashboard/vs')}>
             <Sliders className="mr-1.5 h-3.5 w-3.5 text-emerald-600" />
             Oiko Live VS
@@ -1198,6 +1277,121 @@ function PlanEditorInner({ planId }: { planId: string }) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowApplyDialog(false)}>Cancelar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Central AV Webhook Transmission Dialog */}
+      <Dialog open={showAvPreviewDialog} onOpenChange={setShowAvPreviewDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center gap-2.5">
+              <div className="size-10 rounded-2xl bg-amber-50 text-amber-700 border border-amber-200 flex items-center justify-center">
+                <Zap className="size-5 text-amber-600 fill-amber-400" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-black tracking-tight">Transmitir para a Central AV</DialogTitle>
+                <DialogDescription className="text-xs">
+                  Sincronização de Liturgia, BPMs e Cenas de Iluminação com o Lumikit SHOW e Mesa Behringer X32.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {avPayloadPreview && (
+            <div className="space-y-4 py-2 text-xs">
+              {/* Card Resumo do Culto */}
+              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-black text-sm text-slate-800">{avPayloadPreview.planoTitulo}</span>
+                  <Badge variant="outline" className="font-bold text-[11px] bg-white text-slate-700">
+                    {avPayloadPreview.data} às {avPayloadPreview.startTime}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-4 text-slate-500 text-[11px]">
+                  <span>Total de Itens: <strong className="text-slate-700 font-bold">{avPayloadPreview.items.length}</strong></span>
+                  <span>·</span>
+                  <span>Músicas: <strong className="text-purple-700 font-bold">{avPayloadPreview.items.filter((i: any) => i.type === 'song').length}</strong></span>
+                  <span>·</span>
+                  <span>Cenas DMX: <strong className="text-amber-700 font-bold">{avPayloadPreview.items.filter((i: any) => i.scene).length}</strong></span>
+                </div>
+              </div>
+
+              {/* Tabela de Itens */}
+              <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <div className="bg-slate-100/80 px-3 py-2 font-bold text-[11px] text-slate-700 uppercase tracking-wider flex items-center justify-between">
+                  <span>Itens que serão sincronizados ({avPayloadPreview.items.length})</span>
+                  <span className="text-[10px] text-slate-400 font-normal lowercase">BPM · Tom · Cena</span>
+                </div>
+                <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto">
+                  {avPayloadPreview.items.map((item: any, idx: number) => (
+                    <div key={item.id || idx} className="p-2.5 flex items-center justify-between hover:bg-slate-50/50 gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-slate-800 truncate">{item.title}</span>
+                          <Badge variant="secondary" className="text-[9px] px-1 py-0 uppercase">
+                            {item.type === 'song' ? 'Música' : 'Item'}
+                          </Badge>
+                        </div>
+                        {item.artist && (
+                          <span className="text-[10px] text-slate-400 block truncate">{item.artist}</span>
+                        )}
+                        {item.notes && (
+                          <span className="text-[10px] text-slate-500 italic block truncate">"{item.notes}"</span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {item.bpm && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                            {item.bpm} BPM
+                          </span>
+                        )}
+                        {item.key && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            Tom {item.key}
+                          </span>
+                        )}
+                        {item.scene ? (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-black bg-amber-50 text-amber-800 border border-amber-300 flex items-center gap-0.5">
+                            <Zap className="size-2 text-amber-500 fill-amber-400" /> {item.scene}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-300 italic px-1">Sem cena</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Endpoint de Envio */}
+              <div className="p-2.5 bg-amber-50/40 border border-amber-200/60 rounded-lg flex items-center justify-between text-[11px]">
+                <span className="text-amber-800 font-semibold">Destino do Webhook:</span>
+                <span className="font-mono text-amber-900 font-bold truncate max-w-[320px]">
+                  {DEFAULT_AV_WEBHOOK_URL}
+                </span>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0 pt-2 border-t">
+            <Button variant="outline" size="sm" onClick={() => setShowAvPreviewDialog(false)} disabled={isTransmittingAv}>
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleConfirmTransmitAv}
+              disabled={isTransmittingAv}
+              className="bg-amber-600 hover:bg-amber-700 text-white font-bold gap-1.5 shadow-sm"
+            >
+              {isTransmittingAv ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Zap className="size-4 fill-amber-300" />
+              )}
+              {isTransmittingAv ? 'Transmitindo para a Central AV...' : 'Confirmar e Transmitir'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

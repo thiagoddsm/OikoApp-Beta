@@ -40,6 +40,9 @@ import {
   Clock,
   Plus,
   Search,
+  Zap,
+  Lightbulb,
+  Sliders,
 } from 'lucide-react';
 import {
   Tooltip,
@@ -247,6 +250,16 @@ function SortableRow({ item, onChange, onDelete }: SortableItemProps) {
                 {item.key}
               </span>
             )}
+            {isSong && item.bpm && (
+              <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                {item.bpm} BPM
+              </span>
+            )}
+            {item.scene && (
+              <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-300" title="Cena Lumikit SHOW / DMX">
+                <Zap className="size-2.5 text-amber-500 fill-amber-400" /> {item.scene}
+              </span>
+            )}
           </div>
 
           {/* Subtítulo do artista para músicas */}
@@ -268,6 +281,20 @@ function SortableRow({ item, onChange, onDelete }: SortableItemProps) {
                 />
                 <span>Pré-culto</span>
               </label>
+
+              {/* Campo de Cena Lumikit SHOW / Iluminação DMX */}
+              <div className="flex items-center gap-1 bg-amber-50/60 border border-amber-200/80 rounded px-1.5 py-0.5">
+                <span className="text-[10px] text-amber-700 font-bold uppercase flex items-center gap-0.5">
+                  <Zap className="size-2.5 text-amber-500" /> Cena Luz:
+                </span>
+                <input
+                  className="w-12 text-xs bg-transparent text-amber-900 font-mono font-bold focus:outline-none focus:bg-white focus:ring-1 focus:ring-amber-400 rounded px-1 py-0.2 uppercase"
+                  value={item.scene || ""}
+                  onChange={e => onChange(item.id, { scene: e.target.value.toUpperCase() })}
+                  placeholder="S1"
+                  title="Identificador da Cena de Iluminação no Lumikit SHOW (ex: S1, G1, A1, F12, M2)"
+                />
+              </div>
 
               {isSong && (
                 <>

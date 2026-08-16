@@ -218,6 +218,34 @@ function EnrollmentForm() {
     const selectedCourse = useMemo(() => courses.find(c => c.id === selectedCourseId), [courses, selectedCourseId]);
     const selectedClassObj = useMemo(() => classes.find(c => c.id === selectedClassId), [classes, selectedClassId]);
 
+    // Mapeamento de quantidade de turmas abertas para matrícula por curso
+    const openClassesByCourseId = useMemo(() => {
+        const map = new Map<string, number>();
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const todayLocalStr = `${year}-${month}-${day}`;
+
+        classes.forEach(cls => {
+            if (!cls.courseId) return;
+            if (cls.status === 'closed' || cls.status === 'finished' || cls.status === 'cancelada') return;
+
+            // Prazo limite de matrícula
+            if (cls.registrationDeadline && cls.registrationDeadline < todayLocalStr) {
+                return;
+            }
+
+            // Limite de vagas
+            if (cls.maxStudents && cls.students && cls.students.length >= cls.maxStudents) {
+                return;
+            }
+
+            map.set(cls.courseId, (map.get(cls.courseId) || 0) + 1);
+        });
+        return map;
+    }, [classes]);
+
     const filteredCourses = useMemo(() => {
         if (!courses || selectedCategory === 'eventos' || !selectedCategory) return [];
         const result = courses.filter(c => {
@@ -243,12 +271,20 @@ function EnrollmentForm() {
         });
 
         return result.sort((a, b) => {
+            const hasOpenA = (openClassesByCourseId.get(a.id) || 0) > 0;
+            const hasOpenB = (openClassesByCourseId.get(b.id) || 0) > 0;
+
+            // Cursos com turmas abertas aparecem primeiro; cursos sem turmas vão por último
+            if (hasOpenA !== hasOpenB) {
+                return hasOpenA ? -1 : 1;
+            }
+
             const orderA = (a as any).sortOrder !== undefined && (a as any).sortOrder !== null ? Number((a as any).sortOrder) : 9999;
             const orderB = (b as any).sortOrder !== undefined && (b as any).sortOrder !== null ? Number((b as any).sortOrder) : 9999;
             if (orderA !== orderB) return orderA - orderB;
             return a.name.localeCompare(b.name);
         });
-    }, [courses, selectedCategory, trailFilter, searchTerm]);
+    }, [courses, selectedCategory, trailFilter, searchTerm, openClassesByCourseId]);
 
     const filteredEvents = useMemo(() => {
         if (!strategicEvents || selectedCategory !== 'eventos') return [];
@@ -1071,26 +1107,73 @@ function EnrollmentForm() {
                                     </div>
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        {filteredCourses.map(course => (
-                                            <Card
-                                                key={course.id}
-                                                className="overflow-hidden rounded-[2rem] cursor-pointer transition-all duration-300 hover:shadow-xl border-2 hover:border-primary group bg-white"
-                                                onClick={() => {
-                                                    setSelectedCourseId(course.id);
-                                                    setSelectedClassId(null);
-                                                    nextStep();
-                                                }}
-                                            >
-                                                <div className="relative aspect-video bg-slate-100">
-                                                    <img src={(course as any).imageUrl || `https://picsum.photos/seed/${course.id}/600/300`} alt="" className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-700" />
-                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent z-10" />
-                                                    <div className="absolute bottom-4 left-5 z-20 pr-4">
-                                                        <Badge className="bg-primary backdrop-blur-md text-white border-none mb-2 text-[8px] font-black uppercase tracking-widest">{course.ministryName}</Badge>
-                                                        <h4 className="text-white font-black uppercase italic tracking-tighter leading-tight text-lg shadow-sm">{course.name}</h4>
+                                        {filteredCourses.map(course => {
+                                            const openCount = openClassesByCourseId.get(course.id) || 0;
+                                            const hasOpenClasses = openCount > 0;
+
+                                            return (
+                                                <Card
+                                                    key={course.id}
+                                                    className={cn(
+                                                        "overflow-hidden rounded-[2rem] transition-all duration-300 border-2 bg-white relative select-none",
+                                                        hasOpenClasses
+                                                            ? "cursor-pointer hover:shadow-xl hover:border-primary group"
+                                                            : "opacity-75 grayscale cursor-not-allowed border-slate-200 bg-slate-100/90 shadow-none pointer-events-none"
+                                                    )}
+                                                    onClick={() => {
+                                                        if (!hasOpenClasses) return;
+                                                        setSelectedCourseId(course.id);
+                                                        setSelectedClassId(null);
+                                                        nextStep();
+                                                    }}
+                                                >
+                                                    <div className="relative aspect-video bg-slate-100 overflow-hidden">
+                                                        <img
+                                                            src={(course as any).imageUrl || `https://picsum.photos/seed/${course.id}/600/300`}
+                                                            alt={course.name}
+                                                            className={cn(
+                                                                "object-cover w-full h-full transition-transform duration-700",
+                                                                hasOpenClasses ? "group-hover:scale-105" : "grayscale contrast-75 brightness-90"
+                                                            )}
+                                                        />
+                                                        <div className={cn(
+                                                            "absolute inset-0 z-10",
+                                                            hasOpenClasses
+                                                                ? "bg-gradient-to-t from-black/80 via-black/30 to-transparent"
+                                                                : "bg-slate-900/60 backdrop-grayscale"
+                                                        )} />
+
+                                                        {/* Badge de Status no Topo */}
+                                                        <div className="absolute top-4 right-4 z-20">
+                                                            {!hasOpenClasses ? (
+                                                                <Badge variant="outline" className="bg-slate-900/90 text-slate-300 border-slate-700 backdrop-blur-md text-[9px] font-black uppercase tracking-widest px-3 py-1 shadow-sm">
+                                                                    Sem Turmas Abertas
+                                                                </Badge>
+                                                            ) : (
+                                                                <Badge className="bg-emerald-600 text-white border-none backdrop-blur-md text-[9px] font-black uppercase tracking-widest px-3 py-1 shadow-sm">
+                                                                    {openCount} {openCount === 1 ? 'Turma Aberta' : 'Turmas Abertas'}
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+
+                                                        <div className="absolute bottom-4 left-5 z-20 pr-4">
+                                                            <Badge className={cn(
+                                                                "backdrop-blur-md border-none mb-2 text-[8px] font-black uppercase tracking-widest",
+                                                                hasOpenClasses ? "bg-primary text-white" : "bg-slate-700 text-slate-300"
+                                                            )}>
+                                                                {course.ministryName || 'Curso'}
+                                                            </Badge>
+                                                            <h4 className={cn(
+                                                                "font-black uppercase italic tracking-tighter leading-tight text-lg shadow-sm",
+                                                                hasOpenClasses ? "text-white" : "text-slate-300"
+                                                            )}>
+                                                                {course.name}
+                                                            </h4>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </Card>
-                                        ))}
+                                                </Card>
+                                            );
+                                        })}
                                         {filteredCourses.length === 0 && (
                                             <div className="col-span-full py-16 text-center text-muted-foreground border-2 border-dashed rounded-[2rem]">
                                                 Nenhum curso encontrado nesta categoria.
