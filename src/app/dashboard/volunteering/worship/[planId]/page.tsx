@@ -60,7 +60,8 @@ import {
 import { useEventsData, useMembersData, useVolunteeringServiceData } from '@/hooks/useDomainData';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { syncLiveWorshipOrder, transmitWorshipPlanToAv, buildAvPayloadFromPlan, DEFAULT_AV_WEBHOOK_URL } from '../actions';
+import { syncLiveWorshipOrder, transmitWorshipPlanToAv, buildAvPayloadFromPlan } from '../actions';
+import { DEFAULT_AV_WEBHOOK_URL, type AvWebhookPayload } from '@/types/worship-av';
 
 // keyboard shortcut hook
 function useKeyboardShortcuts(addItem: (type: 'header' | 'item' | 'song') => void) {

@@ -26,20 +26,18 @@ export class QueryBuilderEngine {
     const db = getAdminDb();
 
     // 1. Carregar todos os usuários/membros ativos do tenant (base primária)
-    let usersQuery: any = db.collection('users');
-    if (tenantId) {
-      usersQuery = usersQuery.where('tenantId', '==', tenantId) as any;
-    }
-    const usersSnap = await usersQuery.get();
+    const usersSnap = await db.collection('users').get();
     
     if (usersSnap.empty) {
       return { totalCount: 0, people: [] };
     }
 
-    const allUsers: any[] = usersSnap.docs.map((doc: any) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    const allUsers: any[] = usersSnap.docs
+      .map((doc: any) => ({
+        id: doc.id,
+        ...doc.data(),
+      }))
+      .filter((u: any) => !tenantId || !u.tenantId || u.tenantId === tenantId);
 
     // Se não houver regras, retorna todos
     if (!boardConfig.rules || boardConfig.rules.length === 0) {

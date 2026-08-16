@@ -23,8 +23,8 @@ import {
   Sparkles,
   Code
 } from 'lucide-react';
+import { DEFAULT_AV_WEBHOOK_URL } from '@/types/worship-av';
 import { 
-  DEFAULT_AV_WEBHOOK_URL, 
   getAvWebhookConfig, 
   saveAvWebhookConfig, 
   testAvWebhookConnection 
