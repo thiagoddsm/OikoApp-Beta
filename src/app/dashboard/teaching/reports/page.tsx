@@ -94,14 +94,14 @@ function GeneralTeachingReportsContent() {
       if (!d) return;
 
       const keys: string[] = [];
-      if (r.volunteerId) keys.push(r.volunteerId);
-      if (r.userId) keys.push(r.userId);
-      if (r.email) keys.push(`email:${r.email.trim().toLowerCase()}`);
+      if (r.volunteerId) keys.push(String(r.volunteerId));
+      if (r.userId) keys.push(String(r.userId));
+      if (r.email) keys.push(`email:${String(r.email).trim().toLowerCase()}`);
       if (r.phone) {
-        const cleanPhone = r.phone.replace(/\D/g, '');
+        const cleanPhone = String(r.phone).replace(/\D/g, '');
         if (cleanPhone) keys.push(`phone:${cleanPhone}`);
       }
-      if (r.name) keys.push(`name:${r.name.trim().toLowerCase()}`);
+      if (r.name) keys.push(`name:${String(r.name).trim().toLowerCase()}`);
 
       keys.forEach(key => {
         if (r.courseId) {
@@ -134,7 +134,7 @@ function GeneralTeachingReportsContent() {
 
     // 2. Cruzamento por E-mail do aluno
     if (!date && u?.email) {
-      const emailKey = `email:${u.email.trim().toLowerCase()}`;
+      const emailKey = `email:${String(u.email).trim().toLowerCase()}`;
       if (courseId && enrollmentDateMap.has(`${emailKey}_${courseId}`)) {
         date = enrollmentDateMap.get(`${emailKey}_${courseId}`)!;
       } else if (enrollmentDateMap.has(emailKey)) {
@@ -144,7 +144,7 @@ function GeneralTeachingReportsContent() {
 
     // 3. Cruzamento por Telefone do aluno
     if (!date && (u?.phone || u?.whatsapp)) {
-      const cleanPhone = (u.phone || u.whatsapp || '').replace(/\D/g, '');
+      const cleanPhone = String(u.phone || u.whatsapp || '').replace(/\D/g, '');
       if (cleanPhone) {
         const phoneKey = `phone:${cleanPhone}`;
         if (courseId && enrollmentDateMap.has(`${phoneKey}_${courseId}`)) {
@@ -157,7 +157,7 @@ function GeneralTeachingReportsContent() {
 
     // 4. Cruzamento por Nome do aluno
     if (!date && u?.name) {
-      const nameKey = `name:${u.name.trim().toLowerCase()}`;
+      const nameKey = `name:${String(u.name).trim().toLowerCase()}`;
       if (courseId && enrollmentDateMap.has(`${nameKey}_${courseId}`)) {
         date = enrollmentDateMap.get(`${nameKey}_${courseId}`)!;
       } else if (enrollmentDateMap.has(nameKey)) {
