@@ -344,12 +344,12 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId }:
                 <Input id="name" value={name} onChange={e => setName(e.target.value)} placeholder={creationMode === 'cycle' ? "Ex: Julho/2026" : "Ex: Turma de Sábado"} className="h-11 font-bold" />
               </div>
               
-              {creationMode === 'single' && selectedCourse?.simultaneousClasses && (
+              {creationMode === 'single' && (
                   <div className="space-y-2">
                     <Label htmlFor="cycle" className="text-[10px] uppercase font-black text-muted-foreground tracking-wider flex items-center gap-2">
                         Ciclo (Opcional)
                     </Label>
-                    <Input id="cycle" value={cycle} onChange={e => setCycle(e.target.value)} placeholder="Vincular a qual ciclo?" className="h-11" />
+                    <Input id="cycle" value={cycle} onChange={e => setCycle(e.target.value)} placeholder="Ex: 2º Semestre/2026, Julho/2026" className="h-11" />
                   </div>
               )}
               <div className="space-y-2">
