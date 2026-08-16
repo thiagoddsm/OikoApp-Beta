@@ -21,6 +21,8 @@ interface SystemOptions {
   courses: { id: string; name: string }[];
   events: { id: string; name: string }[];
   cells: { id: string; name: string }[];
+  areas: { id: string; name: string }[];
+  redes: { id: string; name: string }[];
   ministries: { id: string; name: string }[];
 }
 
@@ -42,6 +44,9 @@ const FIELD_OPTIONS_BY_CATEGORY: Record<FilterCategory, { key: string; label: st
     { key: 'paymentStatus', label: 'Status Financeiro do Curso', operators: ['equals', 'in'] },
   ],
   pequenos_grupos: [
+    { key: 'in_cell', label: 'Participa de Algum GC (Sim / Não)', operators: ['is_active', 'equals'] },
+    { key: 'redeId', label: 'Rede do GC (Selecione da Lista)', operators: ['equals', 'in'] },
+    { key: 'areaId', label: 'Área do GC (Selecione da Lista)', operators: ['equals', 'in'] },
     { key: 'cellId', label: 'Pertence ao GC / Célula (Selecione da Lista)', operators: ['equals', 'contains'] },
     { key: 'role', label: 'Cargo no GC (Líder / Membro / Anfitrião)', operators: ['equals', 'in'] },
   ],
@@ -77,6 +82,10 @@ const PREDEFINED_SELECT_OPTIONS: Record<string, { label: string; value: string }
     { label: 'Divorciado(a)', value: 'Divorciado' },
     { label: 'Viúvo(a)', value: 'Viuvo' },
   ],
+  in_cell: [
+    { label: 'Sim (Participa de GC)', value: 'sim' },
+    { label: 'Não (Sem GC vinculado)', value: 'nao' },
+  ],
   role: [
     { label: 'Líder de GC', value: 'lider' },
     { label: 'Vice-Líder', value: 'vice_lider' },
@@ -92,7 +101,7 @@ const PREDEFINED_SELECT_OPTIONS: Record<string, { label: string; value: string }
 
 export function QueryBuilderBlocks({ rules, onChange }: QueryBuilderBlocksProps) {
   const { user } = useUser();
-  const [options, setOptions] = useState<SystemOptions>({ courses: [], events: [], cells: [], ministries: [] });
+  const [options, setOptions] = useState<SystemOptions>({ courses: [], events: [], cells: [], areas: [], redes: [], ministries: [] });
   const [loadingOptions, setLoadingOptions] = useState<boolean>(false);
 
   useEffect(() => {
@@ -113,6 +122,8 @@ export function QueryBuilderBlocks({ rules, onChange }: QueryBuilderBlocksProps)
           courses: data.courses || [],
           events: data.events || [],
           cells: data.cells || [],
+          areas: data.areas || [],
+          redes: data.redes || [],
           ministries: data.ministries || [],
         });
       }
@@ -193,6 +204,40 @@ export function QueryBuilderBlocks({ rules, onChange }: QueryBuilderBlocksProps)
             {options.cells.map(cell => (
               <SelectItem key={cell.id} value={cell.id}>
                 {cell.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      );
+    }
+
+    if (rule.field === 'areaId' && options.areas.length > 0) {
+      return (
+        <Select value={rule.value || ''} onValueChange={val => handleUpdateRule(rule.id, { value: val })}>
+          <SelectTrigger className="h-9 text-xs">
+            <SelectValue placeholder="Selecione a Área..." />
+          </SelectTrigger>
+          <SelectContent>
+            {options.areas.map(area => (
+              <SelectItem key={area.id} value={area.id}>
+                {area.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      );
+    }
+
+    if (rule.field === 'redeId' && options.redes.length > 0) {
+      return (
+        <Select value={rule.value || ''} onValueChange={val => handleUpdateRule(rule.id, { value: val })}>
+          <SelectTrigger className="h-9 text-xs">
+            <SelectValue placeholder="Selecione a Rede..." />
+          </SelectTrigger>
+          <SelectContent>
+            {options.redes.map(rede => (
+              <SelectItem key={rede.id} value={rede.id}>
+                {rede.name}
               </SelectItem>
             ))}
           </SelectContent>

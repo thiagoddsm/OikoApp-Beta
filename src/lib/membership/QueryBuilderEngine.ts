@@ -180,8 +180,12 @@ export class QueryBuilderEngine {
       }
 
       case 'pequenos_grupos': {
-        // Encontra todas as células vinculadas a esta pessoa (como membro ou como líder)
+        // Encontra todas as células vinculadas a esta pessoa (como membro, celulaId, hierarchy ou liderança)
+        const userCellId = user.cellId || user.hierarchy?.celulaId || user.gcId;
+        const linkedCell = userCellId ? context.cells.find(c => c.id === userCellId) : null;
+
         const userCells = context.cells.filter(cell => 
+          cell.id === userCellId ||
           cell.leaderId === user.id ||
           cell.liderId === user.id ||
           cell.leaderId1 === user.id ||
@@ -191,22 +195,53 @@ export class QueryBuilderEngine {
           cell.anfitriaoId === user.id ||
           (Array.isArray(cell.leaders) && cell.leaders.includes(user.id)) ||
           (Array.isArray(cell.coLeaders) && cell.coLeaders.includes(user.id)) ||
-          (Array.isArray(cell.members) && cell.members.includes(user.id)) ||
-          user.cellId === cell.id
+          (Array.isArray(cell.members) && cell.members.includes(user.id))
         );
 
-        if (field === 'cellId') {
-          if (this.compareValues(user.cellId, operator, value)) return true;
-          return userCells.some(cell => this.compareValues(cell.id, operator, value) || this.compareValues(cell.name, operator, value));
+        const isInAnyCell = userCells.length > 0 || (!!linkedCell);
+
+        // 1. Filtro Geral: "Participa de Algum GC (Sim / Não)"
+        if (field === 'in_cell' || field === 'hasCell' || field === 'inCell') {
+          if (operator === 'is_active') {
+            return isInAnyCell;
+          }
+          if (operator === 'equals') {
+            const isTargetYes = String(value).toLowerCase() === 'sim' || String(value).toLowerCase() === 'true' || String(value).toLowerCase() === 'ativo';
+            return isTargetYes ? isInAnyCell : !isInAnyCell;
+          }
+          return isInAnyCell;
         }
 
+        // 2. Filtro por Rede do GC
+        if (field === 'redeId') {
+          return userCells.some(cell => this.compareValues(cell.redeId, operator, value));
+        }
+
+        // 3. Filtro por Área do GC
+        if (field === 'areaId') {
+          return userCells.some(cell => this.compareValues(cell.areaId, operator, value));
+        }
+
+        // 4. Filtro por GC / Célula específica
+        if (field === 'cellId') {
+          if (userCellId && this.compareValues(userCellId, operator, value)) return true;
+          return userCells.some(cell => this.compareValues(cell.id, operator, value) || this.compareValues(cell.nome || cell.name, operator, value));
+        }
+
+        // 5. Filtro por Cargo no GC (Líder / Vice / Anfitrião / Membro Regular)
         if (field === 'role') {
+          // Se a pessoa NÃO está em nenhum GC, ela não possui cargo no GC
+          if (!isInAnyCell) {
+            return operator === 'not_equals';
+          }
+
           const valStr = String(value || '').toLowerCase();
           const isTargetLider = valStr.includes('lider') || valStr.includes('líder');
           const isTargetVice = valStr.includes('vice');
           const isTargetAnfitriao = valStr.includes('anfitriao') || valStr.includes('anfitrião');
+          const isTargetMembro = valStr.includes('membro');
 
-          const userIsLeaderInCell = context.cells.some(cell => {
+          const userIsLeaderInCell = userCells.some(cell => {
             const mainLeaderId = cell.leaderId || cell.liderId || cell.leaderId1;
             
             // 1. Checagem direta de IDs dos Líderes Titulares e Casal Líder Titular
@@ -227,17 +262,17 @@ export class QueryBuilderEngine {
             return false;
           });
 
-          const userIsViceInCell = context.cells.some(cell => 
+          const userIsViceInCell = userCells.some(cell => 
             cell.viceLeaderId === user.id ||
             (Array.isArray(cell.coLeaders) && cell.coLeaders.includes(user.id)) ||
             (Array.isArray(cell.coLideres) && cell.coLideres.some((cl: any) => cl.id === user.id || cl.casalId === user.id))
           );
 
-          const userIsAnfitriaoInCell = context.cells.some(cell => 
+          const userIsAnfitriaoInCell = userCells.some(cell => 
             cell.hostId === user.id || cell.anfitriaoId === user.id
           );
 
-          const userRole = String(user.cellRole || user.role || '').toLowerCase();
+          const userRole = String(user.cellRole || user.hierarchy?.role || user.role || '').toLowerCase();
 
           if (isTargetLider) {
             const isMatch = userIsLeaderInCell || userRole.includes('lider') || userRole.includes('líder') || user.isLeader === true;
@@ -251,11 +286,16 @@ export class QueryBuilderEngine {
             const isMatch = userIsAnfitriaoInCell || userRole.includes('anfitriao') || userRole.includes('anfitrião');
             return operator === 'not_equals' ? !isMatch : isMatch;
           }
+          if (isTargetMembro) {
+            const isLeaderOrViceOrHost = userIsLeaderInCell || userIsViceInCell || userIsAnfitriaoInCell || userRole.includes('lider') || userRole.includes('líder') || user.isLeader === true;
+            const isMatch = !isLeaderOrViceOrHost;
+            return operator === 'not_equals' ? !isMatch : isMatch;
+          }
 
-          return this.compareValues(user.cellRole || user.role || 'membro', operator, value);
+          return this.compareValues(user.cellRole || user.hierarchy?.role || 'membro', operator, value);
         }
 
-        return userCells.length > 0 || !!user.cellId;
+        return isInAnyCell;
       }
 
       case 'ministerios': {

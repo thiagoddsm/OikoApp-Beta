@@ -65,6 +65,46 @@ function GeneralTeachingReportsContent() {
   // Controle de expansão das aulas por curso
   const [expandedCourses, setExpandedCourses] = useState<Record<string, boolean>>({});
 
+  // ── MAPAS RÁPIDOS O(1) NO TOPO (Elimina dezenas de array.find() repetidos) ──────
+  const userMap = useMemo(() => {
+    const map = new Map<string, any>();
+    users.forEach(u => map.set(u.id, u));
+    return map;
+  }, [users]);
+
+  const courseMap = useMemo(() => {
+    const map = new Map<string, any>();
+    courses.forEach(c => map.set(c.id, c));
+    return map;
+  }, [courses]);
+
+  const cellMap = useMemo(() => {
+    const map = new Map<string, any>();
+    cells.forEach(c => map.set(c.id, c));
+    return map;
+  }, [cells]);
+
+  const areaMap = useMemo(() => {
+    const map = new Map<string, any>();
+    areas.forEach(a => map.set(a.id, a));
+    return map;
+  }, [areas]);
+
+  const redeMap = useMemo(() => {
+    const map = new Map<string, any>();
+    redes.forEach(r => map.set(r.id, r));
+    return map;
+  }, [redes]);
+
+  const userCellMap = useMemo(() => {
+    const map = new Map<string, string>();
+    users.forEach(u => {
+      const cid = u.cellId || u.hierarchy?.celulaId || u.gcId;
+      if (cid) map.set(u.id, cid);
+    });
+    return map;
+  }, [users]);
+
   // Obter ciclos únicos ordenados
   const cycles = useMemo(() => {
     const set = new Set<string>();
@@ -81,7 +121,6 @@ function GeneralTeachingReportsContent() {
     return true;
   };
 
-  // Mapa de datas de inscrição dos alunos (por solicitação ou cadastro)
   // Mapa de datas de inscrição dos alunos (por solicitação ou cadastro específico do curso)
   const enrollmentDateMap = useMemo(() => {
     const map = new Map<string, Date>();
@@ -119,7 +158,7 @@ function GeneralTeachingReportsContent() {
     if (!enrollmentDateStart && !enrollmentDateEnd) return true;
     if (!courseId) return false;
 
-    const u = userMap.get(studentId) || users.find(user => user.id === studentId);
+    const u = userMap.get(studentId);
     let date: Date | null = null;
 
     // 1. Cruzamento por ID do aluno + courseId
@@ -193,34 +232,12 @@ function GeneralTeachingReportsContent() {
       if (!isAtv) return false;
       if (selectedAreaId !== 'all') return c.areaId === selectedAreaId;
       if (selectedRedeId !== 'all') {
-        const areaOfCell = areas.find(a => a.id === c.areaId);
+        const areaOfCell = areaMap.get(c.areaId);
         return c.redeId === selectedRedeId || areaOfCell?.redeId === selectedRedeId;
       }
       return true;
     });
-  }, [cells, areas, selectedRedeId, selectedAreaId]);
-
-  // Mapas rápidos para O(1) lookups
-  const cellMap = useMemo(() => {
-    const map = new Map<string, any>();
-    cells.forEach(c => map.set(c.id, c));
-    return map;
-  }, [cells]);
-
-  const userCellMap = useMemo(() => {
-    const map = new Map<string, string>();
-    users.forEach(u => {
-      const cid = u.cellId || u.hierarchy?.celulaId || u.gcId;
-      if (cid) map.set(u.id, cid);
-    });
-    return map;
-  }, [users]);
-
-  const userMap = useMemo(() => {
-    const map = new Map<string, any>();
-    users.forEach(u => map.set(u.id, u));
-    return map;
-  }, [users]);
+  }, [cells, areaMap, selectedRedeId, selectedAreaId]);
 
   // Status de filtro de GC ativo
   const isGcFilterActive = selectedRedeId !== 'all' || selectedAreaId !== 'all' || selectedCellId !== 'all';
@@ -240,7 +257,7 @@ function GeneralTeachingReportsContent() {
         return;
       }
       if (selectedRedeId !== 'all') {
-        const areaOfCell = areas.find(a => a.id === c.areaId);
+        const areaOfCell = areaMap.get(c.areaId);
         if (c.redeId === selectedRedeId || areaOfCell?.redeId === selectedRedeId) {
           targetCellIds.add(c.id);
         }
@@ -257,7 +274,7 @@ function GeneralTeachingReportsContent() {
     });
 
     return studentIds;
-  }, [isGcFilterActive, cells, areas, users, selectedRedeId, selectedAreaId, selectedCellId]);
+  }, [isGcFilterActive, cells, areaMap, users, selectedRedeId, selectedAreaId, selectedCellId]);
 
   // Função auxiliar para verificar se um estudante está no escopo de GC ativo
   const isStudentInScope = (studentId: string) => {
@@ -279,7 +296,7 @@ function GeneralTeachingReportsContent() {
     }
     if (selectedTrack !== 'all') {
       result = result.filter(c => {
-        const course = courses.find(co => co.id === c.courseId);
+        const course = courseMap.get(c.courseId);
         if (!course) return false;
         if (selectedTrack === 'eletivo') {
           return (course.ebdTrack as any) === 'eletivo' || (course as any).type === 'eletivo';
@@ -288,7 +305,7 @@ function GeneralTeachingReportsContent() {
       });
     }
     return result;
-  }, [classes, courses, selectedCycle, selectedTrack]);
+  }, [classes, courseMap, selectedCycle, selectedTrack]);
 
   // Obter cursos únicos baseados nas turmas filtradas pelo ciclo/trilho
   const filteredCoursesByCycle = useMemo(() => {
@@ -308,6 +325,24 @@ function GeneralTeachingReportsContent() {
     return result;
   }, [filteredClassesByCycleAndTrack, selectedCourseId, selectedClassId]);
 
+  // ── CACHE DE CRONOGRAMAS DAS TURMAS (Evita recalcular getResolvedSchedule centenas de vezes) ──
+  const classScheduleMap = useMemo(() => {
+    const map = new Map<string, { resolved: any[]; activeDates: Set<string>; validSessions: any[]; totalLessons: number }>();
+    filteredClasses.forEach(cls => {
+      const course = courseMap.get(cls.courseId);
+      if (!course) return;
+      const resolved = getResolvedSchedule(cls, course);
+      const validSessions = resolved.filter(r => isLessonDateInRange(r.dateStr));
+      map.set(cls.id, {
+        resolved,
+        activeDates: new Set(resolved.map(r => r.dateStr)),
+        validSessions,
+        totalLessons: validSessions.length
+      });
+    });
+    return map;
+  }, [filteredClasses, courseMap, lessonDateStart, lessonDateEnd]);
+
   const toggleCourseExpanded = (courseId: string) => {
     setExpandedCourses(prev => ({ ...prev, [courseId]: !prev[courseId] }));
   };
@@ -318,7 +353,7 @@ function GeneralTeachingReportsContent() {
     const distribution: Record<string, { name: string; count: number; track: string }> = {};
 
     filteredClasses.forEach(cls => {
-      const course = courses.find(c => c.id === cls.courseId);
+      const course = courseMap.get(cls.courseId);
       if (!course) return;
 
       const activeStudents = (cls.students || []).filter(stId => 
@@ -341,7 +376,7 @@ function GeneralTeachingReportsContent() {
       total: totalInscritos,
       list: Object.entries(distribution).map(([id, info]) => ({ id, ...info })).sort((a, b) => b.count - a.count)
     };
-  }, [filteredClasses, courses, matchingStudentIds, enrollmentDateStart, enrollmentDateEnd]);
+  }, [filteredClasses, courseMap, matchingStudentIds, enrollmentDateStart, enrollmentDateEnd, enrollmentDateMap]);
 
   // ── 2. CÁLCULO DE FREQUÊNCIA E PRESENÇAS (COM FILTRO DE GC & AULAS) ──────────
   const frequencyStats = useMemo(() => {
@@ -350,11 +385,12 @@ function GeneralTeachingReportsContent() {
     const courseFreq: Record<string, { total: number; presents: number }> = {};
 
     filteredClasses.forEach(cls => {
-      const course = courses.find(c => c.id === cls.courseId);
+      const course = courseMap.get(cls.courseId);
       if (!course) return;
 
-      const resolved = getResolvedSchedule(cls, course);
-      const activeDates = new Set(resolved.map(r => r.dateStr));
+      const sched = classScheduleMap.get(cls.id);
+      if (!sched || sched.totalLessons === 0) return;
+      const activeDates = sched.activeDates;
 
       if (!courseFreq[course.id]) {
         courseFreq[course.id] = { total: 0, presents: 0 };
@@ -363,10 +399,11 @@ function GeneralTeachingReportsContent() {
       const activeStudents = (cls.students || []).filter(stId => 
         isStudentInScope(stId) && isEnrollmentDateInRange(stId, course.id)
       );
+
       activeStudents.forEach(studentId => {
         cls.attendance?.forEach(att => {
           if (!activeDates.has(att.date)) return;
-          if (!isLessonDateInRange(att.date)) return; // Filtro de data de aula ministrada
+          if (!isLessonDateInRange(att.date)) return;
 
           const isPresent = att.presentStudentIds?.includes(studentId) || att.onlineStudentIds?.includes(studentId);
           const isRepo = att.repositions?.some(r => r.studentId === studentId);
@@ -384,7 +421,7 @@ function GeneralTeachingReportsContent() {
     const averageGlobal = totalPossibilities > 0 ? Math.round((totalPresents / totalPossibilities) * 100) : 0;
 
     const list = Object.entries(courseFreq).map(([id, stats]) => {
-      const course = courses.find(c => c.id === id);
+      const course = courseMap.get(id);
       return {
         id,
         name: course?.name || 'Desconhecido',
@@ -397,7 +434,7 @@ function GeneralTeachingReportsContent() {
       totalPresences: totalPresents,
       courseAverages: list
     };
-  }, [filteredClasses, courses, lessonDateStart, lessonDateEnd, enrollmentDateStart, enrollmentDateEnd, matchingStudentIds]);
+  }, [filteredClasses, courseMap, classScheduleMap, lessonDateStart, lessonDateEnd, enrollmentDateStart, enrollmentDateEnd, matchingStudentIds, enrollmentDateMap]);
 
   // ── 3. DETALHAMENTO DE FREQUÊNCIA POR AULA ────────────────────────────────────
   const classesAndLessonsDetail = useMemo(() => {
@@ -413,13 +450,14 @@ function GeneralTeachingReportsContent() {
     }> = {};
 
     filteredClasses.forEach(cls => {
-      const course = courses.find(c => c.id === cls.courseId);
+      const course = courseMap.get(cls.courseId);
       if (!course) return;
 
-      const resolved = getResolvedSchedule(cls, course);
+      const sched = classScheduleMap.get(cls.id);
+      if (!sched || sched.resolved.length === 0) return;
 
-      resolved.forEach((session, index) => {
-        if (!isLessonDateInRange(session.dateStr)) return; // Filtro de data de aula
+      sched.resolved.forEach((session, index) => {
+        if (!isLessonDateInRange(session.dateStr)) return;
 
         if (!result[course.id]) {
           result[course.id] = { courseName: course.name, lessons: [] };
@@ -450,7 +488,7 @@ function GeneralTeachingReportsContent() {
     });
 
     return result;
-  }, [filteredClasses, courses, lessonDateStart, lessonDateEnd, enrollmentDateStart, enrollmentDateEnd, matchingStudentIds]);
+  }, [filteredClasses, courseMap, classScheduleMap, lessonDateStart, lessonDateEnd, enrollmentDateStart, enrollmentDateEnd, matchingStudentIds, enrollmentDateMap]);
 
   // ── 4. PROJEÇÃO DE APROVAÇÃO / REPROVAÇÃO ──────────────────────────────────────
   const approvalProjections = useMemo(() => {
@@ -460,13 +498,13 @@ function GeneralTeachingReportsContent() {
     let projReprovados = 0;
 
     filteredClasses.forEach(cls => {
-      const course = courses.find(c => c.id === cls.courseId);
+      const course = courseMap.get(cls.courseId);
       if (!course) return;
 
-      const resolved = getResolvedSchedule(cls, course);
-      const validSessions = resolved.filter(r => isLessonDateInRange(r.dateStr));
-      const totalLessons = validSessions.length;
-      if (totalLessons === 0) return;
+      const sched = classScheduleMap.get(cls.id);
+      if (!sched || sched.totalLessons === 0) return;
+      const validSessions = sched.validSessions;
+      const totalLessons = sched.totalLessons;
 
       const minAttendanceRate = course.minAttendanceApproval || 75;
       const maxAbsencesAllowed = Math.floor((1 - (minAttendanceRate / 100)) * totalLessons);
@@ -504,13 +542,8 @@ function GeneralTeachingReportsContent() {
         }
 
         // PROJEÇÃO FINAL
-        if (lessonsConducted === totalLessons) {
-          if (isEligible) projAprovados++;
-          else projReprovados++;
-        } else {
-          if (isEligible) projAprovados++;
-          else projReprovados++;
-        }
+        if (isEligible) projAprovados++;
+        else projReprovados++;
       });
     });
 
@@ -523,10 +556,11 @@ function GeneralTeachingReportsContent() {
       projReprovados,
       taxaAprovacao
     };
-  }, [filteredClasses, courses, lessonDateStart, lessonDateEnd, enrollmentDateStart, enrollmentDateEnd, matchingStudentIds]);
+  }, [filteredClasses, courseMap, classScheduleMap, lessonDateStart, lessonDateEnd, enrollmentDateStart, enrollmentDateEnd, matchingStudentIds, enrollmentDateMap]);
 
   // ── 5. TABELA NOMINAL DE ALUNOS COM STATUS PEDAGÓGICO E VISÃO GC ─────────────
-  const studentsFollowUpList = useMemo(() => {
+  // (Cálculo pesado desacoplado do studentSearchTerm para não travar a digitação)
+  const rawStudentsFollowUpList = useMemo(() => {
     const list: {
       studentId: string;
       studentName: string;
@@ -547,13 +581,13 @@ function GeneralTeachingReportsContent() {
     }[] = [];
 
     filteredClasses.forEach(cls => {
-      const course = courses.find(c => c.id === cls.courseId);
+      const course = courseMap.get(cls.courseId);
       if (!course) return;
 
-      const resolved = getResolvedSchedule(cls, course);
-      const validSessions = resolved.filter(r => isLessonDateInRange(r.dateStr));
-      const totalLessons = validSessions.length;
-      if (totalLessons === 0) return;
+      const sched = classScheduleMap.get(cls.id);
+      if (!sched || sched.totalLessons === 0) return;
+      const validSessions = sched.validSessions;
+      const totalLessons = sched.totalLessons;
 
       const minAttendanceRate = course.minAttendanceApproval || 75;
       const maxAbsencesAllowed = Math.floor((1 - (minAttendanceRate / 100)) * totalLessons);
@@ -566,8 +600,9 @@ function GeneralTeachingReportsContent() {
         const userObj = userMap.get(studentId);
         const cellId = userCellMap.get(studentId);
         const cellObj = cellId ? cellMap.get(cellId) : null;
-        const areaObj = cellObj?.areaId ? areas.find(a => a.id === cellObj.areaId) : null;
-        const redeObj = (cellObj?.redeId || areaObj?.redeId) ? redes.find(r => r.id === (cellObj?.redeId || areaObj?.redeId)) : null;
+        const areaObj = cellObj?.areaId ? areaMap.get(cellObj.areaId) : null;
+        const redeId = cellObj?.redeId || areaObj?.redeId;
+        const redeObj = redeId ? redeMap.get(redeId) : null;
 
         let presentsCount = 0;
         let absencesCount = 0;
@@ -618,26 +653,106 @@ function GeneralTeachingReportsContent() {
       });
     });
 
-    // Filtro por termo de busca se houver
-    let result = list;
-    if (studentSearchTerm.trim()) {
-      const term = studentSearchTerm.toLowerCase();
-      result = result.filter(s => 
-        s.studentName.toLowerCase().includes(term) ||
-        s.gcName.toLowerCase().includes(term) ||
-        s.courseName.toLowerCase().includes(term) ||
-        s.className.toLowerCase().includes(term)
-      );
-    }
-
-    return result.sort((a, b) => {
+    return list.sort((a, b) => {
       const priority = { critico: 0, risco: 1, elegivel: 2, concluido: 3 };
       if (priority[a.status] !== priority[b.status]) {
         return priority[a.status] - priority[b.status];
       }
       return a.studentName.localeCompare(b.studentName);
     });
-  }, [filteredClasses, courses, isStudentInScope, userMap, userCellMap, cellMap, areas, redes, lessonDateStart, lessonDateEnd, enrollmentDateStart, enrollmentDateEnd, studentSearchTerm]);
+  }, [filteredClasses, courseMap, classScheduleMap, matchingStudentIds, userMap, userCellMap, cellMap, areaMap, redeMap, enrollmentDateStart, enrollmentDateEnd, enrollmentDateMap]);
+
+  // Filtro de busca textual ultra-rápido (0ms, sem recomputar presenças)
+  const studentsFollowUpList = useMemo(() => {
+    if (!studentSearchTerm.trim()) return rawStudentsFollowUpList;
+    const term = studentSearchTerm.toLowerCase();
+    return rawStudentsFollowUpList.filter(s => 
+      s.studentName.toLowerCase().includes(term) ||
+      s.gcName.toLowerCase().includes(term) ||
+      s.courseName.toLowerCase().includes(term) ||
+      s.className.toLowerCase().includes(term)
+    );
+  }, [rawStudentsFollowUpList, studentSearchTerm]);
+
+  // ── 6. RESUMO CONSOLIDADO POR CURSO (Pré-computado em useMemo para JSX ultra-leve) ──
+  const courseConsolidatedStats = useMemo(() => {
+    const map = new Map<string, {
+      enrolled: number;
+      freq: number;
+      localElegiveis: number;
+      localAprovados: number;
+      localReprovados: number;
+    }>();
+
+    const enrollmentMap = new Map(enrollmentStats.list.map(e => [e.id, e.count]));
+    const freqMap = new Map(frequencyStats.courseAverages.map(f => [f.id, f.average]));
+
+    filteredCoursesByCycle.forEach(course => {
+      const enrolled = enrollmentMap.get(course.id) || 0;
+      const freq = freqMap.get(course.id) || 0;
+
+      let localElegiveis = 0;
+      let localAprovados = 0;
+      let localReprovados = 0;
+
+      const courseClasses = filteredClasses.filter(c => c.courseId === course.id);
+      courseClasses.forEach(cls => {
+        const sched = classScheduleMap.get(cls.id);
+        if (!sched || sched.totalLessons === 0) return;
+        const totalLessons = sched.totalLessons;
+        const validSessions = sched.validSessions;
+
+        const minAttendanceRate = course.minAttendanceApproval || 75;
+        const maxAbsencesAllowed = Math.floor((1 - (minAttendanceRate / 100)) * totalLessons);
+
+        const activeStudents = (cls.students || []).filter(stId =>
+          isStudentInScope(stId) && isEnrollmentDateInRange(stId, course.id)
+        );
+
+        activeStudents.forEach(studentId => {
+          let absencesCount = 0;
+          let lessonsConducted = 0;
+          let presentsCount = 0;
+
+          cls.attendance?.forEach(att => {
+            const isValidSession = validSessions.some(r => r.dateStr === att.date);
+            if (!isValidSession) return;
+            if (!isLessonDateInRange(att.date)) return;
+
+            lessonsConducted++;
+            const isPresent = att.presentStudentIds?.includes(studentId) || att.onlineStudentIds?.includes(studentId);
+            const isRepo = att.repositions?.some(r => r.studentId === studentId);
+
+            if (isPresent || isRepo) presentsCount++;
+            else absencesCount++;
+          });
+
+          if (absencesCount <= maxAbsencesAllowed) localElegiveis++;
+
+          const historicalRate = lessonsConducted > 0 ? (presentsCount / lessonsConducted) : 1.0;
+          const remainingLessons = Math.max(0, totalLessons - lessonsConducted);
+          const projectedPresents = presentsCount + (remainingLessons * historicalRate);
+          const projectedRate = (projectedPresents / totalLessons) * 100;
+
+          if (projectedRate >= minAttendanceRate && absencesCount <= maxAbsencesAllowed) {
+            localAprovados++;
+          } else {
+            localReprovados++;
+          }
+        });
+      });
+
+      map.set(course.id, {
+        enrolled,
+        freq,
+        localElegiveis,
+        localAprovados,
+        localReprovados
+      });
+    });
+
+    return map;
+  }, [filteredCoursesByCycle, filteredClasses, enrollmentStats, frequencyStats, classScheduleMap, matchingStudentIds, enrollmentDateStart, enrollmentDateEnd, enrollmentDateMap]);
 
   const handlePrint = () => {
     window.print();
@@ -1329,66 +1444,22 @@ function GeneralTeachingReportsContent() {
                 </TableRow>
               ) : (
                 filteredCoursesByCycle.map(course => {
-                  const stats = enrollmentStats.list.find(e => e.id === course.id);
-                  const enrolled = stats?.count || 0;
-                  const freq = frequencyStats.courseAverages.find(f => f.id === course.id)?.average || 0;
-
-                  // Projeção local por curso
-                  let localElegiveis = 0;
-                  let localAprovados = 0;
-                  let localReprovados = 0;
-
-                  const courseClasses = filteredClasses.filter(c => c.courseId === course.id);
-                  courseClasses.forEach(cls => {
-                    const resolved = getResolvedSchedule(cls, course);
-                    const totalLessons = resolved.length;
-                    if (totalLessons === 0) return;
-
-                    const minAttendanceRate = course.minAttendanceApproval || 75;
-                    const maxAbsencesAllowed = Math.floor((1 - (minAttendanceRate / 100)) * totalLessons);
-
-                    const activeStudents = (cls.students || []).filter(isStudentInScope);
-
-                    activeStudents.forEach(studentId => {
-                      let absencesCount = 0;
-                      let lessonsConducted = 0;
-                      let presentsCount = 0;
-
-                      cls.attendance?.forEach(att => {
-                        const isValidSession = resolved.some(r => r.dateStr === att.date);
-                        if (!isValidSession) return;
-
-                        lessonsConducted++;
-                        const isPresent = att.presentStudentIds?.includes(studentId) || att.onlineStudentIds?.includes(studentId);
-                        const isRepo = att.repositions?.some(r => r.studentId === studentId);
-
-                        if (isPresent || isRepo) presentsCount++;
-                        else absencesCount++;
-                      });
-
-                      if (absencesCount <= maxAbsencesAllowed) localElegiveis++;
-
-                      const historicalRate = lessonsConducted > 0 ? (presentsCount / lessonsConducted) : 1.0;
-                      const remainingLessons = Math.max(0, totalLessons - lessonsConducted);
-                      const projectedPresents = presentsCount + (remainingLessons * historicalRate);
-                      const projectedRate = (projectedPresents / totalLessons) * 100;
-
-                      if (projectedRate >= minAttendanceRate && absencesCount <= maxAbsencesAllowed) {
-                        localAprovados++;
-                      } else {
-                        localReprovados++;
-                      }
-                    });
-                  });
+                  const stats = courseConsolidatedStats.get(course.id) || {
+                    enrolled: 0,
+                    freq: 0,
+                    localElegiveis: 0,
+                    localAprovados: 0,
+                    localReprovados: 0
+                  };
 
                   return (
                     <TableRow key={course.id}>
                       <TableCell className="font-bold text-sm text-slate-800">{course.name}</TableCell>
-                      <TableCell className="text-center font-bold text-slate-700">{enrolled}</TableCell>
-                      <TableCell className="text-center font-black text-emerald-600">{freq}%</TableCell>
-                      <TableCell className="text-center font-bold text-blue-600">{localElegiveis}</TableCell>
-                      <TableCell className="text-center font-black text-indigo-600">{localAprovados}</TableCell>
-                      <TableCell className="text-center font-bold text-red-500">{localReprovados}</TableCell>
+                      <TableCell className="text-center font-bold text-slate-700">{stats.enrolled}</TableCell>
+                      <TableCell className="text-center font-black text-emerald-600">{stats.freq}%</TableCell>
+                      <TableCell className="text-center font-bold text-blue-600">{stats.localElegiveis}</TableCell>
+                      <TableCell className="text-center font-black text-indigo-600">{stats.localAprovados}</TableCell>
+                      <TableCell className="text-center font-bold text-red-500">{stats.localReprovados}</TableCell>
                     </TableRow>
                   );
                 })
