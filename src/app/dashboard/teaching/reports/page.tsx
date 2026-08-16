@@ -39,7 +39,7 @@ import Link from 'next/link';
 
 function GeneralTeachingReportsContent() {
   const { users } = useMembersData();
-  const { courses, classes } = useCoursesData();
+  const { courses, classes, enrollmentRequests } = useCoursesData();
   const { cells, areas, redes } = useGCData();
 
   // Estados dos filtros acadêmicos
@@ -85,12 +85,12 @@ function GeneralTeachingReportsContent() {
   const enrollmentDateMap = useMemo(() => {
     const map = new Map<string, Date>();
     (enrollmentRequests || []).forEach(r => {
-      const key = r.volunteerId || r.userId || r.id;
+      const key = (r as any).volunteerId || (r as any).userId || r.id;
       let d: Date | null = null;
-      if (r.createdAt?.toDate) d = r.createdAt.toDate();
-      else if (r.createdAt?.seconds) d = new Date(r.createdAt.seconds * 1000);
+      if ((r.createdAt as any)?.toDate) d = (r.createdAt as any).toDate();
+      else if ((r.createdAt as any)?.seconds) d = new Date((r.createdAt as any).seconds * 1000);
       else if (r.createdAt) {
-        try { d = new Date(r.createdAt); } catch {}
+        try { d = new Date(r.createdAt as any); } catch {}
       }
       if (d && key) {
         const compositeKey = `${key}_${r.courseId}`;
@@ -267,6 +267,10 @@ function GeneralTeachingReportsContent() {
     }
     return result;
   }, [filteredClassesByCycleAndTrack, selectedCourseId, selectedClassId]);
+
+  const toggleCourseExpanded = (courseId: string) => {
+    setExpandedCourses(prev => ({ ...prev, [courseId]: !prev[courseId] }));
+  };
 
   // ── 1. CÁLCULO DE INSCRITOS POR CURSO (COM FILTRO DE GC & INSCRIÇÃO) ───────
   const enrollmentStats = useMemo(() => {
@@ -593,7 +597,7 @@ function GeneralTeachingReportsContent() {
       }
       return a.studentName.localeCompare(b.studentName);
     });
-  }, [filteredClasses, courses, isStudentInScope, userMap, userCellMap, cellMap, areas, redes, dateStart, dateEnd, studentSearchTerm]);
+  }, [filteredClasses, courses, isStudentInScope, userMap, userCellMap, cellMap, areas, redes, lessonDateStart, lessonDateEnd, enrollmentDateStart, enrollmentDateEnd, studentSearchTerm]);
 
   const handlePrint = () => {
     window.print();
@@ -926,7 +930,6 @@ function GeneralTeachingReportsContent() {
                 </Badge>
               </div>
             )}
-          </div>
         </CardContent>
       </Card>
 

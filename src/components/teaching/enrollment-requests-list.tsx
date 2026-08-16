@@ -305,7 +305,7 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string | strin
                         ) : (
                             filteredRequests.map(req => {
                                 const targetCourse = courses.find(c => c.id === req.courseId);
-                                const courseName = targetCourse?.name || targetCourse?.title || (req as any).courseName || 'Curso não identificado';
+                                const courseName = targetCourse?.name || (targetCourse as any)?.title || (req as any).courseName || 'Curso não identificado';
                                 const courseClasses = classes.filter(c => c.courseId === req.courseId);
                                 const isProcessing = isActionInProgress === req.id;
 
