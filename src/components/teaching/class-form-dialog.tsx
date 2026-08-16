@@ -86,6 +86,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId }:
   const [creationMode, setCreationMode] = useState<'single' | 'cycle'>('single');
   const [cycle, setCycle] = useState('');
   const [isCyclePopoverOpen, setIsCyclePopoverOpen] = useState(false);
+  const [cycleSearchText, setCycleSearchText] = useState('');
   
   type CycleSchedule = {
       id: string;
@@ -442,124 +443,151 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId }:
                         className="h-11 font-medium flex-1" 
                       />
 
-                      <Popover open={isCyclePopoverOpen} onOpenChange={setIsCyclePopoverOpen}>
+                      <Popover modal={false} open={isCyclePopoverOpen} onOpenChange={setIsCyclePopoverOpen}>
                         <PopoverTrigger asChild>
                           <Button 
                             type="button" 
                             variant="outline" 
-                            className="h-11 px-3 border-dashed shrink-0 bg-slate-50 dark:bg-slate-900/60 hover:bg-slate-100" 
+                            className="h-11 px-3 border-dashed shrink-0 bg-slate-50 dark:bg-slate-900/60 hover:bg-slate-100 font-bold" 
                             title="Escolher ciclo padronizado"
                           >
                             <Sparkles className="size-3.5 text-primary mr-1.5" />
                             <span className="text-xs font-bold">Presets</span>
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-[340px] p-0" align="end">
-                          <Command>
-                            <CommandInput placeholder="Buscar ou escolher ciclo..." className="text-xs" />
-                            <CommandList className="max-h-[320px] overflow-y-auto">
-                              <CommandEmpty className="p-3 text-xs text-muted-foreground text-center">Nenhum ciclo encontrado.</CommandEmpty>
-                              
-                              {autoSuggestedCycle && (
-                                <CommandGroup heading="✨ Sugestão Pelas Datas">
-                                  <CommandItem
-                                    onSelect={() => {
+                        <PopoverContent className="w-[350px] p-2 bg-white dark:bg-slate-950 border shadow-xl rounded-xl" align="end" side="bottom" sideOffset={6}>
+                          <div className="space-y-2">
+                            <div className="relative">
+                              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+                              <Input 
+                                placeholder="Buscar ou filtrar ciclo..." 
+                                value={cycleSearchText} 
+                                onChange={e => setCycleSearchText(e.target.value)} 
+                                className="h-8 pl-8 text-xs bg-slate-50 dark:bg-slate-900 border-slate-200" 
+                              />
+                            </div>
+
+                            <div className="max-h-[300px] overflow-y-auto space-y-3 pr-1">
+                              {/* Sugestão Automática */}
+                              {autoSuggestedCycle && (!cycleSearchText || autoSuggestedCycle.toLowerCase().includes(cycleSearchText.toLowerCase())) && (
+                                <div>
+                                  <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 block px-2 mb-1">
+                                    ✨ Sugestão Pelas Datas
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
                                       setCycle(autoSuggestedCycle);
                                       setIsCyclePopoverOpen(false);
                                     }}
-                                    className="text-xs font-bold text-primary cursor-pointer"
+                                    className={cn(
+                                      "w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-between",
+                                      cycle === autoSuggestedCycle 
+                                        ? "bg-primary text-white" 
+                                        : "bg-amber-50 text-amber-900 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-200"
+                                    )}
                                   >
-                                    <Check className={cn("mr-2 size-3.5", cycle === autoSuggestedCycle ? "opacity-100" : "opacity-0")} />
-                                    {autoSuggestedCycle}
-                                  </CommandItem>
-                                </CommandGroup>
+                                    <span>{autoSuggestedCycle}</span>
+                                    {cycle === autoSuggestedCycle && <Check className="size-3.5" />}
+                                  </button>
+                                </div>
                               )}
 
-                              <CommandGroup heading="🏛️ Trilho Teológico (Semestral)">
-                                <CommandItem 
-                                  onSelect={() => {
-                                    setCycle(`1º Semestre de ${activeYear} (Março - Abril)`);
-                                    setIsCyclePopoverOpen(false);
-                                  }} 
-                                  className="text-xs cursor-pointer"
-                                >
-                                  <Check className={cn("mr-2 size-3.5", cycle === `1º Semestre de ${activeYear} (Março - Abril)` ? "opacity-100" : "opacity-0")} />
-                                  1º Semestre de {activeYear} (Março - Abril)
-                                </CommandItem>
-                                <CommandItem 
-                                  onSelect={() => {
-                                    setCycle(`2º Semestre de ${activeYear} (Setembro - Outubro)`);
-                                    setIsCyclePopoverOpen(false);
-                                  }} 
-                                  className="text-xs cursor-pointer"
-                                >
-                                  <Check className={cn("mr-2 size-3.5", cycle === `2º Semestre de ${activeYear} (Setembro - Outubro)` ? "opacity-100" : "opacity-0")} />
-                                  2º Semestre de {activeYear} (Setembro - Outubro)
-                                </CommandItem>
-                              </CommandGroup>
-
-                              <CommandGroup heading="📖 Trilho Discipulado (Trimestral)">
-                                <CommandItem 
-                                  onSelect={() => {
-                                    setCycle(`1º Trimestre de ${activeYear} (Janeiro - Março)`);
-                                    setIsCyclePopoverOpen(false);
-                                  }} 
-                                  className="text-xs cursor-pointer"
-                                >
-                                  <Check className={cn("mr-2 size-3.5", cycle.includes('1º Trimestre') ? "opacity-100" : "opacity-0")} />
-                                  1º Trimestre de {activeYear} (Janeiro - Março)
-                                </CommandItem>
-                                <CommandItem 
-                                  onSelect={() => {
-                                    setCycle(`2º Trimestre de ${activeYear} (Abril - Junho)`);
-                                    setIsCyclePopoverOpen(false);
-                                  }} 
-                                  className="text-xs cursor-pointer"
-                                >
-                                  <Check className={cn("mr-2 size-3.5", cycle.includes('2º Trimestre') ? "opacity-100" : "opacity-0")} />
-                                  2º Trimestre de {activeYear} (Abril - Junho)
-                                </CommandItem>
-                                <CommandItem 
-                                  onSelect={() => {
-                                    setCycle(`3º Trimestre de ${activeYear} (Julho - Setembro)`);
-                                    setIsCyclePopoverOpen(false);
-                                  }} 
-                                  className="text-xs cursor-pointer"
-                                >
-                                  <Check className={cn("mr-2 size-3.5", cycle.includes('3º Trimestre') ? "opacity-100" : "opacity-0")} />
-                                  3º Trimestre de {activeYear} (Julho - Setembro)
-                                </CommandItem>
-                                <CommandItem 
-                                  onSelect={() => {
-                                    setCycle(`4º Trimestre de ${activeYear} (Outubro - Dezembro)`);
-                                    setIsCyclePopoverOpen(false);
-                                  }} 
-                                  className="text-xs cursor-pointer"
-                                >
-                                  <Check className={cn("mr-2 size-3.5", cycle.includes('4º Trimestre') ? "opacity-100" : "opacity-0")} />
-                                  4º Trimestre de {activeYear} (Outubro - Dezembro)
-                                </CommandItem>
-                              </CommandGroup>
-
-                              {existingCycles.length > 0 && (
-                                <CommandGroup heading="📁 Ciclos Já Criados no Sistema">
-                                  {existingCycles.map(c => (
-                                    <CommandItem 
-                                      key={c} 
-                                      onSelect={() => {
-                                        setCycle(c);
+                              {/* Trilho Teológico */}
+                              <div>
+                                <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block px-2 mb-1">
+                                  🏛️ Trilho Teológico (Semestral)
+                                </span>
+                                <div className="space-y-1">
+                                  {[
+                                    `1º Semestre de ${activeYear} (Março - Abril)`,
+                                    `2º Semestre de ${activeYear} (Setembro - Outubro)`,
+                                  ].filter(item => !cycleSearchText || item.toLowerCase().includes(cycleSearchText.toLowerCase())).map(item => (
+                                    <button
+                                      key={item}
+                                      type="button"
+                                      onClick={() => {
+                                        setCycle(item);
                                         setIsCyclePopoverOpen(false);
-                                      }} 
-                                      className="text-xs cursor-pointer"
+                                      }}
+                                      className={cn(
+                                        "w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center justify-between",
+                                        cycle === item 
+                                          ? "bg-primary text-white font-bold" 
+                                          : "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"
+                                      )}
                                     >
-                                      <Check className={cn("mr-2 size-3.5", cycle === c ? "opacity-100" : "opacity-0")} />
-                                      {c}
-                                    </CommandItem>
+                                      <span>{item}</span>
+                                      {cycle === item && <Check className="size-3.5" />}
+                                    </button>
                                   ))}
-                                </CommandGroup>
+                                </div>
+                              </div>
+
+                              {/* Trilho Discipulado */}
+                              <div>
+                                <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block px-2 mb-1">
+                                  📖 Trilho Discipulado (Trimestral)
+                                </span>
+                                <div className="space-y-1">
+                                  {[
+                                    `1º Trimestre de ${activeYear} (Janeiro - Março)`,
+                                    `2º Trimestre de ${activeYear} (Abril - Junho)`,
+                                    `3º Trimestre de ${activeYear} (Julho - Setembro)`,
+                                    `4º Trimestre de ${activeYear} (Outubro - Dezembro)`,
+                                  ].filter(item => !cycleSearchText || item.toLowerCase().includes(cycleSearchText.toLowerCase())).map(item => (
+                                    <button
+                                      key={item}
+                                      type="button"
+                                      onClick={() => {
+                                        setCycle(item);
+                                        setIsCyclePopoverOpen(false);
+                                      }}
+                                      className={cn(
+                                        "w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center justify-between",
+                                        cycle === item 
+                                          ? "bg-primary text-white font-bold" 
+                                          : "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"
+                                      )}
+                                    >
+                                      <span>{item}</span>
+                                      {cycle === item && <Check className="size-3.5" />}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* Ciclos Já Criados */}
+                              {existingCycles.length > 0 && (
+                                <div>
+                                  <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block px-2 mb-1">
+                                    📁 Ciclos Já Criados no Sistema
+                                  </span>
+                                  <div className="space-y-1">
+                                    {existingCycles.filter(item => !cycleSearchText || item.toLowerCase().includes(cycleSearchText.toLowerCase())).map(item => (
+                                      <button
+                                        key={item}
+                                        type="button"
+                                        onClick={() => {
+                                          setCycle(item);
+                                          setIsCyclePopoverOpen(false);
+                                        }}
+                                        className={cn(
+                                          "w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center justify-between",
+                                          cycle === item 
+                                            ? "bg-primary text-white font-bold" 
+                                            : "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"
+                                        )}
+                                      >
+                                        <span>{item}</span>
+                                        {cycle === item && <Check className="size-3.5" />}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
                               )}
-                            </CommandList>
-                          </Command>
+                            </div>
+                          </div>
                         </PopoverContent>
                       </Popover>
                     </div>
