@@ -82,6 +82,7 @@ function GeneralTeachingReportsContent() {
   };
 
   // Mapa de datas de inscrição dos alunos (por solicitação ou cadastro)
+  // Mapa de datas de inscrição dos alunos (por solicitação ou cadastro específico do curso)
   const enrollmentDateMap = useMemo(() => {
     const map = new Map<string, Date>();
     (enrollmentRequests || []).forEach((r: any) => {
@@ -91,7 +92,7 @@ function GeneralTeachingReportsContent() {
       else if (r.createdAt) {
         try { d = new Date(r.createdAt); } catch {}
       }
-      if (!d) return;
+      if (!d || !r.courseId) return;
 
       const keys: string[] = [];
       if (r.volunteerId) keys.push(String(r.volunteerId));
@@ -104,76 +105,64 @@ function GeneralTeachingReportsContent() {
       if (r.name) keys.push(`name:${String(r.name).trim().toLowerCase()}`);
 
       keys.forEach(key => {
-        if (r.courseId) {
-          const compositeKey = `${key}_${r.courseId}`;
-          if (!map.has(compositeKey) || d! > map.get(compositeKey)!) {
-            map.set(compositeKey, d!);
-          }
-        }
-        if (!map.has(key) || d! > map.get(key)!) {
-          map.set(key, d!);
+        const compositeKey = `${key}_${r.courseId}`;
+        if (!map.has(compositeKey) || d! > map.get(compositeKey)!) {
+          map.set(compositeKey, d!);
         }
       });
     });
     return map;
   }, [enrollmentRequests]);
 
-  // Helper de data para INSCRIÇÕES / MATRÍCULAS
+  // Helper de data para INSCRIÇÕES / MATRÍCULAS ESPECÍFICAS DO CURSO
   const isEnrollmentDateInRange = (studentId: string, courseId?: string) => {
     if (!enrollmentDateStart && !enrollmentDateEnd) return true;
+    if (!courseId) return false;
 
     const u = userMap.get(studentId) || users.find(user => user.id === studentId);
     let date: Date | null = null;
 
-    // 1. Cruzamento por ID do aluno
-    if (courseId && enrollmentDateMap.has(`${studentId}_${courseId}`)) {
+    // 1. Cruzamento por ID do aluno + courseId
+    if (enrollmentDateMap.has(`${studentId}_${courseId}`)) {
       date = enrollmentDateMap.get(`${studentId}_${courseId}`)!;
-    } else if (enrollmentDateMap.has(studentId)) {
-      date = enrollmentDateMap.get(studentId)!;
     }
 
-    // 2. Cruzamento por E-mail do aluno
+    // 2. Cruzamento por E-mail do aluno + courseId
     if (!date && u?.email) {
-      const emailKey = `email:${String(u.email).trim().toLowerCase()}`;
-      if (courseId && enrollmentDateMap.has(`${emailKey}_${courseId}`)) {
-        date = enrollmentDateMap.get(`${emailKey}_${courseId}`)!;
-      } else if (enrollmentDateMap.has(emailKey)) {
+      const emailKey = `email:${String(u.email).trim().toLowerCase()}_${courseId}`;
+      if (enrollmentDateMap.has(emailKey)) {
         date = enrollmentDateMap.get(emailKey)!;
       }
     }
 
-    // 3. Cruzamento por Telefone do aluno
+    // 3. Cruzamento por Telefone do aluno + courseId
     if (!date && (u?.phone || u?.whatsapp)) {
       const cleanPhone = String(u.phone || u.whatsapp || '').replace(/\D/g, '');
       if (cleanPhone) {
-        const phoneKey = `phone:${cleanPhone}`;
-        if (courseId && enrollmentDateMap.has(`${phoneKey}_${courseId}`)) {
-          date = enrollmentDateMap.get(`${phoneKey}_${courseId}`)!;
-        } else if (enrollmentDateMap.has(phoneKey)) {
+        const phoneKey = `phone:${cleanPhone}_${courseId}`;
+        if (enrollmentDateMap.has(phoneKey)) {
           date = enrollmentDateMap.get(phoneKey)!;
         }
       }
     }
 
-    // 4. Cruzamento por Nome do aluno
+    // 4. Cruzamento por Nome do aluno + courseId
     if (!date && u?.name) {
-      const nameKey = `name:${String(u.name).trim().toLowerCase()}`;
-      if (courseId && enrollmentDateMap.has(`${nameKey}_${courseId}`)) {
-        date = enrollmentDateMap.get(`${nameKey}_${courseId}`)!;
-      } else if (enrollmentDateMap.has(nameKey)) {
+      const nameKey = `name:${String(u.name).trim().toLowerCase()}_${courseId}`;
+      if (enrollmentDateMap.has(nameKey)) {
         date = enrollmentDateMap.get(nameKey)!;
       }
     }
 
     // 5. Cruzamento por data salva na jornada do aluno
-    if (!date && u?.journey?.enrolledAt?.[courseId || '']) {
-      const val = u.journey.enrolledAt[courseId || ''];
+    if (!date && u?.journey?.enrolledAt?.[courseId]) {
+      const val = u.journey.enrolledAt[courseId];
       if (val?.toDate) date = val.toDate();
       else if (val?.seconds) date = new Date(val.seconds * 1000);
       else { try { date = new Date(val); } catch {} }
     }
 
-    // Se houver filtro de período ativo e o aluno não possui registro de matrícula detectado, descarta do período
+    // Se houver filtro de período de inscrição e o aluno não possui matrícula identificada neste curso, descarta
     if (!date) return false;
 
     const cleanDate = date.toISOString().split('T')[0];
