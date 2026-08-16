@@ -173,8 +173,8 @@ function GeneralTeachingReportsContent() {
       else { try { date = new Date(val); } catch {} }
     }
 
-    // Se não há registro de matrícula para este curso, não descartar (pois não é uma conta antiga fora do range)
-    if (!date) return true;
+    // Se houver filtro de período ativo e o aluno não possui registro de matrícula detectado, descarta do período
+    if (!date) return false;
 
     const cleanDate = date.toISOString().split('T')[0];
     if (enrollmentDateStart && cleanDate < enrollmentDateStart) return false;
