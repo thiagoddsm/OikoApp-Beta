@@ -8,47 +8,175 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.oiko.theoflix.data.models.Course
 import com.oiko.theoflix.data.models.TheoLevel
 
 @Composable
-fun HomeScreen(onCourseClick: (String) -> Unit) {
-    // Mock para visualização inicial
-    val levels = listOf(
-        TheoLevel("1", 1, "Fundamentos", "blue"),
-        TheoLevel("2", 2, "Maturidade", "rose")
-    )
-    
-    val courses = listOf(
-        Course("membros", "Curso de Membros", "Desc", 1, "https://picsum.photos/seed/membros/400/225"),
-        Course("batismo", "Preparação para Batismo", "Desc", 1, "https://picsum.photos/seed/batismo/400/225"),
-        Course("cura", "Cura Interior", "Desc", 2, "https://picsum.photos/seed/cura/400/225")
-    )
+fun HomeScreen(
+    onCourseClick: (String) -> Unit,
+    viewModel: HomeViewModel = viewModel()
+) {
+    val state by viewModel.state
 
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("THEOFLIX", fontWeight = FontWeight.Black, letterSpacing = 2.sp) },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                )
-            )
+    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        when (val currentState = state) {
+            is HomeState.Loading -> {
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+            }
+            is HomeState.Error -> {
+                Column(
+                    modifier = Modifier.align(Alignment.Center).padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text("Erro: ${currentState.message}", color = MaterialTheme.colorScheme.error)
+                    Button(onClick = { viewModel.loadData() }, modifier = Modifier.padding(top = 16.dp)) {
+                        Text("Tentar Novamente")
+                    }
+                }
+            }
+            is HomeState.Success -> {
+                val featuredCourse = currentState.courses.firstOrNull()
+                
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    item {
+                        FeaturedHero(featuredCourse, onCourseClick)
+                    }
+                    items(currentState.levels) { level ->
+                        val levelCourses = currentState.courses.filter { it.level == level.level }
+                        if (levelCourses.isNotEmpty()) {
+                            LevelSection(level, levelCourses, onCourseClick)
+                            Spacer(modifier = Modifier.height(24.dp))
+                        }
+                    }
+                    item {
+                        Spacer(modifier = Modifier.height(50.dp))
+                    }
+                }
+
+                // Translucent Top Bar
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(Color.Black.copy(alpha = 0.8f), Color.Transparent)
+                            )
+                        )
+                        .statusBarsPadding() // Garante que não fique embaixo do relógio/ícones do sistema
+                        .padding(horizontal = 16.dp, vertical = 20.dp)
+                ) {
+                    Text(
+                        "THEOFLIX",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 4.sp,
+                        modifier = Modifier.align(Alignment.CenterStart)
+                    )
+                }
+            }
         }
-    ) { padding ->
-        LazyColumn(
+    }
+}
+
+@Composable
+fun FeaturedHero(course: Course?, onCourseClick: (String) -> Unit) {
+    if (course == null) return
+    
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(500.dp)
+            .clickable { onCourseClick(course.id) }
+    ) {
+        AsyncImage(
+            model = course.image,
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            MaterialTheme.colorScheme.background.copy(alpha = 0.5f),
+                            MaterialTheme.colorScheme.background
+                        ),
+                        startY = 300f
+                    )
+                )
+        )
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            items(levels) { level ->
-                LevelSection(level, courses.filter { it.level == level.level }, onCourseClick)
-                Spacer(modifier = Modifier.height(24.dp))
+            Text(
+                text = "EM DESTAQUE",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 2.sp
+            )
+            Text(
+                text = course.title.uppercase(),
+                style = MaterialTheme.typography.titleLarge,
+                fontSize = 42.sp,
+                lineHeight = 44.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Button(
+                    onClick = { onCourseClick(course.id) },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(4.dp),
+                    modifier = Modifier.height(36.dp)
+                ) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.Black)
+                    Text("Assistir", color = Color.Black, fontWeight = FontWeight.Bold)
+                }
+                OutlinedButton(
+                    onClick = { onCourseClick(course.id) },
+                    border = null,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                ) {
+                    Icon(Icons.Default.Info, contentDescription = null)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Saiba mais", fontWeight = FontWeight.Bold)
+                }
             }
         }
     }
@@ -56,15 +184,18 @@ fun HomeScreen(onCourseClick: (String) -> Unit) {
 
 @Composable
 fun LevelSection(level: TheoLevel, courses: List<Course>, onCourseClick: (String) -> Unit) {
-    Column {
+    Column(modifier = Modifier.padding(start = 16.dp)) {
         Text(
-            text = level.title.uppercase(),
+            text = level.title,
             style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.primary,
-            fontSize = 18.sp,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(bottom = 12.dp)
         )
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(end = 16.dp)
+        ) {
             items(courses) { course ->
                 CourseCard(course, onCourseClick)
             }
@@ -74,27 +205,26 @@ fun LevelSection(level: TheoLevel, courses: List<Course>, onCourseClick: (String
 
 @Composable
 fun CourseCard(course: Course, onCourseClick: (String) -> Unit) {
-    Card(
-        onClick = { onCourseClick(course.id) },
-        modifier = Modifier.width(200.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    Column(
+        modifier = Modifier
+            .width(130.dp)
+            .clickable { onCourseClick(course.id) }
     ) {
-        Column {
-            AsyncImage(
-                model = course.image,
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(16f / 9f),
-                contentScale = ContentScale.Crop
-            )
-            Text(
-                text = course.title,
-                modifier = Modifier.padding(8.dp),
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1
-            )
-        }
+        AsyncImage(
+            model = course.image,
+            contentDescription = null,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(180.dp)
+                .clip(RoundedCornerShape(4.dp)),
+            contentScale = ContentScale.Crop
+        )
+        Text(
+            text = course.title,
+            modifier = Modifier.padding(top = 4.dp),
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.LightGray,
+            maxLines = 1
+        )
     }
 }

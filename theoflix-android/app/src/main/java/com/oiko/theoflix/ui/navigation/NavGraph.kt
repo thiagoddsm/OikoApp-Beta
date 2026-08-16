@@ -6,8 +6,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.oiko.theoflix.ui.screens.details.CourseDetailScreen
 import com.oiko.theoflix.ui.screens.home.HomeScreen
+import com.oiko.theoflix.ui.screens.login.LoginScreen
+import com.oiko.theoflix.ui.screens.player.PlayerScreen
 
 sealed class Screen(val route: String) {
+    object Login : Screen("login")
     object Home : Screen("home")
     object CourseDetails : Screen("course_details/{courseId}") {
         fun createRoute(courseId: String) = "course_details/$courseId"
@@ -18,10 +21,13 @@ sealed class Screen(val route: String) {
 }
 
 @Composable
-fun TheoFlixNavGraph(navController: NavHostController) {
-    NavHost(navController = navController, startDestination = Screen.Login.route) {
+fun TheoFlixNavGraph(
+    navController: NavHostController,
+    startDestination: String = Screen.Login.route
+) {
+    NavHost(navController = navController, startDestination = startDestination) {
         composable(Screen.Login.route) {
-            com.oiko.theoflix.ui.screens.login.LoginScreen(onLoginSuccess = {
+            LoginScreen(onLoginSuccess = {
                 navController.navigate(Screen.Home.route) {
                     popUpTo(Screen.Login.route) { inclusive = true }
                 }
@@ -44,7 +50,10 @@ fun TheoFlixNavGraph(navController: NavHostController) {
         }
         composable(Screen.Player.route) { backStackEntry ->
             val videoId = backStackEntry.arguments?.getString("videoId") ?: ""
-            com.oiko.theoflix.ui.screens.player.PlayerScreen(videoId = videoId, onBack = { navController.popBackStack() })
+            PlayerScreen(
+                videoId = videoId,
+                onBack = { navController.popBackStack() }
+            )
         }
     }
 }
