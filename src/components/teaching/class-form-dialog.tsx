@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Calendar as CalendarIcon, X, PlusCircle, Users, Clock, GraduationCap } from 'lucide-react';
+import { Loader2, Calendar as CalendarIcon, X, PlusCircle, Users, Clock, GraduationCap, Sparkles, BookOpen, Layers } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useVolunteering, Class, Course } from '@/contexts/volunteering-context';
 import { Calendar } from '@/components/ui/calendar';
@@ -21,6 +21,51 @@ import { useMembersData, useEventsData, useCoursesData } from "@/hooks/useDomain
 
 type User = { id: string; name: string; isTeacher?: boolean; };
 const weekDays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+
+function getSuggestedCycle(sDateStr: string, eDateStr?: string): string {
+  if (!sDateStr) return '';
+  try {
+    const sDate = parseISO(sDateStr);
+    if (isNaN(sDate.getTime())) return '';
+    const sMonth = sDate.getMonth(); // 0 a 11
+    const sYear = sDate.getFullYear();
+
+    let eMonth = sMonth;
+    if (eDateStr) {
+      const eDate = parseISO(eDateStr);
+      if (!isNaN(eDate.getTime())) {
+        eMonth = eDate.getMonth();
+      }
+    }
+
+    const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+    // Caso 1: Trilho Teológico Padrão (Março-Abril ou Setembro-Outubro)
+    if ((sMonth === 2 || sMonth === 3) && (eMonth === 2 || eMonth === 3)) {
+      return `1º Semestre de ${sYear} (Março - Abril)`;
+    }
+    if ((sMonth === 8 || sMonth === 9) && (eMonth === 8 || eMonth === 9)) {
+      return `2º Semestre de ${sYear} (Setembro - Outubro)`;
+    }
+
+    // Caso 2: Trimestral (Discipulado / EBD)
+    if (sMonth === 0 && eMonth <= 2) return `1º Trimestre de ${sYear} (Janeiro - Março)`;
+    if (sMonth >= 3 && sMonth <= 5 && eMonth <= 5) return `2º Trimestre de ${sYear} (Abril - Junho)`;
+    if (sMonth >= 6 && sMonth <= 8 && eMonth <= 8) return `3º Trimestre de ${sYear} (Julho - Setembro)`;
+    if (sMonth >= 9 && sMonth <= 11 && eMonth <= 11) return `4º Trimestre de ${sYear} (Outubro - Dezembro)`;
+
+    // Caso 3: Semestral Geral
+    if (sMonth <= 5 && eMonth <= 5) return `1º Semestre de ${sYear} (${monthNames[sMonth]} - ${monthNames[eMonth]})`;
+    if (sMonth >= 6 && eMonth >= 6) return `2º Semestre de ${sYear} (${monthNames[sMonth]} - ${monthNames[eMonth]})`;
+
+    // Caso 4: Mesmo mês
+    if (sMonth === eMonth) return `${monthNames[sMonth]} de ${sYear}`;
+
+    return `${monthNames[sMonth]} a ${monthNames[eMonth]} de ${sYear}`;
+  } catch {
+    return '';
+  }
+}
 
 interface ClassFormDialogProps {
   open: boolean;
@@ -40,6 +85,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId }:
   const [name, setName] = useState('');
   const [creationMode, setCreationMode] = useState<'single' | 'cycle'>('single');
   const [cycle, setCycle] = useState('');
+  const [isCyclePopoverOpen, setIsCyclePopoverOpen] = useState(false);
   
   type CycleSchedule = {
       id: string;
@@ -83,6 +129,29 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId }:
 
   const teachers = useMemo(() => users?.filter(u => u.isTeacher) || [], [users]);
   const isLoading = isLoadingContext;
+
+  // Ciclos únicos existentes no banco para reaproveitamento
+  const existingCycles = useMemo(() => {
+    const set = new Set<string>();
+    classes?.forEach(c => {
+      if (c.cycle && c.cycle.trim()) set.add(c.cycle.trim());
+    });
+    return Array.from(set).sort((a, b) => b.localeCompare(a));
+  }, [classes]);
+
+  // Sugestão automática de ciclo pelas datas
+  const autoSuggestedCycle = useMemo(() => {
+    return getSuggestedCycle(startDate, endDate);
+  }, [startDate, endDate]);
+
+  // Ano de referência para presets
+  const activeYear = useMemo(() => {
+    if (startDate) {
+      const d = parseISO(startDate);
+      if (!isNaN(d.getTime())) return d.getFullYear();
+    }
+    return new Date().getFullYear();
+  }, [startDate]);
 
   useEffect(() => {
     if (open) {
@@ -346,10 +415,154 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId }:
               
               {creationMode === 'single' && (
                   <div className="space-y-2">
-                    <Label htmlFor="cycle" className="text-[10px] uppercase font-black text-muted-foreground tracking-wider flex items-center gap-2">
-                        Ciclo (Opcional)
-                    </Label>
-                    <Input id="cycle" value={cycle} onChange={e => setCycle(e.target.value)} placeholder="Ex: 2º Semestre/2026, Julho/2026" className="h-11" />
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="cycle" className="text-[10px] uppercase font-black text-muted-foreground tracking-wider flex items-center gap-1.5">
+                          <Sparkles className="size-3 text-amber-500" />
+                          Ciclo (Opcional)
+                      </Label>
+                      {autoSuggestedCycle && cycle !== autoSuggestedCycle && (
+                        <button
+                          type="button"
+                          onClick={() => setCycle(autoSuggestedCycle)}
+                          className="text-[10px] text-primary hover:underline font-bold flex items-center gap-1 transition-colors"
+                          title="Preencher ciclo sugerido pelas datas da turma"
+                        >
+                          <Sparkles className="size-2.5" />
+                          <span>Sugerir: {autoSuggestedCycle.split(' (')[0]}</span>
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Input 
+                        id="cycle" 
+                        value={cycle} 
+                        onChange={e => setCycle(e.target.value)} 
+                        placeholder="Ex: 1º Semestre de 2026 (Março - Abril)" 
+                        className="h-11 font-medium flex-1" 
+                      />
+
+                      <Popover open={isCyclePopoverOpen} onOpenChange={setIsCyclePopoverOpen}>
+                        <PopoverTrigger asChild>
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            className="h-11 px-3 border-dashed shrink-0 bg-slate-50 dark:bg-slate-900/60 hover:bg-slate-100" 
+                            title="Escolher ciclo padronizado"
+                          >
+                            <Sparkles className="size-3.5 text-primary mr-1.5" />
+                            <span className="text-xs font-bold">Presets</span>
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[340px] p-0" align="end">
+                          <Command>
+                            <CommandInput placeholder="Buscar ou escolher ciclo..." className="text-xs" />
+                            <CommandList className="max-h-[320px] overflow-y-auto">
+                              <CommandEmpty className="p-3 text-xs text-muted-foreground text-center">Nenhum ciclo encontrado.</CommandEmpty>
+                              
+                              {autoSuggestedCycle && (
+                                <CommandGroup heading="✨ Sugestão Pelas Datas">
+                                  <CommandItem
+                                    onSelect={() => {
+                                      setCycle(autoSuggestedCycle);
+                                      setIsCyclePopoverOpen(false);
+                                    }}
+                                    className="text-xs font-bold text-primary cursor-pointer"
+                                  >
+                                    <Check className={cn("mr-2 size-3.5", cycle === autoSuggestedCycle ? "opacity-100" : "opacity-0")} />
+                                    {autoSuggestedCycle}
+                                  </CommandItem>
+                                </CommandGroup>
+                              )}
+
+                              <CommandGroup heading="🏛️ Trilho Teológico (Semestral)">
+                                <CommandItem 
+                                  onSelect={() => {
+                                    setCycle(`1º Semestre de ${activeYear} (Março - Abril)`);
+                                    setIsCyclePopoverOpen(false);
+                                  }} 
+                                  className="text-xs cursor-pointer"
+                                >
+                                  <Check className={cn("mr-2 size-3.5", cycle === `1º Semestre de ${activeYear} (Março - Abril)` ? "opacity-100" : "opacity-0")} />
+                                  1º Semestre de {activeYear} (Março - Abril)
+                                </CommandItem>
+                                <CommandItem 
+                                  onSelect={() => {
+                                    setCycle(`2º Semestre de ${activeYear} (Setembro - Outubro)`);
+                                    setIsCyclePopoverOpen(false);
+                                  }} 
+                                  className="text-xs cursor-pointer"
+                                >
+                                  <Check className={cn("mr-2 size-3.5", cycle === `2º Semestre de ${activeYear} (Setembro - Outubro)` ? "opacity-100" : "opacity-0")} />
+                                  2º Semestre de {activeYear} (Setembro - Outubro)
+                                </CommandItem>
+                              </CommandGroup>
+
+                              <CommandGroup heading="📖 Trilho Discipulado (Trimestral)">
+                                <CommandItem 
+                                  onSelect={() => {
+                                    setCycle(`1º Trimestre de ${activeYear} (Janeiro - Março)`);
+                                    setIsCyclePopoverOpen(false);
+                                  }} 
+                                  className="text-xs cursor-pointer"
+                                >
+                                  <Check className={cn("mr-2 size-3.5", cycle.includes('1º Trimestre') ? "opacity-100" : "opacity-0")} />
+                                  1º Trimestre de {activeYear} (Janeiro - Março)
+                                </CommandItem>
+                                <CommandItem 
+                                  onSelect={() => {
+                                    setCycle(`2º Trimestre de ${activeYear} (Abril - Junho)`);
+                                    setIsCyclePopoverOpen(false);
+                                  }} 
+                                  className="text-xs cursor-pointer"
+                                >
+                                  <Check className={cn("mr-2 size-3.5", cycle.includes('2º Trimestre') ? "opacity-100" : "opacity-0")} />
+                                  2º Trimestre de {activeYear} (Abril - Junho)
+                                </CommandItem>
+                                <CommandItem 
+                                  onSelect={() => {
+                                    setCycle(`3º Trimestre de ${activeYear} (Julho - Setembro)`);
+                                    setIsCyclePopoverOpen(false);
+                                  }} 
+                                  className="text-xs cursor-pointer"
+                                >
+                                  <Check className={cn("mr-2 size-3.5", cycle.includes('3º Trimestre') ? "opacity-100" : "opacity-0")} />
+                                  3º Trimestre de {activeYear} (Julho - Setembro)
+                                </CommandItem>
+                                <CommandItem 
+                                  onSelect={() => {
+                                    setCycle(`4º Trimestre de ${activeYear} (Outubro - Dezembro)`);
+                                    setIsCyclePopoverOpen(false);
+                                  }} 
+                                  className="text-xs cursor-pointer"
+                                >
+                                  <Check className={cn("mr-2 size-3.5", cycle.includes('4º Trimestre') ? "opacity-100" : "opacity-0")} />
+                                  4º Trimestre de {activeYear} (Outubro - Dezembro)
+                                </CommandItem>
+                              </CommandGroup>
+
+                              {existingCycles.length > 0 && (
+                                <CommandGroup heading="📁 Ciclos Já Criados no Sistema">
+                                  {existingCycles.map(c => (
+                                    <CommandItem 
+                                      key={c} 
+                                      onSelect={() => {
+                                        setCycle(c);
+                                        setIsCyclePopoverOpen(false);
+                                      }} 
+                                      className="text-xs cursor-pointer"
+                                    >
+                                      <Check className={cn("mr-2 size-3.5", cycle === c ? "opacity-100" : "opacity-0")} />
+                                      {c}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              )}
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
                   </div>
               )}
               <div className="space-y-2">
