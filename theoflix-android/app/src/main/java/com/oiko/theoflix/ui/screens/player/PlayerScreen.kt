@@ -26,9 +26,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.google.firebase.auth.FirebaseAuth
-import com.oiko.theoflix.data.models.Course
 import com.oiko.theoflix.data.models.Episode
-import com.oiko.theoflix.data.models.Question
 import com.oiko.theoflix.data.models.UserProgress
 import com.oiko.theoflix.data.repository.TheoflixRepository
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.PlayerConstants
@@ -79,7 +77,6 @@ fun PlayerScreen(
     val scope = rememberCoroutineScope()
     val cleanVideoId = remember(videoId) { extractYouTubeVideoId(videoId) }
     
-    var playbackError by remember { mutableStateOf<String?>(null) }
     var currentEpisode by remember { mutableStateOf<Episode?>(null) }
     var isSaving by remember { mutableStateOf(false) }
     var isCompletedLocally by remember { mutableStateOf(false) }
@@ -146,80 +143,40 @@ fun PlayerScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-        if (playbackError == null) {
-            AndroidView(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(16f / 9f)
-                    .align(Alignment.Center),
-                factory = { ctx ->
-                    YouTubePlayerView(ctx).apply {
-                        enableAutomaticInitialization = false
-                        val options = IFramePlayerOptions.Builder()
-                            .controls(1)
-                            .fullscreen(1)
-                            .autoplay(1)
-                            .build()
+        // Player de Vídeo Nativo Sempre Visível e Ativo
+        AndroidView(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(16f / 9f)
+                .align(Alignment.Center),
+            factory = { ctx ->
+                YouTubePlayerView(ctx).apply {
+                    enableAutomaticInitialization = false
+                    val options = IFramePlayerOptions.Builder()
+                        .controls(1)
+                        .fullscreen(1)
+                        .autoplay(1)
+                        .build()
 
-                        initialize(object : AbstractYouTubePlayerListener() {
-                            override fun onReady(youTubePlayer: YouTubePlayer) {
-                                youTubePlayer.loadVideo(cleanVideoId, 0f)
+                    initialize(object : AbstractYouTubePlayerListener() {
+                        override fun onReady(youTubePlayer: YouTubePlayer) {
+                            youTubePlayer.loadVideo(cleanVideoId, 0f)
+                        }
+
+                        override fun onStateChange(
+                            youTubePlayer: YouTubePlayer,
+                            state: PlayerConstants.PlayerState
+                        ) {
+                            if (state == PlayerConstants.PlayerState.ENDED) {
+                                handleCompleteClick()
                             }
+                        }
+                    }, options)
 
-                            override fun onStateChange(
-                                youTubePlayer: YouTubePlayer,
-                                state: PlayerConstants.PlayerState
-                            ) {
-                                if (state == PlayerConstants.PlayerState.ENDED) {
-                                    handleCompleteClick()
-                                }
-                            }
-
-                            override fun onError(
-                                youTubePlayer: YouTubePlayer,
-                                error: PlayerConstants.PlayerError
-                            ) {
-                                playbackError = "Erro $error: Este vídeo possui restrição de reprodução externa do YouTube."
-                            }
-                        }, options)
-
-                        lifecycleOwner.lifecycle.addObserver(this)
-                    }
-                }
-            )
-        } else {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(32.dp)
-                    .align(Alignment.Center),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "Restrição de Reprodução do YouTube",
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = "O proprietário do vídeo ativou restrições de incorporação externa no YouTube ou o formato requer abertura direta.",
-                    color = Color.LightGray,
-                    style = MaterialTheme.typography.bodySmall,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(24.dp))
-                Button(
-                    onClick = { openInYouTube() },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                ) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Assistir no App do YouTube", fontWeight = FontWeight.Bold)
+                    lifecycleOwner.lifecycle.addObserver(this)
                 }
             }
-        }
+        )
 
         // Top Bar com fechar e botão rápido do YouTube
         Row(
@@ -241,6 +198,8 @@ fun PlayerScreen(
                 onClick = { openInYouTube() },
                 modifier = Modifier.background(Color.Black.copy(alpha = 0.6f), shape = MaterialTheme.shapes.small)
             ) {
+                Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
                 Text("Abrir no YouTube", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
