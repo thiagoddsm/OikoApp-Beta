@@ -44,13 +44,10 @@ export function TheoflixWatchReport() {
     );
     const { data: dbCourses, isLoading: isLoadingCourses } = useCollection<Course>(coursesQuery);
 
-    // Merge DB courses with local predefined courses
+    // Cursos do banco de dados (sem duplicar com defaults)
     const allCourses = useMemo(() => {
-        const baseCourses = (dbCourses && dbCourses.length > 0) ? dbCourses : theoflixDB;
-        if (!dbCourses || dbCourses.length === 0) return baseCourses;
-        const dbIds = new Set(dbCourses.map(c => c.id));
-        const localFiltered = theoflixDB.filter(c => !dbIds.has(c.id));
-        return [...dbCourses, ...localFiltered];
+        if (dbCourses && dbCourses.length > 0) return dbCourses;
+        return theoflixDB;
     }, [dbCourses]);
 
     // Select the first course by default

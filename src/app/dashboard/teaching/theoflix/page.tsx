@@ -118,11 +118,8 @@ function TheoFlixContent() {
   }, [dbLevels]);
 
   const allCourses = useMemo(() => {
-    const baseCourses = (dbCourses && dbCourses.length > 0) ? dbCourses : theoflixDB;
-    if (!dbCourses || dbCourses.length === 0) return baseCourses;
-    const dbIds = new Set(dbCourses.map(c => c.id));
-    const localFiltered = theoflixDB.filter(c => !dbIds.has(c.id));
-    return [...dbCourses, ...localFiltered];
+    if (dbCourses && dbCourses.length > 0) return dbCourses;
+    return theoflixDB;
   }, [dbCourses]);
 
   const calculatedTotalDuration = useMemo(() => {

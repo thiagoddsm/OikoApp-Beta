@@ -80,6 +80,18 @@ fun HomeScreen(
                                 Spacer(modifier = Modifier.height(24.dp))
                             }
                         }
+                        val matchedLevels = currentState.levels.map { it.level }.toSet()
+                        val otherCourses = currentState.courses.filter { it.level !in matchedLevels }
+                        if (otherCourses.isNotEmpty()) {
+                            item {
+                                LevelSection(
+                                    level = TheoLevel(id = "outros", level = 99, title = "Cursos Eletivos e Diversos", color = "indigo"),
+                                    courses = otherCourses,
+                                    onCourseClick = onCourseClick
+                                )
+                                Spacer(modifier = Modifier.height(24.dp))
+                            }
+                        }
                         item {
                             Spacer(modifier = Modifier.height(80.dp))
                         }
