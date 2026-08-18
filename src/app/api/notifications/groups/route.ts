@@ -64,6 +64,29 @@ export async function GET(request: Request) {
             .filter((p: any) => p.admin === 'admin' || p.admin === 'superadmin')
             .map((p: any) => ({ id: p.id, role: p.admin }));
 
+        // Busca o link / código de convite do grupo se não vier diretamente
+        let inviteCode = groupData.inviteCode || groupData.code || '';
+        let inviteUrl = inviteCode ? `https://chat.whatsapp.com/${inviteCode}` : '';
+        if (!inviteUrl) {
+            try {
+                const inviteRes = await fetch(`${baseUrl}/group/inviteCode/${instanceName}?groupJid=${encodeURIComponent(groupId)}`, {
+                    method: 'GET',
+                    headers: { 'accept': '*/*', 'apikey': waKey },
+                    cache: 'no-store',
+                });
+                if (inviteRes.ok) {
+                    const inviteData = await inviteRes.json().catch(() => ({}));
+                    const code = inviteData.code || inviteData.inviteCode || inviteData.data?.code || inviteData.data?.inviteCode;
+                    if (code) {
+                        inviteCode = code;
+                        inviteUrl = `https://chat.whatsapp.com/${code}`;
+                    }
+                }
+            } catch (e: any) {
+                console.warn('Erro ao buscar inviteCode do grupo:', e?.message);
+            }
+        }
+
         return NextResponse.json({
             id: groupData.id,
             name: groupData.subject || 'Grupo sem Nome',
@@ -73,6 +96,8 @@ export async function GET(request: Request) {
             announce: groupData.announce ?? false,
             isCommunity: groupData.isCommunity ?? false,
             isCommunityAnnounce: groupData.isCommunityAnnounce ?? false,
+            inviteCode,
+            inviteUrl,
             admins,
             createdAt: groupData.creation ? new Date(groupData.creation * 1000).toISOString() : null,
             participants: groupData.participants || []
@@ -141,7 +166,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ success: false, error: 'API Key não configurada.' }, { status: 400 });
         }
 
-        // Resolve JIDs/LIDs directly from Firestore database (cache) or check WhatsApp database (Evolution API)
+        // Resolve JIDs/LIDs directly from Firestore database (cache) or clean phone format
         const resolvedParticipants: string[] = [];
         for (const p of (participants || [])) {
             if (p.includes('@')) {
@@ -161,55 +186,25 @@ export async function POST(request: Request) {
             const queryPhone = clean.startsWith('55') ? clean : `55${clean}`;
             
             try {
-                // 1. Tenta buscar o contato no Firestore local (cache) para evitar sobrecarregar a API
+                // Tenta buscar o contato no Firestore local (cache) para usar LID/JID se já conhecido
                 const contactDoc = await db.collection('notifications_contacts').doc(phoneNoCountry).get();
                 if (contactDoc.exists) {
                     const cData = contactDoc.data();
                     const cachedId = cData?.lid || cData?.jid;
                     if (cachedId) {
                         resolvedParticipants.push(cachedId);
-                        console.log(`[WhatsApp Group Create] Resolved participant ${clean} from FIRESTORE CACHE: ${cachedId}`);
-                        continue;
-                    }
-                }
-                
-                // 2. Se não estiver no cache, consulta no endpoint da Evolution API
-                const checkRes = await fetch(`${serverUrl}/chat/whatsappNumbers/${instanceName}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'apikey': waKey },
-                    body: JSON.stringify({ numbers: [queryPhone] })
-                });
-                
-                const checkData = await checkRes.json().catch(() => null);
-                const info = Array.isArray(checkData) ? checkData[0] : (checkData ? checkData["0"] || checkData : null);
-                
-                if (info && info.exists) {
-                    // Prioriza o LID se disponível, caindo para JID como segunda opção
-                    const trueJid = info.lid || info.jid;
-                    if (trueJid) {
-                        resolvedParticipants.push(trueJid);
-                        
-                        // Grava no Firestore cache de contatos para as próximas execuções
-                        await db.collection('notifications_contacts').doc(phoneNoCountry).set({
-                            phoneNumber: phoneNoCountry,
-                            jid: info.jid || null,
-                            lid: info.lid || null,
-                            updatedAt: new Date(),
-                        }, { merge: true });
-                        
-                        console.log(`[WhatsApp Group Create] Resolved participant ${queryPhone} from EVOLUTION: ${trueJid} (Cached locally)`);
                         continue;
                     }
                 }
             } catch (e: any) {
-                console.warn(`[WhatsApp Group Create] Failed to resolve identity for ${queryPhone}:`, e.message);
+                console.warn(`[WhatsApp Group Create] Cache lookup error for ${phoneNoCountry}:`, e?.message);
             }
             
-            // Fallback de segurança para número tradicional se nenhuma verificação retornar sucesso
+            // Formato padrão seguro (evita flood de consultas no socket do WhatsApp)
             resolvedParticipants.push(`${queryPhone}@s.whatsapp.net`);
         }
 
-        console.log(`[WhatsApp Group Create] Attempting to create "${groupName}" with verified participants:`, resolvedParticipants);
+        console.log(`[WhatsApp Group Create] Attempting to create "${groupName}" with participants:`, resolvedParticipants);
 
         const res = await fetch(`${serverUrl}/group/create/${instanceName}`, {
             method: 'POST',
@@ -229,7 +224,6 @@ export async function POST(request: Request) {
             console.error("Evolution API Group Create Error Payload:", resData);
             let detailError = resData.message || (Array.isArray(resData.error) ? resData.error.join(', ') : resData.error) || null;
             
-            // Check if it's a common Evolution instance status or configuration issue
             if (res.status === 400 && !detailError) {
                 detailError = "Instância do WhatsApp desconectada (IBM) ou sem participantes válidos selecionados.";
             } else if (res.status === 403 || res.status === 401) {
@@ -239,15 +233,46 @@ export async function POST(request: Request) {
             return NextResponse.json({ 
                 success: false, 
                 error: detailError || `Erro ${res.status} ao criar grupo no WhatsApp (Evolution API)`,
-                rawError: resData // Expondo o payload inteiro do erro da Evolution para análise
+                rawError: resData
             }, { status: res.status });
         }
 
-        // Evolution API returns JID on success. If JID is missing, we still accept the success status.
         const groupInfo = resData.data || resData;
         const groupJid = groupInfo.id || groupInfo.jid || groupInfo.key?.remoteJid || null;
 
-        return NextResponse.json({ success: true, group: groupInfo, jid: groupJid });
+        // Tenta obter o inviteCode do grupo recém-criado
+        let inviteCode = groupInfo.inviteCode || groupInfo.code || '';
+        let inviteUrl = inviteCode ? `https://chat.whatsapp.com/${inviteCode}` : '';
+
+        if (groupJid && !inviteUrl) {
+            try {
+                // Pequena pausa de 1s para o grupo registrar no Baileys antes de gerar o inviteCode
+                await new Promise(r => setTimeout(r, 1000));
+                const inviteRes = await fetch(`${serverUrl}/group/inviteCode/${instanceName}?groupJid=${encodeURIComponent(groupJid)}`, {
+                    method: 'GET',
+                    headers: { 'accept': '*/*', 'apikey': waKey },
+                    cache: 'no-store',
+                });
+                if (inviteRes.ok) {
+                    const inviteData = await inviteRes.json().catch(() => ({}));
+                    const code = inviteData.code || inviteData.inviteCode || inviteData.data?.code || inviteData.data?.inviteCode;
+                    if (code) {
+                        inviteCode = code;
+                        inviteUrl = `https://chat.whatsapp.com/${code}`;
+                    }
+                }
+            } catch (invErr: any) {
+                console.warn('Erro ao obter inviteCode do novo grupo:', invErr?.message);
+            }
+        }
+
+        return NextResponse.json({ 
+            success: true, 
+            group: groupInfo, 
+            jid: groupJid, 
+            inviteCode, 
+            inviteUrl 
+        });
     } catch (error: any) {
         console.error("Internal Server Error in Group POST route:", error);
         return NextResponse.json({ error: error.message }, { status: 500 });

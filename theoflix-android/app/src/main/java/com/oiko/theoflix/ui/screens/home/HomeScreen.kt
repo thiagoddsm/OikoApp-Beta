@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -241,21 +242,32 @@ fun CourseCard(course: Course, onCourseClick: (String) -> Unit) {
             .width(130.dp)
             .clickable { onCourseClick(course.id) }
     ) {
-        AsyncImage(
-            model = course.image,
-            contentDescription = null,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(180.dp)
-                .clip(RoundedCornerShape(4.dp)),
-            contentScale = ContentScale.Crop
-        )
+        Box {
+            AsyncImage(
+                model = course.image,
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp)
+                    .clip(RoundedCornerShape(4.dp)),
+                contentScale = ContentScale.Crop
+            )
+            // Progress Bar simulation at the bottom of the poster if partially watched
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.6f) // Simulation of 60% progress
+                    .height(3.dp)
+                    .align(Alignment.BottomStart)
+                    .background(MaterialTheme.colorScheme.primary)
+            )
+        }
         Text(
             text = course.title,
             modifier = Modifier.padding(top = 4.dp),
             style = MaterialTheme.typography.labelSmall,
             color = Color.LightGray,
-            maxLines = 1
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }

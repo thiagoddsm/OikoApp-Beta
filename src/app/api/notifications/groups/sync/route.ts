@@ -53,45 +53,79 @@ export async function POST(request: Request) {
         const groupDetails = groupDataRes.data || groupDataRes;
         const currentGroupParticipants = groupDetails.participants || []; // Array of { id: string, admin: string | boolean }
 
-        // 3. Resolve target phone list from Firestore (Class Students)
+        // 3. Resolve target phone list from Firestore (Class Students, Teachers and Support Staff)
+        let courseData: any = {};
+        if (classData.courseId) {
+            const courseSnap = await db.collection('courses').doc(classData.courseId).get().catch(() => null);
+            if (courseSnap && courseSnap.exists) {
+                courseData = courseSnap.data() || {};
+            }
+        }
+
         const isCompleted = classData.status === 'completed';
-        const classStudentsIds = isCompleted ? [] : (students || classData.students || []); // If completed, remove all students!
+        const classStudentsIds: string[] = isCompleted ? [] : (students || classData.students || []);
 
-        const studentsPhoneJids: string[] = [];
-        const studentIdentities = new Set<string>(); // Set of all possible identifiers for students (LID, JID, phone)
-        const studentIdToJidMap = new Map<string, string>();
+        // Coleta Professores da Turma e do Curso
+        const teacherIdsSet = new Set<string>();
+        if (classData.teacherId) teacherIdsSet.add(classData.teacherId);
+        if (Array.isArray(classData.teacherIds)) classData.teacherIds.forEach((id: string) => teacherIdsSet.add(id));
+        if (Array.isArray(courseData.teacherIds)) courseData.teacherIds.forEach((id: string) => teacherIdsSet.add(id));
+        if (classData.scheduleOverrides) {
+            Object.values(classData.scheduleOverrides).forEach((ov: any) => {
+                if (ov?.teacherId) teacherIdsSet.add(ov.teacherId);
+            });
+        }
 
-        if (classStudentsIds.length > 0) {
+        // Coleta Equipe de Apoio / Secretários da Turma e do Curso
+        const supportIdsSet = new Set<string>();
+        const rawClassSupport = classData.supportTeamIds || classData.supportTeam || [];
+        const rawCourseSupport = courseData.supportTeamIds || courseData.supportTeam || [];
+        if (Array.isArray(rawClassSupport)) rawClassSupport.forEach((id: string) => supportIdsSet.add(id));
+        if (Array.isArray(rawCourseSupport)) rawCourseSupport.forEach((id: string) => supportIdsSet.add(id));
+
+        // Todos os IDs autorizados a estarem no grupo
+        const allTargetUserIds = Array.from(new Set([
+            ...classStudentsIds,
+            ...Array.from(teacherIdsSet),
+            ...Array.from(supportIdsSet)
+        ]));
+
+        const targetPhoneJids: string[] = [];
+        const authorizedIdentities = new Set<string>(); // Set of all possible identifiers for students, teachers and support (LID, JID, phone)
+        const studentPhoneJids: string[] = [];
+
+        if (allTargetUserIds.length > 0) {
             // Chunk ids in sizes of 30 due to Firestore "in" constraint
             const chunks: string[][] = [];
-            for (let i = 0; i < classStudentsIds.length; i += 30) {
-                chunks.push(classStudentsIds.slice(i, i + 30));
+            for (let i = 0; i < allTargetUserIds.length; i += 30) {
+                chunks.push(allTargetUserIds.slice(i, i + 30));
             }
 
             for (const chunk of chunks) {
-                const studentsSnap = await db.collection('users').where('__name__', 'in', chunk).get();
-                studentsSnap.docs.forEach(docSnap => {
+                const usersSnap = await db.collection('users').where('__name__', 'in', chunk).get();
+                usersSnap.docs.forEach(docSnap => {
                     const u = docSnap.data();
                     const uPhone = String(u.phone || u.phoneNumber || '').replace(/\D/g, '');
                     
-                    // Adiciona o LID nas identidades do aluno se for válido
                     if (u.lid) {
                         const lidClean = String(u.lid).split('@')[0];
-                        studentIdentities.add(lidClean);
-                        studentIdentities.add(String(u.lid));
+                        authorizedIdentities.add(lidClean);
+                        authorizedIdentities.add(String(u.lid));
                     }
-                    // Adiciona o JID clássico
                     if (u.jid) {
                         const jidClean = String(u.jid).split('@')[0];
-                        studentIdentities.add(jidClean);
-                        studentIdentities.add(String(u.jid));
+                        authorizedIdentities.add(jidClean);
+                        authorizedIdentities.add(String(u.jid));
                     }
                     
                     if (uPhone && uPhone.length >= 8) {
                         const formatted = uPhone.startsWith('55') ? uPhone : `55${uPhone}`;
-                        studentIdToJidMap.set(docSnap.id, formatted);
-                        studentsPhoneJids.push(formatted);
-                        studentIdentities.add(formatted);
+                        targetPhoneJids.push(formatted);
+                        authorizedIdentities.add(formatted);
+
+                        if (classStudentsIds.includes(docSnap.id)) {
+                            studentPhoneJids.push(formatted);
+                        }
                     }
                 });
             }
@@ -99,15 +133,14 @@ export async function POST(request: Request) {
 
         // 4. Calculate Additions and Removals
         const botJid = groupDetails.owner;
-        const currentParticipantJids = currentGroupParticipants.map((p: any) => p.id);
 
-        // Additions: who is in student list but not in group (compares raw ID or JID)
-        const toAdd = studentsPhoneJids.filter(jid => {
+        // Additions: quem está na lista autorizada mas ainda não está no grupo
+        const toAdd = targetPhoneJids.filter(jid => {
             const raw = jid.split('@')[0];
             return !currentGroupParticipants.some((p: any) => p.id.includes(raw));
         });
 
-        // Removals: who is in group, not in student list, is not admin, and is not the bot
+        // Removals: quem está no grupo, mas NÃO é aluno/professor/apoio, NÃO é admin e NÃO é o bot
         const toRemove = currentGroupParticipants
             .filter((p: any) => {
                 const pId = p.id;
@@ -115,24 +148,21 @@ export async function POST(request: Request) {
                 const isAdmin = p.admin === 'admin' || p.admin === 'superadmin';
                 const isBot = rawId === '60765784527084' || pId === botJid;
                 
-                // Puxa o número de telefone associado ao LID ou JID enviado pela Evolution API (se houver)
                 const waPhone = p.id?.includes('@s.whatsapp.net') 
                     ? rawId 
                     : (p.phoneNumber || '').replace(/\D/g, '');
 
-                // O contato é considerado estudante se:
-                // 1. O ID do WhatsApp (LID/JID) estiver nas identidades do OikoApp
-                // 2. O número de telefone associado (waPhone) coincidir com o telefone de algum estudante da turma
-                const isStudent = studentIdentities.has(rawId) || 
-                                  studentIdentities.has(pId) || 
-                                  (waPhone && studentsPhoneJids.some(phone => phone.includes(waPhone) || waPhone.includes(phone)));
+                const isAuthorized = authorizedIdentities.has(rawId) || 
+                                     authorizedIdentities.has(pId) || 
+                                     (waPhone && targetPhoneJids.some(phone => phone.includes(waPhone) || waPhone.includes(phone)));
                 
-                return !isStudent && !isAdmin && !isBot;
+                return !isAuthorized && !isAdmin && !isBot;
             })
             .map((p: any) => p.id);
 
         let addedCount = 0;
         let removedCount = 0;
+        const privacyBlocked: string[] = [];
         const errors: string[] = [];
 
         // Helper function for chunking array
@@ -144,26 +174,39 @@ export async function POST(request: Request) {
             return chunks;
         };
 
-        // 5. Execute API Calls with anti-ban chunking and delays
+        // 5. Execute API Calls with anti-ban chunking and humanized delays
         if (toAdd.length > 0) {
             try {
-                // Chunk to max 3 additions at a time to look more human and avoid Meta ban
-                const addChunks = chunkArray(toAdd, 3);
+                // Chunk de no máximo 2 adições por vez para máxima segurança anti-ban
+                const addChunks = chunkArray(toAdd, 2);
                 for (let i = 0; i < addChunks.length; i++) {
                     if (i > 0) {
-                        // Pausa de 3 a 5 segundos entre chunks
-                        await new Promise(resolve => setTimeout(resolve, 3000 + Math.random() * 2000));
+                        // Pausa humanizada de 4 a 7 segundos entre lotes
+                        await new Promise(resolve => setTimeout(resolve, 4000 + Math.random() * 3000));
                     }
-                    const addRes = await fetch(`${serverUrl}/group/updateParticipant/${instanceName}?groupJid=${whatsappGroupId}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'apikey': waKey },
-                        body: JSON.stringify({ action: 'add', participants: addChunks[i] }),
-                    });
-                    if (!addRes.ok) {
-                        const errorMsg = await addRes.text();
-                        errors.push(`Falha ao adicionar integrante(s) ${addChunks[i].join(', ')}: ${errorMsg}`);
-                    } else {
-                        addedCount += addChunks[i].length;
+                    try {
+                        const addRes = await fetch(`${serverUrl}/group/updateParticipant/${instanceName}?groupJid=${whatsappGroupId}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'apikey': waKey },
+                            body: JSON.stringify({ action: 'add', participants: addChunks[i] }),
+                        });
+                        
+                        const addData = await addRes.json().catch(() => ({}));
+
+                        if (!addRes.ok) {
+                            const errorMsg = addData?.message || (Array.isArray(addData?.error) ? addData.error.join(', ') : addData?.error) || `Erro ${addRes.status}`;
+                            // Se for erro de restrição de privacidade do usuário, não derruba o fluxo
+                            if (addRes.status === 403 || String(errorMsg).includes('privacy') || String(errorMsg).includes('not-authorized')) {
+                                privacyBlocked.push(...addChunks[i]);
+                            } else {
+                                errors.push(`Falha ao adicionar: ${errorMsg}`);
+                            }
+                        } else {
+                            addedCount += addChunks[i].length;
+                        }
+                    } catch (itemErr: any) {
+                        console.warn('Erro ao processar lote de adição no grupo:', itemErr?.message);
+                        errors.push(`Erro de conexão ao adicionar: ${itemErr?.message}`);
                     }
                 }
             } catch (e: any) {
@@ -171,30 +214,33 @@ export async function POST(request: Request) {
             }
         }
 
-        // Delay de 4 a 6 segundos entre adições e remoções para evitar spam trigger
+        // Delay de 4 a 6 segundos entre adições e remoções
         if (toAdd.length > 0 && toRemove.length > 0) {
             await new Promise(resolve => setTimeout(resolve, 4000 + Math.random() * 2000));
         }
 
         if (toRemove.length > 0) {
             try {
-                // Chunk to max 3 removals at a time to look more human and avoid Meta ban
-                const removeChunks = chunkArray(toRemove, 3);
+                // Chunk de no máximo 2 remoções por vez
+                const removeChunks = chunkArray(toRemove, 2);
                 for (let i = 0; i < removeChunks.length; i++) {
                     if (i > 0) {
-                        // Pausa de 3 a 5 segundos entre chunks
-                        await new Promise(resolve => setTimeout(resolve, 3000 + Math.random() * 2000));
+                        await new Promise(resolve => setTimeout(resolve, 4000 + Math.random() * 2000));
                     }
-                    const removeRes = await fetch(`${serverUrl}/group/updateParticipant/${instanceName}?groupJid=${whatsappGroupId}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'apikey': waKey },
-                        body: JSON.stringify({ action: 'remove', participants: removeChunks[i] }),
-                    });
-                    if (!removeRes.ok) {
-                        const errorMsg = await removeRes.text();
-                        errors.push(`Falha ao remover integrante(s) ${removeChunks[i].join(', ')}: ${errorMsg}`);
-                    } else {
-                        removedCount += removeChunks[i].length;
+                    try {
+                        const removeRes = await fetch(`${serverUrl}/group/updateParticipant/${instanceName}?groupJid=${whatsappGroupId}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'apikey': waKey },
+                            body: JSON.stringify({ action: 'remove', participants: removeChunks[i] }),
+                        });
+                        if (!removeRes.ok) {
+                            const errorMsg = await removeRes.text();
+                            errors.push(`Falha ao remover integrante(s): ${errorMsg}`);
+                        } else {
+                            removedCount += removeChunks[i].length;
+                        }
+                    } catch (itemErr: any) {
+                        console.warn('Erro ao processar lote de remoção no grupo:', itemErr?.message);
                     }
                 }
             } catch (e: any) {
@@ -206,8 +252,12 @@ export async function POST(request: Request) {
             success: errors.length === 0,
             addedCount,
             removedCount,
+            privacyBlockedCount: privacyBlocked.length,
+            privacyBlocked,
             added: toAdd,
             removed: toRemove,
+            teachersProtected: teacherIdsSet.size,
+            supportProtected: supportIdsSet.size,
             errors: errors.length > 0 ? errors : undefined
         });
 
