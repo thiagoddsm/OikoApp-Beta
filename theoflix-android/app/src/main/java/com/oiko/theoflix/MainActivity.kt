@@ -33,16 +33,14 @@ class MainActivity : ComponentActivity() {
         setContent {
             TheoFlixTheme {
                 val navController = rememberNavController()
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Surface(
-                        modifier = Modifier.fillMaxSize().padding(innerPadding),
-                        color = MaterialTheme.colorScheme.background
-                    ) {
-                        TheoFlixNavGraph(
-                            navController = navController,
-                            startDestination = startDestination
-                        )
-                    }
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    TheoFlixNavGraph(
+                        navController = navController,
+                        startDestination = startDestination
+                    )
                 }
             }
         }

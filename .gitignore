@@ -38,6 +38,17 @@ yarn-error.log*
 next-env.d.ts
 
 .genkit/*
+
+# android
+theoflix-android/build/
+theoflix-android/app/build/
+theoflix-android/.gradle/
+theoflix-android/local.properties
+android-live/build/
+android-live/app/build/
+android-live/.gradle/
+android-live/local.properties
+*.log
 .env*
 
 # firebase

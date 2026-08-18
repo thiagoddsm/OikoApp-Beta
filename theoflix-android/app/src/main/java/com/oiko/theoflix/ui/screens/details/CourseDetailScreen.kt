@@ -5,7 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -20,15 +19,16 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.oiko.theoflix.data.models.Course
 import com.oiko.theoflix.data.models.Episode
-import com.oiko.theoflix.data.models.UserProgress
+import com.oiko.theoflix.ui.theme.TheoFlixTheme
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CourseDetailScreen(
     courseId: String,
@@ -42,112 +42,67 @@ fun CourseDetailScreen(
         viewModel.loadCourse(courseId)
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Voltar", tint = Color.White)
+    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        when (val currentState = state) {
+            is CourseDetailState.Loading -> {
+                CircularProgressIndicator(
+                    modifier = Modifier.align(Alignment.Center),
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            is CourseDetailState.Error -> {
+                Column(
+                    modifier = Modifier.align(Alignment.Center).padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(text = currentState.message, color = MaterialTheme.colorScheme.error)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(onClick = { viewModel.loadCourse(courseId) }) {
+                        Text("Tentar Novamente")
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
-            )
-        }
-    ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-        ) {
-            when (val currentState = state) {
-                is CourseDetailState.Loading -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.Center),
-                        color = MaterialTheme.colorScheme.primary
-                    )
                 }
-                is CourseDetailState.Error -> {
-                    Column(
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .padding(32.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = currentState.message,
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodyLarge
+            }
+            is CourseDetailState.Success -> {
+                val course = currentState.course
+                val progressMap = currentState.progressMap
+
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    item {
+                        HeaderSection(course, onBack, onPlayEpisode)
+                    }
+                    item {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "AULAS",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text(
+                                text = "${course.episodes.size} episódios",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.Gray
+                            )
+                        }
+                    }
+                    itemsIndexed(course.episodes) { index, episode ->
+                        val isCompleted = progressMap[episode.youtubeId]?.completed == true ||
+                                progressMap[index.toString()]?.completed == true
+
+                        EpisodeItem(
+                            number = index + 1,
+                            episode = episode,
+                            courseImage = course.image,
+                            isCompleted = isCompleted,
+                            onPlayEpisode = onPlayEpisode
                         )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { viewModel.loadCourse(courseId) }) {
-                            Text("Tentar Novamente")
-                        }
                     }
-                }
-                is CourseDetailState.Success -> {
-                    val course = currentState.course
-                    val progressMap = currentState.progressMap
-
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(bottom = 16.dp)
-                    ) {
-                        item {
-                            HeaderSection(course)
-                        }
-                        item {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "AULAS DISPONÍVEIS",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.Black,
-                                    letterSpacing = 1.sp
-                                )
-                                Text(
-                                    text = "${course.episodes.size} episódios",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = Color.Gray
-                                )
-                            }
-                        }
-
-                        if (course.episodes.isEmpty()) {
-                            item {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(32.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = "Nenhum episódio cadastrado para este curso.",
-                                        color = Color.Gray,
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                }
-                            }
-                        } else {
-                            itemsIndexed(course.episodes) { index, episode ->
-                                val isCompleted = progressMap[episode.youtubeId]?.completed == true ||
-                                        progressMap[index.toString()]?.completed == true
-
-                                EpisodeItem(
-                                    number = index + 1,
-                                    episode = episode,
-                                    isCompleted = isCompleted,
-                                    onPlayEpisode = onPlayEpisode
-                                )
-                            }
-                        }
+                    item {
+                        Spacer(modifier = Modifier.height(32.dp))
                     }
                 }
             }
@@ -156,28 +111,41 @@ fun CourseDetailScreen(
 }
 
 @Composable
-fun HeaderSection(course: Course) {
-    Box(modifier = Modifier.height(320.dp).fillMaxWidth()) {
+fun HeaderSection(course: Course, onBack: () -> Unit, onPlayEpisode: (Episode) -> Unit) {
+    Box(modifier = Modifier.fillMaxWidth()) {
         AsyncImage(
-            model = course.image.ifEmpty { "https://picsum.photos/seed/${course.id}/800/450" },
-            contentDescription = course.title,
-            modifier = Modifier.fillMaxSize(),
+            model = course.image.ifEmpty { "https://picsum.photos/seed/${course.id}/1200/800" },
+            contentDescription = null,
+            modifier = Modifier.fillMaxWidth().height(450.dp),
             contentScale = ContentScale.Crop
         )
         Box(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
+                .height(450.dp)
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
+                            Color.Black.copy(alpha = 0.4f),
                             Color.Transparent,
-                            MaterialTheme.colorScheme.background.copy(alpha = 0.5f),
+                            MaterialTheme.colorScheme.background.copy(alpha = 0.8f),
                             MaterialTheme.colorScheme.background
-                        ),
-                        startY = 50f
+                        )
                     )
                 )
         )
+        
+        // Back Button
+        IconButton(
+            onClick = onBack,
+            modifier = Modifier
+                .statusBarsPadding()
+                .padding(top = 8.dp, start = 8.dp)
+                .align(Alignment.TopStart)
+        ) {
+            Icon(Icons.Default.ArrowBack, contentDescription = "Voltar", tint = Color.White)
+        }
+
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
@@ -199,21 +167,31 @@ fun HeaderSection(course: Course) {
             Text(
                 text = course.title,
                 style = MaterialTheme.typography.titleLarge,
-                fontSize = 28.sp,
-                lineHeight = 32.sp,
-                fontWeight = FontWeight.Black,
-                color = Color.White
+                fontSize = 36.sp,
+                lineHeight = 40.sp,
+                fontWeight = FontWeight.Black
             )
-            if (course.desc.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = course.desc,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.LightGray,
-                    fontSize = 13.sp,
-                    maxLines = 3
-                )
+            Spacer(modifier = Modifier.height(12.dp))
+            Button(
+                onClick = { course.episodes.firstOrNull()?.let { onPlayEpisode(it) } },
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(4.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color.White)
+            ) {
+                Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.Black)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Assistir agora", color = Color.Black, fontWeight = FontWeight.Black)
             }
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = course.desc,
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color.LightGray,
+                fontSize = 15.sp,
+                lineHeight = 22.sp,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
@@ -222,6 +200,7 @@ fun HeaderSection(course: Course) {
 fun EpisodeItem(
     number: Int,
     episode: Episode,
+    courseImage: String,
     isCompleted: Boolean,
     onPlayEpisode: (Episode) -> Unit
 ) {
@@ -229,56 +208,70 @@ fun EpisodeItem(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onPlayEpisode(episode) }
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = number.toString().padStart(2, '0'),
-            color = if (isCompleted) MaterialTheme.colorScheme.primary else Color.DarkGray,
-            fontWeight = FontWeight.Black,
-            fontSize = 16.sp,
-            modifier = Modifier.width(32.dp)
-        )
-        Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = episode.title.ifEmpty { "Aula $number" },
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    fontSize = 15.sp,
-                    modifier = Modifier.weight(1f, fill = false)
-                )
+        Box(
+            modifier = Modifier
+                .width(130.dp)
+                .aspectRatio(16f / 9f)
+                .clip(RoundedCornerShape(4.dp))
+        ) {
+            AsyncImage(
+                model = courseImage.ifEmpty { "https://picsum.photos/seed/${episode.youtubeId}/400/225" },
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.2f)),
+                contentAlignment = Alignment.Center
+            ) {
                 if (isCompleted) {
-                    Spacer(modifier = Modifier.width(6.dp))
                     Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = "Concluída",
-                        tint = Color(0xFF10B981),
-                        modifier = Modifier.size(16.dp)
+                        Icons.Default.CheckCircle,
+                        contentDescription = "Concluído",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(32.dp)
+                    )
+                } else {
+                    Icon(
+                        Icons.Default.PlayArrow,
+                        contentDescription = "Assistir",
+                        tint = Color.White,
+                        modifier = Modifier.size(32.dp)
                     )
                 }
             }
-            if (episode.duration.isNotEmpty()) {
-                Text(
-                    text = episode.duration,
-                    fontSize = 11.sp,
-                    color = Color.Gray,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
-            }
         }
-        IconButton(
-            onClick = { onPlayEpisode(episode) },
-            modifier = Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(if (isCompleted) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surface)
-        ) {
-            Icon(
-                imageVector = Icons.Default.PlayArrow,
-                contentDescription = "Assistir",
-                tint = MaterialTheme.colorScheme.primary
+        
+        Spacer(modifier = Modifier.width(16.dp))
+        
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "${number}. ${episode.title.ifEmpty { "Aula $number" }}",
+                fontWeight = FontWeight.Bold,
+                color = if (isCompleted) MaterialTheme.colorScheme.primary else Color.White,
+                fontSize = 14.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = episode.duration,
+                fontSize = 12.sp,
+                color = Color.Gray,
+                modifier = Modifier.padding(top = 4.dp)
             )
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun CourseDetailPreview() {
+    TheoFlixTheme {
+        CourseDetailScreen(courseId = "membros", onBack = {}, onPlayEpisode = {})
     }
 }
