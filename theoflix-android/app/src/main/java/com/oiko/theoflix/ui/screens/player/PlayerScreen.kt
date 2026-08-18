@@ -1,7 +1,15 @@
 package com.oiko.theoflix.ui.screens.player
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.net.Uri
+import android.view.ViewGroup
+import android.webkit.JavascriptInterface
+import android.webkit.WebChromeClient
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -20,20 +28,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.google.firebase.auth.FirebaseAuth
 import com.oiko.theoflix.data.models.Episode
 import com.oiko.theoflix.data.models.UserProgress
 import com.oiko.theoflix.data.repository.TheoflixRepository
-import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.PlayerConstants
-import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
-import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener
-import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.options.IFramePlayerOptions
-import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTubePlayerView
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -64,6 +65,14 @@ fun extractYouTubeVideoId(input: String): String {
     return trimmed
 }
 
+class YouTubeBridge(private val onVideoEndedCallback: () -> Unit) {
+    @JavascriptInterface
+    fun onVideoEnded() {
+        onVideoEndedCallback()
+    }
+}
+
+@SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun PlayerScreen(
     courseId: String = "",
@@ -73,7 +82,6 @@ fun PlayerScreen(
     repository: TheoflixRepository = remember { TheoflixRepository() }
 ) {
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     val cleanVideoId = remember(videoId) { extractYouTubeVideoId(videoId) }
     
@@ -85,7 +93,7 @@ fun PlayerScreen(
     
     val startTime = remember { SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).format(Date()) }
 
-    // Carrega metadados do curso e do episódio para saber se possui quiz
+    // Carrega metadados do curso e do episódio
     LaunchedEffect(courseId, cleanVideoId) {
         if (courseId.isNotEmpty()) {
             val course = repository.fetchCourseById(courseId)
@@ -142,39 +150,89 @@ fun PlayerScreen(
         }
     }
 
+    val playerHtml = remember(cleanVideoId) {
+        """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+            <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; background-color: #000; }
+                html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+                #player { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+            </style>
+        </head>
+        <body>
+            <div id="player"></div>
+            <script src="https://www.youtube.com/iframe_api"></script>
+            <script>
+                var player;
+                function onYouTubeIframeAPIReady() {
+                    player = new YT.Player('player', {
+                        height: '100%',
+                        width: '100%',
+                        videoId: '$cleanVideoId',
+                        playerVars: {
+                            'playsinline': 1,
+                            'autoplay': 1,
+                            'rel': 0,
+                            'modestbranding': 1,
+                            'origin': 'https://ibmanha.com.br',
+                            'enablejsapi': 1,
+                            'fs': 1
+                        },
+                        events: {
+                            'onReady': function(event) { event.target.playVideo(); },
+                            'onStateChange': function(event) {
+                                if (event.data === YT.PlayerState.ENDED) {
+                                    if (window.AndroidBridge) {
+                                        window.AndroidBridge.onVideoEnded();
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            </script>
+        </body>
+        </html>
+        """.trimIndent()
+    }
+
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-        // Player de Vídeo Nativo Sempre Visível e Ativo
+        // Player de Vídeo com Origem Autorizada (ibmanha.com.br)
         AndroidView(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(16f / 9f)
                 .align(Alignment.Center),
             factory = { ctx ->
-                YouTubePlayerView(ctx).apply {
-                    enableAutomaticInitialization = false
-                    val options = IFramePlayerOptions.Builder()
-                        .controls(1)
-                        .fullscreen(1)
-                        .autoplay(1)
-                        .build()
+                WebView(ctx).apply {
+                    layoutParams = FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                    settings.javaScriptEnabled = true
+                    settings.domStorageEnabled = true
+                    settings.mediaPlaybackRequiresUserGesture = false
+                    settings.allowFileAccess = true
+                    settings.databaseEnabled = true
+                    settings.useWideViewPort = true
+                    settings.loadWithOverviewMode = true
+                    settings.cacheMode = WebSettings.LOAD_DEFAULT
 
-                    initialize(object : AbstractYouTubePlayerListener() {
-                        override fun onReady(youTubePlayer: YouTubePlayer) {
-                            youTubePlayer.loadVideo(cleanVideoId, 0f)
-                        }
+                    webChromeClient = WebChromeClient()
+                    webViewClient = object : WebViewClient() {}
 
-                        override fun onStateChange(
-                            youTubePlayer: YouTubePlayer,
-                            state: PlayerConstants.PlayerState
-                        ) {
-                            if (state == PlayerConstants.PlayerState.ENDED) {
-                                handleCompleteClick()
-                            }
-                        }
-                    }, options)
+                    addJavascriptInterface(YouTubeBridge {
+                        scope.launch { handleCompleteClick() }
+                    }, "AndroidBridge")
 
-                    lifecycleOwner.lifecycle.addObserver(this)
+                    loadDataWithBaseURL("https://ibmanha.com.br", playerHtml, "text/html", "UTF-8", null)
                 }
+            },
+            update = { webView ->
+                webView.loadDataWithBaseURL("https://ibmanha.com.br", playerHtml, "text/html", "UTF-8", null)
             }
         )
 
