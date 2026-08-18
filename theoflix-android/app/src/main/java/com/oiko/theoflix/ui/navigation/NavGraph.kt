@@ -34,9 +34,16 @@ fun TheoFlixNavGraph(
             })
         }
         composable(Screen.Home.route) {
-            HomeScreen(onCourseClick = { courseId ->
-                navController.navigate(Screen.CourseDetails.createRoute(courseId))
-            })
+            HomeScreen(
+                onCourseClick = { courseId ->
+                    navController.navigate(Screen.CourseDetails.createRoute(courseId))
+                },
+                onLogout = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.Home.route) { inclusive = true }
+                    }
+                }
+            )
         }
         composable(Screen.CourseDetails.route) { backStackEntry ->
             val courseId = backStackEntry.arguments?.getString("courseId") ?: ""

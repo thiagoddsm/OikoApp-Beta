@@ -37,4 +37,16 @@ class LoginViewModel(
             }
         }
     }
+
+    fun onGoogleSignInResult(result: Result<Boolean>) {
+        if (result.isSuccess) {
+            _state.value = LoginState.Success
+        } else {
+            _state.value = LoginState.Error(result.exceptionOrNull()?.message ?: "Erro no Google Login")
+        }
+    }
+
+    fun startLoading() {
+        _state.value = LoginState.Loading
+    }
 }

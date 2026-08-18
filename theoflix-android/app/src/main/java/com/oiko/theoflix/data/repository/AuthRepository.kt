@@ -1,5 +1,6 @@
 package com.oiko.theoflix.data.repository
 
+import com.google.firebase.auth.AuthCredential
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import kotlinx.coroutines.tasks.await
@@ -13,6 +14,15 @@ class AuthRepository(
         return try {
             val result = auth.signInWithEmailAndPassword(email, password).await()
             result.user?.let { Result.success(it) } ?: Result.failure(Exception("Usuário nulo"))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun signInWithCredential(credential: AuthCredential): Result<FirebaseUser> {
+        return try {
+            val result = auth.signInWithCredential(credential).await()
+            result.user?.let { Result.success(it) } ?: Result.failure(Exception("Erro no login com credencial"))
         } catch (e: Exception) {
             Result.failure(e)
         }

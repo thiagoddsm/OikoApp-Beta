@@ -1,23 +1,30 @@
 package com.oiko.theoflix.ui.screens.login
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.oiko.theoflix.data.repository.GoogleAuthUiClient
+import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
     viewModel: LoginViewModel = viewModel()
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val googleAuthUiClient = remember { GoogleAuthUiClient(context) }
+    
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     val loginState by viewModel.state
@@ -65,7 +72,8 @@ fun LoginScreen(
             Text(
                 text = (loginState as LoginState.Error).message,
                 color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall
+                style = MaterialTheme.typography.bodySmall,
+                textAlign = TextAlign.Center
             )
         }
 
@@ -82,6 +90,27 @@ fun LoginScreen(
             } else {
                 Text("ENTRAR", fontWeight = FontWeight.Bold)
             }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        Text("OU", color = Color.Gray, style = MaterialTheme.typography.labelSmall)
+        
+        Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedButton(
+            onClick = {
+                viewModel.startLoading()
+                scope.launch {
+                    val result = googleAuthUiClient.signIn()
+                    viewModel.onGoogleSignInResult(result)
+                }
+            },
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+            shape = MaterialTheme.shapes.medium,
+            enabled = loginState !is LoginState.Loading
+        ) {
+            Text("ENTRAR COM GOOGLE", fontWeight = FontWeight.Bold)
         }
     }
 }

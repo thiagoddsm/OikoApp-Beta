@@ -28,10 +28,12 @@ import coil.compose.AsyncImage
 import com.oiko.theoflix.data.models.Course
 import com.oiko.theoflix.data.models.TheoLevel
 import com.oiko.theoflix.ui.theme.TheoFlixTheme
+import com.google.firebase.auth.FirebaseAuth
 
 @Composable
 fun HomeScreen(
     onCourseClick: (String) -> Unit,
+    onLogout: () -> Unit,
     viewModel: HomeViewModel = viewModel()
 ) {
     val state by viewModel.state
@@ -46,28 +48,41 @@ fun HomeScreen(
                     modifier = Modifier.align(Alignment.Center).padding(32.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text("Erro: ${currentState.message}", color = MaterialTheme.colorScheme.error)
+                    Text("Erro: ${currentState.message}", color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
                     Button(onClick = { viewModel.loadData() }, modifier = Modifier.padding(top = 16.dp)) {
                         Text("Tentar Novamente")
                     }
                 }
             }
             is HomeState.Success -> {
-                val featuredCourse = currentState.courses.firstOrNull()
-                
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    item {
-                        FeaturedHero(featuredCourse, onCourseClick)
-                    }
-                    items(currentState.levels) { level ->
-                        val levelCourses = currentState.courses.filter { it.level == level.level }
-                        if (levelCourses.isNotEmpty()) {
-                            LevelSection(level, levelCourses, onCourseClick)
-                            Spacer(modifier = Modifier.height(24.dp))
+                if (currentState.courses.isEmpty()) {
+                    Column(
+                        modifier = Modifier.align(Alignment.Center).padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("Nenhum curso encontrado no Firestore.", color = Color.Gray, textAlign = TextAlign.Center)
+                        Text("Verifique a coleção 'theoflix_courses'.", style = MaterialTheme.typography.bodySmall, color = Color.DarkGray)
+                        Button(onClick = { viewModel.loadData() }, modifier = Modifier.padding(top = 16.dp)) {
+                            Text("Recarregar")
                         }
                     }
-                    item {
-                        Spacer(modifier = Modifier.height(50.dp))
+                } else {
+                    val featuredCourse = currentState.courses.firstOrNull()
+                    
+                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                        item {
+                            FeaturedHero(featuredCourse, onCourseClick)
+                        }
+                        items(currentState.levels) { level ->
+                            val levelCourses = currentState.courses.filter { it.level == level.level }
+                            if (levelCourses.isNotEmpty()) {
+                                LevelSection(level, levelCourses, onCourseClick)
+                                Spacer(modifier = Modifier.height(24.dp))
+                            }
+                        }
+                        item {
+                            Spacer(modifier = Modifier.height(80.dp))
+                        }
                     }
                 }
 
@@ -80,17 +95,28 @@ fun HomeScreen(
                                 colors = listOf(Color.Black.copy(alpha = 0.8f), Color.Transparent)
                             )
                         )
-                        .statusBarsPadding() // Garante que não fique embaixo do relógio/ícones do sistema
-                        .padding(horizontal = 16.dp, vertical = 20.dp)
+                        .statusBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
                 ) {
-                    Text(
-                        "THEOFLIX",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 4.sp,
-                        modifier = Modifier.align(Alignment.CenterStart)
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "THEOFLIX",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 4.sp
+                        )
+                        IconButton(onClick = {
+                            FirebaseAuth.getInstance().signOut()
+                            onLogout()
+                        }) {
+                            Icon(Icons.Default.Info, contentDescription = "Sair", tint = Color.White)
+                        }
+                    }
                 }
             }
         }
@@ -226,6 +252,6 @@ fun CourseCard(course: Course, onCourseClick: (String) -> Unit) {
 @Composable
 fun HomePreview() {
     TheoFlixTheme {
-        HomeScreen(onCourseClick = {})
+        HomeScreen(onCourseClick = {}, onLogout = {})
     }
 }
