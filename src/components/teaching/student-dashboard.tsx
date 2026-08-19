@@ -21,6 +21,13 @@ import { ptBR } from 'date-fns/locale';
 import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
 import { CertificateView } from './certificate-view';
 import { getModuleCompletion } from '@/domain/teaching/module-completion';
+import { evaluateStudentAttendance } from '@/lib/teaching/attendance-calculator';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
+import { doc, setDoc } from 'firebase/firestore';
+import { ShieldCheck } from 'lucide-react';
 
 const safeParseISO = (dateStr: string): Date => {
   if (!dateStr || typeof dateStr !== 'string') return new Date(NaN);
@@ -268,11 +275,68 @@ function ClassAttendanceCard({
     [pastSessions, cls, userId, today, allClasses, quizAttempts, course, userEmail, studentJourney]
   );
 
-  const presentCount = sessionStatuses.filter(s => s.status === 'present' || s.status === 'online' || s.status === 'makeup').length;
-  const absentCount = sessionStatuses.filter(s => s.status === 'absent').length;
-  const total = sessionStatuses.length;
-  const pct = total > 0 ? Math.round((presentCount / total) * 100) : 0;
-  const isApto = pct >= 75;
+  const evalResult = useMemo(() => {
+    return evaluateStudentAttendance({
+      classData: cls,
+      courseData: course,
+      studentId: userId,
+      validSessionDates: pastSessions.map(s => s.dateStr)
+    });
+  }, [cls, course, userId, pastSessions]);
+
+  const [isExceptionDialogOpen, setIsExceptionDialogOpen] = useState(false);
+  const [exceptionReason, setExceptionReason] = useState('');
+  const [exceptionNotes, setExceptionNotes] = useState('');
+  const [isSubmittingException, setIsSubmittingException] = useState(false);
+  const { updateClass } = useVolunteering();
+  const { firestore } = useFirebase();
+  const { toast } = useToast();
+
+  const handleRequestException = async () => {
+    if (!exceptionReason.trim()) {
+      toast({ variant: 'destructive', title: 'Informe o motivo', description: 'Por favor, descreva o motivo da sua solicitação de exceção.' });
+      return;
+    }
+    setIsSubmittingException(true);
+    try {
+      const newEx = {
+        studentId: userId,
+        classId: cls.id,
+        courseId: cls.courseId,
+        reason: exceptionReason.trim(),
+        notes: exceptionNotes.trim() || undefined,
+        status: 'pending' as const,
+        requestedAt: new Date().toISOString(),
+        requestedBy: userId
+      };
+
+      const updated = {
+        ...(cls.onlineExceptions || {}),
+        [userId]: newEx
+      };
+
+      await updateClass(cls.id, { onlineExceptions: updated });
+
+      if (firestore) {
+        await setDoc(doc(firestore, 'classes', cls.id, 'onlineExceptions', userId), newEx, { merge: true });
+      }
+
+      toast({ title: 'Solicitação Enviada! 📩', description: 'Sua solicitação de exceção foi encaminhada para a coordenação.' });
+      setIsExceptionDialogOpen(false);
+      setExceptionReason('');
+      setExceptionNotes('');
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'Erro ao enviar solicitação', description: e.message });
+    } finally {
+      setIsSubmittingException(false);
+    }
+  };
+
+  const presentCount = evalResult.totalPresent;
+  const absentCount = evalResult.absencesCount;
+  const total = evalResult.lessonsConducted;
+  const pct = evalResult.totalRate;
+  const isApto = evalResult.eligible;
 
   const missedNeedingMakeup = sessionStatuses.filter(s => s.status === 'absent');
   const futureSessions = schedule.filter(s => {
@@ -286,69 +350,108 @@ function ClassAttendanceCard({
   if (pastSessions.length === 0 && futureSessions.length === 0) return null;
 
   return (
-    <Card className={cn(
-      "border-2 bg-card text-card-foreground transition-all overflow-hidden",
-      absentCount > 0 ? "border-orange-200 dark:border-orange-950/60" : "border-emerald-200 dark:border-emerald-950/60"
-    )}>
-      {/* Header */}
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{courseName}</p>
-            <CardTitle className="text-base font-black leading-tight truncate">{cls.name}</CardTitle>
-            <CardDescription className="flex items-center gap-1.5 mt-1">
-              <Clock className="size-3" />
-              {cls.dayOfWeek} às {cls.startTime}
-            </CardDescription>
+    <>
+      <Card className={cn(
+        "border-2 bg-card text-card-foreground transition-all overflow-hidden",
+        !isApto ? "border-orange-200 dark:border-orange-950/60" : "border-emerald-200 dark:border-emerald-950/60"
+      )}>
+        {/* Header */}
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{courseName}</p>
+              <CardTitle className="text-base font-black leading-tight truncate">{cls.name}</CardTitle>
+              <CardDescription className="flex items-center gap-1.5 mt-1">
+                <Clock className="size-3" />
+                {cls.dayOfWeek} às {cls.startTime}
+              </CardDescription>
+            </div>
+            <Badge
+              className={cn(
+                "text-[10px] font-black uppercase shrink-0 mt-1",
+                isApto ? "bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-900/30" : "bg-orange-100 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-900/30"
+              )}
+              variant="outline"
+            >
+              {total === 0 ? 'AGUARDANDO' : isApto ? 'APTO' : `${pct}%`}
+            </Badge>
           </div>
-          <Badge
-            className={cn(
-              "text-[10px] font-black uppercase shrink-0 mt-1",
-              isApto ? "bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-900/30" : "bg-orange-100 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-900/30"
-            )}
-            variant="outline"
-          >
-            {total === 0 ? 'AGUARDANDO' : isApto ? 'APTO' : `${pct}%`}
-          </Badge>
-        </div>
 
-        {/* Barra de frequência */}
-        {total > 0 && (
-          <div className="mt-3 space-y-1.5">
-            <div className="flex justify-between text-[10px] font-bold text-muted-foreground">
-              <span>{presentCount} presença{presentCount !== 1 ? 's' : ''} de {total} aula{total !== 1 ? 's' : ''}</span>
-              <span className={cn(isApto ? "text-emerald-600 dark:text-emerald-400" : "text-orange-600 dark:text-orange-400")}>{pct}% de frequência</span>
+          {/* Barra de frequência */}
+          {total > 0 && (
+            <div className="mt-3 space-y-1.5">
+              <div className="flex justify-between text-[10px] font-bold text-muted-foreground">
+                <span>{presentCount} presença{presentCount !== 1 ? 's' : ''} ({evalResult.inPersonCount}P / {evalResult.onlineCount}O) de {total} aula{total !== 1 ? 's' : ''}</span>
+                <span className={cn(isApto ? "text-emerald-600 dark:text-emerald-400" : "text-orange-600 dark:text-orange-400")}>{pct}% de frequência</span>
+              </div>
+              <Progress
+                value={pct}
+                className="h-2"
+              />
             </div>
-            <Progress
-              value={pct}
-              className="h-2"
-            />
-          </div>
-        )}
+          )}
 
-        {/* Alertas de reposição */}
-        {missedNeedingMakeup.length > 0 && (
-          <div className="mt-3 p-3 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900/30 rounded-xl">
-            <div className="flex items-center gap-2 mb-2">
-              <AlertTriangle className="size-3.5 text-orange-500" />
-              <p className="text-[10px] font-black uppercase text-orange-700 dark:text-orange-400">
-                {missedNeedingMakeup.length} aula{missedNeedingMakeup.length > 1 ? 's' : ''} para repor
-              </p>
+          {/* Aviso de Política de Modalidade Online & Botão de Exceção */}
+          {evalResult.status === 'exceeds_online_limit' && (
+            <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 rounded-xl space-y-2">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="size-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="text-xs text-amber-900 dark:text-amber-300">
+                  <p className="font-bold">Limite de aulas online atingido ({evalResult.onlineRate}%)</p>
+                  <p className="text-[11px] text-amber-800 dark:text-amber-400 mt-0.5">
+                    Você pode continuar assistindo às aulas normalmente. Para que a frequência online extra seja válida para aprovação, você pode enviar uma solicitação de exceção para a coordenação.
+                  </p>
+                </div>
+              </div>
+              {course?.attendancePolicy?.allowExceptions !== false && (
+                <Button
+                  size="sm"
+                  onClick={() => setIsExceptionDialogOpen(true)}
+                  className="w-full h-7 bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] gap-1.5"
+                >
+                  <ShieldCheck className="size-3.5" /> Solicitar Exceção à Coordenação
+                </Button>
+              )}
             </div>
-            <div className="flex flex-wrap gap-1.5">
-              {missedNeedingMakeup.map(s => {
-                const parsedDate = safeParseISO(s.dateStr);
-                if (isNaN(parsedDate.getTime())) return null;
-                return (
-                  <Badge key={s.dateStr} variant="outline" className="text-[9px] bg-card border-orange-300 dark:border-orange-900/30 text-orange-700 dark:text-orange-400 font-bold">
-                    {format(parsedDate, "dd/MM", { locale: ptBR })}
-                  </Badge>
-                );
-              })}
+          )}
+
+          {evalResult.status === 'exception_pending' && (
+            <div className="mt-3 p-2.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 rounded-xl flex items-center gap-2 text-xs text-amber-900 dark:text-amber-300">
+              <Clock className="size-4 text-amber-600 shrink-0" />
+              <span>Sua solicitação de exceção está em análise pela coordenação.</span>
             </div>
-          </div>
-        )}
-      </CardHeader>
+          )}
+
+          {evalResult.status === 'exception_approved' && (
+            <div className="mt-3 p-2.5 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/40 rounded-xl flex items-center gap-2 text-xs text-emerald-900 dark:text-emerald-300">
+              <ShieldCheck className="size-4 text-emerald-600 shrink-0" />
+              <span className="font-bold">Exceção de modalidade aprovada pela coordenação! 🎓</span>
+            </div>
+          )}
+
+          {/* Alertas de reposição */}
+          {missedNeedingMakeup.length > 0 && (
+            <div className="mt-3 p-3 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900/30 rounded-xl">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle className="size-3.5 text-orange-500" />
+                <p className="text-[10px] font-black uppercase text-orange-700 dark:text-orange-400">
+                  {missedNeedingMakeup.length} aula{missedNeedingMakeup.length > 1 ? 's' : ''} para repor
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {missedNeedingMakeup.map(s => {
+                  const parsedDate = safeParseISO(s.dateStr);
+                  if (isNaN(parsedDate.getTime())) return null;
+                  return (
+                    <Badge key={s.dateStr} variant="outline" className="text-[9px] bg-card border-orange-300 dark:border-orange-900/30 text-orange-700 dark:text-orange-400 font-bold">
+                      {format(parsedDate, "dd/MM", { locale: ptBR })}
+                    </Badge>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </CardHeader>
 
       {/* Materiais Didáticos Compartilhados */}
       {cls.materials && cls.materials.length > 0 && (
@@ -454,6 +557,76 @@ function ClassAttendanceCard({
         </CardContent>
       )}
     </Card>
+
+    {/* Modal de Solicitação de Exceção */}
+    <Dialog open={isExceptionDialogOpen} onOpenChange={setIsExceptionDialogOpen}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-base font-black text-slate-800 flex items-center gap-2">
+            <ShieldCheck className="size-5 text-amber-600" />
+            Solicitar Exceção de Frequência Online
+          </DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground uppercase font-bold tracking-wider">
+            {courseName} · {cls.name}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2 text-xs">
+          <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-amber-900 space-y-1">
+            <p className="font-bold text-xs">Política do Curso:</p>
+            <p className="text-[11px]">
+              O curso estabelece uma proporção máxima de aulas online. Ao solicitar uma exceção, sua justificativa será enviada para avaliação e aprovação da coordenação de ensino.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="exc-reason" className="text-xs font-bold">Motivo da Solicitação *</Label>
+            <Textarea
+              id="exc-reason"
+              value={exceptionReason}
+              onChange={e => setExceptionReason(e.target.value)}
+              placeholder="Ex: Trabalho em escala de plantão aos domingos, viagem a serviço, etc..."
+              rows={3}
+              className="text-xs"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="exc-notes" className="text-xs font-bold">Observações Adicionais (opcional)</Label>
+            <Textarea
+              id="exc-notes"
+              value={exceptionNotes}
+              onChange={e => setExceptionNotes(e.target.value)}
+              placeholder="Detalhes ou contatos relevantes..."
+              rows={2}
+              className="text-xs"
+            />
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsExceptionDialogOpen(false)}
+            disabled={isSubmittingException}
+            className="text-xs font-bold"
+          >
+            Cancelar
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleRequestException}
+            disabled={isSubmittingException || !exceptionReason.trim()}
+            className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold"
+          >
+            {isSubmittingException ? <Loader2 className="size-3.5 animate-spin mr-1.5" /> : <ShieldCheck className="size-3.5 mr-1.5" />}
+            Enviar Solicitação
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 

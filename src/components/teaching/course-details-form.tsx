@@ -41,6 +41,18 @@ export function CourseDetailsForm({ course }: { course: any }) {
     whatsappGroupPicture: '',
     simultaneousClasses: false,
     billingMethod: course?.billingMethod || 'manual',
+    attendancePolicy: {
+      mode: (course?.attendancePolicy?.mode || 'flexible') as 'in_person_only' | 'online_only' | 'hybrid' | 'flexible',
+      online: {
+        minPercentage: course?.attendancePolicy?.online?.minPercentage ?? 0,
+        maxPercentage: course?.attendancePolicy?.online?.maxPercentage ?? 50,
+      },
+      inPerson: {
+        minPercentage: course?.attendancePolicy?.inPerson?.minPercentage ?? 50,
+        maxPercentage: course?.attendancePolicy?.inPerson?.maxPercentage ?? 100,
+      },
+      allowExceptions: course?.attendancePolicy?.allowExceptions ?? true,
+    }
   });
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
@@ -69,6 +81,18 @@ export function CourseDetailsForm({ course }: { course: any }) {
         whatsappGroupPicture: course.whatsappGroupPicture || '',
         simultaneousClasses: course.simultaneousClasses || false,
         billingMethod: course.billingMethod || 'manual',
+        attendancePolicy: {
+          mode: (course.attendancePolicy?.mode || 'flexible') as 'in_person_only' | 'online_only' | 'hybrid' | 'flexible',
+          online: {
+            minPercentage: course.attendancePolicy?.online?.minPercentage ?? 0,
+            maxPercentage: course.attendancePolicy?.online?.maxPercentage ?? 50,
+          },
+          inPerson: {
+            minPercentage: course.attendancePolicy?.inPerson?.minPercentage ?? 50,
+            maxPercentage: course.attendancePolicy?.inPerson?.maxPercentage ?? 100,
+          },
+          allowExceptions: course.attendancePolicy?.allowExceptions ?? true,
+        }
       });
     }
   }, [course]);
@@ -192,6 +216,30 @@ export function CourseDetailsForm({ course }: { course: any }) {
     if(!firestore) return;
     setIsSaving(true);
     const courseDocRef = doc(firestore, 'courses', course.id);
+
+    // Validações para modelo híbrido
+    if (formData.attendancePolicy.mode === 'hybrid') {
+      const minOn = Number(formData.attendancePolicy.online.minPercentage ?? 0);
+      const maxOn = Number(formData.attendancePolicy.online.maxPercentage ?? 50);
+      const minIn = Number(formData.attendancePolicy.inPerson.minPercentage ?? 50);
+      const maxIn = Number(formData.attendancePolicy.inPerson.maxPercentage ?? 100);
+
+      if (minOn > maxOn) {
+        toast({ variant: 'destructive', title: 'Configuração Inválida', description: 'O percentual mínimo online não pode ser maior que o máximo online.' });
+        setIsSaving(false);
+        return;
+      }
+      if (minIn > maxIn) {
+        toast({ variant: 'destructive', title: 'Configuração Inválida', description: 'O percentual mínimo presencial não pode ser maior que o máximo presencial.' });
+        setIsSaving(false);
+        return;
+      }
+      if (minOn + minIn > 100) {
+        toast({ variant: 'destructive', title: 'Configuração Inválida', description: 'A soma das exigências mínimas (Online + Presencial) não pode ultrapassar 100%.' });
+        setIsSaving(false);
+        return;
+      }
+    }
     
     try {
         await updateDocumentNonBlocking(courseDocRef, {
@@ -201,6 +249,7 @@ export function CourseDetailsForm({ course }: { course: any }) {
             ebdTrack: formData.ebdTrack,
             linkedTheoflixId: formData.linkedTheoflixId === 'none' ? '' : formData.linkedTheoflixId,
             minAttendanceApproval: Number(formData.minAttendanceApproval) || 0,
+            attendancePolicy: formData.attendancePolicy,
             requiresMemberStatus: formData.requiresMemberStatus,
             requiresBaptism: formData.requiresBaptism,
             isMembershipPrerequisite: formData.isMembershipPrerequisite,
@@ -234,7 +283,7 @@ export function CourseDetailsForm({ course }: { course: any }) {
                     rows={5} 
                     value={formData.description} 
                     onChange={e => handleFieldChange('description', e.target.value)}
-                    placeholder="Descreva os objetivos, público-alvo e resultados esperados deste curso..."
+                    placeholder="Objetivo do curso, pré-requisitos, público-alvo..."
                   />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -243,31 +292,27 @@ export function CourseDetailsForm({ course }: { course: any }) {
                       <Select value={formData.type} onValueChange={v => handleFieldChange('type', v)}>
                           <SelectTrigger id="type"><SelectValue /></SelectTrigger>
                           <SelectContent>
-                              <SelectItem value="trilho">Trilhos</SelectItem>
-                              <SelectItem value="eletivo">Eletivos</SelectItem>
+                              <SelectItem value="trilho">Trilho de Discipulado</SelectItem>
+                              <SelectItem value="eletivo">Eletivo / Livre</SelectItem>
                           </SelectContent>
                       </Select>
                   </div>
-                  
-                  {isLumine && (
-                    <div className="space-y-2 animate-in slide-in-from-top-2">
-                        <Label htmlFor="ebdTrack" className="flex items-center gap-2">
-                            <School className="size-3 text-primary" />
-                            Trilho EBD (Escola Bíblica Discipuladora)
-                        </Label>
-                        <Select value={formData.ebdTrack} onValueChange={v => handleFieldChange('ebdTrack', v)}>
-                            <SelectTrigger id="ebdTrack"><SelectValue placeholder="Selecione o trilho..." /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="teologico">Trilho Teológico</SelectItem>
-                                <SelectItem value="biblico">Trilho Bíblico</SelectItem>
-                                <SelectItem value="discipulado">Trilho de Discipulado</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                  )}
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
+                  {isLumine && (
+                      <div className="space-y-2">
+                          <Label htmlFor="ebdTrack">Área Temática (Trilho EBD)</Label>
+                          <Select value={formData.ebdTrack || 'none'} onValueChange={v => handleFieldChange('ebdTrack', v === 'none' ? '' : v)}>
+                              <SelectTrigger id="ebdTrack"><SelectValue placeholder="Selecione a trilha" /></SelectTrigger>
+                              <SelectContent>
+                                  <SelectItem value="none">Geral / Sem Trilha</SelectItem>
+                                  <SelectItem value="teologico">Trilho Teológico</SelectItem>
+                                  <SelectItem value="biblico">Trilho Bíblico</SelectItem>
+                                  <SelectItem value="discipulado">Trilho de Discipulado</SelectItem>
+                              </SelectContent>
+                          </Select>
+                      </div>
+                  )}
+
                   <div className="space-y-2">
                       <Label htmlFor="billingMethod">Método de Faturamento</Label>
                       <Select value={formData.billingMethod} onValueChange={v => handleFieldChange('billingMethod', v)}>
@@ -277,10 +322,128 @@ export function CourseDetailsForm({ course }: { course: any }) {
                               <SelectItem value="asaas">Automático (Asaas Integrado)</SelectItem>
                           </SelectContent>
                       </Select>
-                      <p className="text-[10px] text-muted-foreground italic">
-                          Selecione se as mensalidades serão geradas e pagas via Pix manualmente ou integradas de forma automática pelo Asaas.
+                  </div>
+              </div>
+
+              {/* Seção: Política de Modalidade de Frequência */}
+              <div className="space-y-4 pt-4 border-t bg-slate-50/70 p-4 rounded-xl border border-slate-200">
+                  <div>
+                      <Label className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                          <BookOpen className="size-4 text-primary" />
+                          Política de Modalidade de Frequência
+                      </Label>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                          Configure como o curso avalia aulas presenciais, online e híbridas para fins de aprovação.
                       </p>
                   </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                          <Label className="text-xs font-semibold">Modelo de Ensino</Label>
+                          <Select 
+                            value={formData.attendancePolicy.mode} 
+                            onValueChange={v => setFormData(prev => ({
+                              ...prev,
+                              attendancePolicy: {
+                                ...prev.attendancePolicy,
+                                mode: v as any
+                              }
+                            }))}
+                          >
+                              <SelectTrigger className="bg-white">
+                                  <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                  <SelectItem value="flexible">Flexível (0 a 100% em qualquer modalidade)</SelectItem>
+                                  <SelectItem value="hybrid">Híbrido (Proporções personalizadas)</SelectItem>
+                                  <SelectItem value="in_person_only">Somente Presencial (0% online)</SelectItem>
+                                  <SelectItem value="online_only">Somente Online (100% online)</SelectItem>
+                              </SelectContent>
+                          </Select>
+                      </div>
+                  </div>
+
+                  {formData.attendancePolicy.mode === 'hybrid' && (
+                      <div className="space-y-4 pt-3 border-t border-slate-200">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              <div className="p-3 bg-white border rounded-lg space-y-2">
+                                  <span className="text-xs font-bold text-slate-800 block">Aulas Online</span>
+                                  <div className="space-y-2">
+                                      <Label className="text-[11px] text-muted-foreground">Limite Máximo Online</Label>
+                                      <div className="relative">
+                                          <Input 
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            value={formData.attendancePolicy.online.maxPercentage ?? 50}
+                                            onChange={e => setFormData(prev => ({
+                                              ...prev,
+                                              attendancePolicy: {
+                                                ...prev.attendancePolicy,
+                                                online: {
+                                                  ...prev.attendancePolicy.online,
+                                                  maxPercentage: Number(e.target.value)
+                                                }
+                                              }
+                                            }))}
+                                            className="pr-8 h-8 text-xs font-bold"
+                                          />
+                                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">%</span>
+                                      </div>
+                                  </div>
+                              </div>
+
+                              <div className="p-3 bg-white border rounded-lg space-y-2">
+                                  <span className="text-xs font-bold text-slate-800 block">Aulas Presenciais</span>
+                                  <div className="space-y-2">
+                                      <Label className="text-[11px] text-muted-foreground">Mínimo Presencial Exigido</Label>
+                                      <div className="relative">
+                                          <Input 
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            value={formData.attendancePolicy.inPerson.minPercentage ?? 50}
+                                            onChange={e => setFormData(prev => ({
+                                              ...prev,
+                                              attendancePolicy: {
+                                                ...prev.attendancePolicy,
+                                                inPerson: {
+                                                  ...prev.attendancePolicy.inPerson,
+                                                  minPercentage: Number(e.target.value)
+                                                }
+                                              }
+                                            }))}
+                                            className="pr-8 h-8 text-xs font-bold"
+                                          />
+                                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">%</span>
+                                      </div>
+                                  </div>
+                              </div>
+                          </div>
+
+                          <div className="flex items-center justify-between p-3 bg-white border rounded-lg">
+                              <div className="space-y-0.5">
+                                  <Label className="text-xs font-bold text-slate-800 cursor-pointer" htmlFor="allow-exceptions-switch">
+                                      Permitir Solicitação de Exceção
+                                  </Label>
+                                  <p className="text-[11px] text-muted-foreground">
+                                      Permite que alunos fora do limite solicitem aprovação especial da coordenação para formatura.
+                                  </p>
+                              </div>
+                              <Switch 
+                                id="allow-exceptions-switch"
+                                checked={formData.attendancePolicy.allowExceptions}
+                                onCheckedChange={v => setFormData(prev => ({
+                                  ...prev,
+                                  attendancePolicy: {
+                                    ...prev.attendancePolicy,
+                                    allowExceptions: v
+                                  }
+                                }))}
+                              />
+                          </div>
+                      </div>
+                  )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">

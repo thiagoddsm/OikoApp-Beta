@@ -141,6 +141,7 @@ export type Course = {
   ebdTrack?: 'teologico' | 'biblico' | 'discipulado';
   linkedTheoflixId?: string;
   minAttendanceApproval?: number;
+  attendancePolicy?: CourseAttendancePolicy;
   syllabus?: { id: string; title: string; description: string; theoflixCourseId?: string }[];
   requiresMemberStatus?: boolean;
   requiresBaptism?: boolean;
@@ -148,6 +149,35 @@ export type Course = {
   simultaneousClasses?: boolean;
   billingMethod?: 'manual' | 'asaas';
 };
+
+export type AttendanceModePolicy = 'in_person_only' | 'online_only' | 'hybrid' | 'flexible';
+
+export interface CourseAttendancePolicy {
+  mode: AttendanceModePolicy;
+  online?: {
+    minPercentage?: number;
+    maxPercentage?: number;
+  };
+  inPerson?: {
+    minPercentage?: number;
+    maxPercentage?: number;
+  };
+  allowExceptions?: boolean;
+}
+
+export interface OnlineException {
+  studentId: string;
+  classId: string;
+  courseId: string;
+  reason: string;
+  notes?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  requestedAt: string;
+  requestedBy: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  reviewNotes?: string;
+}
 
 export type SavedSchedule = {
   id: string;
@@ -200,7 +230,7 @@ export type Class = {
     date: string; 
     presentStudentIds: string[]; 
     onlineStudentIds?: string[];
-    repositions?: { studentId: string; date: string; dateStr?: string }[];
+    repositions?: { studentId: string; date: string; dateStr?: string; type?: 'in_person' | 'online' }[];
     isRepositionOnly?: boolean;
     lessonNotes?: string;
   }[];
@@ -208,6 +238,8 @@ export type Class = {
   materials?: { title: string; url: string; description?: string }[];
   status?: 'active' | 'completed';
   whatsappGroupId?: string;
+  attendancePolicyOverride?: CourseAttendancePolicy;
+  onlineExceptions?: Record<string, OnlineException>;
   scheduleOverrides?: Record<string, {
     syllabusId?: string;
     teacherId?: string;

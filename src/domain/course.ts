@@ -8,6 +8,12 @@ export type Course = {
   ebdTrack?: 'teologico' | 'biblico' | 'discipulado';
   linkedTheoflixId?: string;
   minAttendanceApproval?: number;
+  attendancePolicy?: {
+    mode: 'in_person_only' | 'online_only' | 'hybrid' | 'flexible';
+    online?: { minPercentage?: number; maxPercentage?: number; };
+    inPerson?: { minPercentage?: number; maxPercentage?: number; };
+    allowExceptions?: boolean;
+  };
   syllabus?: { id: string; title: string; description: string; theoflixCourseId?: string }[];
   requiresMemberStatus?: boolean;
   requiresBaptism?: boolean;
@@ -47,13 +53,15 @@ export type Class = {
     date: string; 
     presentStudentIds: string[]; 
     onlineStudentIds?: string[];
-    repositions?: { studentId: string; date: string; dateStr?: string }[];
+    repositions?: { studentId: string; date: string; dateStr?: string; type?: 'in_person' | 'online' }[];
     isRepositionOnly?: boolean;
     lessonNotes?: string;
   }[];
   grades?: { studentId: string; assessmentName: string; grade: number }[];
   materials?: { title: string; url: string; description?: string }[];
   status?: 'active' | 'completed';
+  attendancePolicyOverride?: any;
+  onlineExceptions?: Record<string, any>;
   scheduleOverrides?: Record<string, {
     syllabusId?: string;
     teacherId?: string;

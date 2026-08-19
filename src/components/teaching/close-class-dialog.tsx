@@ -13,6 +13,7 @@ import { useVolunteering, type Class, type Course } from '@/contexts/volunteerin
 import { addTimelineEvent } from '@/lib/timeline';
 import { useFirebase } from '@/firebase';
 import { useMembersData } from "@/hooks/useDomainData";
+import { evaluateStudentAttendance } from '@/lib/teaching/attendance-calculator';
 
 interface CloseClassDialogProps {
   open: boolean;
@@ -62,24 +63,18 @@ export function CloseClassDialog({ open, onOpenChange, classData, courseData }: 
     return Array.from(new Set(classData.grades.map(g => g.assessmentName)));
   }, [classData.grades]);
 
-  // Inicializar sugestão automática
+  // Inicializar sugestão automática via Motor Centralizador
   const studentMetrics = useMemo(() => {
-    const metrics: Record<string, { attendancePercent: number; averageGrade: number; suggested: 'approved' | 'rejected' }> = {};
+    const metrics: Record<string, { attendancePercent: number; inPersonRate: number; onlineRate: number; averageGrade: number; suggested: 'approved' | 'rejected'; statusLabel: string; eligible: boolean }> = {};
     
     enrolledStudents.forEach(student => {
-      // 1. Frequência
-      let presentCount = 0;
-      let totalClasses = 0;
-      classOccurrences.forEach(date => {
-        const record = classData.attendance?.find(a => a.date === date);
-        if (record) {
-          totalClasses++;
-          if (record.presentStudentIds?.includes(student.id) || record.onlineStudentIds?.includes(student.id)) {
-            presentCount++;
-          }
-        }
+      // 1. Frequência via Motor Único
+      const evalResult = evaluateStudentAttendance({
+        classData,
+        courseData,
+        studentId: student.id,
+        validSessionDates: classOccurrences
       });
-      const attendancePercent = totalClasses > 0 ? (presentCount / totalClasses) * 100 : 100;
 
       // 2. Média
       let sumGrades = 0;
@@ -93,18 +88,22 @@ export function CloseClassDialog({ open, onOpenChange, classData, courseData }: 
       });
       const averageGrade = countGrades > 0 ? sumGrades / countGrades : 10; // Se não houver avaliações, assume-se nota cheia
 
-      // Sugestão de status (Frequência >= 75% e Média >= 7.0 como regra geral do sistema)
-      const suggested = (attendancePercent >= 75 && averageGrade >= 7.0) ? 'approved' : 'rejected';
+      // Sugestão de status (Elegibilidade pelas regras do curso + Média >= 7.0)
+      const suggested = (evalResult.eligible && averageGrade >= 7.0) ? 'approved' : 'rejected';
       
       metrics[student.id] = {
-        attendancePercent,
+        attendancePercent: evalResult.totalRate,
+        inPersonRate: evalResult.inPersonRate,
+        onlineRate: evalResult.onlineRate,
         averageGrade,
-        suggested
+        suggested,
+        statusLabel: evalResult.statusLabel,
+        eligible: evalResult.eligible
       };
     });
 
     return metrics;
-  }, [enrolledStudents, classOccurrences, classData, assessments]);
+  }, [enrolledStudents, classOccurrences, classData, courseData, assessments]);
 
   // Inicializa o estado com as sugestões automáticas
   React.useEffect(() => {
@@ -231,9 +230,14 @@ export function CloseClassDialog({ open, onOpenChange, classData, courseData }: 
                       <TableRow key={student.id} className="hover:bg-muted/30 transition-colors">
                         <TableCell className="font-semibold text-slate-900">{student.name}</TableCell>
                         <TableCell className="text-center">
-                          <Badge variant="outline" className={metrics.attendancePercent >= 75 ? "bg-emerald-50 text-emerald-700 border-emerald-200 font-bold" : "bg-red-50 text-red-700 border-red-200 font-bold"}>
-                            {metrics.attendancePercent.toFixed(0)}%
-                          </Badge>
+                          <div className="flex flex-col items-center">
+                            <Badge variant="outline" className={metrics.eligible ? "bg-emerald-50 text-emerald-700 border-emerald-200 font-bold" : "bg-red-50 text-red-700 border-red-200 font-bold"}>
+                              {metrics.attendancePercent.toFixed(0)}%
+                            </Badge>
+                            <span className="text-[10px] text-muted-foreground mt-0.5 font-medium">
+                              {metrics.inPersonRate}% P / {metrics.onlineRate}% O
+                            </span>
+                          </div>
                         </TableCell>
                         <TableCell className="text-center font-bold text-slate-700">
                           {metrics.averageGrade.toFixed(1)}
