@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { VolunteeringProvider, useVolunteering, getResolvedSchedule } from '@/contexts/volunteering-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -22,6 +22,8 @@ import {
   XCircle, 
   ChevronDown, 
   ChevronUp, 
+  ChevronLeft,
+  ChevronRight,
   Award,
   Layers,
   MapPin,
@@ -48,6 +50,7 @@ import { ptBR } from 'date-fns/locale';
 import { useMembersData, useCoursesData, useGCData } from "@/hooks/useDomainData";
 import { useFirebase } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
+import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import ExcelJS from 'exceljs';
@@ -85,6 +88,10 @@ function GeneralTeachingReportsContent() {
   // Ordenação da Tabela
   const [sortColumn, setSortColumn] = useState<string>('status');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  // Paginação da Tabela Nominal
+  const [pageSize, setPageSize] = useState<number>(10);
+  const [currentPage, setCurrentPage] = useState<number>(1);
 
   // Estado de exportação Excel
   const [isExportingExcel, setIsExportingExcel] = useState<boolean>(false);
@@ -137,6 +144,17 @@ function GeneralTeachingReportsContent() {
     });
     return map;
   }, [users]);
+
+  const studentClassesMap = useMemo(() => {
+    const map = new Map<string, typeof classes>();
+    classes.forEach(c => {
+      (c.students || []).forEach(stId => {
+        if (!map.has(stId)) map.set(stId, []);
+        map.get(stId)!.push(c);
+      });
+    });
+    return map;
+  }, [classes]);
 
   // Obter ciclos únicos ordenados
   const cycles = useMemo(() => {
@@ -525,8 +543,9 @@ function GeneralTeachingReportsContent() {
           isLessonDateInRange
         });
 
-        // ── HISTÓRICO DE CURSOS E TURMAS ANTERIORES ──
-        const previousClasses = classes.filter(c => c.id !== cls.id && Array.isArray(c.students) && c.students.includes(studentId));
+        // ── HISTÓRICO DE CURSOS E TURMAS ANTERIORES (LOOKUP O(1)) ──
+        const studentAllClasses = studentClassesMap.get(studentId) || [];
+        const previousClasses = studentAllClasses.filter(c => c.id !== cls.id);
         const historyItems: { courseName: string; className: string; status: string; freq: number }[] = [];
 
         previousClasses.forEach(prevCls => {
@@ -627,7 +646,7 @@ function GeneralTeachingReportsContent() {
     }
 
     return list;
-  }, [filteredClasses, courseMap, classScheduleMap, classes, isStudentInScope, isEnrollmentDateInRange, userMap, userCellMap, cellMap, areaMap, redeMap, lessonDateStart, lessonDateEnd, selectedClassId]);
+  }, [filteredClasses, courseMap, classScheduleMap, studentClassesMap, isStudentInScope, isEnrollmentDateInRange, userMap, userCellMap, cellMap, areaMap, redeMap, lessonDateStart, lessonDateEnd, selectedClassId]);
 
   // Filtro de busca textual
   const studentsFollowUpList = useMemo(() => {
@@ -697,6 +716,37 @@ function GeneralTeachingReportsContent() {
       return sortDirection === 'asc' ? comparison : -comparison;
     });
   }, [studentsFollowUpList, sortColumn, sortDirection]);
+
+  // Reseta para a página 1 sempre que filtros, ordenação ou busca mudarem
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    selectedCycle,
+    selectedTrack,
+    selectedCourseId,
+    selectedClassId,
+    selectedRedeId,
+    selectedAreaId,
+    selectedCellId,
+    lessonDateStart,
+    lessonDateEnd,
+    enrollmentDateStart,
+    enrollmentDateEnd,
+    studentSearchTerm,
+    sortColumn,
+    sortDirection,
+    pageSize
+  ]);
+
+  const totalStudents = sortedStudentsList.length;
+  const totalPages = pageSize === 0 ? 1 : Math.max(1, Math.ceil(totalStudents / pageSize));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+  const paginatedStudents = useMemo(() => {
+    if (pageSize === 0) return sortedStudentsList;
+    const start = (safeCurrentPage - 1) * pageSize;
+    return sortedStudentsList.slice(start, start + pageSize);
+  }, [sortedStudentsList, safeCurrentPage, pageSize]);
 
   // ── EXPORTAÇÃO COMPLETA PARA EXCEL (.XLSX) VIA EXCELJS ──
   const handleExportExcel = async () => {
@@ -1189,25 +1239,48 @@ function GeneralTeachingReportsContent() {
         </Card>
       </div>
 
-      {/* ── 3. TABELA NOMINAL DE ALUNOS COM ORDENAÇÃO E HISTÓRICO ───────── */}
+      {/* ── 3. TABELA NOMINAL DE ALUNOS COM ORDENAÇÃO, HISTÓRICO E PAGINAÇÃO ───────── */}
       <Card className="shadow-sm border border-slate-100 bg-white print-card">
         <CardHeader className="pb-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div>
-              <CardTitle className="text-base font-black uppercase text-slate-800 flex items-center gap-2">
-                <GraduationCap className="size-4 text-indigo-600" />
-                Acompanhamento Nominal dos Alunos (Visão GC)
-              </CardTitle>
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-base font-black uppercase text-slate-800 flex items-center gap-2">
+                  <GraduationCap className="size-4 text-indigo-600" />
+                  Acompanhamento Nominal dos Alunos (Visão GC)
+                </CardTitle>
+                <Badge variant="secondary" className="text-xs font-bold font-mono">
+                  {totalStudents} aluno{totalStudents !== 1 ? 's' : ''}
+                </Badge>
+              </div>
               <CardDescription className="text-xs">
                 Monitore a frequência por modalidade (Presencial / Online), histórico de cursos anteriores e exceções
               </CardDescription>
             </div>
 
-            <div className="flex items-center gap-2 print-hide">
-              <div className="w-full sm:w-[260px] relative">
+            <div className="flex flex-wrap items-center gap-2 print-hide">
+              {/* Filtro de Linhas por Página */}
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="text-[11px] font-bold text-muted-foreground whitespace-nowrap">Exibir:</span>
+                <Select value={String(pageSize)} onValueChange={(val) => { setPageSize(Number(val)); setCurrentPage(1); }}>
+                  <SelectTrigger className="h-8 w-[115px] text-xs font-bold bg-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10 por pág.</SelectItem>
+                    <SelectItem value="20">20 por pág.</SelectItem>
+                    <SelectItem value="50">50 por pág.</SelectItem>
+                    <SelectItem value="100">100 por pág.</SelectItem>
+                    <SelectItem value="0">Todos</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Busca Textual */}
+              <div className="w-full sm:w-[220px] relative">
                 <Search className="size-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar aluno, GC, curso ou histórico..."
+                  placeholder="Buscar aluno, GC, curso..."
                   value={studentSearchTerm}
                   onChange={(e) => setStudentSearchTerm(e.target.value)}
                   className="h-8 pl-8 text-xs font-semibold"
@@ -1271,14 +1344,14 @@ function GeneralTeachingReportsContent() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedStudentsList.length === 0 ? (
+                {paginatedStudents.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="h-24 text-center text-xs text-muted-foreground italic">
                       Nenhum aluno encontrado para os filtros selecionados.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  sortedStudentsList.map((item, idx) => (
+                  paginatedStudents.map((item, idx) => (
                     <TableRow key={`${item.studentId}-${item.courseId}-${idx}`} className="hover:bg-slate-50/50">
                       {/* Aluno */}
                       <TableCell className="py-2.5">
@@ -1421,6 +1494,64 @@ function GeneralTeachingReportsContent() {
               </TableBody>
             </Table>
           </div>
+
+          {/* Footer de Paginação */}
+          {pageSize > 0 && totalStudents > 0 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 px-4 border-t border-slate-100 bg-slate-50/50 print-hide">
+              <div className="text-xs text-muted-foreground font-semibold">
+                Exibindo <span className="font-bold text-slate-800">{((safeCurrentPage - 1) * pageSize) + 1}</span> a <span className="font-bold text-slate-800">{Math.min(safeCurrentPage * pageSize, totalStudents)}</span> de <span className="font-bold text-slate-800">{totalStudents}</span> alunos
+              </div>
+
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={safeCurrentPage <= 1}
+                  className="h-8 px-2.5 text-xs font-bold gap-1 bg-white"
+                >
+                  <ChevronLeft className="size-3.5" /> Anterior
+                </Button>
+
+                <div className="flex items-center gap-1 mx-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum = i + 1;
+                    if (totalPages > 5) {
+                      if (safeCurrentPage > 3 && safeCurrentPage < totalPages - 2) {
+                        pageNum = safeCurrentPage - 2 + i;
+                      } else if (safeCurrentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      }
+                    }
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={pageNum === safeCurrentPage ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={cn(
+                          "h-8 w-8 p-0 text-xs font-bold",
+                          pageNum === safeCurrentPage ? "bg-indigo-600 text-white" : "bg-white"
+                        )}
+                      >
+                        {pageNum}
+                      </Button>
+                    );
+                  })}
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={safeCurrentPage >= totalPages}
+                  className="h-8 px-2.5 text-xs font-bold gap-1 bg-white"
+                >
+                  Próximo <ChevronRight className="size-3.5" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
