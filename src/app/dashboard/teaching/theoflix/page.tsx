@@ -20,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -28,7 +29,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { theoflixDB, type Course, type Episode } from '@/lib/theoflix-data';
-import { Play, Info, Plus, Lock, Search, Clock, CheckCircle2, PlayCircle, Star, Heart, X, Settings, Loader2, ArrowLeft, CheckCircle, BookCheck, DatabaseZap, Link as LinkIcon } from 'lucide-react';
+import { Play, Info, Plus, Lock, Search, Clock, CheckCircle2, PlayCircle, Star, Heart, X, Settings, Loader2, ArrowLeft, CheckCircle, BookCheck, DatabaseZap, Link as LinkIcon, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFirebase, useCollection, useMemoFirebase, useDoc, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
 import { collection, query, doc, orderBy } from 'firebase/firestore';
@@ -238,12 +239,48 @@ function TheoFlixContent() {
 
   // Telemetria do vídeo
   const [watchStartTime, setWatchStartTime] = useState<string | null>(null);
+  const [isAttendanceNoticeOpen, setIsAttendanceNoticeOpen] = useState(false);
+  const [pendingEpisodeToPlay, setPendingEpisodeToPlay] = useState<Episode | null>(null);
+  const [dismissedNoticeForCourses, setDismissedNoticeForCourses] = useState<Set<string>>(new Set());
+
+  const linkedPhysicalCourse = useMemo(() => {
+    if (!selectedCourse) return null;
+    return courses?.find((pc: any) =>
+      pc.linkedTheoflixId === selectedCourse.id ||
+      pc.id === selectedCourse.id ||
+      (pc.name && selectedCourse.title && pc.name.toLowerCase().trim() === selectedCourse.title.toLowerCase().trim())
+    );
+  }, [selectedCourse, courses]);
+
+  const coursePolicy = linkedPhysicalCourse?.attendancePolicy;
 
   const handlePlayEpisode = (episode: Episode) => {
+    if (selectedCourse && coursePolicy && (coursePolicy.mode === 'hybrid' || coursePolicy.mode === 'in_person_only')) {
+      if (!dismissedNoticeForCourses.has(selectedCourse.id)) {
+        setPendingEpisodeToPlay(episode);
+        setIsAttendanceNoticeOpen(true);
+        return;
+      }
+    }
+    executePlayEpisode(episode);
+  };
+
+  const executePlayEpisode = (episode: Episode) => {
     setCurrentEpisode(episode);
     setIsPlaying(true);
     setWatchStartTime(new Date().toISOString());
     setLessonNotes('');
+  };
+
+  const handleConfirmAttendanceNotice = () => {
+    if (selectedCourse) {
+      setDismissedNoticeForCourses(prev => new Set(prev).add(selectedCourse.id));
+    }
+    setIsAttendanceNoticeOpen(false);
+    if (pendingEpisodeToPlay) {
+      executePlayEpisode(pendingEpisodeToPlay);
+      setPendingEpisodeToPlay(null);
+    }
   };
 
   const handleMarkAsCompleted = (bypassQuiz = false) => {
@@ -750,6 +787,35 @@ function TheoFlixContent() {
 
               <div className="bg-slate-950 text-slate-100 p-5 sm:p-10 grid grid-cols-1 md:grid-cols-3 gap-8 sm:gap-16 border-t border-white/5">
                 <div className="md:col-span-2 space-y-8 sm:space-y-12">
+                    {/* Banner Informativo de Política de Frequência Online */}
+                    {coursePolicy && coursePolicy.mode === 'hybrid' && (
+                      <div className="p-4 sm:p-5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-200 space-y-1.5 animate-in fade-in duration-300">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="size-4 text-amber-400 shrink-0" />
+                          <h4 className="text-xs sm:text-sm font-black uppercase text-amber-400 tracking-wider">
+                            Regra de Frequência Online (Curso Híbrido)
+                          </h4>
+                        </div>
+                        <p className="text-xs sm:text-sm text-slate-300">
+                          Para aprovação e formatura, o limite de presença online pelo TheoFlix é de até <strong className="text-amber-300">{coursePolicy.online?.maxPercentage ?? 50}% das aulas</strong> (o restante deve ser realizado presencialmente). Você pode assistir a todas as aulas online normalmente para seus estudos.
+                        </p>
+                      </div>
+                    )}
+
+                    {coursePolicy && coursePolicy.mode === 'in_person_only' && (
+                      <div className="p-4 sm:p-5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-200 space-y-1.5 animate-in fade-in duration-300">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="size-4 text-rose-400 shrink-0" />
+                          <h4 className="text-xs sm:text-sm font-black uppercase text-rose-400 tracking-wider">
+                            Modalidade Presencial Exclusiva
+                          </h4>
+                        </div>
+                        <p className="text-xs sm:text-sm text-slate-300">
+                          Este curso exige presença física presencial para fins de aprovação. Os vídeos do TheoFlix servem como material complementar e de apoio.
+                        </p>
+                      </div>
+                    )}
+
                     <section>
                         <h3 className="text-[9px] sm:text-xs font-black uppercase text-primary tracking-widest mb-2 sm:mb-4">Sinopse</h3>
                         <p className="text-sm sm:text-lg text-slate-300 font-medium leading-relaxed">{selectedCourse.desc}</p>
@@ -1030,6 +1096,47 @@ function TheoFlixContent() {
                   <Button variant="ghost" onClick={() => setIsQuizOpen(false)} disabled={isEvaluating} className="text-xs font-bold text-muted-foreground uppercase">Responder depois</Button>
               </div>
           </DialogContent>
+      </Dialog>
+
+      {/* Pop-up de Aviso Flutuante sobre Regras de Frequência Online */}
+      <Dialog open={isAttendanceNoticeOpen} onOpenChange={setIsAttendanceNoticeOpen}>
+        <DialogContent className="sm:max-w-md bg-slate-900 border-slate-800 text-slate-100">
+          <DialogHeader>
+            <DialogTitle className="text-base font-black text-white flex items-center gap-2">
+              <AlertTriangle className="size-5 text-amber-400" />
+              Aviso sobre Aulas Online &amp; Frequência
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-400">
+              {selectedCourse?.title}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2 text-xs text-slate-300">
+            <p>
+              Este curso adota o modelo de ensino <strong className="text-white">{coursePolicy?.mode === 'in_person_only' ? 'Somente Presencial' : 'Híbrido'}</strong>.
+            </p>
+            <div className="p-3 bg-amber-950/40 rounded-xl border border-amber-500/20 text-amber-200 space-y-1">
+              <p className="font-bold text-xs">Regra de Aprovação:</p>
+              <p className="text-[11px] leading-relaxed">
+                {coursePolicy?.mode === 'in_person_only'
+                  ? 'As presenças válidas para aprovação e formatura devem ser cumpridas presencialmente.'
+                  : `Você pode realizar no máximo ${coursePolicy?.online?.maxPercentage ?? 50}% das aulas no formato online (TheoFlix) para fins de formatura. O restante da carga horária deve ser cumprido presencialmente.`}
+              </p>
+            </div>
+            <p className="text-[11px] text-slate-400 italic">
+              Você tem acesso livre para assistir a todas as aulas online sempre que desejar para estudo e revisão!
+            </p>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              onClick={handleConfirmAttendanceNotice}
+              className="w-full bg-primary hover:bg-primary/90 text-white font-bold text-xs h-10"
+            >
+              Entendido, assistir aula
+            </Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
     </div>
   );

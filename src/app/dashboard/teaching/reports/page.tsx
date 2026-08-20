@@ -605,8 +605,29 @@ function GeneralTeachingReportsContent() {
       });
     });
 
+    // Se o usuário não selecionou uma turma específica, deduplica para mostrar apenas a turma mais recente de cada aluno por curso
+    if (selectedClassId === 'all') {
+      const latestMap = new Map<string, any>();
+      list.forEach(item => {
+        const key = `${item.studentId}_${item.courseId}`;
+        const existing = latestMap.get(key);
+        if (!existing) {
+          latestMap.set(key, item);
+        } else {
+          const existingDate = existing.classData?.startDate || '';
+          const currentDate = item.classData?.startDate || '';
+          const isCurrentNewer = currentDate > existingDate || 
+            (item.classData?.status === 'active' && existing.classData?.status === 'completed');
+          if (isCurrentNewer) {
+            latestMap.set(key, item);
+          }
+        }
+      });
+      return Array.from(latestMap.values());
+    }
+
     return list;
-  }, [filteredClasses, courseMap, classScheduleMap, classes, isStudentInScope, isEnrollmentDateInRange, userMap, userCellMap, cellMap, areaMap, redeMap, lessonDateStart, lessonDateEnd]);
+  }, [filteredClasses, courseMap, classScheduleMap, classes, isStudentInScope, isEnrollmentDateInRange, userMap, userCellMap, cellMap, areaMap, redeMap, lessonDateStart, lessonDateEnd, selectedClassId]);
 
   // Filtro de busca textual
   const studentsFollowUpList = useMemo(() => {
