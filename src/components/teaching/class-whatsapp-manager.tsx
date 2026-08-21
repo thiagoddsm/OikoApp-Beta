@@ -270,10 +270,17 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
 
             const data = await res.json();
             if (res.ok && data.success) {
-                toast({ 
-                    title: 'Grupo Sincronizado!', 
-                    description: `Adicionados: ${data.addedCount} | Removidos: ${data.removedCount} | Equipe Protegida: ${(data.teachersProtected || 0) + (data.supportProtected || 0)}` 
-                });
+                if (data.toAddCount > 0) {
+                    toast({ 
+                        title: 'Sincronização Segura Iniciada! ⏳', 
+                        description: `Adicionando ${data.toAddCount} participante(s) em segundo plano (1 a cada minuto) para proteção total do WhatsApp.` 
+                    });
+                } else {
+                    toast({ 
+                        title: 'Grupo 100% Sincronizado! ✅', 
+                        description: `Nenhum novo participante pendente. Removidos: ${data.removedCount || 0}.` 
+                    });
+                }
                 fetchGroupInfo();
             } else {
                 toast({ 

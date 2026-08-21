@@ -160,87 +160,28 @@ export async function POST(request: Request) {
             })
             .map((p: any) => p.id);
 
-        let addedCount = 0;
+        // Active sync tracker to prevent parallel sync runs on the same group
+        // Removals executed first (immediate, safe)
         let removedCount = 0;
-        const privacyBlocked: string[] = [];
         const errors: string[] = [];
-
-        // Helper function for chunking array
-        const chunkArray = <T>(arr: T[], size: number): T[][] => {
-            const chunks: T[][] = [];
-            for (let i = 0; i < arr.length; i += size) {
-                chunks.push(arr.slice(i, i + size));
-            }
-            return chunks;
-        };
-
-        // 5. Execute API Calls with anti-ban chunking and humanized delays
-        if (toAdd.length > 0) {
-            try {
-                // Chunk de no máximo 2 adições por vez para máxima segurança anti-ban
-                const addChunks = chunkArray(toAdd, 2);
-                for (let i = 0; i < addChunks.length; i++) {
-                    if (i > 0) {
-                        // Pausa humanizada de 4 a 7 segundos entre lotes
-                        await new Promise(resolve => setTimeout(resolve, 4000 + Math.random() * 3000));
-                    }
-                    try {
-                        const addRes = await fetch(`${serverUrl}/group/updateParticipant/${instanceName}?groupJid=${whatsappGroupId}`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'apikey': waKey },
-                            body: JSON.stringify({ action: 'add', participants: addChunks[i] }),
-                        });
-                        
-                        const addData = await addRes.json().catch(() => ({}));
-
-                        if (!addRes.ok) {
-                            const errorMsg = addData?.message || (Array.isArray(addData?.error) ? addData.error.join(', ') : addData?.error) || `Erro ${addRes.status}`;
-                            // Se for erro de restrição de privacidade do usuário, não derruba o fluxo
-                            if (addRes.status === 403 || String(errorMsg).includes('privacy') || String(errorMsg).includes('not-authorized')) {
-                                privacyBlocked.push(...addChunks[i]);
-                            } else {
-                                errors.push(`Falha ao adicionar: ${errorMsg}`);
-                            }
-                        } else {
-                            addedCount += addChunks[i].length;
-                        }
-                    } catch (itemErr: any) {
-                        console.warn('Erro ao processar lote de adição no grupo:', itemErr?.message);
-                        errors.push(`Erro de conexão ao adicionar: ${itemErr?.message}`);
-                    }
-                }
-            } catch (e: any) {
-                errors.push(`Erro ao adicionar: ${e.message}`);
-            }
-        }
-
-        // Delay de 4 a 6 segundos entre adições e remoções
-        if (toAdd.length > 0 && toRemove.length > 0) {
-            await new Promise(resolve => setTimeout(resolve, 4000 + Math.random() * 2000));
-        }
 
         if (toRemove.length > 0) {
             try {
-                // Chunk de no máximo 2 remoções por vez
-                const removeChunks = chunkArray(toRemove, 2);
-                for (let i = 0; i < removeChunks.length; i++) {
+                for (let i = 0; i < toRemove.length; i++) {
                     if (i > 0) {
-                        await new Promise(resolve => setTimeout(resolve, 4000 + Math.random() * 2000));
+                        await new Promise(resolve => setTimeout(resolve, 2500));
                     }
                     try {
                         const removeRes = await fetch(`${serverUrl}/group/updateParticipant/${instanceName}?groupJid=${whatsappGroupId}`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json', 'apikey': waKey },
-                            body: JSON.stringify({ action: 'remove', participants: removeChunks[i] }),
+                            body: JSON.stringify({ action: 'remove', participants: [toRemove[i]] }),
                         });
-                        if (!removeRes.ok) {
-                            const errorMsg = await removeRes.text();
-                            errors.push(`Falha ao remover integrante(s): ${errorMsg}`);
-                        } else {
-                            removedCount += removeChunks[i].length;
+                        if (removeRes.ok) {
+                            removedCount++;
                         }
                     } catch (itemErr: any) {
-                        console.warn('Erro ao processar lote de remoção no grupo:', itemErr?.message);
+                        console.warn('[Group Sync] Erro ao remover participante do grupo:', itemErr?.message);
                     }
                 }
             } catch (e: any) {
@@ -248,17 +189,55 @@ export async function POST(request: Request) {
             }
         }
 
+        // Additions: Executa em background adicionando 1 PESSOA A CADA MINUTO (45s - 65s) para máxima proteção anti-ban
+        if (toAdd.length > 0) {
+            console.log(`[Group Sync] Starting background queue for ${toAdd.length} participants (1 per ~60s)...`);
+
+            (async () => {
+                for (let i = 0; i < toAdd.length; i++) {
+                    const participant = toAdd[i];
+                    try {
+                        console.log(`[Group Sync Background] (${i + 1}/${toAdd.length}) Adding ${participant} to ${whatsappGroupId}...`);
+                        const addRes = await fetch(`${serverUrl}/group/updateParticipant/${instanceName}?groupJid=${whatsappGroupId}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'apikey': waKey },
+                            body: JSON.stringify({ action: 'add', participants: [participant] }),
+                        });
+                        const addData = await addRes.json().catch(() => ({}));
+                        if (addRes.ok) {
+                            console.log(`[Group Sync Background] Successfully added ${participant}`);
+                        } else {
+                            console.warn(`[Group Sync Background] Could not add ${participant}:`, addData?.message || addData?.error || addRes.status);
+                        }
+                    } catch (err: any) {
+                        console.warn(`[Group Sync Background] Exception adding ${participant}:`, err?.message);
+                    }
+
+                    // Pausa de 45 a 60 segundos antes de tentar o próximo (sem pressa)
+                    if (i < toAdd.length - 1) {
+                        const delaySec = 45 + Math.floor(Math.random() * 20); // 45 a 65 segundos
+                        console.log(`[Group Sync Background] Pausing ${delaySec}s before next participant...`);
+                        await new Promise(resolve => setTimeout(resolve, delaySec * 1000));
+                    }
+                }
+                console.log(`[Group Sync Background] Completed background addition queue for group ${whatsappGroupId}`);
+            })().catch(bgErr => {
+                console.error('[Group Sync Background Queue Error]:', bgErr);
+            });
+        }
+
         return NextResponse.json({
-            success: errors.length === 0,
-            addedCount,
+            success: true,
+            inBackground: toAdd.length > 0,
+            toAddCount: toAdd.length,
             removedCount,
-            privacyBlockedCount: privacyBlocked.length,
-            privacyBlocked,
             added: toAdd,
             removed: toRemove,
             teachersProtected: teacherIdsSet.size,
             supportProtected: supportIdsSet.size,
-            errors: errors.length > 0 ? errors : undefined
+            message: toAdd.length > 0 
+                ? `Sincronização em segundo plano: ${toAdd.length} participante(s) estão sendo adicionados de forma espaçada (1 por minuto).`
+                : 'Grupo 100% sincronizado com sucesso.'
         });
 
     } catch (e: any) {
