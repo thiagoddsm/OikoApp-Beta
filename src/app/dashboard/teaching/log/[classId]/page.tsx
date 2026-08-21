@@ -60,8 +60,6 @@ function PedagogicalLogPageContent() {
     const classData = useMemo(() => classes.find(c => c.id === classId), [classes, classId]);
     const courseData = useMemo(() => classData ? courses.find(c => c.id === classData.courseId) : null, [classData, courses]);
 
-
-
     const resolvedSchedule = useMemo(() => {
         return getResolvedSchedule(classData, courseData);
     }, [classData, courseData]);
@@ -113,7 +111,8 @@ function PedagogicalLogPageContent() {
 
     useEffect(() => {
         if (selectedDate && classData?.attendance) {
-            const record = classData.attendance.find((a: any) => a.date === selectedDate);
+            const cleanSelected = selectedDate.split('T')[0];
+            const record = classData.attendance.find((a: any) => a.date === selectedDate || a.date?.split('T')[0] === cleanSelected);
             setPresentStudents(record?.presentStudentIds || []);
             setOnlineStudents(record?.onlineStudentIds || []);
             setMakeupStudentIds(record?.repositions?.map((reposition: any) => reposition.studentId) || []);
@@ -121,15 +120,9 @@ function PedagogicalLogPageContent() {
             const baseDateStr = selectedDate.split('T')[0];
 
             const log = pedagogicalLogs.find(l => {
-                // Se o log já tiver a string exata salva (novo formato), usa ela
-                if (l.dateStr && l.dateStr === selectedDate) return true;
-                
-                // Formato antigo (apenas verifica se caiu no mesmo dia)
+                if (l.dateStr && (l.dateStr === selectedDate || l.dateStr.split('T')[0] === baseDateStr)) return true;
                 const logDate = l.date?.toDate ? l.date.toDate() : (l.date instanceof Date ? l.date : null);
                 if (!logDate) return false;
-                
-                // Se for uma aula com horário específico e não bateu no dateStr exato acima, 
-                // e já existe um log para esse dia, ele vai puxar o primeiro log do dia (fallback)
                 return l.classId === classId && format(logDate, 'yyyy-MM-dd') === baseDateStr;
             });
 

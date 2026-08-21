@@ -20,7 +20,7 @@ import { format, parseISO, addWeeks, addMonths, isBefore, startOfDay } from 'dat
 import { ptBR } from 'date-fns/locale';
 import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
 import { CertificateView } from './certificate-view';
-import { getModuleCompletion } from '@/domain/teaching/module-completion';
+import { getModuleCompletion, evaluateTheoflixRequirement, evaluateRepositionRequirement, evaluateManualApprovalRequirement } from '@/domain/teaching/module-completion';
 import { evaluateStudentAttendance } from '@/lib/teaching/attendance-calculator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -33,11 +33,10 @@ const safeParseISO = (dateStr: string): Date => {
   if (!dateStr || typeof dateStr !== 'string') return new Date(NaN);
   // Strip time component (T...), then take only YYYY-MM-DD (first 3 dash-parts).
   // The old regex /-[\d]+$/ incorrectly stripped the day: '2026-04-05' → '2026-04' → NaN.
-  // This version handles: '2026-04-05' ✓, '2026-06-28-1' → '2026-06-28' ✓, '2026-05-02T08:00' ✓
-  const withoutTime = dateStr.split('T')[0];
-  const cleanD = withoutTime.split('-').slice(0, 3).join('-');
-  const parsed = parseISO(cleanD);
-  return isNaN(parsed.getTime()) ? new Date(NaN) : parsed;
+  const dateOnly = dateStr.split('T')[0];
+  const parts = dateOnly.split('-');
+  const normalized = parts.length >= 3 ? `${parts[0]}-${parts[1]}-${parts[2]}` : dateOnly;
+  return parseISO(normalized);
 };
 
 
@@ -153,11 +152,11 @@ function getStudentStatus(
   const cleanDateStr = dateStr.split('T')[0];
   const att = (cls.attendance || []).find((a: any) => a.date === dateStr || a.date?.split('T')[0] === cleanDateStr);
 
+  // 1. Checagem direta na chamada da turma
   if (att?.presentStudentIds?.includes(userId)) return 'present';
   if (att?.onlineStudentIds?.includes(userId)) return 'online';
   if (att?.repositions?.some((r: any) => r.studentId === userId)) return 'makeup';
 
-  // 1. Checar via orquestrador oficial getModuleCompletion (mesma fonte de verdade da secretaria/perfil)
   const modIndex = sessionIndex !== -1 ? sessionIndex : (course ? getModuleIndexForDate(dateStr, cls, course.syllabus || []) : -1);
 
   if (modIndex !== -1) {
@@ -167,7 +166,7 @@ function getStudentStatus(
       /^(pertencer|curso de membro|curso de membros)/i.test(course?.name || '')
     );
 
-    const completion = getModuleCompletion({
+    const completionParams = {
       studentId: userId,
       studentEmail: userEmail,
       studentJourney: studentJourney,
@@ -178,32 +177,52 @@ function getStudentStatus(
       courseClasses: allClasses.length > 0 ? allClasses : [cls],
       quizAttempts: quizAttempts || [],
       isMembership
-    });
+    };
 
-    if (completion.isDone) {
-      if (completion.isOnline) return 'online';
-      if (completion.isRepo || completion.isManual) return 'makeup';
-      // Se a aluna não estava na chamada física desta aula, qualquer conclusão externa conta como Reposição
-      return 'makeup';
+    // 2. Se a chamada da turma para esta data já foi realizada e o aluno NÃO estava presente:
+    // Ele NUNCA recebe presença presencial regular. Só pode ser TheoFlix, Reposição em outra turma ou Aprovação Manual.
+    if (att) {
+      const isOnline = evaluateTheoflixRequirement(completionParams);
+      if (isOnline) return 'online';
+
+      // Checar reposição em outra turma
+      const otherClasses = allClasses.filter(c => c.id !== cls.id);
+      const isRepo = evaluateRepositionRequirement({ ...completionParams, courseClasses: otherClasses }, false);
+      if (isRepo) return 'makeup';
+
+      // Reposição via extraSession desta turma
+      const repoSessions = (cls.extraSessions || []).filter((s: any) => s.isRepositionOnly);
+      for (const rs of repoSessions) {
+        const rsModIndex = rs.syllabusId 
+          ? (course?.syllabus || []).findIndex((item: any) => item.id === rs.syllabusId)
+          : -1;
+        if (rsModIndex !== -1 && rsModIndex !== modIndex) continue;
+
+        const rsStr = rs.startTime ? `${rs.date}T${rs.startTime}` : `${rs.date}-extra`;
+        const rsAtt = (cls.attendance || []).find((a: any) => a.date === rsStr || a.date === rs.date || a.date?.startsWith(rs.date));
+        if (rsAtt?.presentStudentIds?.includes(userId) || rsAtt?.onlineStudentIds?.includes(userId) || rsAtt?.repositions?.some((r: any) => r.studentId === userId)) {
+          return 'makeup';
+        }
+      }
+
+      const isManual = evaluateManualApprovalRequirement(completionParams);
+      if (isManual) return 'makeup';
+
+      // Se a chamada foi feita e o aluno não participou nem repôs, é FALTA
+      return 'absent';
+    } else {
+      // Se a chamada da aula ainda não foi lançada pelo professor
+      const completion = getModuleCompletion(completionParams);
+      if (completion.isDone) {
+        if (completion.isOnline) return 'online';
+        if (completion.isRepo || completion.isManual) return 'makeup';
+        return 'present';
+      }
+      return 'pending';
     }
   }
 
-  // 2. Reposição via extraSession deste módulo específico
-  const repoSessions = (cls.extraSessions || []).filter((s: any) => s.isRepositionOnly);
-  for (const rs of repoSessions) {
-    const rsModIndex = rs.syllabusId 
-      ? (course?.syllabus || []).findIndex((item: any) => item.id === rs.syllabusId)
-      : -1;
-    if (rsModIndex !== -1 && rsModIndex !== modIndex) continue;
-
-    const rsStr = rs.startTime ? `${rs.date}T${rs.startTime}` : `${rs.date}-extra`;
-    const rsAtt = (cls.attendance || []).find((a: any) => a.date === rsStr || a.date === rs.date || a.date?.startsWith(rs.date));
-    if (rsAtt?.presentStudentIds?.includes(userId) || rsAtt?.onlineStudentIds?.includes(userId) || rsAtt?.repositions?.some((r: any) => r.studentId === userId)) {
-      return 'makeup';
-    }
-  }
-
-  return 'absent';
+  return att ? 'absent' : 'pending';
 }
 
 // ─── sub-components ──────────────────────────────────────────────────────────
