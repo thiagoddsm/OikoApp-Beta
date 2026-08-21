@@ -150,7 +150,8 @@ function getStudentStatus(
   if (isNaN(sessionDate.getTime())) return 'pending';
   if (isBefore(today, sessionDate)) return 'future';
 
-  const att = (cls.attendance || []).find((a: any) => a.date === dateStr);
+  const cleanDateStr = dateStr.split('T')[0];
+  const att = (cls.attendance || []).find((a: any) => a.date === dateStr || a.date?.split('T')[0] === cleanDateStr);
 
   if (att?.presentStudentIds?.includes(userId)) return 'present';
   if (att?.onlineStudentIds?.includes(userId)) return 'online';
@@ -180,9 +181,10 @@ function getStudentStatus(
     });
 
     if (completion.isDone) {
-      if (completion.isRepo) return 'makeup';
       if (completion.isOnline) return 'online';
-      return 'present';
+      if (completion.isRepo || completion.isManual) return 'makeup';
+      // Se a aluna não estava na chamada física desta aula, qualquer conclusão externa conta como Reposição
+      return 'makeup';
     }
   }
 
