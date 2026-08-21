@@ -953,13 +953,13 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
                                             <Label className="text-xs font-bold">Destinatários</Label>
                                             <Badge variant="outline" className="text-[10px]">
                                                 {selectedStudentForInvite 
-                                                    ? '1 Aluno Selecionado'
+                                                    ? '1 Destinatário Selecionado'
                                                     : `${pendingStudentsCount} Aluno(s) Pendente(s)`}
                                             </Badge>
                                         </div>
                                         <p className="text-[11px] text-muted-foreground">
                                             {selectedStudentForInvite 
-                                                ? `Enviando para: ${resolvedStudents.find(s => s.id === selectedStudentForInvite)?.name || 'Aluno'}`
+                                                ? `Enviando para: ${resolvedStudents.find(s => s.id === selectedStudentForInvite)?.name || resolvedTeachers.find(t => t.id === selectedStudentForInvite)?.name || resolvedSupportTeam.find(st => st.id === selectedStudentForInvite)?.name || 'Destinatário'}`
                                                 : `Será enviado para todos os ${pendingStudentsCount} alunos que ainda não entraram no grupo.`}
                                         </p>
                                     </div>
