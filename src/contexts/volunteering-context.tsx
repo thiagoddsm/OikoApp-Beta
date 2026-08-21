@@ -1245,9 +1245,15 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
         await updateDocumentNonBlocking(userRef, {
           // Legado: índice numérico (mantido para compatibilidade com dados existentes)
           [`journey.theoflixAttendance.${theoflixCourseId}.${episodeIndex}`]: true,
+          // Inconsistência #8 fix: theoflixProgress também deve ser gravado pois o motor de domínio
+          // lê de AMBOS os campos (theoflixAttendance e theoflixProgress).
+          [`journey.theoflixProgress.${theoflixCourseId}.${episodeIndex}`]: true,
           // Novo (Fase 1): chave estável por youtubeId — resistente a reordenações de episódios
-          ...(episodeYoutubeId && { [`journey.theoflixAttendance.${theoflixCourseId}.${episodeYoutubeId}`]: true }),
-          [`journey.lumineProgress.${theoflixCourseId}.${episodeIndex}`]: true
+          ...(episodeYoutubeId && {
+            [`journey.theoflixAttendance.${theoflixCourseId}.${episodeYoutubeId}`]: true,
+            [`journey.theoflixProgress.${theoflixCourseId}.${episodeYoutubeId}`]: true,
+          }),
+          // lumineProgress removido: campo morto não lido por nenhum avaliador
         });
       }
 

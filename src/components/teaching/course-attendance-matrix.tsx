@@ -24,6 +24,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { RetroactiveApprovalDialog } from './retroactive-approval-dialog';
 import { CertificateView } from './certificate-view';
 import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
+import { isMembershipCourse } from '@/lib/teaching/is-membership-course';
 
 const safeParseISO = (dateStr: string): Date => {
     if (!dateStr || typeof dateStr !== 'string') return new Date(NaN);
@@ -101,12 +102,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
     } | null>(null);
 
     const course = useMemo(() => courses.find(c => c.id === courseId), [courses, courseId]);
-    const isMembership = Boolean(
-        course?.id === 'pertencer' ||
-        course?.id === 'membros' ||
-        course?.linkedTheoflixId === 'membros' ||
-        /^(pertencer|curso de membro|curso de membros)/i.test(course?.name || '')
-    );
+    const isMembership = isMembershipCourse(course);
     const threshold = course?.minAttendanceApproval || 75;
     const useModuleView = isMembership || (course?.simultaneousClasses && course?.syllabus && course.syllabus.length > 0) || (selectedClassId === 'all' && course?.syllabus && course.syllabus.length > 0);
 

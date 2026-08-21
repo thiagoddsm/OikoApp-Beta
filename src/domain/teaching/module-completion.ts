@@ -43,7 +43,7 @@ export function evaluateRepositionRequirement(params: ModuleCompletionParams, ha
 
   for (const aClass of courseClasses) {
     const foundAtt = aClass.attendance?.find((att: any) => {
-      // 1. Checar se a data bate com o modIndex desta turma
+      // 1. Checar se a data bate com o modIndex desta turma (presença direta ou repo explícita)
       const dateModIndex = getModuleIndexForDate(att.date, aClass, course?.syllabus || []);
       const isPresent = att.presentStudentIds?.includes(studentId) || att.onlineStudentIds?.includes(studentId);
       const isExplicitRepo = att.repositions?.some((r: any) => r.studentId === studentId);
@@ -52,7 +52,9 @@ export function evaluateRepositionRequirement(params: ModuleCompletionParams, ha
         return true;
       }
 
-      // 2. Checar se há reposição explícita registrada apontando para este modIndex ou syllabusId
+      // 2. Checar se há reposição explícita com moduleIndex ou syllabusId apontando para este módulo
+      // Bug #1 fix: retorna false explicitamente quando repoForMod não existe,
+      // evitando que o .find() continue iterando e retorne um att de data diferente.
       const repoForMod = att.repositions?.find((r: any) => {
         if (r.studentId !== studentId) return false;
         if (r.moduleIndex !== undefined && Number(r.moduleIndex) === modIndex) return true;
@@ -63,7 +65,10 @@ export function evaluateRepositionRequirement(params: ModuleCompletionParams, ha
         return false;
       });
 
-      return Boolean(repoForMod);
+      if (repoForMod) return true;
+
+      // Nenhuma condição satisfeita para este registro — continuar o .find()
+      return false;
     });
 
     if (foundAtt) return foundAtt;
@@ -197,20 +202,27 @@ export function evaluateTheoflixRequirement(params: ModuleCompletionParams): boo
 
 export function evaluateManualApprovalRequirement(params: ModuleCompletionParams): boolean {
   const { studentJourney, isMembership, modId, course } = params;
+  if (!modId) return false;
+
+  const rawModIdStr = modId.toString();
+  const cleanModId = rawModIdStr.startsWith('module') ? rawModIdStr.replace(/^module/, '') : rawModIdStr;
   
   if (isMembership) {
-    const key = `module${modId}`;
     const isRetroactiveApproved = !!(
-      studentJourney?.retroactiveApprovals?.[key] ||
-      studentJourney?.retroactiveApprovals?.[modId] ||
-      studentJourney?.retroactiveApprovals?.[`pertencer_${key}`] ||
-      studentJourney?.retroactiveApprovals?.[`membros_${key}`]
+      studentJourney?.retroactiveApprovals?.[`module${cleanModId}`] ||
+      studentJourney?.retroactiveApprovals?.[cleanModId] ||
+      studentJourney?.retroactiveApprovals?.[rawModIdStr] ||
+      studentJourney?.retroactiveApprovals?.[`pertencer_module${cleanModId}`] ||
+      studentJourney?.retroactiveApprovals?.[`membros_module${cleanModId}`] ||
+      studentJourney?.retroactiveApprovals?.[`pertencer_${rawModIdStr}`] ||
+      studentJourney?.retroactiveApprovals?.[`membros_${rawModIdStr}`]
     );
     if (isRetroactiveApproved) return true;
 
     return !!(
-      studentJourney?.memberCourseProgress?.[`module${modId}`] || 
-      studentJourney?.memberCourseProgress?.[modId]
+      studentJourney?.memberCourseProgress?.[`module${cleanModId}`] || 
+      studentJourney?.memberCourseProgress?.[cleanModId] ||
+      studentJourney?.memberCourseProgress?.[rawModIdStr]
     );
   }
 
@@ -218,16 +230,17 @@ export function evaluateManualApprovalRequirement(params: ModuleCompletionParams
   const courseId = course?.id;
   if (!courseId) return false;
 
-  const key = `${courseId}_module${modId}`;
   const isRetroactiveApproved = !!(
-    studentJourney?.retroactiveApprovals?.[key] ||
-    studentJourney?.retroactiveApprovals?.[`${courseId}_${modId}`]
+    studentJourney?.retroactiveApprovals?.[`${courseId}_module${cleanModId}`] ||
+    studentJourney?.retroactiveApprovals?.[`${courseId}_${cleanModId}`] ||
+    studentJourney?.retroactiveApprovals?.[`${courseId}_${rawModIdStr}`]
   );
   if (isRetroactiveApproved) return true;
 
   return !!(
-    studentJourney?.courseProgress?.[courseId]?.[`module${modId}`] || 
-    studentJourney?.courseProgress?.[courseId]?.[modId]
+    studentJourney?.courseProgress?.[courseId]?.[`module${cleanModId}`] || 
+    studentJourney?.courseProgress?.[courseId]?.[cleanModId] ||
+    studentJourney?.courseProgress?.[courseId]?.[rawModIdStr]
   );
 }
 

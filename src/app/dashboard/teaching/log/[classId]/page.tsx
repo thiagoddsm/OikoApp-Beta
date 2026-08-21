@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
 import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
+import { isMembershipCourse } from '@/lib/teaching/is-membership-course';
 
 const weekDayMap: Record<string, number> = {
     "Domingo": 0, "Segunda-feira": 1, "Terça-feira": 2, "Quarta-feira": 3,
@@ -142,20 +143,7 @@ function PedagogicalLogPageContent() {
     }, [selectedDate, classData, pedagogicalLogs, classId, currentModuleIndex, moduleNames]);
 
     const isMemberCourse = useMemo(() => {
-        if (!courseData) return false;
-        const nameLower = (courseData.name || '').toLowerCase();
-        const ministryNameLower = (courseData.ministryName || '').toLowerCase();
-        const ministryLower = ((courseData as any).ministry || '').toLowerCase();
-        const schoolId = (courseData as any).schoolId;
-        const programId = (courseData as any).programId;
-
-        return nameLower.includes('membro') || 
-               nameLower.includes('pertencer') || 
-               schoolId === 'lumine' || 
-               programId === 'lumine' || 
-               ministryNameLower.includes('lumine') || 
-               ministryNameLower.includes('ebd') || 
-               ministryLower.includes('lumine');
+        return isMembershipCourse(courseData);
     }, [courseData]);
 
     const isDisCourse = useMemo(() => {
@@ -305,13 +293,20 @@ function PedagogicalLogPageContent() {
 
             const existingAttendance = classData?.attendance || [];
             const enrolledSet = new Set(classData?.students || []);
-            const externalPresentIds = [...presentStudents, ...onlineStudents].filter(id => !enrolledSet.has(id));
+            // Bug #5 fix: somente externos presenciais viram reposição; externos apenas online são contabilizados como online externo
+            const externalPresentIds = presentStudents.filter(id => !enrolledSet.has(id));
             const allRepoIds = Array.from(new Set([...makeupStudentIds, ...externalPresentIds]));
 
+            // Bug #4 fix: inclui moduleIndex e syllabusId para que reposições em turmas
+            // de calendário diferente sejam reconhecidas corretamente pelo motor de domínio.
+            const repoModuleId = currentResolvedItem?.syllabusItem?.id || null;
+            const repoModuleIndex = currentResolvedItem?.syllabusOriginalIndex ?? currentModuleIndex;
             const repositions = allRepoIds.map(studentId => ({
                 studentId,
                 date: selectedDate,
                 dateStr: selectedDate,
+                ...(repoModuleId !== null && { syllabusId: repoModuleId }),
+                ...(repoModuleIndex !== -1 && { moduleIndex: repoModuleIndex }),
             }));
             const updatedAttendance = [
                 ...existingAttendance.filter((a: any) => a.date !== selectedDate),
@@ -344,16 +339,31 @@ function PedagogicalLogPageContent() {
                     createdAt: serverTimestamp(),
                 }, { merge: true });
 
+                // Bug #7 fix: iterar sobre todos (matriculados + reposição + online),
+                // determinando status correto independente de estar em presentStudents.
                 const enrolledIds = new Set(classData.students || []);
-                [...enrolledIds, ...makeupStudentIds].forEach(studentId => {
+                const allStudentsForSession = new Set([...enrolledIds, ...makeupStudentIds, ...onlineStudents]);
+                allStudentsForSession.forEach(studentId => {
                     const attendanceRef = doc(firestore, 'class_session_attendance', `${safeSessionKey}_${studentId}`);
-                    const isPresent = presentStudents.includes(studentId);
+                    const isInPerson = presentStudents.includes(studentId);
+                    const isOnline = onlineStudents.includes(studentId);
+                    const isMakeup = makeupStudentIds.includes(studentId);
+                    let status: string;
+                    if (isMakeup && (isInPerson || isOnline)) {
+                        status = 'makeup';
+                    } else if (isInPerson) {
+                        status = 'present';
+                    } else if (isOnline) {
+                        status = 'online';
+                    } else {
+                        status = 'absent';
+                    }
                     batch.set(attendanceRef, {
                         sessionId: safeSessionKey,
                         classId,
                         courseId: classData.courseId,
                         studentId,
-                        status: isPresent ? (makeupStudentIds.includes(studentId) ? 'makeup' : (onlineStudents.includes(studentId) ? 'online' : 'present')) : 'absent',
+                        status,
                         recordedAt: serverTimestamp(),
                     }, { merge: true });
                 });
@@ -489,7 +499,11 @@ function PedagogicalLogPageContent() {
                             <SelectContent>
                                     {classOccurrences.map((date, idx) => {
                                         const attendance = classData.attendance?.find((a: any) => a.date === date);
-                                        const hasAttendance = attendance && (attendance.presentStudentIds.length > 0);
+                                        // Bug #6 fix: mostra ✓ para aulas com presença física OU online
+                                        const hasAttendance = attendance && (
+                                            (attendance.presentStudentIds?.length || 0) > 0 ||
+                                            (attendance.onlineStudentIds?.length || 0) > 0
+                                        );
                                         const moduleName = moduleNames[idx] ? `- ${moduleNames[idx]}` : '';
                                         const isExtra = resolvedSchedule[idx]?.isExtraSession;
                                         const isRepoOnly = resolvedSchedule[idx]?.isRepositionOnly;

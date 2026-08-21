@@ -12,6 +12,7 @@ import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
 import { getModuleCompletion } from '@/domain/teaching/module-completion';
+import { isMembershipCourse } from '@/lib/teaching/is-membership-course';
 
 const safeParseISO = (dateStr: string): Date => {
     if (!dateStr || typeof dateStr !== 'string') return new Date(NaN);
@@ -76,11 +77,8 @@ export function ClassPerformanceReport({ classData }: { classData: Class }) {
         if (!isInPerson && !isOnlineLive && !isNativeRepo) {
             const modIndex = getModuleIndexForDate(date, classData, courseData?.syllabus || []);
             if (modIndex !== -1) {
-                const isMembership = Boolean(
-                    classData.courseId === 'pertencer' || 
-                    classData.courseId === 'membros' || 
-                    /^(pertencer|curso de membro)/i.test(courseData?.name || '')
-                );
+                const isMembership = isMembershipCourse(courseData || { id: classData.courseId });
+                const courseSyllabus = courseData?.syllabus || [];
 
                 const completion = getModuleCompletion({
                     studentId: student.id,
@@ -88,8 +86,8 @@ export function ClassPerformanceReport({ classData }: { classData: Class }) {
                     studentJourney: student.journey,
                     course: courseData || { id: classData.courseId },
                     modIndex,
-                    modId: (modIndex + 1).toString(),
-                    modules: courseData?.syllabus || [],
+                    modId: courseSyllabus[modIndex]?.id || (modIndex + 1).toString(),
+                    modules: courseSyllabus,
                     courseClasses,
                     isMembership
                 });

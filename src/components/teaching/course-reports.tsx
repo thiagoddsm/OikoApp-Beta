@@ -14,6 +14,7 @@ import { format, parseISO, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart, Bar, Legend } from 'recharts';
 import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
+import { isMembershipCourse } from '@/lib/teaching/is-membership-course';
 
 interface CourseReportsProps {
   courseId: string;
@@ -100,11 +101,7 @@ export function CourseReports({ courseId }: CourseReportsProps) {
               );
               
               const courseSyllabus = course?.syllabus || [];
-              const isMembership = Boolean(
-                course?.id === 'pertencer' || 
-                course?.id === 'membros' || 
-                /^(pertencer|curso de membro)/i.test(course?.name || '')
-              );
+              const isMembership = isMembershipCourse(course);
 
               const completionResult = getModuleCompletion({
                 studentId: student.id,
@@ -112,7 +109,7 @@ export function CourseReports({ courseId }: CourseReportsProps) {
                 studentJourney: student.journey,
                 course,
                 modIndex,
-                modId: modIndex + 1,
+                modId: courseSyllabus[modIndex]?.id || (modIndex + 1).toString(),
                 modules: courseSyllabus,
                 courseClasses: courseClasses,
                 isMembership

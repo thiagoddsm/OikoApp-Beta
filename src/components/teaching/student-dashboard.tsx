@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useFirebase, useMemoFirebase, useCollection } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
-import { VolunteeringProvider, useVolunteering, getResolvedSchedule, type Class } from '@/contexts/volunteering-context';
+import { VolunteeringProvider, useVolunteering, getResolvedSchedule, getModuleIndexForDate, type Class } from '@/contexts/volunteering-context';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { format, parseISO, addWeeks, addMonths, isBefore, startOfDay } from 'date-fns';
@@ -28,6 +28,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { doc, setDoc } from 'firebase/firestore';
 import { ShieldCheck } from 'lucide-react';
+import { isMembershipCourse } from '@/lib/teaching/is-membership-course';
 
 const safeParseISO = (dateStr: string): Date => {
   if (!dateStr || typeof dateStr !== 'string') return new Date(NaN);
@@ -104,35 +105,6 @@ function resolveClassSchedule(cls: Class, course: any = null): { dateStr: string
 
 type SessionStatus = 'present' | 'online' | 'makeup' | 'absent' | 'future' | 'pending';
 
-function getModuleIndexForDate(dateStr: string, cls: Class, syllabus: any[]): number {
-  if (!dateStr || !cls) return -1;
-  const cleanDateStr = dateStr.split('T')[0];
-
-  if (cls.extraSessions && Array.isArray(cls.extraSessions)) {
-    const extra = cls.extraSessions.find((s: any) => s.date === cleanDateStr || `${s.date}T${s.startTime}` === dateStr);
-    if (extra && extra.syllabusId) {
-      const idx = (syllabus || []).findIndex(item => item.id === extra.syllabusId);
-      if (idx !== -1) return idx;
-    }
-  }
-
-  if (cls.scheduleOverrides && cls.scheduleOverrides[cleanDateStr]) {
-    const override = cls.scheduleOverrides[cleanDateStr];
-    if (override.syllabusId) {
-      const idx = (syllabus || []).findIndex(item => item.id === override.syllabusId);
-      if (idx !== -1) return idx;
-    }
-  }
-
-  const schedule = resolveClassSchedule(cls);
-  const foundIndex = schedule.findIndex(s => s.dateStr.split('T')[0] === cleanDateStr);
-  if (foundIndex !== -1 && foundIndex < (syllabus || []).length) {
-    return foundIndex;
-  }
-
-  return -1;
-}
-
 function getStudentStatus(
   dateStr: string,
   cls: Class,
@@ -160,11 +132,8 @@ function getStudentStatus(
   const modIndex = sessionIndex !== -1 ? sessionIndex : (course ? getModuleIndexForDate(dateStr, cls, course.syllabus || []) : -1);
 
   if (modIndex !== -1) {
-    const isMembership = Boolean(
-      cls.courseId === 'pertencer' ||
-      cls.courseId === 'membros' ||
-      /^(pertencer|curso de membro|curso de membros)/i.test(course?.name || '')
-    );
+    const isMembership = isMembershipCourse(course || { id: cls.courseId });
+    const courseSyllabus = course?.syllabus || [];
 
     const completionParams = {
       studentId: userId,
@@ -172,8 +141,8 @@ function getStudentStatus(
       studentJourney: studentJourney,
       course: course || { id: cls.courseId },
       modIndex,
-      modId: (modIndex + 1).toString(),
-      modules: course?.syllabus || [],
+      modId: courseSyllabus[modIndex]?.id || (modIndex + 1).toString(),
+      modules: courseSyllabus,
       courseClasses: allClasses.length > 0 ? allClasses : [cls],
       quizAttempts: quizAttempts || [],
       isMembership
@@ -289,10 +258,15 @@ function ClassAttendanceCard({
   );
 
   const sessionStatuses = useMemo(() =>
-    pastSessions.map((s, idx) => ({
-      ...s,
-      status: getStudentStatus(s.dateStr, cls, userId, today, allClasses, quizAttempts, course, idx, userEmail, studentJourney)
-    })),
+    pastSessions.map((s) => {
+      // Inconsistência #5 fix: usa getModuleIndexForDate do contexto para obter o índice real
+      // do módulo no syllabus, evitando divergência quando há feriados ou aulas canceladas.
+      const realModIndex = getModuleIndexForDate(s.dateStr, cls, course?.syllabus || []);
+      return {
+        ...s,
+        status: getStudentStatus(s.dateStr, cls, userId, today, allClasses, quizAttempts, course, realModIndex, userEmail, studentJourney)
+      };
+    }),
     [pastSessions, cls, userId, today, allClasses, quizAttempts, course, userEmail, studentJourney]
   );
 
@@ -706,10 +680,16 @@ export function StudentDashboard() {
       const schedule = resolveClassSchedule(cls, course);
       const past = schedule.filter(s => {
         if (s.isRepositionOnly) return false;
-        return !isBefore(today, startOfDay(parseISO(s.dateStr.split('T')[0])));
+        // Inconsistência #6 fix: usa safeParseISO para datas com sufixo (ex: "2026-04-05-1")
+        const parsed = safeParseISO(s.dateStr);
+        return !isNaN(parsed.getTime()) && !isBefore(today, startOfDay(parsed));
       });
       const courseClasses = (classes || []).filter(c => c.courseId === cls.courseId);
-      const missed = past.filter((s, idx) => getStudentStatus(s.dateStr, cls, user.uid, today, courseClasses, quizAttempts || [], course, idx, user.email || currentUserProfile?.email, currentUserProfile?.journey) === 'absent');
+      // Inconsistência #5 fix: usa getModuleIndexForDate real, não idx do array filtrado
+      const missed = past.filter((s) => {
+        const realModIndex = getModuleIndexForDate(s.dateStr, cls, course?.syllabus || []);
+        return getStudentStatus(s.dateStr, cls, user.uid, today, courseClasses, quizAttempts || [], course, realModIndex, user.email || currentUserProfile?.email, currentUserProfile?.journey) === 'absent';
+      });
       return acc + missed.length;
     }, 0);
   }, [myClasses, user, today, courseMap, classes, quizAttempts, currentUserProfile]);
