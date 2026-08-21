@@ -100,6 +100,12 @@ export function CourseReports({ courseId }: CourseReportsProps) {
               );
               
               const courseSyllabus = course?.syllabus || [];
+              const isMembership = Boolean(
+                course?.id === 'pertencer' || 
+                course?.id === 'membros' || 
+                /^(pertencer|curso de membro)/i.test(course?.name || '')
+              );
+
               const completionResult = getModuleCompletion({
                 studentId: student.id,
                 studentEmail: student.email,
@@ -108,8 +114,8 @@ export function CourseReports({ courseId }: CourseReportsProps) {
                 modIndex,
                 modId: modIndex + 1,
                 modules: courseSyllabus,
-                courseClasses: classes,
-                isMembership: true
+                courseClasses: courseClasses,
+                isMembership
               });
               
               if (hasRepoInOtherClass || completionResult.isDone) {

@@ -708,7 +708,8 @@ export function StudentDashboard() {
         if (s.isRepositionOnly) return false;
         return !isBefore(today, startOfDay(parseISO(s.dateStr.split('T')[0])));
       });
-      const missed = past.filter((s, idx) => getStudentStatus(s.dateStr, cls, user.uid, today, classes || [], quizAttempts || [], course, idx, user.email || currentUserProfile?.email, currentUserProfile?.journey) === 'absent');
+      const courseClasses = (classes || []).filter(c => c.courseId === cls.courseId);
+      const missed = past.filter((s, idx) => getStudentStatus(s.dateStr, cls, user.uid, today, courseClasses, quizAttempts || [], course, idx, user.email || currentUserProfile?.email, currentUserProfile?.journey) === 'absent');
       return acc + missed.length;
     }, 0);
   }, [myClasses, user, today, courseMap, classes, quizAttempts, currentUserProfile]);
@@ -856,7 +857,7 @@ export function StudentDashboard() {
                 userEmail={user.email || currentUserProfile?.email}
                 studentJourney={currentUserProfile?.journey}
                 today={today}
-                allClasses={classes || []}
+                allClasses={(classes || []).filter(c => c.courseId === cls.courseId)}
                 quizAttempts={quizAttempts || []}
                 course={courseMap.get(cls.courseId) || null}
               />

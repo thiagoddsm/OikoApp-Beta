@@ -95,16 +95,16 @@ export function evaluateTheoflixRequirement(params: ModuleCompletionParams): boo
     course?.linkedTheoflixId,
     course?.name,
     course?.ebdTrack,
-    moduleTheoflixId,
-    'crescer',
-    'discipular'
+    moduleTheoflixId
   ].filter(Boolean).map(id => String(id).toLowerCase().trim());
+
+  if (targetTheoflixIds.length === 0) return false;
 
   const currentModTitle = (modules[modIndex]?.title || '').toLowerCase().trim();
   const currentModDesc = (modules[modIndex]?.description || '').toLowerCase().trim();
 
   // A. Checar Quizzes Aprovados
-  const hasApprovedQuiz = targetTheoflixIds.length > 0 && quizAttempts?.some((att: any) => {
+  const hasApprovedQuiz = quizAttempts?.some((att: any) => {
     const matchesUser = att.userId === studentId || (att.userEmail && studentEmail && att.userEmail.toLowerCase() === studentEmail.toLowerCase());
     if (!matchesUser || att.approved === false) return false;
 
@@ -128,27 +128,24 @@ export function evaluateTheoflixRequirement(params: ModuleCompletionParams): boo
       return true;
     }
 
-    // Match por indice de aula (ex: Aula 1 -> modIndex 0)
     if (att.episodeIndex !== undefined && Number(att.episodeIndex) === modIndex) {
       return true;
     }
     if (att.moduleIndex !== undefined && Number(att.moduleIndex) === modIndex) {
       return true;
     }
-    if (modIndex === 0 && (attEpTitle.includes('aula 1') || attEpTitle.includes('aula 01') || attEpTitle.includes('ponto de partida') || attEpTitle.includes('identidade'))) {
-      return true;
-    }
 
     return false;
   });
 
-  // B. Checar Progresso com Agregação (every)
-  const hasTheoflixUserProgress = targetTheoflixIds.length > 0 && targetTheoflixIds.some(tId => {
+  if (hasApprovedQuiz) return true;
+
+  // B. Checar Progresso do Usuário no TheoFlix
+  const hasTheoflixUserProgress = targetTheoflixIds.some(tId => {
     if (!tId) return false;
     const currentMod = modules[modIndex] as any;
     const targetSyllabusId = currentMod?.id;
     const modIdxStr1 = modIndex.toString();
-    const modIdxStr2 = (modIndex + 1).toString();
 
     const requiredVideoIds = currentMod?.theoflixRequiredVideoIds as string[] | undefined;
     if (requiredVideoIds && requiredVideoIds.length > 0) {
@@ -166,7 +163,6 @@ export function evaluateTheoflixRequirement(params: ModuleCompletionParams): boo
           return isAttDone || isProgDone;
         }
 
-        // Fallback legado para índices numéricos ("0", "1", etc)
         const modNumStr = (parseInt(vId) + 1).toString();
         const isAttDone = attMap?.[vId] === true || attMap?.[modNumStr] === true || attMap?.[`module${modNumStr}`] === true;
         const isProgDone = progMap && typeof progMap === 'object' && (
@@ -181,20 +177,16 @@ export function evaluateTheoflixRequirement(params: ModuleCompletionParams): boo
     const attMap = studentJourney?.theoflixAttendance?.[tId] || studentJourney?.theoflixAttendance?.[tId.toLowerCase()];
     if (attMap && typeof attMap === 'object') {
       if (targetSyllabusId && attMap[targetSyllabusId] === true) return true;
-      // Fase 2: verificar por youtubeId estável (prioridade sobre índice numérico)
       const episodeYoutubeId = (currentMod as any)?.youtubeId;
       if (episodeYoutubeId && attMap[episodeYoutubeId] === true) return true;
-      // Fallback legado: índice numérico (mantido até migração completa dos dados — Fase 3)
       if (attMap[modIdxStr1] === true || attMap[`module${modIndex + 1}`] === true) return true;
     }
 
     const progMap = studentJourney?.theoflixProgress?.[tId] || studentJourney?.theoflixProgress?.[tId.toLowerCase()];
     if (progMap && typeof progMap === 'object') {
       if (targetSyllabusId && (progMap[targetSyllabusId] === true || progMap[targetSyllabusId]?.completed === true)) return true;
-      // Fase 2: verificar por youtubeId estável no progresso
       const episodeYoutubeId = (currentMod as any)?.youtubeId;
       if (episodeYoutubeId && (progMap[episodeYoutubeId] === true || progMap[episodeYoutubeId]?.completed === true)) return true;
-      // Fallback legado: índice numérico
       if (progMap[modIdxStr1] === true || progMap[modIdxStr1]?.completed === true || progMap[`module${modIndex + 1}`] === true) return true;
     }
     return false;
@@ -206,19 +198,37 @@ export function evaluateTheoflixRequirement(params: ModuleCompletionParams): boo
 export function evaluateManualApprovalRequirement(params: ModuleCompletionParams): boolean {
   const { studentJourney, isMembership, modId, course } = params;
   
-  // 1. Nova Fonte de Verdade: retroactiveApprovals
-  const key = isMembership ? `module${modId}` : `${course?.id}_module${modId}`;
+  if (isMembership) {
+    const key = `module${modId}`;
+    const isRetroactiveApproved = !!(
+      studentJourney?.retroactiveApprovals?.[key] ||
+      studentJourney?.retroactiveApprovals?.[modId] ||
+      studentJourney?.retroactiveApprovals?.[`pertencer_${key}`] ||
+      studentJourney?.retroactiveApprovals?.[`membros_${key}`]
+    );
+    if (isRetroactiveApproved) return true;
+
+    return !!(
+      studentJourney?.memberCourseProgress?.[`module${modId}`] || 
+      studentJourney?.memberCourseProgress?.[modId]
+    );
+  }
+
+  // Curso Regular (ex: Discipular, etc.)
+  const courseId = course?.id;
+  if (!courseId) return false;
+
+  const key = `${courseId}_module${modId}`;
   const isRetroactiveApproved = !!(
     studentJourney?.retroactiveApprovals?.[key] ||
-    studentJourney?.retroactiveApprovals?.[`module${modId}`] ||
-    studentJourney?.retroactiveApprovals?.[modId]
+    studentJourney?.retroactiveApprovals?.[`${courseId}_${modId}`]
   );
   if (isRetroactiveApproved) return true;
 
-  // 2. Fallback de Segurança Legado (Preservado para dados antigos do Eklesia/Histórico)
-  return isMembership 
-    ? !!(studentJourney?.memberCourseProgress?.[`module${modId}`] || studentJourney?.memberCourseProgress?.[modId]) 
-    : !!(studentJourney?.courseProgress?.[course?.id]?.[`module${modId}`] || studentJourney?.courseProgress?.[course?.id]?.[modId]);
+  return !!(
+    studentJourney?.courseProgress?.[courseId]?.[`module${modId}`] || 
+    studentJourney?.courseProgress?.[courseId]?.[modId]
+  );
 }
 
 // Aliases para retrocompatibilidade

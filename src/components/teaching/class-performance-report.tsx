@@ -1,24 +1,20 @@
-
 'use client';
 
 import React, { useMemo } from 'react';
-import { useVolunteering, type Class, type User } from '@/contexts/volunteering-context';
+import { useVolunteering, getModuleIndexForDate, type Class, type User } from '@/contexts/volunteering-context';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
-import { FileSpreadsheet, CheckCircle2, XCircle, Clock, Loader2, Info } from 'lucide-react';
+import { FileSpreadsheet, CheckCircle2, XCircle, Clock, Loader2, PlayCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
+import { getModuleCompletion } from '@/domain/teaching/module-completion';
 
 const safeParseISO = (dateStr: string): Date => {
     if (!dateStr || typeof dateStr !== 'string') return new Date(NaN);
-    // Strip time component (e.g. T08:00), then take only first 3 dash-parts (YYYY-MM-DD).
-    // This correctly handles: '2026-04-05' → '2026-04-05', '2026-06-28-1' → '2026-06-28',
-    // '2026-05-02T08:00' → '2026-05-02'. The old regex /-[\d]+$/ was wrongly stripping
-    // the day from dates like '2026-04-05' → '2026-04'.
     const withoutTime = dateStr.split('T')[0];
     const parts = withoutTime.split('-');
     const cleanD = parts.slice(0, 3).join('-');
@@ -26,52 +22,100 @@ const safeParseISO = (dateStr: string): Date => {
     return isNaN(parsed.getTime()) ? new Date(NaN) : parsed;
 };
 
-
-
 export function ClassPerformanceReport({ classData }: { classData: Class }) {
     const { users } = useMembersData();
-    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
-
+    const { courses, classes } = useCoursesData();
     const { isLoading } = useVolunteering();
+
+    const courseData = useMemo(() => courses.find(c => c.id === classData?.courseId), [courses, classData]);
+    const courseClasses = useMemo(() => classes.filter(c => c.courseId === classData?.courseId), [classes, classData]);
 
     const enrolledStudents = useMemo(() => {
         if (!users || !classData?.students) return [];
         const studentSet = new Set(classData.students);
         return users
             .filter(u => studentSet.has(u.id))
-            .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR'));
+            .sort((a, b) => a.name.localeCompare(b.name));
     }, [users, classData]);
 
-    // Derive class dates directly from attendance records.
-    // Accepts YYYY-MM-DD and YYYY-MM-DD-N (e.g. 2026-06-28-1 for a 2nd session).
-    // Only includes past dates that had at least one student recorded.
     const classOccurrences = useMemo(() => {
-        if (!classData?.attendance) return [];
-        const today = format(new Date(), 'yyyy-MM-dd');
-        return (classData.attendance as Array<{ date: string; presentStudentIds?: string[]; onlineStudentIds?: string[] }>)
-            .filter(a => {
-                if (!a.date) return false;
-                const dateOnly = a.date.split('T')[0];
-                return dateOnly <= today && ((a.presentStudentIds?.length ?? 0) + (a.onlineStudentIds?.length ?? 0)) > 0;
-            })
-            .map(a => a.date)
-            .sort();
-    }, [classData?.attendance]);
+        if (!classData?.startDate) return [];
+        const uniqueDates = new Set<string>();
+        
+        (classData.attendance || []).forEach(att => {
+            if (att.date && !att.isRepositionOnly) {
+                uniqueDates.add(att.date);
+            }
+        });
 
+        (classData.extraSessions || []).forEach(s => {
+            if (!s.isRepositionOnly) {
+                const uniqueStr = s.startTime ? `${s.date}T${s.startTime}` : s.date;
+                uniqueDates.add(uniqueStr);
+            }
+        });
+
+        return Array.from(uniqueDates).sort();
+    }, [classData]);
 
     const assessments = useMemo(() => {
-        if (!classData.grades) return [];
-        return Array.from(new Set(classData.grades.map(g => g.assessmentName)));
-    }, [classData.grades]);
+        return classData?.grades?.map((g: any) => g.assessmentName || g.name) || [];
+    }, [classData]);
 
-    const exportToExcel = () => {
-        const workbook = XLSX.utils.book_new();
+    const getStudentLessonStatus = (student: any, date: string) => {
+        const cleanDate = date.split('T')[0];
+        const record = classData.attendance?.find(a => a.date === date || a.date?.split('T')[0] === cleanDate);
+        
+        const isInPerson = !!record?.presentStudentIds?.includes(student.id);
+        const isOnlineLive = !!record?.onlineStudentIds?.includes(student.id);
+        const isNativeRepo = !!record?.repositions?.some((r: any) => r.studentId === student.id);
 
+        let isRepo = isNativeRepo;
+        let isOnline = isOnlineLive;
+
+        if (!isInPerson && !isOnlineLive && !isNativeRepo) {
+            const modIndex = getModuleIndexForDate(date, classData, courseData?.syllabus || []);
+            if (modIndex !== -1) {
+                const isMembership = Boolean(
+                    classData.courseId === 'pertencer' || 
+                    classData.courseId === 'membros' || 
+                    /^(pertencer|curso de membro)/i.test(courseData?.name || '')
+                );
+
+                const completion = getModuleCompletion({
+                    studentId: student.id,
+                    studentEmail: student.email,
+                    studentJourney: student.journey,
+                    course: courseData || { id: classData.courseId },
+                    modIndex,
+                    modId: (modIndex + 1).toString(),
+                    modules: courseData?.syllabus || [],
+                    courseClasses,
+                    isMembership
+                });
+
+                if (completion.isDone) {
+                    if (completion.isOnline) isOnline = true;
+                    else isRepo = true;
+                }
+            }
+        }
+
+        return {
+            hasRecord: !!record,
+            isInPerson,
+            isOnline,
+            isRepo,
+            isAttended: isInPerson || isOnline || isRepo
+        };
+    };
+
+    const handleExportExcel = () => {
         const excelData = enrolledStudents.map(student => {
-            const studentGrades: Record<string, any> = {};
+            const studentGrades: Record<string, number> = {};
             let totalGrade = 0;
             assessments.forEach(assessment => {
-                const gradeEntry = classData.grades?.find(g => g.studentId === student.id && g.assessmentName === assessment);
+                const gradeEntry = classData.grades?.find((g: any) => ((g.assessmentName || g.name) === assessment) && g.studentId === student.id);
                 const grade = gradeEntry?.grade || 0;
                 studentGrades[assessment] = grade;
                 totalGrade += grade;
@@ -84,13 +128,12 @@ export function ClassPerformanceReport({ classData }: { classData: Class }) {
 
             classOccurrences.forEach(date => {
                 const cleanDate = date.split('-').slice(0, 3).join('-');
-                const record = classData.attendance?.find(a => a.date === date);
-                if (record) {
+                const status = getStudentLessonStatus(student, date);
+                if (status.hasRecord) {
                     totalClassesTaken++;
-                    const isPresent = record.presentStudentIds?.includes(student.id) || record.onlineStudentIds?.includes(student.id);
-                    if (isPresent) presentCount++;
+                    if (status.isAttended) presentCount++;
                     const parsedDate = safeParseISO(cleanDate);
-                    presence[format(parsedDate, 'dd/MM')] = isPresent ? 'P' : 'F';
+                    presence[format(parsedDate, 'dd/MM')] = status.isInPerson ? 'P' : status.isRepo ? 'R' : status.isOnline ? 'O' : 'F';
                 } else {
                     const parsedDate = safeParseISO(cleanDate);
                     presence[format(parsedDate, 'dd/MM')] = '-';
@@ -113,6 +156,7 @@ export function ClassPerformanceReport({ classData }: { classData: Class }) {
         });
 
         const worksheet = XLSX.utils.json_to_sheet(excelData);
+        const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Desempenho");
 
         const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
@@ -124,49 +168,33 @@ export function ClassPerformanceReport({ classData }: { classData: Class }) {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="flex justify-between items-center bg-card p-4 rounded-xl border">
                 <div>
-                    <h3 className="text-xl font-black uppercase tracking-tight">Relatório de Desempenho</h3>
-                    <p className="text-sm text-muted-foreground">Frequência e notas consolidadas dos alunos matriculados.</p>
+                    <h3 className="font-black text-lg">Diário de Desempenho e Frequência</h3>
+                    <p className="text-xs text-muted-foreground">Visão tabular consolidada de presenças, reposições e notas da turma</p>
                 </div>
-                <Button onClick={exportToExcel} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-11">
-                    <FileSpreadsheet className="mr-2 size-5" /> Exportar Planilha (.xlsx)
+                <Button onClick={handleExportExcel} className="gap-2 font-bold" variant="outline">
+                    <FileSpreadsheet className="size-4 text-emerald-600" /> Exportar Planilha
                 </Button>
             </div>
 
-            <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex items-start gap-3">
-                <Info className="size-5 text-blue-600 shrink-0 mt-0.5" />
-                <div className="text-sm text-blue-800">
-                    <p className="font-bold mb-1">Dica de Visualização:</p>
-                    <p>Os ícones representam: <CheckCircle2 className="inline size-3.5 text-emerald-500" /> Presença Presencial, <Clock className="inline size-3.5 text-blue-500" /> Presença Online, e <XCircle className="inline size-3.5 text-slate-300" /> Falta ou aula não realizada.</p>
-                </div>
-            </div>
-
-            <div className="rounded-xl border shadow-sm bg-background overflow-hidden">
+            <div className="border rounded-xl overflow-hidden bg-card shadow-sm">
                 <div className="overflow-x-auto">
                     <Table>
                         <TableHeader>
-                            <TableRow className="bg-muted/50 hover:bg-muted/50 border-b-2">
-                                <TableHead className="min-w-[220px] sticky left-0 bg-muted/50 z-20 border-r">Aluno</TableHead>
-                                <TableHead className="text-center bg-blue-50/50 min-w-[100px]">Freq. %</TableHead>
+                            <TableRow className="bg-muted/50 hover:bg-muted/50">
+                                <TableHead className="font-bold min-w-[200px] sticky left-0 bg-muted/50 z-20 border-r">Aluno</TableHead>
+                                <TableHead className="text-center font-bold min-w-[80px]">Freq %</TableHead>
                                 {classOccurrences.map(date => {
-                                    const parts = date.split('-');
-                                    const cleanDate = parts.slice(0, 3).join('-');
-                                    const sessionNum = parts.length > 3 ? Number(parts[3]) + 1 : null; // -1 → "(2)", -2 → "(3)"
-                                    const parsedDate = safeParseISO(cleanDate);
-                                    if (isNaN(parsedDate.getTime())) {
-                                        return <TableHead key={date} className="text-center min-w-[70px]">Inválida</TableHead>;
-                                    }
+                                    const parsed = safeParseISO(date);
                                     return (
-                                        <TableHead key={date} className="text-center min-w-[70px] text-[10px] uppercase font-black px-1">
-                                            {format(parsedDate, 'dd/MM')}
-                                            {sessionNum && <span className="block text-[8px] font-normal text-muted-foreground">({sessionNum}ª)</span>}
+                                        <TableHead key={date} className="text-center font-bold min-w-[70px]">
+                                            {format(parsed, 'dd/MM')}
                                         </TableHead>
                                     );
                                 })}
-                                <TableHead className="text-center bg-amber-50/50 min-w-[80px] border-l-2">Média</TableHead>
                                 {assessments.map(assessment => (
-                                    <TableHead key={assessment} className="text-center min-w-[100px] text-[10px] uppercase font-bold px-2">
+                                    <TableHead key={assessment} className="text-center font-bold min-w-[90px] bg-amber-50/10">
                                         {assessment}
                                     </TableHead>
                                 ))}
@@ -185,10 +213,10 @@ export function ClassPerformanceReport({ classData }: { classData: Class }) {
                                     let totalClassesTaken = 0;
 
                                     classOccurrences.forEach(date => {
-                                        const record = classData.attendance?.find(a => a.date === date);
-                                        if (record) {
+                                        const status = getStudentLessonStatus(student, date);
+                                        if (status.hasRecord) {
                                             totalClassesTaken++;
-                                            if (record.presentStudentIds?.includes(student.id) || record.onlineStudentIds?.includes(student.id)) {
+                                            if (status.isAttended) {
                                                 presentCount++;
                                             }
                                         }
@@ -205,41 +233,29 @@ export function ClassPerformanceReport({ classData }: { classData: Class }) {
                                                 </Badge>
                                             </TableCell>
                                             {classOccurrences.map(date => {
-                                                const record = classData.attendance?.find(a => a.date === date);
-                                                const isPresent = record?.presentStudentIds?.includes(student.id);
-                                                const isOnline = record?.onlineStudentIds?.includes(student.id);
+                                                const status = getStudentLessonStatus(student, date);
 
-                                                if (!record) return <TableCell key={date} className="text-center opacity-20"><XCircle className="size-4 mx-auto text-slate-300" /></TableCell>;
+                                                if (!status.hasRecord) return <TableCell key={date} className="text-center opacity-20"><Clock className="size-4 mx-auto text-slate-300" /></TableCell>;
 
                                                 return (
                                                     <TableCell key={date} className="text-center">
-                                                        {isPresent ? (
+                                                        {status.isInPerson ? (
                                                             <CheckCircle2 className="size-5 text-emerald-500 mx-auto" />
-                                                        ) : isOnline ? (
-                                                            <Clock className="size-5 text-blue-500 mx-auto" />
+                                                        ) : status.isRepo ? (
+                                                            <Badge className="bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 h-5 w-5 p-0 mx-auto flex items-center justify-center font-black text-[10px]">R</Badge>
+                                                        ) : status.isOnline ? (
+                                                            <PlayCircle className="size-5 text-indigo-500 mx-auto" />
                                                         ) : (
                                                             <XCircle className="size-5 text-destructive/40 mx-auto" />
                                                         )}
                                                     </TableCell>
                                                 );
                                             })}
-                                            <TableCell className="text-center font-black text-primary bg-amber-50/20 border-l-2">
-                                                {assessments.length > 0 ? (
-                                                    (() => {
-                                                        let sum = 0;
-                                                        assessments.forEach(ass => {
-                                                            const g = classData.grades?.find(entry => entry.studentId === student.id && entry.assessmentName === ass);
-                                                            sum += (g?.grade || 0);
-                                                        });
-                                                        return (sum / assessments.length).toFixed(1);
-                                                    })()
-                                                ) : '-'}
-                                            </TableCell>
                                             {assessments.map(assessment => {
-                                                const gradeEntry = classData.grades?.find(g => g.studentId === student.id && g.assessmentName === assessment);
+                                                const gradeEntry = classData.grades?.find((g: any) => ((g.assessmentName || g.name) === assessment) && g.studentId === student.id);
                                                 return (
-                                                    <TableCell key={assessment} className="text-center font-bold text-slate-700">
-                                                        {gradeEntry ? gradeEntry.grade.toFixed(1) : '0.0'}
+                                                    <TableCell key={assessment} className="text-center font-bold bg-amber-50/5">
+                                                        {gradeEntry?.grade ?? '-'}
                                                     </TableCell>
                                                 );
                                             })}
