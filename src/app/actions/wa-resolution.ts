@@ -31,22 +31,25 @@ export async function syncUserWAIdentity(userId: string, phoneNumber: string) {
         const waInfo = regData["0"] || regData;
 
         if (waInfo && waInfo.exists) {
+            const waLid = typeof waInfo?.lid === 'string' && /^\d+@lid$/.test(waInfo.lid) ? waInfo.lid : null;
+            const waJid = typeof waInfo?.jid === 'string' && /^\d+@s\.whatsapp\.net$/.test(waInfo.jid) ? waInfo.jid : `${queryPhone}@s.whatsapp.net`;
+
             await db.collection('users').doc(userId).update({
-                jid: waInfo.jid || null,
-                lid: waInfo.lid || null,
+                jid: waJid,
+                lid: waLid,
                 waSyncedAt: new Date()
             });
 
             // Também garantir no banco de contatos sincronizados
             await db.collection('notifications_contacts').doc(phone).set({
                 phoneNumber: phone,
-                jid: waInfo.jid || null,
-                lid: waInfo.lid || null,
+                jid: waJid,
+                lid: waLid,
                 systemUserId: userId,
                 updatedAt: new Date(),
             }, { merge: true });
 
-            return { success: true, jid: waInfo.jid, lid: waInfo.lid };
+            return { success: true, jid: waJid, lid: waLid };
         }
 
         return { success: false, message: "Número não registrado no WhatsApp" };

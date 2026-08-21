@@ -59,11 +59,14 @@ export async function GET(request: Request) {
                 
                 const waInfo = Array.isArray(regData) ? regData[0] : (regData["0"] || regData);
                 if (waInfo && waInfo.exists) {
+                    const waLid = typeof waInfo?.lid === 'string' && /^\d+@lid$/.test(waInfo.lid) ? waInfo.lid : null;
+                    const waJid = typeof waInfo?.jid === 'string' && /^\d+@s\.whatsapp\.net$/.test(waInfo.jid) ? waInfo.jid : `${queryPhone}@s.whatsapp.net`;
+
                     const contactRef = db.collection('notifications_contacts').doc(phone);
                     await contactRef.set({
                         phoneNumber: phone,
-                        jid: waInfo.jid,
-                        lid: waInfo.lid || null,
+                        jid: waJid,
+                        lid: waLid,
                         name: (user as any).name || null,
                         systemUserId: user.id,
                         updatedAt: new Date(),
@@ -71,8 +74,8 @@ export async function GET(request: Request) {
 
                     // Também atualizar o documento do usuário principal para acesso rápido
                     await db.collection('users').doc(user.id).update({
-                        jid: waInfo.jid,
-                        lid: waInfo.lid || null,
+                        jid: waJid,
+                        lid: waLid,
                         waSyncedAt: new Date()
                     });
 

@@ -169,8 +169,13 @@ export async function POST(request: Request) {
         // Resolve JIDs/LIDs directly from Firestore database (cache) or clean phone format
         const resolvedParticipants: string[] = [];
         for (const p of (participants || [])) {
+            if (!p || typeof p !== 'string') continue;
+
             if (p.includes('@')) {
-                resolvedParticipants.push(p);
+                // Aceita apenas JIDs legítimos do WhatsApp
+                if (/^\d+@(s\.whatsapp\.net|lid)$/.test(p.trim())) {
+                    resolvedParticipants.push(p.trim());
+                }
                 continue;
             }
             const clean = p.replace(/\D/g, '');
@@ -186,11 +191,13 @@ export async function POST(request: Request) {
             const queryPhone = clean.startsWith('55') ? clean : `55${clean}`;
             
             try {
-                // Tenta buscar o contato no Firestore local (cache) para usar LID/JID se já conhecido
+                // Tenta buscar o contato no Firestore local (cache) para usar LID/JID se já conhecido e legítimo
                 const contactDoc = await db.collection('notifications_contacts').doc(phoneNoCountry).get();
                 if (contactDoc.exists) {
                     const cData = contactDoc.data();
-                    const cachedId = cData?.lid || cData?.jid;
+                    const cachedLid = typeof cData?.lid === 'string' && /^\d+@lid$/.test(cData.lid) ? cData.lid : null;
+                    const cachedJid = typeof cData?.jid === 'string' && /^\d+@s\.whatsapp\.net$/.test(cData.jid) ? cData.jid : null;
+                    const cachedId = cachedLid || cachedJid;
                     if (cachedId) {
                         resolvedParticipants.push(cachedId);
                         continue;
@@ -200,7 +207,7 @@ export async function POST(request: Request) {
                 console.warn(`[WhatsApp Group Create] Cache lookup error for ${phoneNoCountry}:`, e?.message);
             }
             
-            // Formato padrão seguro (evita flood de consultas no socket do WhatsApp)
+            // Formato padrão seguro: 55... e @s.whatsapp.net
             resolvedParticipants.push(`${queryPhone}@s.whatsapp.net`);
         }
 
