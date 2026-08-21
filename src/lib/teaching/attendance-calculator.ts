@@ -50,6 +50,7 @@ export interface EvaluateStudentAttendanceParams {
   validSessionDates?: string[]; // Datas das aulas válidas no cronograma
   isLessonDateInRange?: (dateStr: string) => boolean; // Filtro opcional por período
   exception?: OnlineException | null;
+  sessionStatuses?: { status: string }[];
 }
 
 /**
@@ -61,7 +62,8 @@ export function evaluateStudentAttendance({
   studentId,
   validSessionDates,
   isLessonDateInRange,
-  exception
+  exception,
+  sessionStatuses
 }: EvaluateStudentAttendanceParams): AttendanceEvaluation {
   // 1. Extração da Política de Frequência (com suporte a override na Turma)
   const policy: CourseAttendancePolicy = classData.attendancePolicyOverride || 
@@ -81,36 +83,56 @@ export function evaluateStudentAttendance({
   let absencesCount = 0;
   let lessonsConducted = 0;
 
-  const attendanceRecords = classData.attendance || [];
-  const validDatesSet = validSessionDates ? new Set(validSessionDates) : null;
+  if (sessionStatuses && sessionStatuses.length > 0) {
+    sessionStatuses.forEach(s => {
+      if (s.status === 'future' || s.status === 'pending') return;
 
-  attendanceRecords.forEach(att => {
-    if (!att.date) return;
-    if (validDatesSet && !validDatesSet.has(att.date)) return;
-    if (isLessonDateInRange && !isLessonDateInRange(att.date)) return;
+      lessonsConducted++;
 
-    lessonsConducted++;
-
-    const isPresentPhysical = Array.isArray(att.presentStudentIds) && att.presentStudentIds.includes(studentId);
-    const isPresentOnline = Array.isArray(att.onlineStudentIds) && att.onlineStudentIds.includes(studentId);
-    const repoMatch = (att.repositions || []).find((r: any) => r.studentId === studentId);
-
-    // REGRA DETERMINÍSTICA: No máximo 1 presença por aula por aluno
-    if (isPresentPhysical) {
-      inPersonCount++;
-    } else if (isPresentOnline) {
-      onlineCount++;
-    } else if (repoMatch) {
-      repositionsCount++;
-      if ((repoMatch as any)?.type === 'online') {
-        onlineCount++;
-      } else {
+      if (s.status === 'present') {
         inPersonCount++;
+      } else if (s.status === 'online') {
+        onlineCount++;
+      } else if (s.status === 'makeup') {
+        repositionsCount++;
+        // Reposições somam na presença válida
+        inPersonCount++;
+      } else {
+        absencesCount++;
       }
-    } else {
-      absencesCount++;
-    }
-  });
+    });
+  } else {
+    const attendanceRecords = classData.attendance || [];
+    const validDatesSet = validSessionDates ? new Set(validSessionDates) : null;
+
+    attendanceRecords.forEach(att => {
+      if (!att.date) return;
+      if (validDatesSet && !validDatesSet.has(att.date)) return;
+      if (isLessonDateInRange && !isLessonDateInRange(att.date)) return;
+
+      lessonsConducted++;
+
+      const isPresentPhysical = Array.isArray(att.presentStudentIds) && att.presentStudentIds.includes(studentId);
+      const isPresentOnline = Array.isArray(att.onlineStudentIds) && att.onlineStudentIds.includes(studentId);
+      const repoMatch = (att.repositions || []).find((r: any) => r.studentId === studentId);
+
+      // REGRA DETERMINÍSTICA: No máximo 1 presença por aula por aluno
+      if (isPresentPhysical) {
+        inPersonCount++;
+      } else if (isPresentOnline) {
+        onlineCount++;
+      } else if (repoMatch) {
+        repositionsCount++;
+        if ((repoMatch as any)?.type === 'online') {
+          onlineCount++;
+        } else {
+          inPersonCount++;
+        }
+      } else {
+        absencesCount++;
+      }
+    });
+  }
 
   const totalPresent = inPersonCount + onlineCount;
   const totalLessons = validSessionDates ? validSessionDates.length : Math.max(lessonsConducted, 1);

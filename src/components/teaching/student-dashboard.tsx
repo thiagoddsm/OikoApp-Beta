@@ -280,9 +280,10 @@ function ClassAttendanceCard({
       classData: cls,
       courseData: course,
       studentId: userId,
-      validSessionDates: pastSessions.map(s => s.dateStr)
+      validSessionDates: pastSessions.map(s => s.dateStr),
+      sessionStatuses
     });
-  }, [cls, course, userId, pastSessions]);
+  }, [cls, course, userId, pastSessions, sessionStatuses]);
 
   const [isExceptionDialogOpen, setIsExceptionDialogOpen] = useState(false);
   const [exceptionReason, setExceptionReason] = useState('');
@@ -337,6 +338,7 @@ function ClassAttendanceCard({
   const total = evalResult.lessonsConducted;
   const pct = evalResult.totalRate;
   const isApto = evalResult.eligible;
+  const inPersonOnly = Math.max(0, evalResult.inPersonCount - evalResult.repositionsCount);
 
   const missedNeedingMakeup = sessionStatuses.filter(s => s.status === 'absent');
   const futureSessions = schedule.filter(s => {
@@ -381,7 +383,9 @@ function ClassAttendanceCard({
           {total > 0 && (
             <div className="mt-3 space-y-1.5">
               <div className="flex justify-between text-[10px] font-bold text-muted-foreground">
-                <span>{presentCount} presença{presentCount !== 1 ? 's' : ''} ({evalResult.inPersonCount}P / {evalResult.onlineCount}O) de {total} aula{total !== 1 ? 's' : ''}</span>
+                <span>
+                  {presentCount} presença{presentCount !== 1 ? 's' : ''} ({inPersonOnly}P{evalResult.onlineCount > 0 ? ` / ${evalResult.onlineCount}O` : ''}{evalResult.repositionsCount > 0 ? ` / ${evalResult.repositionsCount}R` : ''}) de {total} aula{total !== 1 ? 's' : ''}
+                </span>
                 <span className={cn(isApto ? "text-emerald-600 dark:text-emerald-400" : "text-orange-600 dark:text-orange-400")}>{pct}% de frequência</span>
               </div>
               <Progress

@@ -721,7 +721,21 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
                                                         {inGroup ? (
                                                             <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9px]">No Grupo</Badge>
                                                         ) : (
-                                                            <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50 text-[9px]">Não Entrou</Badge>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50 text-[9px]">Não Entrou</Badge>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="ghost"
+                                                                    onClick={() => {
+                                                                        setSelectedStudentForInvite(teacher.id);
+                                                                        setIsInviteDialogOpen(true);
+                                                                    }}
+                                                                    className="h-6 px-2 text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 gap-1 rounded"
+                                                                    title="Enviar link de convite no WhatsApp deste professor"
+                                                                >
+                                                                    <Send className="size-2.5" /> Enviar Convite
+                                                                </Button>
+                                                            </div>
                                                         )}
 
                                                         {inGroup && (
@@ -787,7 +801,21 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
                                                         {inGroup ? (
                                                             <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9px]">No Grupo</Badge>
                                                         ) : (
-                                                            <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50 text-[9px]">Não Entrou</Badge>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50 text-[9px]">Não Entrou</Badge>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="ghost"
+                                                                    onClick={() => {
+                                                                        setSelectedStudentForInvite(support.id);
+                                                                        setIsInviteDialogOpen(true);
+                                                                    }}
+                                                                    className="h-6 px-2 text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 gap-1 rounded"
+                                                                    title="Enviar link de convite no WhatsApp deste membro da equipe"
+                                                                >
+                                                                    <Send className="size-2.5" /> Enviar Convite
+                                                                </Button>
+                                                            </div>
                                                         )}
 
                                                         {inGroup && (
