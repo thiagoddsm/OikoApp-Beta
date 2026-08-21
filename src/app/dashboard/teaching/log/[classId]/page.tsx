@@ -184,9 +184,9 @@ function PedagogicalLogPageContent() {
             .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR'));
     }, [users, classData, searchTerm]);
 
-    // Alunos de OUTRAS TURMAS do mesmo curso que faltaram a este módulo específico
+    // Alunos de OUTRAS TURMAS do mesmo curso que faltaram a este módulo específico (calculado apenas com turmas já passadas)
     const previousClassStudentsForModule = useMemo(() => {
-        if (!users || !selectedDate || currentModuleIndex === -1 || !courseData) return [];
+        if (!users || !selectedDate || currentModuleIndex === -1 || !courseData || !isSearchOpen) return [];
         const currentEnrolledIds = new Set(classData?.students || []);
         const currentSyllabusId = currentResolvedItem?.syllabusItem?.id;
 
@@ -201,41 +201,37 @@ function PedagogicalLogPageContent() {
                 if (currentEnrolledIds.has(sid)) return;
 
                 let attendedInSibling = false;
-                matchingDates.forEach((dStr: string) => {
+                for (const dStr of matchingDates) {
                     const record = sibling.attendance?.find((a: any) => a.date === dStr);
-                    if (record?.presentStudentIds?.includes(sid) || record?.onlineStudentIds?.includes(sid)) attendedInSibling = true;
-                    if (record?.repositions?.some((r: any) => r.studentId === sid)) attendedInSibling = true;
-                });
-
-                const moduleAlreadyPassed = matchingDates.some((mDate: string) => {
-                    if (!mDate) return false;
-                    try {
-                        const parsed = parseISO(mDate.split('T')[0]);
-                        return !isNaN(parsed.getTime()) && isBefore(parsed, addDays(new Date(), 1));
-                    } catch (e) {
-                        return false;
+                    if (record?.presentStudentIds?.includes(sid) || record?.onlineStudentIds?.includes(sid) || record?.repositions?.some((r: any) => r.studentId === sid)) {
+                        attendedInSibling = true;
+                        break;
                     }
-                });
+                }
 
-                if (moduleAlreadyPassed && !attendedInSibling) {
+                if (!attendedInSibling) {
                     studentIds.add(sid);
                 }
             });
         });
 
         return users.filter((u: any) => studentIds.has(u.id));
-    }, [users, classes, classData, courseData, classId, selectedDate, currentModuleIndex, currentModuleKey, isMemberCourse, currentResolvedItem]);
+    }, [users, classes, classData, courseData, classId, selectedDate, currentModuleIndex, currentResolvedItem, isSearchOpen]);
 
-    // Lógica para sugerir alunos que precisam repor este módulo específico (pendência no progresso geral)
+    // Lógica para sugerir alunos que precisam repor este módulo específico (calculado apenas quando a busca de reposição estiver aberta)
     const repositionSuggestions = useMemo(() => {
-        if (!users || !selectedDate || currentModuleIndex === -1) return [];
+        if (!users || !selectedDate || currentModuleIndex === -1 || !isSearchOpen) return [];
         const enrolledIds = new Set(classData?.students || []);
         const previousClassIds = new Set(previousClassStudentsForModule.map((u: any) => u.id));
 
-        return users.filter((u: any) => {
-            const isNotEnrolled = !enrolledIds.has(u.id);
-            const isNotFromPreviousClass = !previousClassIds.has(u.id);
-            
+        const suggestions: any[] = [];
+        for (const u of users) {
+            if (suggestions.length >= 15) break;
+            if (enrolledIds.has(u.id) || previousClassIds.has(u.id)) continue;
+
+            const isStudent = u.integrationStatus === 'novo_convertido' || u.integrationStatus === 'membro' || u.integrationStatus === 'consolidado';
+            if (!isStudent) continue;
+
             let hasPending = false;
             if (isMemberCourse) {
                 const status = getModuleCompletion({
@@ -250,12 +246,16 @@ function PedagogicalLogPageContent() {
                     isMembership: true
                 });
                 hasPending = !status.isDone;
+            } else {
+                hasPending = true;
             }
-            
-            const isStudent = u.integrationStatus === 'novo_convertido' || u.integrationStatus === 'membro' || u.integrationStatus === 'consolidado';
-            return isNotEnrolled && isNotFromPreviousClass && hasPending && isStudent;
-        }).slice(0, 15);
-    }, [users, classData, selectedDate, currentModuleIndex, currentModuleKey, isMemberCourse, previousClassStudentsForModule]);
+
+            if (hasPending) {
+                suggestions.push(u);
+            }
+        }
+        return suggestions;
+    }, [users, classData, selectedDate, currentModuleIndex, currentModuleKey, isMemberCourse, previousClassStudentsForModule, isSearchOpen, courseData, classes]);
 
     const handleStudentCheck = (studentId: string, checked: boolean) => {
         setPresentStudents(prev => checked ? [...prev, studentId] : prev.filter(id => id !== studentId));
