@@ -56,6 +56,8 @@ import Link from 'next/link';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { evaluateStudentAttendance, type AttendanceEvaluation, type AttendanceStatus } from '@/lib/teaching/attendance-calculator';
+import { TeachingDynamicFrequencyReport } from '@/components/teaching/teaching-dynamic-frequency-report';
+import { Sliders } from 'lucide-react';
 
 function GeneralTeachingReportsContent() {
   const { users } = useMembersData();
@@ -64,6 +66,9 @@ function GeneralTeachingReportsContent() {
   const { updateClass } = useVolunteering();
   const { firestore, user: currentUser } = useFirebase();
   const { toast } = useToast();
+
+  // Aba Ativa (Geral vs. Quadro Dinâmico de Frequência)
+  const [activeTab, setActiveTab] = useState<'general' | 'dynamic_frequency'>('general');
 
   // Estados dos filtros acadêmicos
   const [selectedCycle, setSelectedCycle] = useState<string>('all');
@@ -1003,22 +1008,62 @@ function GeneralTeachingReportsContent() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button 
-            onClick={handleExportExcel} 
-            disabled={isExportingExcel || sortedStudentsList.length === 0}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1.5 shadow-sm"
-          >
-            {isExportingExcel ? <Loader2 className="size-3.5 animate-spin" /> : <FileSpreadsheet className="size-3.5" />}
-            Exportar Excel (.xlsx)
-          </Button>
-          <Button onClick={handlePrint} variant="outline" className="font-bold text-xs gap-1.5 bg-white">
-            <Printer className="size-3.5" />
-            Imprimir Relatório
-          </Button>
-        </div>
+        {activeTab === 'general' && (
+          <div className="flex items-center gap-2">
+            <Button 
+              onClick={handleExportExcel} 
+              disabled={isExportingExcel || sortedStudentsList.length === 0}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1.5 shadow-sm"
+            >
+              {isExportingExcel ? <Loader2 className="size-3.5 animate-spin" /> : <FileSpreadsheet className="size-3.5" />}
+              Exportar Excel (.xlsx)
+            </Button>
+            <Button onClick={handlePrint} variant="outline" className="font-bold text-xs gap-1.5 bg-white">
+              <Printer className="size-3.5" />
+              Imprimir Relatório
+            </Button>
+          </div>
+        )}
       </div>
 
+      {/* ── SELETOR DE ABAS PRINCIPAIS ────────────────────────────── */}
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-2 print-hide">
+        <Button
+          variant={activeTab === 'general' ? 'default' : 'ghost'}
+          onClick={() => setActiveTab('general')}
+          className={cn(
+            "font-black text-xs h-9 gap-2",
+            activeTab === 'general' ? "bg-primary text-primary-foreground shadow-sm" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+          )}
+        >
+          <BarChart2 className="size-4" />
+          Acompanhamento Geral &amp; Saúde Pedagógica
+        </Button>
+        <Button
+          variant={activeTab === 'dynamic_frequency' ? 'default' : 'ghost'}
+          onClick={() => setActiveTab('dynamic_frequency')}
+          className={cn(
+            "font-black text-xs h-9 gap-2",
+            activeTab === 'dynamic_frequency' ? "bg-indigo-600 text-white shadow-sm hover:bg-indigo-700" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+          )}
+        >
+          <Sliders className="size-4" />
+          Quadro Dinâmico de Frequência &amp; Liderança
+        </Button>
+      </div>
+
+      {activeTab === 'dynamic_frequency' ? (
+        <TeachingDynamicFrequencyReport
+          users={users}
+          courses={courses}
+          classes={classes}
+          cells={cells}
+          areas={areas}
+          redes={redes}
+          enrollmentRequests={enrollmentRequests}
+        />
+      ) : (
+        <>
       {/* ── 1. FILTROS ACADÊMICOS & ESTRUTURA CELULAR ────────────── */}
       <div className="space-y-4 print-hide">
         {/* Painel de Filtros Acadêmicos */}
@@ -1825,6 +1870,8 @@ function GeneralTeachingReportsContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+        </>
+      )}
     </div>
   );
 }
