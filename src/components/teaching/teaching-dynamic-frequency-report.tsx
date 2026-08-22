@@ -175,6 +175,7 @@ export function TeachingDynamicFrequencyReport({
   const [selectedLeadershipRole, setSelectedLeadershipRole] = useState<LeadershipFilterType>('all');
 
   // ── ESTADOS DE FILTRO ACADÊMICO & ESTRUTURA ──────────────────────
+  const [selectedTrack, setSelectedTrack] = useState<string>('all');
   const [selectedCourseId, setSelectedCourseId] = useState<string>('all');
   const [selectedClassId, setSelectedClassId] = useState<string>('all');
   const [selectedCycle, setSelectedCycle] = useState<string>('all');
@@ -278,15 +279,34 @@ export function TeachingDynamicFrequencyReport({
     return result;
   }, [cells, selectedRedeId, selectedAreaId]);
 
+  // Cursos filtrados por Ciclo e Trilha
+  const filteredCourses = useMemo(() => {
+    let list = courses;
+    if (selectedCycle !== 'all') {
+      const activeCourseIdsInCycle = new Set(
+        classes.filter(c => c.cycle === selectedCycle).map(c => c.courseId)
+      );
+      list = list.filter(c => activeCourseIdsInCycle.has(c.id));
+    }
+    if (selectedTrack !== 'all') {
+      list = list.filter(c => (c.ebdTrack || 'none') === selectedTrack);
+    }
+    return list;
+  }, [courses, classes, selectedCycle, selectedTrack]);
+
   // Turmas filtradas
   const filteredClasses = useMemo(() => {
     return classes.filter(cls => {
       if (selectedCycle !== 'all' && cls.cycle !== selectedCycle) return false;
       if (selectedCourseId !== 'all' && cls.courseId !== selectedCourseId) return false;
       if (selectedClassId !== 'all' && cls.id !== selectedClassId) return false;
+      if (selectedTrack !== 'all') {
+        const course = courseMap.get(cls.courseId);
+        if ((course?.ebdTrack || 'none') !== selectedTrack) return false;
+      }
       return true;
     });
-  }, [classes, selectedCycle, selectedCourseId, selectedClassId]);
+  }, [classes, selectedCycle, selectedCourseId, selectedClassId, selectedTrack, courseMap]);
 
   // Alunos em escopo de GC
   const matchingStudentIds = useMemo(() => {
@@ -549,6 +569,7 @@ export function TeachingDynamicFrequencyReport({
     operator,
     targetRate,
     selectedLeadershipRole,
+    selectedTrack,
     selectedCourseId,
     selectedClassId,
     selectedCycle,
@@ -1018,7 +1039,21 @@ export function TeachingDynamicFrequencyReport({
           </div>
 
           {/* Linha 2: Filtros Acadêmicos & GC */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 pt-2">
+            <div className="space-y-1">
+              <Label className="text-[10px] font-bold text-slate-600">Trilho</Label>
+              <Select value={selectedTrack} onValueChange={(v) => { setSelectedTrack(v); setSelectedCourseId('all'); setSelectedClassId('all'); }}>
+                <SelectTrigger className="h-8 text-xs bg-white"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os Trilhos</SelectItem>
+                  <SelectItem value="none">Geral / Sem Trilha</SelectItem>
+                  <SelectItem value="teologico">Trilho Teológico</SelectItem>
+                  <SelectItem value="biblico">Trilho Bíblico</SelectItem>
+                  <SelectItem value="discipulado">Trilho de Discipulado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="space-y-1">
               <Label className="text-[10px] font-bold text-slate-600">Ciclo</Label>
               <Select value={selectedCycle} onValueChange={setSelectedCycle}>
@@ -1036,7 +1071,7 @@ export function TeachingDynamicFrequencyReport({
                 <SelectTrigger className="h-8 text-xs bg-white"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos os Cursos</SelectItem>
-                  {courses.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  {filteredCourses.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
