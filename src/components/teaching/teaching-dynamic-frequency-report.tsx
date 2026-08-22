@@ -351,8 +351,8 @@ export function TeachingDynamicFrequencyReport({
           studentId,
           studentName: userObj?.name || 'Aluno',
           photoURL: userObj?.profilePicture || userObj?.photoURL,
-          phone: userObj?.phone || userObj?.whatsapp || '',
-          email: userObj?.email || '',
+          phone: userObj?.phone ? String(userObj.phone) : (userObj?.whatsapp ? String(userObj.whatsapp) : ''),
+          email: userObj?.email ? String(userObj.email) : '',
           leadership,
           gcName: cellObj?.nome || 'Sem GC',
           areaName: areaObj?.nome || '—',
@@ -721,13 +721,17 @@ export function TeachingDynamicFrequencyReport({
   };
 
   // Helper para formatar link do WhatsApp com mensagem de aviso contextual
-  const getWhatsAppLink = (phone: string, studentName: string, courseName: string, rate: number, missedCount: number) => {
-    const cleanPhone = phone.replace(/\D/g, '');
-    if (!cleanPhone) return null;
+  const getWhatsAppLink = (phone: any, studentName: any, courseName: any, rate: number, missedCount: number) => {
+    if (!phone) return null;
+    const phoneStr = String(phone).trim();
+    const cleanPhone = phoneStr.replace(/\D/g, '');
+    if (!cleanPhone || cleanPhone.length < 8) return null;
     const finalPhone = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
-    const firstName = studentName.split(' ')[0];
+    const safeName = String(studentName || 'Aluno').trim();
+    const firstName = safeName.split(' ')[0] || 'Aluno';
+    const safeCourse = String(courseName || 'do Ensino');
     const text = encodeURIComponent(
-      `Olá, ${firstName}! Tudo bem? Paz do Senhor! Passando para falar sobre o seu curso *${courseName}*. Notamos que sua frequência atual está em *${rate}%* (${missedCount} falta(s)). Queremos te apoiar para você repor as aulas necessárias e concluir o curso com sucesso! Podemos te ajudar com o material de reposição?`
+      `Olá, ${firstName}! Tudo bem? Paz do Senhor! Passando para falar sobre o seu curso *${safeCourse}*. Notamos que sua frequência atual está em *${rate}%* (${missedCount} falta(s)). Queremos te apoiar para você repor as aulas necessárias e concluir o curso com sucesso! Podemos te ajudar com o material de reposição?`
     );
     return `https://wa.me/${finalPhone}?text=${text}`;
   };
