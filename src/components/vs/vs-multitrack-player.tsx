@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Play, Pause, Square, RotateCcw, Volume2, VolumeX, Sliders, Headphones, 
   Radio, Loader2, ArrowLeft, Disc, Sparkles, Repeat, Repeat1, Infinity as InfinityIcon,
-  FastForward, Bookmark, Volume1
+  FastForward, Bookmark, Volume1, CheckCircle2, Download
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -86,6 +86,118 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
   // Modo de Loop ao Vivo: 'none' (normal), 'single' (repetir 1x), 'infinite' (loop continuo de oração/ministração)
   const [loopMode, setLoopMode] = useState<'none' | 'single' | 'infinite'>('none');
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
+
+  // Modo Offline / Cache Local em IndexedDB para todas as faixas
+  const [isCachingStems, setIsCachingStems] = useState(false);
+  const [cachedStemCount, setCachedStemCount] = useState(0);
+  const [isFullyCached, setIsFullyCached] = useState(false);
+
+  // IndexedDB Helper para armazenar áudios em cache offline
+  const openStemDB = useCallback((): Promise<IDBDatabase> => {
+    return new Promise((resolve, reject) => {
+      if (typeof window === 'undefined' || !window.indexedDB) {
+        return reject(new Error('IndexedDB não suportado'));
+      }
+      const req = window.indexedDB.open('OikoLiveVsCache', 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains('stems')) {
+          db.createObjectStore('stems');
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }, []);
+
+  // Mapa de URLs de áudio resolvidos (originais ou Blob URLs locais do IndexedDB)
+  const [resolvedStemUrls, setResolvedStemUrls] = useState<{ [trackId: string]: string }>({});
+
+  // Carrega os Blobs do IndexedDB se existirem em cache
+  const checkOfflineCacheStatus = useCallback(async () => {
+    try {
+      const db = await openStemDB();
+      const validTracks = (vs.tracks || []).filter(t => !!t.url);
+      if (validTracks.length === 0) return;
+
+      const tx = db.transaction('stems', 'readonly');
+      const store = tx.objectStore('stems');
+      let foundCount = 0;
+      const urlMap: { [trackId: string]: string } = {};
+
+      for (const t of validTracks) {
+        const u = t.url!;
+        const req = store.get(u);
+        await new Promise<void>((resolve) => {
+          req.onsuccess = () => {
+            if (req.result instanceof Blob) {
+              foundCount++;
+              urlMap[t.trackId] = URL.createObjectURL(req.result);
+            } else {
+              urlMap[t.trackId] = u;
+            }
+            resolve();
+          };
+          req.onerror = () => {
+            urlMap[t.trackId] = u;
+            resolve();
+          };
+        });
+      }
+
+      setResolvedStemUrls(urlMap);
+      setCachedStemCount(foundCount);
+      setIsFullyCached(foundCount === validTracks.length && validTracks.length > 0);
+    } catch (e) {
+      console.warn('Erro ao verificar cache offline:', e);
+    }
+  }, [vs.tracks, openStemDB]);
+
+  useEffect(() => {
+    checkOfflineCacheStatus();
+  }, [vs.id, checkOfflineCacheStatus]);
+
+  // Baixa e salva todas as faixas em IndexedDB para execução offline no templo
+  const handleDownloadForOffline = async () => {
+    const urls = (vs.tracks || []).filter(t => !!t.url).map(t => t.url!);
+    if (urls.length === 0) {
+      toast({ title: 'Sem faixas para baixar', description: 'Esta música não possui arquivos de áudio associados.' });
+      return;
+    }
+
+    setIsCachingStems(true);
+    try {
+      const db = await openStemDB();
+      let downloaded = 0;
+
+      for (const u of urls) {
+        try {
+          const res = await fetch(u);
+          const blob = await res.blob();
+          const tx = db.transaction('stems', 'readwrite');
+          tx.objectStore('stems').put(blob, u);
+          await new Promise<void>((resolve, reject) => {
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+          });
+          downloaded++;
+          setCachedStemCount(downloaded);
+        } catch (downloadErr) {
+          console.warn(`Erro ao baixar stem ${u}:`, downloadErr);
+        }
+      }
+
+      setIsFullyCached(downloaded === urls.length);
+      toast({
+        title: 'Música Salva Offline! ⚡',
+        description: `${downloaded} de ${urls.length} faixas salvas no armazenamento local para o culto.`,
+      });
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'Erro ao salvar offline', description: e.message || 'Tente novamente.' });
+    } finally {
+      setIsCachingStems(false);
+    }
+  };
 
   // Tom Original e Calculado com base nos semitons de Pitch Shift
   const originalKey = vs.key || 'C';
@@ -402,7 +514,7 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
   useEffect(() => { currentSectionRef.current = currentSection; }, [currentSection]);
   useEffect(() => { tracksStateRef.current = tracksState; }, [tracksState]);
 
-  // ATALHOS DE TECLADO DE PALCO (HOTKEYS: Espaço=Play/Pause, S=Stop, L=Loop, M=Mute)
+  // ATALHOS DE TECLADO E PEDAIS BLUETOOTH / MIDI (HOTKEYS: Espaço=Play/Pause, S=Stop, L=Loop, Setas/PageUp/Down=Seções, 1-9=Salto Direto)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ignora se o usuário estiver digitando em um input
@@ -417,13 +529,34 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
       } else if (e.code === 'KeyL') {
         e.preventDefault();
         setLoopMode((prev) => (prev === 'none' ? 'single' : prev === 'single' ? 'infinite' : 'none'));
-        toast({ title: 'Atalho de Palco: Loop Alternado 🔁' });
+        toast({ title: 'Pedal/Atalho: Loop Alternado 🔁' });
+      } else if (e.code === 'PageDown' || e.code === 'ArrowRight') {
+        // Pedal Avançar Seção
+        e.preventDefault();
+        const currentIdx = sections.findIndex(s => s.id === currentSectionRef.current?.id);
+        if (currentIdx !== -1 && currentIdx < sections.length - 1) {
+          handleJumpToSection(sections[currentIdx + 1]);
+        }
+      } else if (e.code === 'PageUp' || e.code === 'ArrowLeft') {
+        // Pedal Voltar Seção
+        e.preventDefault();
+        const currentIdx = sections.findIndex(s => s.id === currentSectionRef.current?.id);
+        if (currentIdx > 0) {
+          handleJumpToSection(sections[currentIdx - 1]);
+        }
+      } else if (['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8', 'Digit9'].includes(e.code)) {
+        // Salto direto 1..9 para seções
+        const secIndex = parseInt(e.code.replace('Digit', ''), 10) - 1;
+        if (sections[secIndex]) {
+          e.preventDefault();
+          handleJumpToSection(sections[secIndex]);
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [sections]);
 
   // Notifica o parent sempre que o isPlaying interno mudar
   useEffect(() => {
@@ -781,7 +914,7 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
                 }
               }
             }}
-            src={t.url}
+            src={resolvedStemUrls[t.trackId] || t.url}
             preload="auto"
             onLoadedMetadata={(e) => handleAudioLoadedMetadata(t.trackId, e)}
             onDurationChange={(e) => handleAudioLoadedMetadata(t.trackId, e)}
@@ -847,6 +980,37 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
               ⏱ {vs.timeSignature}
             </Badge>
           )}
+
+          {/* BOTÃO MODO OFFLINE / CACHE LOCAL NO DISPOSITIVO */}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleDownloadForOffline}
+            disabled={isCachingStems}
+            className={`h-9 px-3 rounded-2xl text-xs font-bold gap-1.5 transition-all ${
+              isFullyCached
+                ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/30'
+                : 'bg-slate-950 border-slate-800 text-slate-300 hover:bg-slate-900 hover:text-white'
+            }`}
+            title="Salvar faixas em cache local para tocar sem internet"
+          >
+            {isCachingStems ? (
+              <>
+                <Loader2 size={13} className="animate-spin text-amber-400" />
+                <span className="text-[11px]">Baixando ({cachedStemCount}/{(vs.tracks || []).filter(t => !!t.url).length})</span>
+              </>
+            ) : isFullyCached ? (
+              <>
+                <CheckCircle2 size={14} className="text-emerald-400" />
+                <span className="text-[11px]">Offline Pronto</span>
+              </>
+            ) : (
+              <>
+                <Sparkles size={13} className="text-amber-400" />
+                <span className="text-[11px]">Salvar Offline</span>
+              </>
+            )}
+          </Button>
         </div>
       </div>
 
