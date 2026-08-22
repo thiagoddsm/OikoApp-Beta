@@ -29,6 +29,8 @@ import {
   Layers,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   Sliders,
   Sparkles,
   RefreshCw,
@@ -170,6 +172,7 @@ export function TeachingDynamicFrequencyReport({
   const [operator, setOperator] = useState<FrequencyOperator>('lte');
   const [targetRate, setTargetRate] = useState<number>(60);
   const [activePreset, setActivePreset] = useState<string>('custom');
+  const [isFiltersOpen, setIsFiltersOpen] = useState<boolean>(true);
 
   // ── ESTADOS DE FILTRO DE PAPEL / LIDERANÇA ───────────────────────
   const [selectedLeadershipRole, setSelectedLeadershipRole] = useState<LeadershipFilterType>('all');
@@ -759,609 +762,589 @@ export function TeachingDynamicFrequencyReport({
 
   return (
     <div className="space-y-6 pb-12 print:p-0">
-      {/* ── TOPO DO QUADRO DINÂMICO ──────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4 print-hide">
+      {/* ── SUBHEADER: TÍTULO & BOTÕES DE AÇÃO ─────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print-hide">
         <div>
-          <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
-            <Sliders className="size-5 text-indigo-600" />
-            Quadro Dinâmico de Frequência &amp; Liderança
+          <h2 className="text-xl font-black text-slate-900 tracking-tight">
+            Quadro Dinâmico
           </h2>
-          <p className="text-xs text-muted-foreground font-semibold">
-            Filtre instantaneamente alunos e líderes de GC por faixas exatas de frequência, operadores matemáticos e cursos.
+          <p className="text-xs text-slate-500 font-medium">
+            Filtre instantaneamente alunos e líderes de GC.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <Button
-            onClick={handleExportExcel}
-            disabled={isExportingExcel || sortedStudentsList.length === 0}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1.5 shadow-sm h-8"
+            onClick={() => window.print()}
+            variant="outline"
+            className="font-bold text-xs gap-1.5 bg-white border-slate-200 text-slate-700 h-9 px-3.5 shadow-sm hover:bg-slate-50"
           >
-            {isExportingExcel ? <Loader2 className="size-3.5 animate-spin" /> : <FileSpreadsheet className="size-3.5" />}
-            Exportar Excel ({sortedStudentsList.length})
-          </Button>
-          <Button onClick={() => window.print()} variant="outline" className="font-bold text-xs gap-1.5 bg-white h-8">
             <Printer className="size-3.5" />
             Imprimir
+          </Button>
+          <Button
+            onClick={handleExportExcel}
+            disabled={isExportingExcel || sortedStudentsList.length === 0}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs gap-1.5 shadow-sm h-9 px-4"
+          >
+            {isExportingExcel ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
+            Exportar Excel ({sortedStudentsList.length})
           </Button>
         </div>
       </div>
 
-      {/* ── CARD RESUMO INTELIGENTE DINÂMICO ──────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 print:grid-cols-2">
-        <Card className="border-2 border-indigo-100 bg-gradient-to-br from-indigo-50/50 to-white shadow-sm md:col-span-2">
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 bg-indigo-600 text-white rounded-2xl shadow-sm shrink-0">
-              <Target className="size-6" />
-            </div>
-            <div>
-              <p className="text-[11px] font-black uppercase text-indigo-900 tracking-wider">Resultado dos Critérios</p>
-              <div className="flex items-baseline gap-2 mt-0.5">
-                <span className="text-2xl font-black text-slate-900">{totalFilteredStudents}</span>
-                <span className="text-xs text-muted-foreground font-bold">
-                  aluno(s) encontrado(s)
-                </span>
+      {/* ── 3 CARDS DE KPI & RESUMO (ESTILO MOCKUP STITCH) ─────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Card 1: Alunos Filtrados */}
+        <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-5 flex flex-col justify-between h-full space-y-3">
+            <div className="flex items-center gap-2.5">
+              <div className="size-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs">
+                <Users className="size-4" />
               </div>
-              <p className="text-xs font-semibold text-slate-600 mt-1">
-                Média de presença do grupo filtrado: <span className="font-black text-indigo-700">{averageFilteredRate}%</span>
+              <span className="text-[11px] font-black uppercase text-slate-500 tracking-wider">
+                Alunos Filtrados
+              </span>
+            </div>
+
+            <div>
+              <span className="text-3xl font-black text-slate-900 tracking-tight">
+                {totalFilteredStudents}
+              </span>
+              <p className="text-xs font-bold text-indigo-600 flex items-center gap-1 mt-1">
+                <TrendingUp className="size-3.5" />
+                Média de presença: {averageFilteredRate}%
               </p>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border border-slate-200 bg-white shadow-sm">
-          <CardContent className="p-4 flex items-center justify-between">
+        {/* Card 2: Filtro de Liderança */}
+        <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-5 flex flex-col justify-between h-full space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="size-8 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-xs">
+                  <Award className="size-4" />
+                </div>
+                <span className="text-[11px] font-black uppercase text-slate-500 tracking-wider">
+                  Filtro de Liderança
+                </span>
+              </div>
+              <span className="px-2 py-0.5 rounded-full text-xs font-black bg-slate-100 text-slate-700">
+                {totalFilteredStudents}
+              </span>
+            </div>
+
             <div>
-              <p className="text-[10px] font-black uppercase text-muted-foreground">Filtro de Liderança</p>
-              <p className="text-sm font-black text-slate-800 mt-1 flex items-center gap-1.5">
+              <p className="text-lg font-black text-slate-900 truncate">
                 {selectedLeadershipRole === 'gc_leaders' && '👑 Líderes de GC'}
                 {selectedLeadershipRole === 'gc_coliders' && '👥 Co-Líderes de GC'}
                 {selectedLeadershipRole === 'gc_supervisors' && '🗺️ Supervisores/Área'}
                 {selectedLeadershipRole === 'volunteers' && '🤝 Voluntários'}
                 {selectedLeadershipRole === 'members' && '👤 Membros/Alunos'}
-                {selectedLeadershipRole === 'all' && '🌐 Todos os Papéis'}
+                {selectedLeadershipRole === 'all' && 'Todos os Papéis'}
               </p>
             </div>
-            <Badge variant="outline" className="text-xs font-bold bg-slate-50">
-              {totalFilteredStudents}
-            </Badge>
           </CardContent>
         </Card>
 
-        <Card className="border border-slate-200 bg-white shadow-sm">
-          <CardContent className="p-4 flex items-center justify-between">
+        {/* Card 3: Critério de Frequência */}
+        <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-5 flex flex-col justify-between h-full space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="size-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-xs">
+                  <Sliders className="size-4" />
+                </div>
+                <span className="text-[11px] font-black uppercase text-slate-500 tracking-wider">
+                  Critério de Frequência
+                </span>
+              </div>
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-amber-50 text-amber-800 border border-amber-200/80">
+                Ativo
+              </span>
+            </div>
+
             <div>
-              <p className="text-[10px] font-black uppercase text-muted-foreground">Critério de Frequência</p>
-              <p className="text-sm font-black text-slate-800 mt-1">
+              <p className="text-xl font-black text-slate-900">
                 {filterMode === 'range' ? `${minRate}% a ${maxRate}%` : `${operator === 'lte' ? '≤' : operator === 'lt' ? '<' : operator === 'gte' ? '≥' : operator === 'gt' ? '>' : '='} ${targetRate}%`}
               </p>
             </div>
-            <Badge
-              variant="outline"
-              className={cn(
-                "text-xs font-black",
-                (filterMode === 'range' ? maxRate : targetRate) < 40
-                  ? "bg-red-50 text-red-700 border-red-200"
-                  : (filterMode === 'range' ? maxRate : targetRate) < 75
-                  ? "bg-amber-50 text-amber-700 border-amber-200"
-                  : "bg-emerald-50 text-emerald-700 border-emerald-200"
-              )}
-            >
-              Ativo
-            </Badge>
           </CardContent>
         </Card>
       </div>
 
-      {/* ── PAINEL PRINCIPAL DE FILTROS DINÂMICOS ─────────────────── */}
-      <Card className="shadow-sm border border-slate-200 bg-white print-hide">
-        <CardHeader className="py-3 px-4 bg-slate-50/80 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-2">
-          <CardTitle className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-2">
-            <Sliders className="size-3.5 text-primary" />
-            Configuração dos Filtros Dinâmicos
-          </CardTitle>
+      {/* ── CARD DE FILTROS DINÂMICOS COM ACORDEÃO ───────────────── */}
+      <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-sm overflow-hidden print-hide">
+        <div className="p-4 bg-white border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => setIsFiltersOpen(!isFiltersOpen)}
+            className="flex items-center gap-2 text-left group cursor-pointer"
+          >
+            <Filter className="size-4 text-slate-600 group-hover:text-indigo-600 transition-colors" />
+            <span className="text-xs font-black uppercase tracking-wider text-slate-900 group-hover:text-indigo-600 transition-colors">
+              Filtros Dinâmicos
+            </span>
+          </button>
 
-          {/* Presets Rápidos */}
+          {/* Atalhos Rápidos & Toggle */}
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[10px] font-black uppercase text-muted-foreground mr-1">Atalhos:</span>
             <Button
               variant={activePreset === 'critical' ? 'default' : 'outline'}
               size="sm"
               onClick={() => applyPreset('critical')}
               className={cn(
-                "h-6 text-[10px] font-bold px-2",
-                activePreset === 'critical' ? "bg-red-600 hover:bg-red-700 text-white" : "text-red-700 border-red-200 hover:bg-red-50"
+                "h-7 text-[11px] font-black rounded-full px-3 transition cursor-pointer",
+                activePreset === 'critical'
+                  ? "bg-red-600 hover:bg-red-700 text-white"
+                  : "text-red-700 bg-red-50/70 border-red-200 hover:bg-red-100"
               )}
             >
-              🔴 Crítico (0 - 39%) ({distributionStats.critical})
+              Crítico ({distributionStats.critical})
             </Button>
             <Button
               variant={activePreset === 'warning' ? 'default' : 'outline'}
               size="sm"
               onClick={() => applyPreset('warning')}
               className={cn(
-                "h-6 text-[10px] font-bold px-2",
-                activePreset === 'warning' ? "bg-amber-600 hover:bg-amber-700 text-white" : "text-amber-700 border-amber-200 hover:bg-amber-50"
+                "h-7 text-[11px] font-black rounded-full px-3 transition cursor-pointer",
+                activePreset === 'warning'
+                  ? "bg-amber-600 hover:bg-amber-700 text-white"
+                  : "text-amber-700 bg-amber-50/70 border-amber-200 hover:bg-amber-100"
               )}
             >
-              🟡 Atenção (40 - 74%) ({distributionStats.warning})
+              Atenção ({distributionStats.warning})
             </Button>
             <Button
               variant={activePreset === 'passing' ? 'default' : 'outline'}
               size="sm"
               onClick={() => applyPreset('passing')}
               className={cn(
-                "h-6 text-[10px] font-bold px-2",
-                activePreset === 'passing' ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                "h-7 text-[11px] font-black rounded-full px-3 transition cursor-pointer",
+                activePreset === 'passing'
+                  ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                  : "text-emerald-700 bg-emerald-50/70 border-emerald-200 hover:bg-emerald-100"
               )}
             >
-              🟢 Regular (≥ 75%) ({distributionStats.passing + distributionStats.perfect})
+              Regular ({distributionStats.passing + distributionStats.perfect})
             </Button>
-            <Button
-              variant={activePreset === 'all' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => applyPreset('all')}
-              className="h-6 text-[10px] font-bold px-2"
+
+            <button
+              type="button"
+              onClick={() => setIsFiltersOpen(!isFiltersOpen)}
+              className="size-7 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-500 transition ml-1 cursor-pointer"
             >
-              Todos (0 - 100%)
-            </Button>
+              {isFiltersOpen ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+            </button>
           </div>
-        </CardHeader>
+        </div>
 
-        <CardContent className="p-4 space-y-4">
-          {/* Linha 1: Filtros de Frequência e Papel */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-3 bg-slate-50/50 rounded-xl border border-slate-100">
-            {/* Modo de Filtro de Frequência */}
-            <div className="space-y-1">
-              <Label className="text-[11px] font-black text-slate-700">Modo de Frequência</Label>
-              <Select
-                value={filterMode}
-                onValueChange={(v: FrequencyFilterMode) => {
-                  setFilterMode(v);
-                  setActivePreset('custom');
-                }}
-              >
-                <SelectTrigger className="h-8 text-xs bg-white font-bold">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="range">Faixa (% Mínimo até % Máximo)</SelectItem>
-                  <SelectItem value="operator">Operador Matemático (&gt;, &lt;, =)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+        {isFiltersOpen && (
+          <CardContent className="p-4 space-y-3 bg-slate-50/40">
+            {/* Linha 1 */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+              <div className="space-y-1">
+                <Label className="text-[10px] font-black text-slate-600">Modo</Label>
+                <Select
+                  value={filterMode}
+                  onValueChange={(v: FrequencyFilterMode) => {
+                    setFilterMode(v);
+                    setActivePreset('custom');
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-xs bg-white font-bold"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="range">Faixa (% Mín - Máx)</SelectItem>
+                    <SelectItem value="operator">Operador (&gt;, &lt;, =)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-            {/* Inputs de Frequência Condicionais */}
-            {filterMode === 'range' ? (
-              <>
-                <div className="space-y-1">
-                  <Label className="text-[11px] font-black text-slate-700">Presença Mínima (%)</Label>
-                  <div className="flex items-center gap-2">
+              {filterMode === 'range' ? (
+                <>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-black text-slate-600">Mínima (%)</Label>
                     <Input
                       type="number"
                       min={0}
                       max={100}
                       value={minRate}
-                      onChange={e => {
-                        setMinRate(Number(e.target.value));
-                        setActivePreset('custom');
-                      }}
+                      onChange={e => { setMinRate(Number(e.target.value)); setActivePreset('custom'); }}
                       className="h-8 text-xs bg-white font-bold"
                     />
-                    <span className="text-xs font-bold text-muted-foreground">%</span>
                   </div>
-                </div>
-
-                <div className="space-y-1">
-                  <Label className="text-[11px] font-black text-slate-700">Presença Máxima (%)</Label>
-                  <div className="flex items-center gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-black text-slate-600">Máxima (%)</Label>
                     <Input
                       type="number"
                       min={0}
                       max={100}
                       value={maxRate}
-                      onChange={e => {
-                        setMaxRate(Number(e.target.value));
-                        setActivePreset('custom');
-                      }}
+                      onChange={e => { setMaxRate(Number(e.target.value)); setActivePreset('custom'); }}
                       className="h-8 text-xs bg-white font-bold"
                     />
-                    <span className="text-xs font-bold text-muted-foreground">%</span>
                   </div>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="space-y-1">
-                  <Label className="text-[11px] font-black text-slate-700">Operador</Label>
-                  <Select
-                    value={operator}
-                    onValueChange={(v: FrequencyOperator) => {
-                      setOperator(v);
-                      setActivePreset('custom');
-                    }}
-                  >
-                    <SelectTrigger className="h-8 text-xs bg-white font-bold">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="lte">≤ Menor ou Igual a</SelectItem>
-                      <SelectItem value="lt">&lt; Menor que</SelectItem>
-                      <SelectItem value="gte">≥ Maior ou Igual a</SelectItem>
-                      <SelectItem value="gt">&gt; Maior que</SelectItem>
-                      <SelectItem value="eq">= Exatamente Igual a</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-1">
-                  <Label className="text-[11px] font-black text-slate-700">Valor Alvo (%)</Label>
-                  <div className="flex items-center gap-2">
+                </>
+              ) : (
+                <>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-black text-slate-600">Operador</Label>
+                    <Select value={operator} onValueChange={(v: FrequencyOperator) => { setOperator(v); setActivePreset('custom'); }}>
+                      <SelectTrigger className="h-8 text-xs bg-white font-bold"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="lte">≤ Menor ou Igual</SelectItem>
+                        <SelectItem value="lt">&lt; Menor que</SelectItem>
+                        <SelectItem value="gte">≥ Maior ou Igual</SelectItem>
+                        <SelectItem value="gt">&gt; Maior que</SelectItem>
+                        <SelectItem value="eq">= Igual a</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-black text-slate-600">Valor Alvo (%)</Label>
                     <Input
                       type="number"
                       min={0}
                       max={100}
                       value={targetRate}
-                      onChange={e => {
-                        setTargetRate(Number(e.target.value));
-                        setActivePreset('custom');
-                      }}
+                      onChange={e => { setTargetRate(Number(e.target.value)); setActivePreset('custom'); }}
                       className="h-8 text-xs bg-white font-bold"
                     />
-                    <span className="text-xs font-bold text-muted-foreground">%</span>
                   </div>
-                </div>
-              </>
-            )}
+                </>
+              )}
 
-            {/* Filtro de Papel de Liderança */}
-            <div className="space-y-1">
-              <Label className="text-[11px] font-black text-indigo-950 flex items-center gap-1">
-                <span>👑</span> Papel / Liderança
-              </Label>
-              <Select
-                value={selectedLeadershipRole}
-                onValueChange={(v: LeadershipFilterType) => setSelectedLeadershipRole(v)}
-              >
-                <SelectTrigger className="h-8 text-xs bg-white font-black border-indigo-200">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">🌐 Todos os Alunos</SelectItem>
-                  <SelectItem value="gc_leaders">👑 Apenas Líderes de GC</SelectItem>
-                  <SelectItem value="gc_coliders">👥 Co-Líderes de GC</SelectItem>
-                  <SelectItem value="gc_supervisors">🗺️ Supervisores / Área / Rede</SelectItem>
-                  <SelectItem value="volunteers">🤝 Voluntários em Serviço</SelectItem>
-                  <SelectItem value="members">👤 Membros / Novos Convertidos</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+              {/* Papel / Liderança com Destaque Lavanda/Roxo do Mockup */}
+              <div className="space-y-1">
+                <Label className="text-[10px] font-black text-indigo-950">Papel</Label>
+                <Select
+                  value={selectedLeadershipRole}
+                  onValueChange={(v: LeadershipFilterType) => setSelectedLeadershipRole(v)}
+                >
+                  <SelectTrigger className="h-8 text-xs bg-indigo-50/60 font-black border-indigo-300 text-indigo-950">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os Alunos</SelectItem>
+                    <SelectItem value="gc_leaders">👑 Apenas Líderes de GC</SelectItem>
+                    <SelectItem value="gc_coliders">👥 Co-Líderes de GC</SelectItem>
+                    <SelectItem value="gc_supervisors">🗺️ Supervisores / Área / Rede</SelectItem>
+                    <SelectItem value="volunteers">🤝 Voluntários</SelectItem>
+                    <SelectItem value="members">👤 Membros / Alunos</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-          {/* Linha 2: Filtros Acadêmicos & GC */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 pt-2">
-            <div className="space-y-1">
-              <Label className="text-[10px] font-bold text-slate-600">Trilho</Label>
-              <Select value={selectedTrack} onValueChange={(v) => { setSelectedTrack(v); setSelectedCourseId('all'); setSelectedClassId('all'); }}>
-                <SelectTrigger className="h-8 text-xs bg-white"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os Trilhos</SelectItem>
-                  <SelectItem value="none">Geral / Sem Trilha</SelectItem>
-                  <SelectItem value="teologico">Trilho Teológico</SelectItem>
-                  <SelectItem value="biblico">Trilho Bíblico</SelectItem>
-                  <SelectItem value="discipulado">Trilho de Discipulado</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] font-black text-slate-600">Curso</Label>
+                <Select value={selectedCourseId} onValueChange={(v) => { setSelectedCourseId(v); setSelectedClassId('all'); }}>
+                  <SelectTrigger className="h-8 text-xs bg-white font-bold"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {filteredCourses.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div className="space-y-1">
-              <Label className="text-[10px] font-bold text-slate-600">Ciclo</Label>
-              <Select value={selectedCycle} onValueChange={setSelectedCycle}>
-                <SelectTrigger className="h-8 text-xs bg-white"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os Ciclos</SelectItem>
-                  {cycles.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <div className="space-y-1">
+                <Label className="text-[10px] font-black text-slate-600">Rede/Área</Label>
+                <Select value={selectedRedeId} onValueChange={(v) => { setSelectedRedeId(v); setSelectedAreaId('all'); setSelectedCellId('all'); }}>
+                  <SelectTrigger className="h-8 text-xs bg-white font-bold"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {redes.map(r => <SelectItem key={r.id} value={r.id}>{r.nome}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div className="space-y-1">
-              <Label className="text-[10px] font-bold text-slate-600">Curso</Label>
-              <Select value={selectedCourseId} onValueChange={(v) => { setSelectedCourseId(v); setSelectedClassId('all'); }}>
-                <SelectTrigger className="h-8 text-xs bg-white"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os Cursos</SelectItem>
-                  {filteredCourses.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Linha 2 de Filtros Complementares */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-1 border-t border-slate-200/60">
+              <div className="space-y-1">
+                <Label className="text-[10px] font-bold text-slate-500">Trilho</Label>
+                <Select value={selectedTrack} onValueChange={(v) => { setSelectedTrack(v); setSelectedCourseId('all'); setSelectedClassId('all'); }}>
+                  <SelectTrigger className="h-7 text-xs bg-white"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os Trilhos</SelectItem>
+                    <SelectItem value="none">Geral / Sem Trilha</SelectItem>
+                    <SelectItem value="teologico">Trilho Teológico</SelectItem>
+                    <SelectItem value="biblico">Trilho Bíblico</SelectItem>
+                    <SelectItem value="discipulado">Trilho de Discipulado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div className="space-y-1">
-              <Label className="text-[10px] font-bold text-slate-600">Turma</Label>
-              <Select value={selectedClassId} onValueChange={setSelectedClassId}>
-                <SelectTrigger className="h-8 text-xs bg-white"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas as Turmas</SelectItem>
-                  {classes
-                    .filter(c => selectedCourseId === 'all' || c.courseId === selectedCourseId)
-                    .map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] font-bold text-slate-500">Ciclo</Label>
+                <Select value={selectedCycle} onValueChange={setSelectedCycle}>
+                  <SelectTrigger className="h-7 text-xs bg-white"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os Ciclos</SelectItem>
+                    {cycles.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div className="space-y-1">
-              <Label className="text-[10px] font-bold text-slate-600">Rede (GC)</Label>
-              <Select value={selectedRedeId} onValueChange={(v) => { setSelectedRedeId(v); setSelectedAreaId('all'); setSelectedCellId('all'); }}>
-                <SelectTrigger className="h-8 text-xs bg-white"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas as Redes</SelectItem>
-                  {redes.map(r => <SelectItem key={r.id} value={r.id}>{r.nome}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] font-bold text-slate-500">Turma</Label>
+                <Select value={selectedClassId} onValueChange={setSelectedClassId}>
+                  <SelectTrigger className="h-7 text-xs bg-white"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as Turmas</SelectItem>
+                    {classes.filter(c => selectedCourseId === 'all' || c.courseId === selectedCourseId).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div className="space-y-1">
-              <Label className="text-[10px] font-bold text-slate-600">Área (GC)</Label>
-              <Select value={selectedAreaId} onValueChange={(v) => { setSelectedAreaId(v); setSelectedCellId('all'); }}>
-                <SelectTrigger className="h-8 text-xs bg-white"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas as Áreas</SelectItem>
-                  {filteredAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.nome}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <div className="space-y-1">
+                <Label className="text-[10px] font-bold text-slate-500">Célula (GC)</Label>
+                <Select value={selectedCellId} onValueChange={setSelectedCellId}>
+                  <SelectTrigger className="h-7 text-xs bg-white"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os GCs</SelectItem>
+                    {filteredCells.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-          </div>
-        </CardContent>
+          </CardContent>
+        )}
       </Card>
 
-      {/* ── TABELA NOMINAL DOS ALUNOS FILTRADOS ───────────────────── */}
-      <Card className="shadow-sm border border-slate-200 bg-white">
-        <CardHeader className="py-3 px-4 bg-slate-50/80 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Users className="size-4 text-primary" />
-            <CardTitle className="text-sm font-black text-slate-800">
-              Alunos Filtrados ({totalFilteredStudents})
-            </CardTitle>
+      {/* ── TABELA NOMINAL DOS ALUNOS ────────────────────────────── */}
+      <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-sm overflow-hidden">
+        {/* Barra de Busca e Quantidade */}
+        <div className="p-4 bg-white border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 print-hide">
+          <div className="relative w-full sm:w-80">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-slate-400" />
+            <Input
+              placeholder="Buscar aluno, GC ou curso..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className="h-9 pl-9 text-xs bg-white border-slate-200 rounded-xl"
+            />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 print-hide">
-            <div className="relative w-full sm:w-64">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nome, GC ou curso..."
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                className="h-8 pl-8 text-xs bg-white"
-              />
-            </div>
-
+          <div className="flex items-center gap-2 self-end sm:self-auto">
+            <span className="text-xs font-bold text-slate-500">Mostrar:</span>
             <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
-              <SelectTrigger className="h-8 text-xs w-[120px] bg-white font-bold">
+              <SelectTrigger className="h-9 text-xs w-[90px] bg-white font-bold rounded-xl border-slate-200">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="10">10 por pág.</SelectItem>
-                <SelectItem value="25">25 por pág.</SelectItem>
-                <SelectItem value="50">50 por pág.</SelectItem>
-                <SelectItem value="0">Todos ({totalFilteredStudents})</SelectItem>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="25">25</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="0">Todos</SelectItem>
               </SelectContent>
             </Select>
           </div>
-        </CardHeader>
+        </div>
 
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-slate-50/70 hover:bg-slate-50/70">
-                  <TableHead onClick={() => handleSort('studentName')} className="cursor-pointer font-black text-[11px] text-slate-700">
-                    <div className="flex items-center gap-1">
-                      Aluno
-                      {sortColumn === 'studentName' && (sortDirection === 'asc' ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />)}
-                    </div>
-                  </TableHead>
-                  <TableHead onClick={() => handleSort('leadership')} className="cursor-pointer font-black text-[11px] text-slate-700">
-                    <div className="flex items-center gap-1">
-                      Cargo / Papel
-                      {sortColumn === 'leadership' && (sortDirection === 'asc' ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />)}
-                    </div>
-                  </TableHead>
-                  <TableHead onClick={() => handleSort('gcName')} className="cursor-pointer font-black text-[11px] text-slate-700">
-                    <div className="flex items-center gap-1">
-                      Célula (GC)
-                      {sortColumn === 'gcName' && (sortDirection === 'asc' ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />)}
-                    </div>
-                  </TableHead>
-                  <TableHead onClick={() => handleSort('courseName')} className="cursor-pointer font-black text-[11px] text-slate-700">
-                    <div className="flex items-center gap-1">
-                      Curso &amp; Turma
-                      {sortColumn === 'courseName' && (sortDirection === 'asc' ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />)}
-                    </div>
-                  </TableHead>
-                  <TableHead onClick={() => handleSort('presentsCount')} className="cursor-pointer font-black text-[11px] text-slate-700 text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      Presenças / Aulas
-                      {sortColumn === 'presentsCount' && (sortDirection === 'asc' ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />)}
-                    </div>
-                  </TableHead>
-                  <TableHead onClick={() => handleSort('totalRate')} className="cursor-pointer font-black text-[11px] text-slate-700 text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      Frequência (%)
-                      {sortColumn === 'totalRate' && (sortDirection === 'asc' ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />)}
-                    </div>
-                  </TableHead>
-                  <TableHead className="font-black text-[11px] text-slate-700 text-center">
-                    Status
-                  </TableHead>
-                  <TableHead className="font-black text-[11px] text-slate-700 text-right print-hide">
-                    Contato
-                  </TableHead>
+        {/* Tabela */}
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-slate-50/70 hover:bg-slate-50/70 border-b border-slate-100">
+                <TableHead onClick={() => handleSort('studentName')} className="cursor-pointer font-black text-[11px] text-slate-500 uppercase tracking-wider py-3.5 px-4">
+                  <div className="flex items-center gap-1">
+                    ALUNO
+                    {sortColumn === 'studentName' && (sortDirection === 'asc' ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />)}
+                  </div>
+                </TableHead>
+                <TableHead onClick={() => handleSort('leadership')} className="cursor-pointer font-black text-[11px] text-slate-500 uppercase tracking-wider py-3.5 px-4">
+                  <div className="flex items-center gap-1">
+                    PAPEL / GC
+                    {sortColumn === 'leadership' && (sortDirection === 'asc' ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />)}
+                  </div>
+                </TableHead>
+                <TableHead onClick={() => handleSort('courseName')} className="cursor-pointer font-black text-[11px] text-slate-500 uppercase tracking-wider py-3.5 px-4">
+                  <div className="flex items-center gap-1">
+                    CURSO
+                    {sortColumn === 'courseName' && (sortDirection === 'asc' ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />)}
+                  </div>
+                </TableHead>
+                <TableHead onClick={() => handleSort('presentsCount')} className="cursor-pointer font-black text-[11px] text-slate-500 uppercase tracking-wider py-3.5 px-4 text-center">
+                  <div className="flex items-center justify-center gap-1">
+                    AULAS
+                    {sortColumn === 'presentsCount' && (sortDirection === 'asc' ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />)}
+                  </div>
+                </TableHead>
+                <TableHead onClick={() => handleSort('totalRate')} className="cursor-pointer font-black text-[11px] text-slate-500 uppercase tracking-wider py-3.5 px-4 text-center">
+                  <div className="flex items-center justify-center gap-1">
+                    FREQUÊNCIA
+                    {sortColumn === 'totalRate' && (sortDirection === 'asc' ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />)}
+                  </div>
+                </TableHead>
+                <TableHead className="font-black text-[11px] text-slate-500 uppercase tracking-wider py-3.5 px-4 text-center">
+                  STATUS
+                </TableHead>
+                <TableHead className="font-black text-[11px] text-slate-500 uppercase tracking-wider py-3.5 px-4 text-right print-hide">
+                  AÇÃO
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+
+            <TableBody className="divide-y divide-slate-100">
+              {paginatedStudents.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="h-36 text-center text-sm text-slate-400 font-medium">
+                    Nenhum aluno encontrado para os critérios selecionados.
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
+              ) : (
+                paginatedStudents.map((item, idx) => {
+                  const waLink = getWhatsAppLink(item.phone, item.studentName, item.courseName, item.totalRate, item.absencesCount);
 
-              <TableBody>
-                {paginatedStudents.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="h-32 text-center text-sm text-muted-foreground">
-                      Nenhum aluno encontrado para os critérios selecionados.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  paginatedStudents.map((item, idx) => {
-                    const waLink = getWhatsAppLink(item.phone, item.studentName, item.courseName, item.totalRate, item.absencesCount);
-
-                    return (
-                      <TableRow key={`${item.studentId}_${item.classId}_${idx}`} className="hover:bg-slate-50/50">
-                        {/* Aluno */}
-                        <TableCell>
-                          <div className="flex items-center gap-2.5">
-                            <Avatar className="size-8 border">
-                              <AvatarImage src={item.photoURL} alt={item.studentName} />
-                              <AvatarFallback className="text-[10px] font-bold">
-                                {item.studentName.charAt(0)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <p className="font-bold text-xs text-slate-800">{item.studentName}</p>
-                              {item.phone && (
-                                <p className="text-[10px] text-muted-foreground font-mono">{item.phone}</p>
-                              )}
-                            </div>
+                  return (
+                    <TableRow key={`${item.studentId}_${item.classId}_${idx}`} className="hover:bg-slate-50/60 transition-colors">
+                      {/* ALUNO */}
+                      <TableCell className="py-3 px-4">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="size-9 border border-slate-200 shrink-0">
+                            <AvatarImage src={item.photoURL} alt={item.studentName} />
+                            <AvatarFallback className="text-xs font-extrabold bg-slate-100 text-slate-700">
+                              {item.studentName.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="font-bold text-xs text-slate-900">{item.studentName}</p>
+                            <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+                              {item.phone || 'Sem telefone'}
+                            </p>
                           </div>
-                        </TableCell>
+                        </div>
+                      </TableCell>
 
-                        {/* Cargo / Papel */}
-                        <TableCell>
-                          <Badge
-                            variant="outline"
-                            className={cn("text-[10px] font-bold border px-1.5 py-0.5", item.leadership.badgeClass)}
-                          >
-                            <span className="mr-1">{item.leadership.icon}</span>
-                            {item.leadership.badgeLabel}
-                          </Badge>
-                        </TableCell>
+                      {/* PAPEL / GC */}
+                      <TableCell className="py-3 px-4">
+                        <Badge
+                          variant="outline"
+                          className={cn("text-[10px] font-black rounded-full px-2 py-0.5 border shadow-none", item.leadership.badgeClass)}
+                        >
+                          <span className="mr-1">{item.leadership.icon}</span>
+                          {item.leadership.badgeLabel}
+                        </Badge>
+                        <p className="text-[11px] font-semibold text-slate-500 mt-1">
+                          {item.gcName}
+                        </p>
+                      </TableCell>
 
-                        {/* GC */}
-                        <TableCell>
-                          <p className="text-xs font-semibold text-slate-700">{item.gcName}</p>
-                          {item.redeName !== '—' && (
-                            <p className="text-[10px] text-muted-foreground">{item.redeName}</p>
-                          )}
-                        </TableCell>
+                      {/* CURSO & TURMA */}
+                      <TableCell className="py-3 px-4">
+                        <p className="font-bold text-xs text-slate-900">{item.courseName}</p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">{item.className}</p>
+                      </TableCell>
 
-                        {/* Curso & Turma */}
-                        <TableCell>
-                          <p className="text-xs font-bold text-slate-800">{item.courseName}</p>
-                          <p className="text-[10px] text-muted-foreground">{item.className}</p>
-                        </TableCell>
+                      {/* AULAS */}
+                      <TableCell className="py-3 px-4 text-center">
+                        <span className="text-xs font-bold text-slate-700">
+                          {item.presentsCount} / {item.lessonsConducted}
+                        </span>
+                      </TableCell>
 
-                        {/* Presenças */}
-                        <TableCell className="text-center">
-                          <span className="text-xs font-black text-slate-800">
-                            {item.presentsCount} / {item.lessonsConducted}
+                      {/* FREQUÊNCIA */}
+                      <TableCell className="py-3 px-4 text-center w-36">
+                        <div className="flex items-center justify-center gap-2">
+                          <span className={cn(
+                            "text-xs font-black min-w-[32px] text-right",
+                            item.totalRate < 40 ? "text-red-600" : item.totalRate < 75 ? "text-amber-600" : "text-emerald-600"
+                          )}>
+                            {item.totalRate}%
                           </span>
-                          {item.repositionsCount > 0 && (
-                            <span className="text-[9px] text-amber-600 font-bold block">
-                              ({item.repositionsCount} reposição)
-                            </span>
-                          )}
-                        </TableCell>
-
-                        {/* Frequência com Barra */}
-                        <TableCell className="text-center w-36">
-                          <div className="space-y-1">
-                            <span className={cn(
-                              "text-xs font-black",
-                              item.totalRate < 40 ? "text-red-600" : item.totalRate < 75 ? "text-amber-600" : "text-emerald-600"
-                            )}>
-                              {item.totalRate}%
-                            </span>
-                            <Progress
-                              value={item.totalRate}
-                              className="h-1.5"
+                          <div className="w-16 bg-slate-100 h-1.5 rounded-full overflow-hidden shrink-0">
+                            <div
+                              className={cn(
+                                "h-full rounded-full transition-all",
+                                item.totalRate < 40 ? "bg-red-500" : item.totalRate < 75 ? "bg-amber-500" : "bg-emerald-500"
+                              )}
+                              style={{ width: `${item.totalRate}%` }}
                             />
                           </div>
-                        </TableCell>
+                        </div>
+                      </TableCell>
 
-                        {/* Status */}
-                        <TableCell className="text-center">
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              "text-[10px] font-bold",
-                              item.eligible
-                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                : "bg-red-50 text-red-700 border-red-200"
-                            )}
-                          >
-                            {item.statusLabel}
-                          </Badge>
-                        </TableCell>
-
-                        {/* Ações / WhatsApp */}
-                        <TableCell className="text-right print-hide">
-                          {waLink ? (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <a
-                                    href={waLink}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center justify-center size-7 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition-colors"
-                                  >
-                                    <MessageCircle className="size-3.5" />
-                                  </a>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p className="text-xs">Enviar aviso de reposição via WhatsApp</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          ) : (
-                            <span className="text-[10px] text-muted-foreground">—</span>
+                      {/* STATUS */}
+                      <TableCell className="py-3 px-4 text-center">
+                        <span
+                          className={cn(
+                            "inline-block px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border",
+                            item.eligible
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : item.totalRate >= 40
+                              ? "bg-amber-50 text-amber-700 border-amber-200"
+                              : "bg-red-50 text-red-700 border-red-200"
                           )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                        >
+                          {item.eligible ? 'Apto' : item.totalRate >= 40 ? 'Atenção' : 'Insuficiente'}
+                        </span>
+                      </TableCell>
 
-          {/* Paginação */}
-          {pageSize > 0 && totalFilteredStudents > 0 && (
-            <div className="flex items-center justify-between p-3 border-t border-slate-100 bg-slate-50/50 print-hide">
-              <p className="text-xs text-muted-foreground font-semibold">
-                Mostrando {paginatedStudents.length} de {totalFilteredStudents} alunos
-              </p>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={safeCurrentPage === 1}
-                  className="h-7 text-xs font-bold"
-                >
-                  <ChevronLeft className="size-3.5 mr-1" /> Anterior
-                </Button>
-                <span className="text-xs font-bold px-2">
-                  {safeCurrentPage} / {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={safeCurrentPage === totalPages}
-                  className="h-7 text-xs font-bold"
-                >
-                  Próxima <ChevronRight className="size-3.5 ml-1" />
-                </Button>
-              </div>
+                      {/* AÇÃO */}
+                      <TableCell className="py-3 px-4 text-right print-hide">
+                        {waLink ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <a
+                                  href={waLink}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center justify-center size-8 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition-colors shadow-sm"
+                                >
+                                  <MessageCircle className="size-4" />
+                                </a>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="text-xs font-semibold">Enviar mensagem de apoio no WhatsApp</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : (
+                          <span className="text-slate-300 text-xs">—</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Paginação */}
+        {pageSize > 0 && totalFilteredStudents > 0 && (
+          <div className="flex items-center justify-between p-4 border-t border-slate-100 bg-white print-hide">
+            <p className="text-xs text-slate-500 font-medium">
+              Mostrando <span className="font-bold text-slate-800">{paginatedStudents.length}</span> de <span className="font-bold text-slate-800">{totalFilteredStudents}</span> alunos
+            </p>
+            <div className="flex items-center gap-1.5">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={safeCurrentPage === 1}
+                className="h-8 text-xs font-bold rounded-xl border-slate-200"
+              >
+                <ChevronLeft className="size-3.5 mr-1" /> Anterior
+              </Button>
+              <span className="text-xs font-black px-2 text-slate-700">
+                {safeCurrentPage} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={safeCurrentPage === totalPages}
+                className="h-8 text-xs font-bold rounded-xl border-slate-200"
+              >
+                Próxima <ChevronRight className="size-3.5 ml-1" />
+              </Button>
             </div>
-          )}
-        </CardContent>
+          </div>
+        )}
       </Card>
     </div>
   );

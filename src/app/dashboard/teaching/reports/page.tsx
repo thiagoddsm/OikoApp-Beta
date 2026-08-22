@@ -996,61 +996,62 @@ function GeneralTeachingReportsContent() {
 
   return (
     <div className="space-y-6 pb-12 print:p-0">
-      {/* ── TOPO & BOTÕES DE AÇÃO ─────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4 print-hide">
+      {/* ── TOPO & ABAS DE NAVEGAÇÃO ───────────────────────────────── */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-200 pb-2 print-hide">
         <div>
-          <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2">
-            <BarChart2 className="size-6 text-primary" />
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">
             Dashboard Gerencial do Ensino
           </h1>
-          <p className="text-xs text-muted-foreground font-semibold">
+          <p className="text-xs text-slate-500 font-medium mt-0.5">
             Acompanhe a saúde pedagógica, frequência e projeções de aprovação com filtros por Célula, Área e Rede.
           </p>
         </div>
 
-        {activeTab === 'general' && (
-          <div className="flex items-center gap-2">
-            <Button 
-              onClick={handleExportExcel} 
-              disabled={isExportingExcel || sortedStudentsList.length === 0}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1.5 shadow-sm"
-            >
-              {isExportingExcel ? <Loader2 className="size-3.5 animate-spin" /> : <FileSpreadsheet className="size-3.5" />}
-              Exportar Excel (.xlsx)
-            </Button>
-            <Button onClick={handlePrint} variant="outline" className="font-bold text-xs gap-1.5 bg-white">
-              <Printer className="size-3.5" />
-              Imprimir Relatório
-            </Button>
-          </div>
-        )}
+        {/* Abas Estilo Underline Stitch */}
+        <div className="flex items-center gap-6 self-start lg:self-center pt-2 lg:pt-0">
+          <button
+            type="button"
+            onClick={() => setActiveTab('general')}
+            className={cn(
+              "pb-2.5 text-xs font-bold transition-all border-b-2",
+              activeTab === 'general'
+                ? "border-primary text-primary font-black"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            )}
+          >
+            Acompanhamento Geral
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('dynamic_frequency')}
+            className={cn(
+              "pb-2.5 text-xs font-bold transition-all border-b-2",
+              activeTab === 'dynamic_frequency'
+                ? "border-indigo-600 text-indigo-600 font-black"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            )}
+          >
+            Frequência &amp; Liderança
+          </button>
+        </div>
       </div>
 
-      {/* ── SELETOR DE ABAS PRINCIPAIS ────────────────────────────── */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-2 print-hide">
-        <Button
-          variant={activeTab === 'general' ? 'default' : 'ghost'}
-          onClick={() => setActiveTab('general')}
-          className={cn(
-            "font-black text-xs h-9 gap-2",
-            activeTab === 'general' ? "bg-primary text-primary-foreground shadow-sm" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-          )}
-        >
-          <BarChart2 className="size-4" />
-          Acompanhamento Geral &amp; Saúde Pedagógica
-        </Button>
-        <Button
-          variant={activeTab === 'dynamic_frequency' ? 'default' : 'ghost'}
-          onClick={() => setActiveTab('dynamic_frequency')}
-          className={cn(
-            "font-black text-xs h-9 gap-2",
-            activeTab === 'dynamic_frequency' ? "bg-indigo-600 text-white shadow-sm hover:bg-indigo-700" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-          )}
-        >
-          <Sliders className="size-4" />
-          Quadro Dinâmico de Frequência &amp; Liderança
-        </Button>
-      </div>
+      {activeTab === 'general' && (
+        <div className="flex items-center justify-end gap-2 -mt-2 print-hide">
+          <Button 
+            onClick={handleExportExcel} 
+            disabled={isExportingExcel || sortedStudentsList.length === 0}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs gap-1.5 shadow-sm h-8"
+          >
+            {isExportingExcel ? <Loader2 className="size-3.5 animate-spin" /> : <FileSpreadsheet className="size-3.5" />}
+            Exportar Excel ({sortedStudentsList.length})
+          </Button>
+          <Button onClick={handlePrint} variant="outline" className="font-bold text-xs gap-1.5 bg-white h-8">
+            <Printer className="size-3.5" />
+            Imprimir
+          </Button>
+        </div>
+      )}
 
       {activeTab === 'dynamic_frequency' ? (
         <TeachingDynamicFrequencyReport
