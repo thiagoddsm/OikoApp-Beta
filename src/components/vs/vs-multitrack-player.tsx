@@ -522,6 +522,20 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
           }
         }
 
+        // Sincronização e compensação de micro-drift entre todas as stems em reprodução
+        if (hasRealAudio && nextTime > 0.5) {
+          vs.tracks.filter(t => !!t.url).forEach(track => {
+            const trackAudio = audioRefs.current[track.trackId];
+            if (trackAudio && !trackAudio.paused && trackAudio !== mainAudio) {
+              const drift = trackAudio.currentTime - nextTime;
+              // Se houver defasagem maior que 35ms, resincroniza a faixa suavemente
+              if (Math.abs(drift) > 0.035) {
+                trackAudio.currentTime = nextTime;
+              }
+            }
+          });
+        }
+
         if (nextTime >= maxDur) {
           handleStop();
         } else {
@@ -574,16 +588,13 @@ export function VSMultitrackPlayer({ vs, outputMode = 'all', externalIsPlaying, 
       // Aplica volume correto em cada faixa via HTMLAudioElement.volume
       applyAudioSettings(tracksState);
 
-      // Dispara reprodução de todas as faixas que possuem URL de áudio
-      let hasAnyAudioFile = false;
+      // Sincroniza exatamente o tempo de todas as faixas e dispara reprodução
+      const targetTime = currentTimeRef.current;
       vs.tracks.filter(t => !!t.url).forEach((track) => {
         const audio = audioRefs.current[track.trackId];
         if (audio) {
-          hasAnyAudioFile = true;
           try {
-            if (Math.abs(audio.currentTime - currentTimeRef.current) > 0.5) {
-              audio.currentTime = currentTimeRef.current;
-            }
+            audio.currentTime = targetTime;
             const playPromise = audio.play();
             if (playPromise !== undefined) {
               playPromise.catch((err) => {
