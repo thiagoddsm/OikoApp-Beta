@@ -56,6 +56,7 @@ export default function VsMainStagePage() {
   // Estados do Player & Seção Enfileirada (Queued Section)
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLive, setIsLive] = useState(false); // Estado de transmissão ao vivo
+  const [isMidiGuideOpen, setIsMidiGuideOpen] = useState(false); // Modal de Atalhos e Pedais MIDI
   const [serviceElapsedSeconds, setServiceElapsedSeconds] = useState(2052); // 00:34:12 de culto
   const [songCurrentTime, setSongCurrentTime] = useState(0); // tempo da música
   const [currentSectionLabel, setCurrentSectionLabel] = useState('INTRO');
@@ -1053,6 +1054,68 @@ export default function VsMainStagePage() {
         </DialogContent>
       </Dialog>
 
+      {/* DIÁLOGO DE MAPEAMENTO MIDI & ATALHOS DE PALCO */}
+      <Dialog open={isMidiGuideOpen} onOpenChange={setIsMidiGuideOpen}>
+        <DialogContent className="bg-[#121824] border-slate-800 text-white rounded-3xl max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black italic text-emerald-400 flex items-center gap-2">
+              <Sliders size={20} /> Atalhos de Palco & Pedais Bluetooth / MIDI
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-400">
+              Comande o Oiko Live durante o culto usando pedais bluetooth de passar página (AirTurn, PageFlip, Donner) ou teclado numérico.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2 text-xs">
+            <div className="p-3 bg-[#182030] rounded-2xl border border-slate-800 space-y-2">
+              <h4 className="font-black text-amber-400 uppercase text-[11px]">Controles Principais de Áudio</h4>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="flex items-center justify-between bg-slate-900/80 p-2 rounded-xl border border-slate-800">
+                  <span className="text-slate-300 font-medium">Play / Pause</span>
+                  <Badge variant="outline" className="font-mono bg-slate-800 border-slate-700 text-emerald-400 font-bold text-[10px]">Espaço</Badge>
+                </div>
+                <div className="flex items-center justify-between bg-slate-900/80 p-2 rounded-xl border border-slate-800">
+                  <span className="text-slate-300 font-medium">Parar (Stop)</span>
+                  <Badge variant="outline" className="font-mono bg-slate-800 border-slate-700 text-rose-400 font-bold text-[10px]">Tecla S</Badge>
+                </div>
+                <div className="flex items-center justify-between bg-slate-900/80 p-2 rounded-xl border border-slate-800">
+                  <span className="text-slate-300 font-medium">Alternar Loop</span>
+                  <Badge variant="outline" className="font-mono bg-slate-800 border-slate-700 text-sky-400 font-bold text-[10px]">Tecla L</Badge>
+                </div>
+                <div className="flex items-center justify-between bg-slate-900/80 p-2 rounded-xl border border-slate-800">
+                  <span className="text-slate-300 font-medium">Loop Infinito</span>
+                  <Badge variant="outline" className="font-mono bg-slate-800 border-slate-700 text-amber-400 font-bold text-[10px]">Botão ♾️</Badge>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-3 bg-[#182030] rounded-2xl border border-slate-800 space-y-2">
+              <h4 className="font-black text-emerald-400 uppercase text-[11px]">Navegação de Seções (Live Jump & Pedais)</h4>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="flex items-center justify-between bg-slate-900/80 p-2 rounded-xl border border-slate-800">
+                  <span className="text-slate-300 font-medium">Próxima Seção</span>
+                  <Badge variant="outline" className="font-mono bg-slate-800 border-slate-700 text-white font-bold text-[10px]">PageDown / →</Badge>
+                </div>
+                <div className="flex items-center justify-between bg-slate-900/80 p-2 rounded-xl border border-slate-800">
+                  <span className="text-slate-300 font-medium">Seção Anterior</span>
+                  <Badge variant="outline" className="font-mono bg-slate-800 border-slate-700 text-white font-bold text-[10px]">PageUp / ←</Badge>
+                </div>
+                <div className="col-span-2 flex items-center justify-between bg-slate-900/80 p-2 rounded-xl border border-slate-800">
+                  <span className="text-slate-300 font-medium">Salto Direto para Seção (1=Intro, 2=Verso, 3=Refrão...)</span>
+                  <Badge variant="outline" className="font-mono bg-slate-800 border-slate-700 text-amber-400 font-bold text-[10px]">Teclas 1 a 9</Badge>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button onClick={() => setIsMidiGuideOpen(false)} className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs rounded-xl w-full">
+              Entendido
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* FOOTER CYBERPUNK INFINITAMENTE PRO */}
       <footer className="bg-[#0b0f17] border-t border-slate-800/80 px-6 py-2 flex items-center justify-between text-[11px] text-slate-500">
         <div className="flex items-center gap-2 font-mono">
@@ -1061,9 +1124,18 @@ export default function VsMainStagePage() {
         </div>
 
         <div className="flex items-center gap-6 font-medium">
-          <button type="button" className="hover:text-slate-300">Documentation</button>
-          <button type="button" className="hover:text-slate-300">Midi Map</button>
-          <button type="button" className="hover:text-slate-300">Logs</button>
+          <button type="button" onClick={() => setIsMidiGuideOpen(true)} className="hover:text-emerald-400 transition-colors flex items-center gap-1 font-bold text-slate-400">
+            <Sliders size={12} /> Midi Map & Pedais
+          </button>
+          <Link href="/public/download" className="hover:text-slate-300 transition-colors">
+            Baixar App (APK)
+          </Link>
+          <Link href="/public/vs-banda" target="_blank" className="hover:text-amber-400 transition-colors">
+            Console Banda
+          </Link>
+          <Link href="/public/vs-igreja" target="_blank" className="hover:text-rose-400 transition-colors">
+            Console Igreja
+          </Link>
         </div>
       </footer>
     </div>
