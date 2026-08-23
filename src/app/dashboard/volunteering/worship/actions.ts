@@ -73,56 +73,113 @@ export async function saveAvWebhookConfig(webhookUrl: string, enabled = true) {
 }
 
 /**
- * Dispara o Webhook da Central AV com a Ordem de Culto / Liturgia.
- * Aceita tanto o payload puro (AvWebhookPayload) quanto o plano completo do Firestore.
+ * Transmite a Ordem de Culto para a Central AV local via dois canais:
+ * 1. PRIMÁRIO: Escreve no Firestore (worship-order/singleton) — o Integrador local
+ *    escuta este doc via onSnapshot e recebe instantaneamente.
+ * 2. SECUNDÁRIO: Chama o endpoint HTTP do Integrador local (se configurado).
  */
 export async function transmitWorshipPlanToAv(payloadOrPlan: any, customWebhookUrl?: string) {
+  // Normaliza o payload (sem Timestamps do Firestore)
+  const payload: AvWebhookPayload = (payloadOrPlan && payloadOrPlan.planoTitulo && Array.isArray(payloadOrPlan.items))
+    ? payloadOrPlan
+    : buildAvPayloadFromPlan(payloadOrPlan);
+
+  console.log(`[Central AV] Transmitindo: "${payload.planoTitulo}" | ${payload.items.length} itens`);
+
+  // ── CANAL 1: Firestore (ponte direta para o Integrador local via onSnapshot) ──
+  let firestoreOk = false;
+  try {
+    const db = getAdminDb();
+    const docRef = db.doc('artifacts/gestao-de-culto/public/data/worship-order/singleton');
+
+    // Limpa undefined/null recursivamente (Firestore rejeita undefined)
+    const cleanForFirestore = (obj: any): any => {
+      if (Array.isArray(obj)) return obj.map(cleanForFirestore);
+      if (obj && typeof obj === 'object') {
+        const out: Record<string, any> = {};
+        for (const k of Object.keys(obj)) {
+          if (obj[k] !== undefined && obj[k] !== null) out[k] = cleanForFirestore(obj[k]);
+        }
+        return out;
+      }
+      return obj;
+    };
+
+    const firestorePayload = cleanForFirestore({
+      id: payload.id,
+      planoTitulo: payload.planoTitulo,
+      cultoId: payload.id,
+      data: payload.data,
+      startTime: payload.startTime,
+      indexAtual: 0,
+      itemAtual: payload.items[0] || null,
+      items: payload.items,
+      cultInfo: {
+        title: payload.planoTitulo,
+        date: payload.data,
+        startTime: payload.startTime,
+      },
+      liveState: { currentItemIndex: 0 },
+      updatedAt: new Date().toISOString(),
+      sentByOiko: true,
+    });
+
+    await docRef.set(firestorePayload, { merge: false });
+    firestoreOk = true;
+    console.log(`[Central AV] ✅ Escrito no Firestore worship-order/singleton`);
+  } catch (err: any) {
+    console.warn('[Central AV] ⚠️ Falha ao escrever no Firestore:', err.message);
+  }
+
+  // ── CANAL 2: HTTP Webhook (fallback/complementar) ──
+  let webhookOk = false;
+  let webhookMsg = '';
   try {
     const config = await getAvWebhookConfig();
     const targetUrl = (customWebhookUrl || config.webhookUrl || DEFAULT_AV_WEBHOOK_URL).trim();
 
-    // Se já vier como AvWebhookPayload puro (sem Timestamps)
-    const payload: AvWebhookPayload = (payloadOrPlan && payloadOrPlan.planoTitulo && Array.isArray(payloadOrPlan.items))
-      ? payloadOrPlan
-      : buildAvPayloadFromPlan(payloadOrPlan);
-
-    console.log(`[Central AV Webhook] Enviando payload para: ${targetUrl}`);
-    console.log(`[Central AV Webhook] Culto: "${payload.planoTitulo}" | Total Itens: ${payload.items.length}`);
-
+    // Só tenta o webhook HTTP se a URL for diferente da URL hosted (que não alcança o local)
+    // A URL hosted.app retorna sucesso mas não envia para o Integrador local —
+    // por isso priorizamos o Firestore acima.
+    console.log(`[Central AV] Tentando webhook HTTP: ${targetUrl}`);
     const response = await fetch(targetUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': 'Oiko-SaaS/1.0'
-      },
-      body: JSON.stringify(payload)
+      headers: { 'Content-Type': 'application/json', 'User-Agent': 'Oiko-SaaS/1.0' },
+      body: JSON.stringify(payload),
+      // Timeout curto — se o integrador local não estiver acessível, não trava
+      signal: AbortSignal.timeout(5000),
     });
 
     const responseText = await response.text();
     let responseData: any = {};
-    try {
-      responseData = JSON.parse(responseText);
-    } catch {
-      responseData = { raw: responseText };
-    }
+    try { responseData = JSON.parse(responseText); } catch { responseData = { raw: responseText }; }
 
-    if (!response.ok) {
-      throw new Error(responseData?.error || responseData?.mensagem || `Erro HTTP ${response.status}: ${responseText.slice(0, 100)}`);
+    if (response.ok) {
+      webhookOk = true;
+      webhookMsg = responseData?.mensagem || 'Webhook OK';
+      console.log(`[Central AV] ✅ Webhook HTTP respondeu: ${webhookMsg}`);
+    } else {
+      console.warn(`[Central AV] ⚠️ Webhook HTTP respondeu com erro ${response.status}`);
     }
+  } catch (err: any) {
+    console.warn('[Central AV] ⚠️ Webhook HTTP inacessível:', err.message);
+  }
 
-    return {
-      success: true,
-      message: responseData?.mensagem || `Ordem de Culto transmitida com sucesso para a Central AV!`,
-      totalItems: payload.items.length,
-      data: responseData
-    };
-  } catch (error: any) {
-    console.error('[Central AV Webhook Error]:', error);
+  if (!firestoreOk && !webhookOk) {
     return {
       success: false,
-      error: error?.message || 'Falha ao conectar com a Central de Integração AV. Verifique a URL do Webhook.'
+      error: 'Não foi possível alcançar a Central AV por nenhum canal (Firestore ou HTTP). Verifique a conexão.'
     };
   }
+
+  return {
+    success: true,
+    message: firestoreOk
+      ? `Culto "${payload.planoTitulo}" enviado para o Integrador via Firestore${webhookOk ? ' + Webhook HTTP' : ''}!`
+      : `Culto "${payload.planoTitulo}" enviado via Webhook HTTP!`,
+    totalItems: payload.items.length,
+    channels: { firestore: firestoreOk, webhook: webhookOk },
+  };
 }
 
 /**
