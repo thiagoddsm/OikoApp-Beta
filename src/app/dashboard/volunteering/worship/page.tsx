@@ -67,6 +67,7 @@ import { ptBR } from 'date-fns/locale';
 import { useEventsData, useMembersData, useVolunteeringServiceData } from '@/hooks/useDomainData';
 import { useFirebase } from '@/firebase';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { transmitWorshipPlanToAv } from './actions';
 import { buildAvPayloadFromPlan } from '@/types/worship-av';
 

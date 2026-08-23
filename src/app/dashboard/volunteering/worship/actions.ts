@@ -13,6 +13,66 @@ import {
 export { buildAvPayloadFromPlan };
 
 /**
+ * Sincroniza a ordem de culto no singleton público para o painel técnico.
+ */
+export async function syncLiveWorshipOrder(data: {
+  items: any[];
+  cultInfo: any;
+  liveState: any;
+}) {
+  try {
+    const db = getAdminDb();
+    const docRef = db.doc('artifacts/gestao-de-culto/public/data/worship-order/singleton');
+    await docRef.set(data, { merge: true });
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error syncing live worship order:', error);
+    return { success: false, error: error?.message || String(error) };
+  }
+}
+
+/**
+ * Busca a URL configurada para a Central de Integração AV.
+ */
+export async function getAvWebhookConfig(): Promise<{ webhookUrl: string; enabled: boolean }> {
+  try {
+    const db = getAdminDb();
+    const docSnap = await db.collection('config').doc('integrations_av').get();
+    if (docSnap.exists) {
+      const data = docSnap.data();
+      return {
+        webhookUrl: data?.webhookUrl || DEFAULT_AV_WEBHOOK_URL,
+        enabled: data?.enabled !== false
+      };
+    }
+  } catch (err) {
+    console.warn('Erro ao ler config/integrations_av, usando padrão:', err);
+  }
+  return {
+    webhookUrl: DEFAULT_AV_WEBHOOK_URL,
+    enabled: true
+  };
+}
+
+/**
+ * Salva a URL customizada da Central de Integração AV no Firestore.
+ */
+export async function saveAvWebhookConfig(webhookUrl: string, enabled = true) {
+  try {
+    const db = getAdminDb();
+    await db.collection('config').doc('integrations_av').set({
+      webhookUrl: webhookUrl.trim() || DEFAULT_AV_WEBHOOK_URL,
+      enabled,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+    return { success: true };
+  } catch (error: any) {
+    console.error('Erro ao salvar config AV:', error);
+    return { success: false, error: error?.message || 'Erro ao salvar configuração.' };
+  }
+}
+
+/**
  * Dispara o Webhook da Central AV com a Ordem de Culto / Liturgia.
  * Aceita tanto o payload puro (AvWebhookPayload) quanto o plano completo do Firestore.
  */

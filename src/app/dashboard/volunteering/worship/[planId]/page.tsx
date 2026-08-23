@@ -59,6 +59,7 @@ import {
 } from 'lucide-react';
 import { useEventsData, useMembersData, useVolunteeringServiceData } from '@/hooks/useDomainData';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { syncLiveWorshipOrder, transmitWorshipPlanToAv } from '../actions';
 import { DEFAULT_AV_WEBHOOK_URL, buildAvPayloadFromPlan, type AvWebhookPayload } from '@/types/worship-av';
 
