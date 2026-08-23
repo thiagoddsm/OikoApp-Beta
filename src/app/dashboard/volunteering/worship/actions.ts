@@ -161,6 +161,27 @@ export async function transmitWorshipPlanToAv(payloadOrPlan: any, customWebhookU
     } else {
       console.warn(`[Central AV] ⚠️ Webhook HTTP respondeu com erro ${response.status}`);
     }
+
+    // Também envia push direto para o Integrador se estiver rodando localmente (localhost:3000 / 127.0.0.1:3000)
+    const localEndpoints = ['http://localhost:3000/api/oiko/webhook', 'http://127.0.0.1:3000/api/oiko/webhook'];
+    for (const localUrl of localEndpoints) {
+      if (targetUrl !== localUrl) {
+        try {
+          const lRes = await fetch(localUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'User-Agent': 'Oiko-SaaS/1.0' },
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(1500)
+          });
+          if (lRes.ok) {
+            webhookOk = true;
+            console.log(`[Central AV] ✅ Push direto para ${localUrl} bem sucedido!`);
+          }
+        } catch {
+          // ignora se localmente não estiver ativo
+        }
+      }
+    }
   } catch (err: any) {
     console.warn('[Central AV] ⚠️ Webhook HTTP inacessível:', err.message);
   }
