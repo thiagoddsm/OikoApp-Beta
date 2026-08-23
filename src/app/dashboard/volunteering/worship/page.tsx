@@ -67,8 +67,8 @@ import { ptBR } from 'date-fns/locale';
 import { useEventsData, useMembersData, useVolunteeringServiceData } from '@/hooks/useDomainData';
 import { useFirebase } from '@/firebase';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import { transmitWorshipPlanToAv } from './actions';
+import { buildAvPayloadFromPlan } from '@/types/worship-av';
 
 // ─── Plans list ───────────────────────────────────────────────────────────────
 
@@ -314,7 +314,8 @@ function PlansList() {
                                   e.stopPropagation(); 
                                   try {
                                     toast({ title: 'Transmitindo...', description: 'Enviando liturgia para a Central AV...' });
-                                    const res = await transmitWorshipPlanToAv(plan);
+                                    const payload = buildAvPayloadFromPlan(plan);
+                                    const res = await transmitWorshipPlanToAv(payload);
                                     if (res.success) {
                                       toast({ title: '🎛️ Central AV Sincronizada!', description: `${res.totalItems} itens transmitidos para Lumikit & X32!` });
                                     } else {

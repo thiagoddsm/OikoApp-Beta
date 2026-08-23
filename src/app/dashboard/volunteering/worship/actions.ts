@@ -2,154 +2,29 @@
 
 import { getAdminDb } from '@/lib/firebase-admin';
 
-import { DEFAULT_AV_WEBHOOK_URL, type AvWebhookItem, type AvWebhookPayload } from '@/types/worship-av';
+import { 
+  DEFAULT_AV_WEBHOOK_URL, 
+  formatDateToBr,
+  buildAvPayloadFromPlan,
+  type AvWebhookItem, 
+  type AvWebhookPayload 
+} from '@/types/worship-av';
 
-/**
- * Sincroniza a ordem de culto no singleton público para o painel técnico.
- */
-export async function syncLiveWorshipOrder(data: {
-  items: any[];
-  cultInfo: any;
-  liveState: any;
-}) {
-  try {
-    const db = getAdminDb();
-    const docRef = db.doc('artifacts/gestao-de-culto/public/data/worship-order/singleton');
-    await docRef.set(data, { merge: true });
-    return { success: true };
-  } catch (error: any) {
-    console.error('Error syncing live worship order:', error);
-    return { success: false, error: error?.message || String(error) };
-  }
-}
-
-/**
- * Busca a URL configurada para a Central de Integração AV.
- */
-export async function getAvWebhookConfig(): Promise<{ webhookUrl: string; enabled: boolean }> {
-  try {
-    const db = getAdminDb();
-    const docSnap = await db.collection('config').doc('integrations_av').get();
-    if (docSnap.exists) {
-      const data = docSnap.data();
-      return {
-        webhookUrl: data?.webhookUrl || DEFAULT_AV_WEBHOOK_URL,
-        enabled: data?.enabled !== false
-      };
-    }
-  } catch (err) {
-    console.warn('Erro ao ler config/integrations_av, usando padrão:', err);
-  }
-  return {
-    webhookUrl: DEFAULT_AV_WEBHOOK_URL,
-    enabled: true
-  };
-}
-
-/**
- * Salva a URL customizada da Central de Integração AV no Firestore.
- */
-export async function saveAvWebhookConfig(webhookUrl: string, enabled = true) {
-  try {
-    const db = getAdminDb();
-    await db.collection('config').doc('integrations_av').set({
-      webhookUrl: webhookUrl.trim() || DEFAULT_AV_WEBHOOK_URL,
-      enabled,
-      updatedAt: new Date().toISOString()
-    }, { merge: true });
-    return { success: true };
-  } catch (error: any) {
-    console.error('Erro ao salvar config AV:', error);
-    return { success: false, error: error?.message || 'Erro ao salvar configuração.' };
-  }
-}
-
-/**
- * Helper para formatar data YYYY-MM-DD para DD/MM/YYYY
- */
-function formatDateToBr(dateStr: string): string {
-  if (!dateStr) return '';
-  if (dateStr.includes('/')) return dateStr;
-  const parts = dateStr.split('T')[0].split('-');
-  if (parts.length === 3) {
-    const [year, month, day] = parts;
-    return `${day}/${month}/${year}`;
-  }
-  return dateStr;
-}
-
-/**
- * Formata um plano de culto do Oiko para o payload do Webhook da Central AV.
- */
-export async function buildAvPayloadFromPlan(plan: any): Promise<AvWebhookPayload> {
-  const formattedDate = formatDateToBr(plan.date || '');
-  const startTime = plan.startTime || '19:00';
-  
-  // Limpar id para garantir formato limpo
-  const cleanPlanId = plan.id || `culto_${(plan.date || '').replace(/-/g, '_')}`;
-
-  const items: AvWebhookItem[] = (plan.items || [])
-    .filter((item: any) => item.type !== 'header')
-    .map((item: any, index: number) => {
-      const isSong = item.type === 'song';
-      const durationSeconds = item.durationSeconds && item.durationSeconds > 0 
-        ? item.durationSeconds 
-        : 300;
-
-      const itemPayload: AvWebhookItem = {
-        id: item.id || `item_${index + 1}`,
-        title: item.title || (isSong ? 'Música' : 'Item do Culto'),
-        type: isSong ? 'song' : 'item',
-        durationSeconds,
-      };
-
-      // Notas / observações
-      const noteText = item.notes || item.departmentNotes?.general || '';
-      if (noteText) {
-        itemPayload.notes = noteText;
-      }
-
-      // Cena Lumikit / DMX (ex: S1, G1, A1, F12, M2)
-      const sceneVal = item.scene || item.departmentNotes?.lighting || '';
-      if (sceneVal) {
-        itemPayload.scene = sceneVal.trim();
-      }
-
-      // Campos exclusivos de música
-      if (isSong) {
-        if (item.bpm) {
-          itemPayload.bpm = Number(item.bpm);
-        }
-        if (item.key) {
-          itemPayload.key = String(item.key).trim();
-        }
-        const artist = item.artist || item.arrangement || '';
-        if (artist) {
-          itemPayload.artist = artist.trim();
-        }
-      }
-
-      return itemPayload;
-    });
-
-  return {
-    id: cleanPlanId,
-    planoTitulo: plan.title || 'Ordem de Culto',
-    data: formattedDate,
-    startTime,
-    items
-  };
-}
+export { buildAvPayloadFromPlan };
 
 /**
  * Dispara o Webhook da Central AV com a Ordem de Culto / Liturgia.
+ * Aceita tanto o payload puro (AvWebhookPayload) quanto o plano completo do Firestore.
  */
-export async function transmitWorshipPlanToAv(plan: any, customWebhookUrl?: string) {
+export async function transmitWorshipPlanToAv(payloadOrPlan: any, customWebhookUrl?: string) {
   try {
     const config = await getAvWebhookConfig();
     const targetUrl = (customWebhookUrl || config.webhookUrl || DEFAULT_AV_WEBHOOK_URL).trim();
 
-    const payload = await buildAvPayloadFromPlan(plan);
+    // Se já vier como AvWebhookPayload puro (sem Timestamps)
+    const payload: AvWebhookPayload = (payloadOrPlan && payloadOrPlan.planoTitulo && Array.isArray(payloadOrPlan.items))
+      ? payloadOrPlan
+      : buildAvPayloadFromPlan(payloadOrPlan);
 
     console.log(`[Central AV Webhook] Enviando payload para: ${targetUrl}`);
     console.log(`[Central AV Webhook] Culto: "${payload.planoTitulo}" | Total Itens: ${payload.items.length}`);

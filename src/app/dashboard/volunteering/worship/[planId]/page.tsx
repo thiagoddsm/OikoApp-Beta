@@ -59,9 +59,8 @@ import {
 } from 'lucide-react';
 import { useEventsData, useMembersData, useVolunteeringServiceData } from '@/hooks/useDomainData';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { syncLiveWorshipOrder, transmitWorshipPlanToAv, buildAvPayloadFromPlan } from '../actions';
-import { DEFAULT_AV_WEBHOOK_URL, type AvWebhookPayload } from '@/types/worship-av';
+import { syncLiveWorshipOrder, transmitWorshipPlanToAv } from '../actions';
+import { DEFAULT_AV_WEBHOOK_URL, buildAvPayloadFromPlan, type AvWebhookPayload } from '@/types/worship-av';
 
 // keyboard shortcut hook
 function useKeyboardShortcuts(addItem: (type: 'header' | 'item' | 'song') => void) {
@@ -289,14 +288,14 @@ function PlanEditorInner({ planId }: { planId: string }) {
   };
 
   // ── Central AV Webhook Handlers ──────────────────────────────────────────
-  const handleOpenAvPreview = async () => {
+  const handleOpenAvPreview = () => {
     if (!plan) return;
     const currentPlanData = {
       ...plan,
       ...localMeta,
       items: localItems
     };
-    const payload = await buildAvPayloadFromPlan(currentPlanData);
+    const payload = buildAvPayloadFromPlan(currentPlanData);
     setAvPayloadPreview(payload);
     setShowAvPreviewDialog(true);
   };
@@ -323,7 +322,8 @@ function PlanEditorInner({ planId }: { planId: string }) {
         setIsDirty(false);
       }
 
-      const res = await transmitWorshipPlanToAv(currentPlanData);
+      const payload = buildAvPayloadFromPlan(currentPlanData);
+      const res = await transmitWorshipPlanToAv(payload);
       if (!res.success) {
         throw new Error(res.error || 'Erro ao comunicar com a Central AV.');
       }
