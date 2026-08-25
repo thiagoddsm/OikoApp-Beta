@@ -19,7 +19,12 @@ export interface GcReportSession {
   attendancePage?: number;
   attendanceAccumulated?: string[]; // IDs dos membros marcados como presentes
   pollSelections?: any; // Mapeamento de seleções das enquetes
-  
+
+  // Controle do Responsável que está respondendo
+  respondentId?: string;
+  respondentName?: string;
+  respondentRole?: 'secretario' | 'lider';
+
   // Controle de Cuidado
   careMembersQueue?: string[];      // IDs dos membros que precisam de cuidado
   currentCareIndex?: number;        // Índice na fila de cuidado
@@ -167,17 +172,22 @@ async function sendMembersListAsPoll(to: string, membersList: { id: string; name
 }
 
 /**
- * Inicializa a sessão do relatório de GC para um líder.
+ * Inicializa a sessão do relatório de GC para um secretário ou líder.
  */
-export async function startGcReportSession(cellId: string, liderPhone: string, isTestData = false): Promise<boolean> {
+export async function startGcReportSession(
+  cellId: string, 
+  recipientPhone: string, 
+  isTestData = false,
+  recipientInfo?: { userId?: string; name?: string; role?: 'secretario' | 'lider' }
+): Promise<boolean> {
   const db = getAdminDb();
-  const sessionRef = db.collection('gc_report_sessions').doc(liderPhone);
+  const sessionRef = db.collection('gc_report_sessions').doc(recipientPhone);
 
   try {
     // 1. Limpar sessão antiga se existir
     const existingSession = await sessionRef.get();
     if (existingSession.exists) {
-      console.log(`[GC Bot] Sessão anterior encontrada para ${liderPhone}. Deletando...`);
+      console.log(`[GC Bot] Sessão anterior encontrada para ${recipientPhone}. Deletando...`);
       await sessionRef.delete();
     }
 
@@ -204,23 +214,46 @@ export async function startGcReportSession(cellId: string, liderPhone: string, i
     });
     membersList.sort((a, b) => a.name.localeCompare(b.name));
 
+    // 3. Resolver identificação do responsável (Secretário ou Líder)
+    let respondentName = recipientInfo?.name || '';
+    let respondentRole: 'secretario' | 'lider' = recipientInfo?.role || 'lider';
+    let respondentId = recipientInfo?.userId || '';
 
-    // 3. Enviar mensagem de boas-vindas primeiro
-    console.log(`[GC Bot] Enviando fluxo de relatório para ${liderPhone}...`);
-    
-    // Buscar nome do líder para saudação personalizada
-    let liderName = '';
-    if (liderId) {
-      const liderDoc = await db.collection('users').doc(liderId).get();
-      if (liderDoc.exists) {
-        liderName = ` ${liderDoc.data()!.name?.split(' ')[0]}`;
+    if (!respondentName) {
+      const secId = cellData.secretariaId || (cellData as any).secretarioId;
+      if (secId) {
+        const secDoc = await db.collection('users').doc(secId).get();
+        if (secDoc.exists) {
+          const secData = secDoc.data() || {};
+          const secPhone = secData.phone || secData.phoneNumber;
+          if (secPhone && recipientPhone.includes(String(secPhone).replace(/\D/g, '').slice(-8))) {
+            respondentName = secData.name || 'Secretário(a)';
+            respondentRole = 'secretario';
+            respondentId = secId;
+          }
+        }
+      }
+
+      if (!respondentName && liderId) {
+        const liderDoc = await db.collection('users').doc(liderId).get();
+        if (liderDoc.exists) {
+          respondentName = liderDoc.data()!.name || 'Líder';
+          respondentRole = 'lider';
+          respondentId = liderId;
+        }
       }
     }
 
+    const firstName = respondentName ? ` ${respondentName.split(' ')[0]}` : '';
+    const roleLabel = respondentRole === 'secretario' ? 'secretário(a)' : 'líder';
+
+    // 4. Enviar mensagem de boas-vindas primeiro
+    console.log(`[GC Bot] Enviando fluxo de relatório para ${recipientPhone} (${roleLabel}: ${respondentName})...`);
+
     // Saudação + pergunta em UMA ÚNICA mensagem de botão para evitar race condition de ordem
     await sendButton(
-      liderPhone,
-      `Olá, líder${liderName}! 👋\nQue a paz do Senhor esteja com você!\n\nChegou a hora de registrar as bençãos da reunião do GC *${cellData.nome || 'Célula'}* desta semana.\n\n❓ *Aconteceu a reunião do GC esta semana?*`,
+      recipientPhone,
+      `Olá, ${roleLabel}${firstName}! 👋\nQue a paz do Senhor esteja com você!\n\nChegou a hora de registrar as bençãos da reunião do GC *${cellData.nome || 'Célula'}* desta semana.\n\n❓ *Aconteceu a reunião do GC esta semana?*`,
       [
         { id: 'meeting_yes', text: 'Sim' },
         { id: 'meeting_no', text: 'Não' }
@@ -228,11 +261,15 @@ export async function startGcReportSession(cellId: string, liderPhone: string, i
       'Relatório Semanal de Célula'
     );
 
-    // 4. Salvar estado da sessão na coleção `gc_report_sessions`
+    // 5. Salvar estado da sessão na coleção `gc_report_sessions`
+    const now = Timestamp.now();
     const newSession: GcReportSession = {
-      id: liderPhone,
+      id: recipientPhone,
       cellId,
       liderId,
+      respondentId: respondentId || liderId,
+      respondentName: respondentName || undefined,
+      respondentRole,
       step: 'CHECK_MEETING',
       members: membersList,
       attendancePage: 0,
@@ -248,12 +285,12 @@ export async function startGcReportSession(cellId: string, liderPhone: string, i
       },
       feedback: '',
       isTestData,
-      createdAt: Timestamp.now(),
-      updatedAt: Timestamp.now()
+      createdAt: now,
+      updatedAt: now
     };
 
     await sessionRef.set(newSession);
-    console.log('[GC Bot] Sessão criada com sucesso (step: CHECK_MEETING) para', liderPhone);
+    console.log('[GC Bot] Sessão criada com sucesso (step: CHECK_MEETING) para', recipientPhone);
 
     return true;
   } catch (error) {

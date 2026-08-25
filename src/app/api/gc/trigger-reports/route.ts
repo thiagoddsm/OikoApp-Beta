@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
 import { startGcReportSession } from '@/lib/gc-report-bot';
+import { resolveGcReportRecipient } from '@/app/actions/whatsapp-actions';
 
 export const runtime = 'nodejs';
 
@@ -47,11 +48,11 @@ export async function POST(request: Request) {
     const targetCellId = body.cellId;
     const force = body.force;
 
-    // 2. Cleanup de Sessões Expiradas (TTL > 24h)
-    const oneDayAgo = new Date();
-    oneDayAgo.setHours(oneDayAgo.getHours() - 24);
+    // 2. Cleanup de Sessões Expiradas (TTL > 72h / 3 dias)
+    const threeDaysAgo = new Date();
+    threeDaysAgo.setHours(threeDaysAgo.getHours() - 72);
     const expiredSessions = await db.collection('gc_report_sessions')
-      .where('updatedAt', '<', Timestamp.fromDate(oneDayAgo))
+      .where('updatedAt', '<', Timestamp.fromDate(threeDaysAgo))
       .get();
 
     let cleanedSessionsCount = 0;
@@ -185,27 +186,22 @@ export async function POST(request: Request) {
           }
         }
 
-        // Buscar líder para obter o telefone
-        const liderDoc = await db.collection('users').doc(liderId).get();
-        if (!liderDoc.exists) {
-          continue;
-        }
-
-        const liderData = liderDoc.data()!;
-        const rawPhone = liderData.phone || liderData.phoneNumber;
-        if (!rawPhone) {
-          continue;
-        }
-
-        const formattedPhone = formatWhatsAppNumber(String(rawPhone));
-        if (formattedPhone.length < 8) {
+        // 3. Buscar destinatário prioritário (Secretário com fallback para Líder)
+        const { recipient, error: recipientError } = await resolveGcReportRecipient(cellData, db);
+        if (!recipient) {
+          console.log(`[GC Bot] Célula ${cellId} sem secretário ou líder com telefone válido:`, recipientError);
           continue;
         }
 
         // Inicia a sessão utilizando transação interna (para garantir exclusividade)
-        const success = await startGcReportSession(cellId, formattedPhone);
+        const success = await startGcReportSession(cellId, recipient.phone, false, {
+          userId: recipient.userId,
+          name: recipient.name,
+          role: recipient.role
+        });
         if (success) {
           triggeredCount++;
+          console.log(`[GC Bot] Relatório disparado para célula ${cellId} -> ${recipient.role}: ${recipient.name} (${recipient.phone})`);
         }
       } catch (cellError: any) {
         console.error(`[GC Bot] Erro ao disparar relatório para célula ${cellId}:`, cellError);

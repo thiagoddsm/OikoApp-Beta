@@ -514,15 +514,18 @@ export default function SupervisorPage() {
     try {
       const res = await triggerGcReportForCell(cellId);
       if (res.success) {
+        const destDesc = res.recipientRole === 'secretario'
+          ? `enviado para a secretária (${res.recipientName})`
+          : `enviado para o líder (${res.recipientName})`;
         toast({
           title: 'Bot do WhatsApp Enviado! 🚀',
-          description: `O formulário do relatório foi enviado para o líder do GC ${cellNome}.`,
+          description: `O formulário do relatório do GC ${cellNome} foi ${destDesc}.`,
         });
       } else {
         toast({
           variant: 'destructive',
           title: 'Não foi possível enviar o Bot',
-          description: res.error || 'Verifique se o líder possui telefone cadastrado no sistema.',
+          description: res.error || 'Verifique se o secretário ou líder possui telefone cadastrado.',
         });
       }
     } catch (error: any) {

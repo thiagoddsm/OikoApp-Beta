@@ -252,6 +252,79 @@ export async function sendFinanceNotification(
     }
 }
 
+export interface GcReportRecipient {
+    userId: string;
+    name: string;
+    phone: string;
+    role: 'secretario' | 'lider';
+}
+
+/**
+ * Resolve o destinatário prioritário do relatório de GC:
+ * 1º Secretário(a) da célula (se cadastrado e com telefone válido)
+ * 2º Líder da célula (fallback se não houver secretário ou telefone)
+ */
+export async function resolveGcReportRecipient(cellData: any, db: FirebaseFirestore.Firestore): Promise<{ recipient: GcReportRecipient | null; error?: string }> {
+    const secretariaId = cellData?.secretariaId || cellData?.secretarioId;
+    const liderId = cellData?.liderId;
+
+    // 1. Tentar primeiro o Secretário(a)
+    if (secretariaId) {
+        try {
+            const secDoc = await db.collection('users').doc(secretariaId).get();
+            if (secDoc.exists) {
+                const secData = secDoc.data() || {};
+                const rawPhone = secData.phone || secData.phoneNumber;
+                if (rawPhone) {
+                    const formatted = formatWhatsAppNumber(String(rawPhone));
+                    if (formatted.length >= 8) {
+                        return {
+                            recipient: {
+                                userId: secretariaId,
+                                name: secData.name || 'Secretário(a)',
+                                phone: formatted,
+                                role: 'secretario'
+                            }
+                        };
+                    }
+                }
+            }
+        } catch (err) {
+            console.warn('[GC Bot] Erro ao buscar dados do secretário, tentando líder:', err);
+        }
+    }
+
+    // 2. Fallback para o Líder
+    if (!liderId) {
+        return { recipient: null, error: 'Esta célula não possui secretário(a) nem líder vinculado.' };
+    }
+
+    const liderDoc = await db.collection('users').doc(liderId).get();
+    if (!liderDoc.exists) {
+        return { recipient: null, error: 'Líder não encontrado no sistema.' };
+    }
+
+    const liderData = liderDoc.data() || {};
+    const rawPhone = liderData.phone || liderData.phoneNumber;
+    if (!rawPhone) {
+        return { recipient: null, error: 'Nem o secretário nem o líder possuem telefone cadastrado.' };
+    }
+
+    const formattedPhone = formatWhatsAppNumber(String(rawPhone));
+    if (formattedPhone.length < 8) {
+        return { recipient: null, error: 'Telefone do responsável (líder) é inválido.' };
+    }
+
+    return {
+        recipient: {
+            userId: liderId,
+            name: liderData.name || 'Líder',
+            phone: formattedPhone,
+            role: 'lider'
+        }
+    };
+}
+
 /**
  * Triggers a GC report session via WhatsApp for a specific cell.
  */
@@ -265,29 +338,25 @@ export async function triggerGcReportForCell(cellId: string) {
             return { success: false, error: `Célula inativa (status: ${status}) ou não encontrada.` };
         }
         
-        const liderId = cellDoc.data()?.liderId;
-        if (!liderId) {
-            return { success: false, error: 'Esta célula não possui um líder vinculado.' };
+        const cellData = cellDoc.data()!;
+        const { recipient, error } = await resolveGcReportRecipient(cellData, db);
+        if (!recipient) {
+            return { success: false, error: error || 'Não foi possível encontrar um destinatário com telefone válido.' };
         }
 
-        const liderDoc = await db.collection('users').doc(liderId).get();
-        if (!liderDoc.exists) {
-            return { success: false, error: 'Líder não encontrado no sistema.' };
-        }
+        const success = await startGcReportSession(cellId, recipient.phone, false, {
+            userId: recipient.userId,
+            name: recipient.name,
+            role: recipient.role
+        });
 
-        const rawPhone = liderDoc.data()?.phone || liderDoc.data()?.phoneNumber;
-        if (!rawPhone) {
-            return { success: false, error: 'O líder não possui telefone cadastrado.' };
-        }
-
-        const formattedPhone = formatWhatsAppNumber(String(rawPhone));
-        if (formattedPhone.length < 8) {
-            return { success: false, error: 'Telefone do líder é inválido.' };
-        }
-
-        const success = await startGcReportSession(cellId, formattedPhone);
         if (success) {
-            return { success: true };
+            return { 
+                success: true, 
+                recipientName: recipient.name, 
+                recipientRole: recipient.role,
+                recipientPhone: recipient.phone
+            };
         } else {
             return { success: false, error: 'Já existe um preenchimento em andamento no WhatsApp ou ocorreu um erro de conexão.' };
         }
@@ -345,7 +414,7 @@ export async function triggerGcReportsBatch(options: {
         let alreadyRunningCount = 0;
         let noLeaderCount = 0;
         let noPhoneCount = 0;
-        const details: { cellId: string; cellName: string; status: 'triggered' | 'already_running' | 'no_leader' | 'no_phone' | 'error'; error?: string }[] = [];
+        const details: { cellId: string; cellName: string; status: 'triggered' | 'already_running' | 'no_leader' | 'no_phone' | 'error'; recipientRole?: string; error?: string }[] = [];
 
         for (const cDoc of cellsSnap.docs) {
             const cData = cDoc.data();
@@ -356,32 +425,11 @@ export async function triggerGcReportsBatch(options: {
             if (cStatus !== 'active' && cStatus !== 'growing') continue;
 
             totalCells++;
-            const liderId = cData?.liderId;
 
-            if (!liderId) {
-                noLeaderCount++;
-                details.push({ cellId: cDoc.id, cellName, status: 'no_leader', error: 'Sem líder cadastrado' });
-                continue;
-            }
-
-            const liderDoc = await db.collection('users').doc(liderId).get();
-            if (!liderDoc.exists) {
-                noLeaderCount++;
-                details.push({ cellId: cDoc.id, cellName, status: 'no_leader', error: 'Líder não encontrado no banco' });
-                continue;
-            }
-
-            const rawPhone = liderDoc.data()?.phone || liderDoc.data()?.phoneNumber;
-            if (!rawPhone) {
+            const { recipient, error } = await resolveGcReportRecipient(cData, db);
+            if (!recipient) {
                 noPhoneCount++;
-                details.push({ cellId: cDoc.id, cellName, status: 'no_phone', error: 'Telefone do líder ausente' });
-                continue;
-            }
-
-            const formattedPhone = formatWhatsAppNumber(String(rawPhone));
-            if (formattedPhone.length < 8) {
-                noPhoneCount++;
-                details.push({ cellId: cDoc.id, cellName, status: 'no_phone', error: 'Telefone do líder inválido' });
+                details.push({ cellId: cDoc.id, cellName, status: 'no_phone', error: error || 'Sem responsável com telefone' });
                 continue;
             }
 
@@ -413,10 +461,15 @@ export async function triggerGcReportsBatch(options: {
             }
 
             try {
-                const success = await startGcReportSession(cDoc.id, formattedPhone);
+                const success = await startGcReportSession(cDoc.id, recipient.phone, false, {
+                    userId: recipient.userId,
+                    name: recipient.name,
+                    role: recipient.role
+                });
+
                 if (success) {
                     triggeredCount++;
-                    details.push({ cellId: cDoc.id, cellName, status: 'triggered' });
+                    details.push({ cellId: cDoc.id, cellName, status: 'triggered', recipientRole: recipient.role });
                 } else {
                     alreadyRunningCount++;
                     details.push({ cellId: cDoc.id, cellName, status: 'already_running', error: 'Sessão já em andamento' });
