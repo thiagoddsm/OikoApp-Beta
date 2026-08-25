@@ -393,12 +393,44 @@ export async function handleGcReportIncomingMessage(
       case 'POSTPONED_DATE': {
         if (type === 'text') {
           const newDateText = messageText.trim();
+          const reportDate = new Date().toISOString().split('T')[0];
 
-          // Salva log de reunião adiada no Firestore
-          const logRef = db.collection('gc_reuniao_logs').doc();
+          let cellData: any = {};
+          try {
+            const cellSnap = await db.collection('cells').doc(session.cellId).get();
+            if (cellSnap.exists) cellData = cellSnap.data() || {};
+          } catch (err) {
+            console.error('[GC Bot] Erro ao buscar célula para adiamento:', err);
+          }
+
+          // Salva log de reunião adiada no Firestore oficial (reuniao_logs)
+          const logRef = db.collection('reuniao_logs').doc();
           await logRef.set({
             cellId: session.cellId,
-            date: new Date().toISOString().split('T')[0],
+            cellNome: cellData.nome || cellData.name || 'Célula',
+            date: reportDate,
+            liderId: session.liderId,
+            supervisorId: cellData.supervisorId || cellData.areaId || null,
+            statusReuniao: 'postponed',
+            novaData: newDateText,
+            metricas: {
+              totalMembrosAtivos: session.members?.length || 0,
+              presentes: 0,
+              ausentesJustificados: 0,
+              ausentesSemJustificativa: 0,
+              visitantes: 0,
+              conversoes: 0,
+              oferta: 0
+            },
+            feedbackAoSupervisor: `Reunião remarcada/adiada para: ${newDateText}`,
+            isTestData: !!session.isTestData,
+            createdAt: now
+          });
+
+          // Mantém também em gc_reuniao_logs para compatibilidade
+          await db.collection('gc_reuniao_logs').doc(logRef.id).set({
+            cellId: session.cellId,
+            date: reportDate,
             liderId: session.liderId,
             statusReuniao: 'postponed',
             novaData: newDateText,
@@ -433,12 +465,44 @@ export async function handleGcReportIncomingMessage(
       case 'CANCELLED_REASON': {
         if (type === 'text') {
           const reasonText = messageText.trim();
+          const reportDate = new Date().toISOString().split('T')[0];
+
+          let cellData: any = {};
+          try {
+            const cellSnap = await db.collection('cells').doc(session.cellId).get();
+            if (cellSnap.exists) cellData = cellSnap.data() || {};
+          } catch (err) {
+            console.error('[GC Bot] Erro ao buscar célula para cancelamento:', err);
+          }
           
-          // Salva log de reunião cancelada no Firestore
-          const logRef = db.collection('gc_reuniao_logs').doc();
+          // Salva log de reunião cancelada no Firestore oficial (reuniao_logs)
+          const logRef = db.collection('reuniao_logs').doc();
           await logRef.set({
             cellId: session.cellId,
-            date: new Date().toISOString().split('T')[0],
+            cellNome: cellData.nome || cellData.name || 'Célula',
+            date: reportDate,
+            liderId: session.liderId,
+            supervisorId: cellData.supervisorId || cellData.areaId || null,
+            statusReuniao: 'cancelled',
+            motivoCancelamento: reasonText,
+            metricas: {
+              totalMembrosAtivos: session.members?.length || 0,
+              presentes: 0,
+              ausentesJustificados: 0,
+              ausentesSemJustificativa: 0,
+              visitantes: 0,
+              conversoes: 0,
+              oferta: 0
+            },
+            feedbackAoSupervisor: `Reunião cancelada: ${reasonText}`,
+            isTestData: !!session.isTestData,
+            createdAt: now
+          });
+
+          // Mantém também em gc_reuniao_logs para compatibilidade
+          await db.collection('gc_reuniao_logs').doc(logRef.id).set({
+            cellId: session.cellId,
+            date: reportDate,
             liderId: session.liderId,
             statusReuniao: 'cancelled',
             motivoCancelamento: reasonText,

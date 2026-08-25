@@ -385,6 +385,33 @@ export async function triggerGcReportsBatch(options: {
                 continue;
             }
 
+            // Não dispara se a célula já tiver relatório, cancelamento ou reagendamento nesta semana (a menos que force === true)
+            if (!options.force) {
+                const now = new Date();
+                const weekStart = new Date(now);
+                weekStart.setDate(now.getDate() - now.getDay());
+                const weekStartStr = weekStart.toISOString().split('T')[0];
+
+                const existingSnap = await db.collection('reuniao_logs')
+                    .where('cellId', '==', cDoc.id)
+                    .where('date', '>=', weekStartStr)
+                    .limit(1)
+                    .get();
+
+                if (!existingSnap.empty) {
+                    const existingData = existingSnap.docs[0].data();
+                    const st = existingData.statusReuniao || 'realizado';
+                    alreadyRunningCount++;
+                    details.push({ 
+                        cellId: cDoc.id, 
+                        cellName, 
+                        status: 'already_running', 
+                        error: st === 'cancelled' ? 'Reunião cancelada nesta semana' : st === 'postponed' ? 'Reunião adiada/remarcada' : 'Relatório já preenchido esta semana' 
+                    });
+                    continue;
+                }
+            }
+
             try {
                 const success = await startGcReportSession(cDoc.id, formattedPhone);
                 if (success) {

@@ -13,7 +13,8 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Loader2, Send, Users, Heart, BarChart2, MessageSquare,
   ChevronRight, ChevronLeft, CheckCircle2, AlertTriangle,
-  Flame, HandHeart, UserX, UserCheck, History, BotMessageSquare, Trash2
+  Flame, HandHeart, UserX, UserCheck, History, BotMessageSquare, Trash2,
+  XCircle, CalendarDays, Calendar
 } from 'lucide-react';
 import { triggerGcReportForCell } from '@/app/actions/whatsapp-actions';
 import { TriggerGcBotDialog } from '@/components/gc/trigger-gc-bot-dialog';
@@ -415,6 +416,9 @@ export default function CellReportPage() {
     if (!firestore) return;
     setEditingLogId(log.id);
     setReportDate(log.date);
+    setMeetingStatusChoice(log.statusReuniao || 'realizado');
+    setMotivoCancelamento(log.motivoCancelamento || '');
+    setNovaData(log.novaData || '');
     setMetricas({
       licao: log.licaoMinistrada || '',
       visitantes: log.visitantesNomes || '',
@@ -522,6 +526,11 @@ export default function CellReportPage() {
     }
   }, [members]);
 
+  // Status da Reunião (Realizado, Cancelado, Remarcado)
+  const [meetingStatusChoice, setMeetingStatusChoice] = useState<'realizado' | 'cancelled' | 'postponed'>('realizado');
+  const [motivoCancelamento, setMotivoCancelamento] = useState('');
+  const [novaData, setNovaData] = useState('');
+
   // Estado das métricas
   const [metricas, setMetricas] = useState({ visitantes: '', conversoes: 0, licao: '' });
   const [feedback, setFeedback] = useState('');
@@ -553,12 +562,92 @@ export default function CellReportPage() {
         ? doc(firestore, 'reuniao_logs', editingLogId)
         : doc(collection(firestore, 'reuniao_logs'));
 
+      // ── CASO 1: CANCELADO ──
+      if (meetingStatusChoice === 'cancelled') {
+        const logData = {
+          cellId: cell.id,
+          cellNome: cell.nome,
+          date: dateStr,
+          liderId: user.uid,
+          supervisorId: cell.supervisorId || null,
+          statusReuniao: 'cancelled',
+          motivoCancelamento: motivoCancelamento.trim() || 'Cancelado pelo formulário',
+          feedbackAoSupervisor: feedback || `Reunião cancelada: ${motivoCancelamento.trim()}`,
+          metricas: {
+            totalMembrosAtivos: members?.length || 0,
+            presentes: 0,
+            ausentesJustificados: 0,
+            ausentesSemJustificativa: 0,
+            visitantes: 0,
+            conversoes: 0,
+            oferta: 0
+          },
+          updatedAt: now,
+        };
+
+        if (editingLogId) {
+          batch.update(logRef, logData);
+          const oldPresDocs = await getDocs(
+            query(collection(firestore, 'presencas_historico'), where('reuniaoLogId', '==', editingLogId))
+          );
+          oldPresDocs.forEach(d => batch.delete(d.ref));
+        } else {
+          batch.set(logRef, { ...logData, createdAt: now });
+        }
+
+        await batch.commit();
+        setSubmitted(true);
+        toast({ title: '❌ Cancelamento Registrado', description: 'O cancelamento da reunião foi salvo no sistema.' });
+        return;
+      }
+
+      // ── CASO 2: REMARCADO / ADIADO ──
+      if (meetingStatusChoice === 'postponed') {
+        const logData = {
+          cellId: cell.id,
+          cellNome: cell.nome,
+          date: dateStr,
+          liderId: user.uid,
+          supervisorId: cell.supervisorId || null,
+          statusReuniao: 'postponed',
+          novaData: novaData.trim() || 'Data a definir',
+          feedbackAoSupervisor: feedback || `Reunião remarcada para: ${novaData.trim()}`,
+          metricas: {
+            totalMembrosAtivos: members?.length || 0,
+            presentes: 0,
+            ausentesJustificados: 0,
+            ausentesSemJustificativa: 0,
+            visitantes: 0,
+            conversoes: 0,
+            oferta: 0
+          },
+          updatedAt: now,
+        };
+
+        if (editingLogId) {
+          batch.update(logRef, logData);
+          const oldPresDocs = await getDocs(
+            query(collection(firestore, 'presencas_historico'), where('reuniaoLogId', '==', editingLogId))
+          );
+          oldPresDocs.forEach(d => batch.delete(d.ref));
+        } else {
+          batch.set(logRef, { ...logData, createdAt: now });
+        }
+
+        await batch.commit();
+        setSubmitted(true);
+        toast({ title: '📅 Reagendamento Registrado', description: 'A nova data da reunião foi salva no sistema.' });
+        return;
+      }
+
+      // ── CASO 3: REALIZADO (PADRÃO) ──
       const logData = {
         cellId: cell.id,
         cellNome: cell.nome,
         date: dateStr,
         liderId: user.uid,
         supervisorId: cell.supervisorId || null,
+        statusReuniao: 'realizado',
         metricas: {
           totalMembrosAtivos: members?.length || 0,
           presentes,
@@ -807,99 +896,245 @@ export default function CellReportPage() {
         </Card>
       )}
 
-      {/* Seletor de Data/Semana */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-        <div className="space-y-1 animate-in fade-in duration-200">
-          <Label htmlFor="mainReportDate" className="font-bold text-xs text-slate-500 uppercase">Data/Semana da Reunião</Label>
-          <input
-            id="mainReportDate"
-            type="date"
-            value={reportDate}
-            onChange={e => setReportDate(e.target.value)}
-            className="flex h-9 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring font-semibold text-slate-800"
-          />
+      {/* Seletor de Data/Semana e Status da Reunião */}
+      <div className="space-y-3 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1 animate-in fade-in duration-200">
+            <Label htmlFor="mainReportDate" className="font-bold text-xs text-slate-500 uppercase">Data/Semana da Reunião</Label>
+            <input
+              id="mainReportDate"
+              type="date"
+              value={reportDate}
+              onChange={e => setReportDate(e.target.value)}
+              className="flex h-9 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring font-semibold text-slate-800"
+            />
+          </div>
+          <p className="text-[11px] text-muted-foreground max-w-xs sm:text-right">
+            Selecione a data da reunião da célula. Os dados do relatório serão vinculados a esta semana.
+          </p>
         </div>
-        <p className="text-[11px] text-muted-foreground max-w-xs sm:text-right">
-          Selecione a data da reunião da célula. Os dados do relatório serão vinculados a esta semana.
-        </p>
-      </div>
 
-      {/* Barra de progresso */}
-      <div className="space-y-2">
-        <div className="flex justify-between">
-          {STEPS.map(s => (
+        {/* Seleção do Status da Reunião */}
+        <div className="pt-2 border-t border-slate-100">
+          <Label className="font-bold text-xs text-slate-500 uppercase block mb-2">A reunião aconteceu esta semana?</Label>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <button
-              key={s.id}
               type="button"
-              onClick={() => step > s.id && setStep(s.id)}
+              onClick={() => setMeetingStatusChoice('realizado')}
               className={cn(
-                'flex flex-col items-center gap-1 text-xs font-semibold transition-colors',
-                step >= s.id ? 'text-primary' : 'text-muted-foreground'
+                'flex items-center justify-center gap-2 p-2.5 rounded-lg border text-xs font-bold transition-all',
+                meetingStatusChoice === 'realizado'
+                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                  : 'bg-slate-50 hover:bg-emerald-50/50 text-slate-700 border-slate-200'
               )}
             >
-              <div className={cn(
-                'h-8 w-8 rounded-full border-2 flex items-center justify-center transition-all',
-                step > s.id ? 'bg-primary border-primary text-white' :
-                step === s.id ? 'border-primary text-primary bg-primary/10' : 'border-border'
-              )}>
-                {step > s.id ? <CheckCircle2 className="h-4 w-4" /> : s.icon}
-              </div>
-              <span className="hidden sm:block">{s.label}</span>
+              <CheckCircle2 className="h-4 w-4" />
+              Reunião Realizada
             </button>
-          ))}
+
+            <button
+              type="button"
+              onClick={() => setMeetingStatusChoice('cancelled')}
+              className={cn(
+                'flex items-center justify-center gap-2 p-2.5 rounded-lg border text-xs font-bold transition-all',
+                meetingStatusChoice === 'cancelled'
+                  ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                  : 'bg-slate-50 hover:bg-rose-50/50 text-slate-700 border-slate-200'
+              )}
+            >
+              <XCircle className="h-4 w-4" />
+              Reunião Cancelada
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setMeetingStatusChoice('postponed')}
+              className={cn(
+                'flex items-center justify-center gap-2 p-2.5 rounded-lg border text-xs font-bold transition-all',
+                meetingStatusChoice === 'postponed'
+                  ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
+                  : 'bg-slate-50 hover:bg-purple-50/50 text-slate-700 border-slate-200'
+              )}
+            >
+              <CalendarDays className="h-4 w-4" />
+              Reunião Adiada / Remarcada
+            </button>
+          </div>
         </div>
-        <Progress value={progress} className="h-1.5" />
       </div>
 
-      {/* Conteúdo do step */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            {STEPS[step - 1].icon}
-            {STEPS[step - 1].label}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {step === 1 && (
-            <StepChamada members={members || []} attendance={attendance} onChange={handleAttendanceChange} />
-          )}
-          {step === 2 && (
-            <StepCuidado members={members || []} attendance={attendance} onChange={handleAttendanceChange} />
-          )}
-          {step === 3 && (
-            <StepMetricas data={metricas} onChange={handleMetricasChange} reportDate={reportDate} onDateChange={setReportDate} />
-          )}
-          {step === 4 && (
-            <StepFeedback value={feedback} onChange={setFeedback} />
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Resumo rápido (visível na etapa 1) */}
-      {step === 1 && attendance.length > 0 && (
-        <div className="flex items-center justify-center gap-6 text-sm">
-          <span className="flex items-center gap-1 text-emerald-600 font-bold"><UserCheck className="h-4 w-4" />{presentes} presentes</span>
-          <span className="flex items-center gap-1 text-amber-600 font-bold"><AlertTriangle className="h-4 w-4" />{ausentesJust} just.</span>
-          <span className="flex items-center gap-1 text-red-600 font-bold"><UserX className="h-4 w-4" />{ausentesSemJust} faltaram</span>
-        </div>
+      {/* CASO CANCELADO */}
+      {meetingStatusChoice === 'cancelled' && (
+        <Card className="border-rose-200 bg-rose-50/30">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2 text-rose-800">
+              <XCircle className="h-5 w-5 text-rose-600" /> Reunião Cancelada
+            </CardTitle>
+            <CardDescription>
+              Informe o motivo pelo qual a reunião do GC não aconteceu esta semana. O supervisor verá no painel e não haverá cobrança de relatório.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="motivoCancelamento" className="text-xs font-bold text-rose-900">Motivo do Cancelamento *</Label>
+              <Textarea
+                id="motivoCancelamento"
+                placeholder="Ex: Doença na família do anfitrião, feriado na cidade, viagem..."
+                value={motivoCancelamento}
+                onChange={e => setMotivoCancelamento(e.target.value)}
+                rows={3}
+                className="bg-white border-rose-200"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="feedbackCancelamento" className="text-xs font-bold text-slate-700">Mensagem / Observação ao Supervisor (Opcional)</Label>
+              <Textarea
+                id="feedbackCancelamento"
+                placeholder="Algum pedido de oração ou detalhe adicional..."
+                value={feedback}
+                onChange={e => setFeedback(e.target.value)}
+                rows={2}
+                className="bg-white"
+              />
+            </div>
+            <Button
+              onClick={handleSubmit}
+              disabled={isSubmitting || !motivoCancelamento.trim()}
+              className="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold gap-2"
+            >
+              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
+              Salvar Cancelamento da Reunião
+            </Button>
+          </CardContent>
+        </Card>
       )}
 
-      {/* Navegação */}
-      <div className="flex justify-between pb-8">
-        <Button variant="outline" onClick={() => setStep(s => s - 1)} disabled={step === 1}>
-          <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
-        </Button>
-        {step < 4 ? (
-          <Button onClick={() => setStep(s => s + 1)}>
-            Próximo <ChevronRight className="h-4 w-4 ml-1" />
-          </Button>
-        ) : (
-          <Button onClick={handleSubmit} disabled={isSubmitting} className="gap-2">
-            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            Enviar Relatório
-          </Button>
-        )}
-      </div>
+      {/* CASO REMARCADO / ADIADO */}
+      {meetingStatusChoice === 'postponed' && (
+        <Card className="border-purple-200 bg-purple-50/30">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2 text-purple-800">
+              <CalendarDays className="h-5 w-5 text-purple-600" /> Reunião Remarcada / Adiada
+            </CardTitle>
+            <CardDescription>
+              Informe a nova data prevista para a realização desta reunião.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="novaData" className="text-xs font-bold text-purple-900">Nova Data Prevista *</Label>
+              <Input
+                id="novaData"
+                placeholder="Ex: Próxima segunda-feira às 20h, 28/08..."
+                value={novaData}
+                onChange={e => setNovaData(e.target.value)}
+                className="bg-white border-purple-200"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="feedbackAdiado" className="text-xs font-bold text-slate-700">Observação ao Supervisor (Opcional)</Label>
+              <Textarea
+                id="feedbackAdiado"
+                placeholder="Informações adicionais para o supervisor..."
+                value={feedback}
+                onChange={e => setFeedback(e.target.value)}
+                rows={2}
+                className="bg-white"
+              />
+            </div>
+            <Button
+              onClick={handleSubmit}
+              disabled={isSubmitting || !novaData.trim()}
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold gap-2"
+            >
+              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarDays className="h-4 w-4" />}
+              Salvar Reagendamento da Reunião
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* CASO REALIZADO (FLUXO PADRÃO) */}
+      {meetingStatusChoice === 'realizado' && (
+        <>
+          {/* Barra de progresso */}
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              {STEPS.map(s => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => step > s.id && setStep(s.id)}
+                  className={cn(
+                    'flex flex-col items-center gap-1 text-xs font-semibold transition-colors',
+                    step >= s.id ? 'text-primary' : 'text-muted-foreground'
+                  )}
+                >
+                  <div className={cn(
+                    'h-8 w-8 rounded-full border-2 flex items-center justify-center transition-all',
+                    step > s.id ? 'bg-primary border-primary text-white' :
+                    step === s.id ? 'border-primary text-primary bg-primary/10' : 'border-border'
+                  )}>
+                    {step > s.id ? <CheckCircle2 className="h-4 w-4" /> : s.icon}
+                  </div>
+                  <span className="hidden sm:block">{s.label}</span>
+                </button>
+              ))}
+            </div>
+            <Progress value={progress} className="h-1.5" />
+          </div>
+
+          {/* Conteúdo do step */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                {STEPS[step - 1].icon}
+                {STEPS[step - 1].label}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {step === 1 && (
+                <StepChamada members={members || []} attendance={attendance} onChange={handleAttendanceChange} />
+              )}
+              {step === 2 && (
+                <StepCuidado members={members || []} attendance={attendance} onChange={handleAttendanceChange} />
+              )}
+              {step === 3 && (
+                <StepMetricas data={metricas} onChange={handleMetricasChange} reportDate={reportDate} onDateChange={setReportDate} />
+              )}
+              {step === 4 && (
+                <StepFeedback value={feedback} onChange={setFeedback} />
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Resumo rápido (visível na etapa 1) */}
+          {step === 1 && attendance.length > 0 && (
+            <div className="flex items-center justify-center gap-6 text-sm">
+              <span className="flex items-center gap-1 text-emerald-600 font-bold"><UserCheck className="h-4 w-4" />{presentes} presentes</span>
+              <span className="flex items-center gap-1 text-amber-600 font-bold"><AlertTriangle className="h-4 w-4" />{ausentesJust} just.</span>
+              <span className="flex items-center gap-1 text-red-600 font-bold"><UserX className="h-4 w-4" />{ausentesSemJust} faltaram</span>
+            </div>
+          )}
+
+          {/* Navegação */}
+          <div className="flex justify-between pb-8">
+            <Button variant="outline" onClick={() => setStep(s => s - 1)} disabled={step === 1}>
+              <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
+            </Button>
+            {step < 4 ? (
+              <Button onClick={() => setStep(s => s + 1)}>
+                Próximo <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            ) : (
+              <Button onClick={handleSubmit} disabled={isSubmitting} className="gap-2">
+                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                Enviar Relatório
+              </Button>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

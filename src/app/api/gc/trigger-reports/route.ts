@@ -172,15 +172,15 @@ export async function POST(request: Request) {
             continue;
           }
 
-          // 2. Verificar se já existe relatório enviado nos últimos 6 dias para esta célula
-          const reportsSnap = await db.collection('gc_reuniao_logs')
+          // 2. Verificar se já existe relatório/cancelamento/adiamento enviado nos últimos 6 dias para esta célula
+          const reportsSnap = await db.collection('reuniao_logs')
             .where('cellId', '==', cellId)
             .where('date', '>=', dateLimitStr)
             .limit(1)
             .get();
 
           if (!reportsSnap.empty) {
-            // Relatório já enviado para esta célula esta semana, pula
+            // Relatório, cancelamento ou reagendamento já registrado para esta célula esta semana, pula
             continue;
           }
         }

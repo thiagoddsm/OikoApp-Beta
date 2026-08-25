@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Users, TrendingUp, AlertTriangle, MessageSquare, HeartHandshake, BarChart2, ClipboardList, CheckCircle2, Clock, Eye, Pencil, CalendarDays, UserPlus, DollarSign, Star, FileText, Trash2, ChevronLeft, ChevronRight, Filter, Activity, Rocket, AlertCircle, ShieldAlert, Bot, Send } from 'lucide-react';
+import { Loader2, Users, TrendingUp, AlertTriangle, MessageSquare, HeartHandshake, BarChart2, ClipboardList, CheckCircle2, Clock, Eye, Pencil, CalendarDays, UserPlus, DollarSign, Star, FileText, Trash2, ChevronLeft, ChevronRight, Filter, Activity, Rocket, AlertCircle, ShieldAlert, Bot, Send, XCircle, Calendar } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -41,15 +41,15 @@ type ReuniaoLog = {
   cellNome: string;
   date: string;
   liderId: string;
-  statusReuniao?: 'postponed' | 'cancelled';
+  statusReuniao?: 'postponed' | 'cancelled' | 'realizado';
   novaData?: string;
   motivoCancelamento?: string;
-  metricas: {
-    presentes: number;
-    totalMembrosAtivos: number;
-    visitantes: number;
-    conversoes: number;
-    oferta: number;
+  metricas?: {
+    presentes?: number;
+    totalMembrosAtivos?: number;
+    visitantes?: number;
+    conversoes?: number;
+    oferta?: number;
   };
   visitantesNomes?: string[];   // lista de nomes dos visitantes
   conversoesNomes?: string[];   // lista de nomes dos novos convertidos
@@ -58,6 +58,17 @@ type ReuniaoLog = {
   termometroEspiritual?: number; // 1-5
   licaoMinistrada?: string;
 };
+
+export type GcReportStatusType = 'realizado' | 'cancelado' | 'remarcado' | 'pendente';
+
+export interface CellStatusInfo {
+  status: GcReportStatusType;
+  sent: boolean;
+  date: string;
+  log?: ReuniaoLog;
+  motivoCancelamento?: string;
+  novaData?: string;
+}
 
 // Taxa de retenção: média de presença nas reuniões do mês
 function calcRm(logs: ReuniaoLog[]): number {
@@ -239,8 +250,9 @@ export default function SupervisorPage() {
   const [overviewWeekOffset, setOverviewWeekOffset] = useState(0);
   const [overviewMonthOffset, setOverviewMonthOffset] = useState(0);
 
-  // Filtro Relatórios: semana
+  // Filtro Relatórios: semana e status
   const [reportWeekOffset, setReportWeekOffset] = useState(0);
+  const [reportStatusFilter, setReportStatusFilter] = useState<'all' | 'realizado' | 'cancelado' | 'remarcado' | 'pendente'>('all');
 
   // Filtros de Rede, Área e Célula na Visão Geral
   const [filterRedeId, setFilterRedeId] = useState('');
@@ -417,7 +429,7 @@ export default function SupervisorPage() {
 
   // Status de relatório por célula (com base na semana selecionada)
   const cellReportStatus = useMemo(() => {
-    const status: Record<string, { sent: boolean; date: string; log?: ReuniaoLog }> = {};
+    const status: Record<string, CellStatusInfo> = {};
     const reportWeekStart = toDateStr(getWeekStart(reportWeekOffset));
     const reportWeekEnd = toDateStr(getWeekEnd(reportWeekOffset));
 
@@ -439,20 +451,62 @@ export default function SupervisorPage() {
         return logDateStr >= reportWeekStart && logDateStr <= reportWeekEnd;
       });
 
+      let statusType: GcReportStatusType = 'pendente';
+      if (log) {
+        if (log.statusReuniao === 'cancelled') {
+          statusType = 'cancelado';
+        } else if (log.statusReuniao === 'postponed') {
+          statusType = 'remarcado';
+        } else {
+          statusType = 'realizado';
+        }
+      }
+
       status[cell.id] = {
-        sent: !!log,
+        status: statusType,
+        sent: !!log && statusType === 'realizado',
         date: log ? log.date.split('T')[0] : meetingDate,
-        log
+        log,
+        motivoCancelamento: log?.motivoCancelamento,
+        novaData: log?.novaData
       };
     });
     return status;
   }, [allCells, logsAll, recentLogs, reportWeekOffset]);
 
-  // Contagem de células pendentes no período selecionado
-  const pendingCellsCount = useMemo(() => {
-    if (!allCells) return 0;
-    return allCells.filter(cell => !cellReportStatus[cell.id]?.sent).length;
+  // Contagem e métricas de relatórios da semana
+  const reportStats = useMemo(() => {
+    let realizados = 0;
+    let cancelados = 0;
+    let remarcados = 0;
+    let pendentes = 0;
+
+    allCells?.forEach(cell => {
+      const st = cellReportStatus[cell.id]?.status || 'pendente';
+      if (st === 'realizado') realizados++;
+      else if (st === 'cancelado') cancelados++;
+      else if (st === 'remarcado') remarcados++;
+      else pendentes++;
+    });
+
+    return {
+      total: allCells?.length || 0,
+      realizados,
+      cancelados,
+      remarcados,
+      pendentes
+    };
   }, [allCells, cellReportStatus]);
+
+  // Contagem de células estritamente pendentes no período selecionado (exclui canceladas e remarcadas)
+  const pendingCellsCount = reportStats.pendentes;
+
+  // Células filtradas pelo status do relatório da semana
+  const filteredReportCells = useMemo(() => {
+    if (!allCells) return [];
+    if (reportStatusFilter === 'all') return allCells;
+    return allCells.filter(cell => cellReportStatus[cell.id]?.status === reportStatusFilter);
+  }, [allCells, cellReportStatus, reportStatusFilter]);
 
   // Reenviar Bot do WhatsApp para uma célula específica
   const handleResendBot = async (cellId: string, cellNome: string) => {
@@ -482,19 +536,19 @@ export default function SupervisorPage() {
     }
   };
 
-  // Reenviar Bot do WhatsApp para todas as células pendentes da semana
+  // Reenviar Bot do WhatsApp apenas para células que estão REALMENTE PENDENTES (não canceladas/remarcadas)
   const handleResendAllPending = async () => {
     if (!allCells) return;
-    const pendingCells = allCells.filter(cell => !cellReportStatus[cell.id]?.sent);
+    const pendingCells = allCells.filter(cell => cellReportStatus[cell.id]?.status === 'pendente');
     if (pendingCells.length === 0) {
       toast({
         title: 'Tudo em dia!',
-        description: 'Não há GCs pendentes para a semana selecionada.',
+        description: 'Não há GCs pendentes para a semana selecionada (todos já enviaram relatório, cancelaram ou adiaram).',
       });
       return;
     }
 
-    if (!window.confirm(`Deseja disparar o bot de cobrança do relatório via WhatsApp para ${pendingCells.length} líder(es) de GC pendentes?`)) {
+    if (!window.confirm(`Deseja disparar o bot de cobrança do relatório via WhatsApp para os ${pendingCells.length} líder(es) de GC que ainda não responderam?`)) {
       return;
     }
 
@@ -1145,9 +1199,9 @@ export default function SupervisorPage() {
           </TabsContent>
 
           {/* ===== ABA RELATÓRIOS ===== */}
-          <TabsContent value="reports">
+          <TabsContent value="reports" className="space-y-4">
             {/* Navegador de semana */}
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-2">
               <button onClick={() => setReportWeekOffset(w => w + 1)} className="p-1.5 border rounded-lg hover:bg-muted"><ChevronLeft className="h-4 w-4" /></button>
               <div className="flex-1 text-center">
                 <span className="text-sm font-bold">{reportWeekLabel}</span>
@@ -1155,14 +1209,83 @@ export default function SupervisorPage() {
               </div>
               <button onClick={() => setReportWeekOffset(w => Math.max(0, w - 1))} disabled={reportWeekOffset === 0} className="p-1.5 border rounded-lg hover:bg-muted disabled:opacity-40"><ChevronRight className="h-4 w-4" /></button>
             </div>
+
+            {/* Cards de Resumo / Filtros Rápidos */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+              <button
+                type="button"
+                onClick={() => setReportStatusFilter('all')}
+                className={cn(
+                  'p-3 rounded-xl border text-left transition-all',
+                  reportStatusFilter === 'all' ? 'bg-primary text-primary-foreground border-primary shadow-sm' : 'bg-card hover:bg-muted/50 border-border'
+                )}
+              >
+                <p className="text-[10px] font-bold uppercase tracking-wider opacity-80">Total GCs</p>
+                <p className="text-xl font-black">{reportStats.total}</p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setReportStatusFilter('realizado')}
+                className={cn(
+                  'p-3 rounded-xl border text-left transition-all',
+                  reportStatusFilter === 'realizado' ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : 'bg-emerald-50/50 hover:bg-emerald-100/50 border-emerald-200 text-emerald-950 dark:text-emerald-300'
+                )}
+              >
+                <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">✓ Realizados</p>
+                <p className="text-xl font-black text-emerald-700 dark:text-emerald-300">{reportStats.realizados}</p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setReportStatusFilter('cancelado')}
+                className={cn(
+                  'p-3 rounded-xl border text-left transition-all',
+                  reportStatusFilter === 'cancelado' ? 'bg-rose-600 text-white border-rose-600 shadow-sm' : 'bg-rose-50/50 hover:bg-rose-100/50 border-rose-200 text-rose-950 dark:text-rose-300'
+                )}
+              >
+                <p className="text-[10px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-400">❌ Cancelados</p>
+                <p className="text-xl font-black text-rose-700 dark:text-rose-300">{reportStats.cancelados}</p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setReportStatusFilter('remarcado')}
+                className={cn(
+                  'p-3 rounded-xl border text-left transition-all',
+                  reportStatusFilter === 'remarcado' ? 'bg-purple-600 text-white border-purple-600 shadow-sm' : 'bg-purple-50/50 hover:bg-purple-100/50 border-purple-200 text-purple-950 dark:text-purple-300'
+                )}
+              >
+                <p className="text-[10px] font-bold uppercase tracking-wider text-purple-700 dark:text-purple-400">📅 Remarcados</p>
+                <p className="text-xl font-black text-purple-700 dark:text-purple-300">{reportStats.remarcados}</p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setReportStatusFilter('pendente')}
+                className={cn(
+                  'p-3 rounded-xl border text-left transition-all',
+                  reportStatusFilter === 'pendente' ? 'bg-amber-600 text-white border-amber-600 shadow-sm' : 'bg-amber-50/50 hover:bg-amber-100/50 border-amber-200 text-amber-950 dark:text-amber-300'
+                )}
+              >
+                <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">⏳ Pendentes</p>
+                <p className="text-xl font-black text-amber-700 dark:text-amber-300">{reportStats.pendentes}</p>
+              </button>
+            </div>
+
             <Card>
               <CardHeader className="pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <CardTitle className="text-base font-black flex items-center gap-2">
                     <ClipboardList className="h-4 w-4" /> Relatórios da Semana
+                    {reportStatusFilter !== 'all' && (
+                      <Badge variant="outline" className="text-xs ml-1 capitalize font-normal">
+                        Filtro: {reportStatusFilter}
+                      </Badge>
+                    )}
                   </CardTitle>
                   <CardDescription>
-                    Status dos relatórios de cada célula com base no dia de reunião cadastrado
+                    Acompanhe em tempo real quem realizou a reunião, quem cancelou e quem remarcou.
                   </CardDescription>
                 </div>
                 {pendingCellsCount > 0 && (
@@ -1183,65 +1306,148 @@ export default function SupervisorPage() {
                 )}
               </CardHeader>
               <CardContent>
-                {!allCells?.length ? (
-                  <p className="text-sm text-muted-foreground text-center py-8">Nenhuma célula cadastrada.</p>
+                {filteredReportCells.length === 0 ? (
+                  <div className="text-center py-10 text-muted-foreground">
+                    <p className="text-sm">Nenhum GC encontrado com o status selecionado ({reportStatusFilter}).</p>
+                    {reportStatusFilter !== 'all' && (
+                      <Button variant="link" size="sm" onClick={() => setReportStatusFilter('all')} className="mt-1 text-xs">
+                        Limpar filtro
+                      </Button>
+                    )}
+                  </div>
                 ) : (
-                  <div className="space-y-2">
-                    {allCells.map(cell => {
+                  <div className="space-y-2.5">
+                    {filteredReportCells.map(cell => {
                       const st = cellReportStatus[cell.id];
+                      const statusType = st?.status || 'pendente';
                       const dateLabel = st?.date
                         ? new Date(st.date + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })
                         : '—';
+
+                      // 1. REALIZADO
+                      if (statusType === 'realizado') {
+                        return (
+                          <div key={cell.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl border transition-colors bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800 gap-3">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-sm font-bold truncate text-foreground">{cell.nome}</p>
+                                <Badge className="bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700 font-bold text-[11px] gap-1">
+                                  <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Realizado
+                                </Badge>
+                              </div>
+                              <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-2">
+                                <span>{cell.meetingDay || 'Dia não definido'} &middot; Ref: {dateLabel}</span>
+                                <span>&middot;</span>
+                                <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                                  {st.log?.metricas?.presentes ?? 0} presentes ({st.log?.metricas?.visitantes ?? 0} visitantes)
+                                </span>
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <Button size="sm" variant="outline" className="h-7 text-[11px] font-bold gap-1 bg-white dark:bg-background border-emerald-300 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-50" onClick={() => setSelectedLog(st.log || null)}>
+                                <Eye className="h-3 w-3" /> Ver Detalhes
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-7 text-[11px] gap-1" asChild>
+                                <Link href={`/dashboard/gc/report?cellId=${cell.id}`}><Pencil className="h-3 w-3" /></Link>
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      // 2. CANCELADO
+                      if (statusType === 'cancelado') {
+                        return (
+                          <div key={cell.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl border transition-colors bg-rose-50/50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800 gap-3">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-sm font-bold truncate text-foreground">{cell.nome}</p>
+                                <Badge className="bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200 border-rose-300 dark:border-rose-700 font-bold text-[11px] gap-1">
+                                  <XCircle className="h-3 w-3 text-rose-600" /> Cancelado
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-rose-700 dark:text-rose-300 font-medium mt-1 truncate" title={st.motivoCancelamento}>
+                                <strong>Motivo:</strong> {st.motivoCancelamento || 'Não especificado'}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground mt-0.5">
+                                {cell.meetingDay || 'Dia não definido'} &middot; Ref: {dateLabel} (Líder respondeu no WhatsApp)
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <Button size="sm" variant="outline" className="h-7 text-[11px] font-bold gap-1 text-rose-700 border-rose-300 bg-white dark:bg-background hover:bg-rose-50" onClick={() => setSelectedLog(st.log || null)}>
+                                <Eye className="h-3 w-3" /> Ver Motivo
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-7 text-[11px] gap-1" asChild>
+                                <Link href={`/dashboard/gc/report?cellId=${cell.id}`}><Pencil className="h-3 w-3" /></Link>
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      // 3. REMARCADO / ADIADO
+                      if (statusType === 'remarcado') {
+                        return (
+                          <div key={cell.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl border transition-colors bg-purple-50/50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800 gap-3">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-sm font-bold truncate text-foreground">{cell.nome}</p>
+                                <Badge className="bg-purple-100 dark:bg-purple-900/60 text-purple-800 dark:text-purple-200 border-purple-300 dark:border-purple-700 font-bold text-[11px] gap-1">
+                                  <CalendarDays className="h-3 w-3 text-purple-600" /> Remarcado
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-purple-700 dark:text-purple-300 font-semibold mt-1">
+                                📅 Nova Data Informada: <strong>{st.novaData || 'A definir'}</strong>
+                              </p>
+                              <p className="text-[10px] text-muted-foreground mt-0.5">
+                                {cell.meetingDay || 'Dia não definido'} &middot; Ref: {dateLabel}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <Button size="sm" variant="outline" className="h-7 text-[11px] font-bold gap-1 text-purple-700 border-purple-300 bg-white dark:bg-background hover:bg-purple-50" onClick={() => setSelectedLog(st.log || null)}>
+                                <Eye className="h-3 w-3" /> Ver Detalhes
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-7 text-[11px] gap-1" asChild>
+                                <Link href={`/dashboard/gc/report?cellId=${cell.id}`}><Pencil className="h-3 w-3" /></Link>
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      // 4. PENDENTE
                       return (
-                        <div key={cell.id} className={cn(
-                          'flex items-center justify-between p-3 rounded-xl border transition-colors',
-                          st?.sent ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'
-                        )}>
+                        <div key={cell.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl border transition-colors bg-amber-50/40 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800 gap-3">
                           <div className="min-w-0">
-                            <p className="text-sm font-bold truncate">{cell.nome}</p>
-                            <p className="text-[11px] text-muted-foreground">
-                              {cell.meetingDay || 'Dia não definido'} &middot; Ref: {dateLabel}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="text-sm font-bold truncate text-foreground">{cell.nome}</p>
+                              <Badge variant="outline" className="text-amber-700 dark:text-amber-300 border-amber-300 font-bold text-[11px] gap-1">
+                                <Clock className="h-3 w-3" /> Pendente
+                              </Badge>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">
+                              {cell.meetingDay || 'Dia não definido'} &middot; Ref: {dateLabel} &middot; <span className="text-amber-700 dark:text-amber-400 font-medium">Líder ainda não respondeu</span>
                             </p>
                           </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            {st?.sent ? (
-                              <>
-                                <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 font-bold text-[11px] gap-1">
-                                  <CheckCircle2 className="h-3 w-3" /> Enviado
-                                </Badge>
-                                <Button size="sm" variant="outline" className="h-7 text-[11px] font-bold gap-1"
-                                  onClick={() => setSelectedLog(st.log || null)}>
-                                  <Eye className="h-3 w-3" /> Ver
-                                </Button>
-                                <Button size="sm" variant="ghost" className="h-7 text-[11px] gap-1" asChild>
-                                  <Link href={`/dashboard/gc/report?cellId=${cell.id}`}><Pencil className="h-3 w-3" /></Link>
-                                </Button>
-                              </>
-                            ) : (
-                              <>
-                                <Badge variant="outline" className="text-amber-700 border-amber-300 font-bold text-[11px] gap-1">
-                                  <Clock className="h-3 w-3" /> Pendente
-                                </Badge>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-7 text-[11px] font-bold gap-1 bg-white hover:bg-emerald-50 text-emerald-700 border-emerald-300"
-                                  onClick={() => handleResendBot(cell.id, cell.nome)}
-                                  disabled={sendingCellId === cell.id || isSendingBatch}
-                                  title="Enviar formulário pelo WhatsApp para o líder"
-                                >
-                                  {sendingCellId === cell.id ? (
-                                    <Loader2 className="h-3 w-3 animate-spin text-emerald-600" />
-                                  ) : (
-                                    <Bot className="h-3 w-3 text-emerald-600" />
-                                  )}
-                                  Reenviar Bot
-                                </Button>
-                                <Button size="sm" variant="outline" className="h-7 text-[11px] font-bold" asChild>
-                                  <Link href={`/dashboard/gc/report?cellId=${cell.id}`}>Preencher</Link>
-                                </Button>
-                              </>
-                            )}
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-[11px] font-bold gap-1 bg-white dark:bg-background hover:bg-emerald-50 text-emerald-700 border-emerald-300"
+                              onClick={() => handleResendBot(cell.id, cell.nome)}
+                              disabled={sendingCellId === cell.id || isSendingBatch}
+                              title="Enviar formulário pelo WhatsApp para o líder"
+                            >
+                              {sendingCellId === cell.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin text-emerald-600" />
+                              ) : (
+                                <Bot className="h-3 w-3 text-emerald-600" />
+                              )}
+                              Reenviar Bot
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-7 text-[11px] font-bold" asChild>
+                              <Link href={`/dashboard/gc/report?cellId=${cell.id}`}>Preencher</Link>
+                            </Button>
                           </div>
                         </div>
                       );
@@ -1261,32 +1467,81 @@ export default function SupervisorPage() {
         {selectedLog && (
           <>
             <SheetHeader className="pb-4">
-              <SheetTitle className="text-lg font-black">{selectedLog.cellNome}</SheetTitle>
+              <div className="flex items-center gap-2">
+                <SheetTitle className="text-lg font-black">{selectedLog.cellNome}</SheetTitle>
+                {selectedLog.statusReuniao === 'cancelled' && (
+                  <Badge className="bg-rose-100 text-rose-800 border-rose-300 font-bold text-xs gap-1">
+                    <XCircle className="h-3 w-3 text-rose-600" /> Cancelado
+                  </Badge>
+                )}
+                {selectedLog.statusReuniao === 'postponed' && (
+                  <Badge className="bg-purple-100 text-purple-800 border-purple-300 font-bold text-xs gap-1">
+                    <CalendarDays className="h-3 w-3 text-purple-600" /> Remarcado
+                  </Badge>
+                )}
+                {(!selectedLog.statusReuniao || selectedLog.statusReuniao === 'realizado') && (
+                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 font-bold text-xs gap-1">
+                    <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Realizado
+                  </Badge>
+                )}
+              </div>
               <SheetDescription className="flex items-center gap-1">
                 <CalendarDays className="h-3.5 w-3.5" />
-                Relatório de{' '}
+                Data de referência:{' '}
                 {new Date(selectedLog.date + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
               </SheetDescription>
             </SheetHeader>
             <Separator />
 
-            {/* MÉTRICAS */}
-            <div className="grid grid-cols-2 gap-3 py-4">
-              {[
-                { icon: Users, label: 'Presentes', value: selectedLog.metricas?.presentes ?? '—', color: 'text-emerald-600' },
-                { icon: UserPlus, label: 'Visitantes', value: selectedLog.metricas?.visitantes ?? '—', color: 'text-sky-600' },
-                { icon: HeartHandshake, label: 'Conversões', value: selectedLog.metricas?.conversoes ?? '—', color: 'text-purple-600' },
-                { icon: DollarSign, label: 'Oferta (R$)', value: selectedLog.metricas?.oferta != null ? `R$ ${selectedLog.metricas.oferta.toFixed(2)}` : '—', color: 'text-amber-600' },
-              ].map(({ icon: Icon, label, value, color }) => (
-                <div key={label} className="rounded-xl border bg-muted/20 p-3 space-y-1">
-                  <div className="flex items-center gap-1.5">
-                    <Icon className={cn('h-3.5 w-3.5', color)} />
-                    <span className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wide">{label}</span>
-                  </div>
-                  <p className={cn('text-xl font-black', color)}>{value}</p>
+            {/* DESTAQUE DE REUNIÃO CANCELADA */}
+            {selectedLog.statusReuniao === 'cancelled' && (
+              <div className="my-4 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 space-y-2">
+                <div className="flex items-center gap-2 font-black text-rose-900 text-sm">
+                  <XCircle className="h-5 w-5 text-rose-600" /> Reunião do GC Cancelada
                 </div>
-              ))}
-            </div>
+                <p className="text-xs font-semibold text-rose-700 uppercase tracking-wider">
+                  Motivo Informado pelo Líder:
+                </p>
+                <p className="text-sm bg-white/90 p-3 rounded-lg border border-rose-200 font-medium text-rose-950">
+                  "{selectedLog.motivoCancelamento || selectedLog.feedbackAoSupervisor || 'Sem justificativa informada'}"
+                </p>
+              </div>
+            )}
+
+            {/* DESTAQUE DE REUNIÃO REMARCADA / ADIADA */}
+            {selectedLog.statusReuniao === 'postponed' && (
+              <div className="my-4 p-4 rounded-xl bg-purple-50 border border-purple-200 text-purple-900 space-y-2">
+                <div className="flex items-center gap-2 font-black text-purple-900 text-sm">
+                  <CalendarDays className="h-5 w-5 text-purple-600" /> Reunião do GC Adiada / Remarcada
+                </div>
+                <p className="text-xs font-semibold text-purple-700 uppercase tracking-wider">
+                  Nova Data Informada pelo Líder:
+                </p>
+                <p className="text-sm bg-white/90 p-3 rounded-lg border border-purple-200 font-bold text-purple-950">
+                  {selectedLog.novaData || 'A definir'}
+                </p>
+              </div>
+            )}
+
+            {/* MÉTRICAS (Apenas para reuniões realizadas ou com métricas) */}
+            {selectedLog.statusReuniao !== 'cancelled' && selectedLog.statusReuniao !== 'postponed' && (
+              <div className="grid grid-cols-2 gap-3 py-4">
+                {[
+                  { icon: Users, label: 'Presentes', value: selectedLog.metricas?.presentes ?? '—', color: 'text-emerald-600' },
+                  { icon: UserPlus, label: 'Visitantes', value: selectedLog.metricas?.visitantes ?? '—', color: 'text-sky-600' },
+                  { icon: HeartHandshake, label: 'Conversões', value: selectedLog.metricas?.conversoes ?? '—', color: 'text-purple-600' },
+                  { icon: DollarSign, label: 'Oferta (R$)', value: selectedLog.metricas?.oferta != null ? `R$ ${selectedLog.metricas.oferta.toFixed(2)}` : '—', color: 'text-amber-600' },
+                ].map(({ icon: Icon, label, value, color }) => (
+                  <div key={label} className="rounded-xl border bg-muted/20 p-3 space-y-1">
+                    <div className="flex items-center gap-1.5">
+                      <Icon className={cn('h-3.5 w-3.5', color)} />
+                      <span className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wide">{label}</span>
+                    </div>
+                    <p className={cn('text-xl font-black', color)}>{value}</p>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* LIÇÃO MINISTRADA */}
             {selectedLog.licaoMinistrada?.trim() && (
