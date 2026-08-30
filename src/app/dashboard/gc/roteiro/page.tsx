@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useFirebase, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { doc, setDoc, collection, query, orderBy, Timestamp, addDoc, limit } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import {
   BookOpen,
@@ -27,13 +28,16 @@ import {
   History,
   Sparkles,
   CalendarDays,
-  FileText
+  PenTool,
+  Pencil,
+  Check
 } from 'lucide-react';
 import { DEFAULT_GC_ROTEIRO_HTML, DEFAULT_GC_ROTEIRO_TITLE } from '@/lib/constants/default-gc-roteiro';
 
 export default function GcRoteiroAdminPage() {
   const { firestore, user } = useFirebase();
   const { toast } = useToast();
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   // Documento ativo singleton
   const { data: activeRoteiro, isLoading: isLoadingActive } = useDoc<any>('gc_roteiros/active');
@@ -52,7 +56,8 @@ export default function GcRoteiroAdminPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [copied, setCopied] = useState(false);
   const [previewDevice, setPreviewDevice] = useState<'mobile' | 'tablet' | 'desktop'>('mobile');
-  const [activeTab, setActiveTab] = useState<'editor' | 'preview' | 'history'>('editor');
+  const [activeTab, setActiveTab] = useState<'preview' | 'editor' | 'history'>('preview');
+  const [isVisualEditing, setIsVisualEditing] = useState(true);
 
   // Inicializa com dados do Firestore ou template padrão
   useEffect(() => {
@@ -66,6 +71,18 @@ export default function GcRoteiroAdminPage() {
       setHtmlContent(DEFAULT_GC_ROTEIRO_HTML);
     }
   }, [activeRoteiro, isLoadingActive]);
+
+  // Listener para capturar edições visuais originadas do iframe
+  useEffect(() => {
+    const handleVisualEditMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'OIKO_ROTEIRO_VISUAL_EDIT' && typeof event.data.html === 'string') {
+        setHtmlContent(event.data.html);
+      }
+    };
+
+    window.addEventListener('message', handleVisualEditMessage);
+    return () => window.removeEventListener('message', handleVisualEditMessage);
+  }, []);
 
   const publicUrl = typeof window !== 'undefined'
     ? `${window.location.origin}/public/roteiro-de-gc`
@@ -160,13 +177,85 @@ export default function GcRoteiroAdminPage() {
       setTitle(item.title || '');
       setReferenceDate(item.date || '');
       setHtmlContent(item.htmlContent || '');
-      setActiveTab('editor');
+      setActiveTab('preview');
       toast({
         title: 'Versão Carregada no Editor',
         description: 'Clique em "Salvar e Publicar" para torná-la a versão pública atual.',
       });
     }
   };
+
+  // Prepara o HTML da prévia com injeção de script de edição visual caso ativado
+  const previewHtml = useMemo(() => {
+    if (!htmlContent) return '<p class="p-8 text-center text-gray-500">Nenhum conteúdo inserido.</p>';
+    if (!isVisualEditing) return htmlContent;
+
+    const editorInjection = `
+      <style id="oiko-visual-editor-style">
+        body[contenteditable="true"] {
+          outline: none !important;
+        }
+        body[contenteditable="true"] *:hover {
+          outline: 1.5px dashed rgba(217, 119, 6, 0.45) !important;
+          outline-offset: 2px;
+          cursor: text;
+        }
+        body[contenteditable="true"] *:focus {
+          outline: 2px solid #d97706 !important;
+          outline-offset: 2px;
+          background-color: rgba(254, 243, 199, 0.25) !important;
+        }
+      </style>
+      <script id="oiko-visual-editor-script">
+        (function() {
+          function enableEditing() {
+            if (document.body) {
+              document.body.setAttribute('contenteditable', 'true');
+              document.body.setAttribute('spellcheck', 'false');
+            }
+          }
+          
+          if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', enableEditing);
+          } else {
+            enableEditing();
+          }
+
+          var debounceTimer = null;
+          document.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(function() {
+              try {
+                var clone = document.documentElement.cloneNode(true);
+                
+                var styleEl = clone.querySelector('#oiko-visual-editor-style');
+                if (styleEl) styleEl.remove();
+                
+                var scriptEl = clone.querySelector('#oiko-visual-editor-script');
+                if (scriptEl) scriptEl.remove();
+
+                var bodyEl = clone.querySelector('body');
+                if (bodyEl) {
+                  bodyEl.removeAttribute('contenteditable');
+                  bodyEl.removeAttribute('spellcheck');
+                }
+
+                var cleanHtml = '<!DOCTYPE html>\\n' + clone.outerHTML;
+                window.parent.postMessage({ type: 'OIKO_ROTEIRO_VISUAL_EDIT', html: cleanHtml }, '*');
+              } catch(e) {
+                console.error('[Visual Edit] Erro ao sincronizar:', e);
+              }
+            }, 250);
+          });
+        })();
+      </script>
+    `;
+
+    if (htmlContent.includes('</body>')) {
+      return htmlContent.replace('</body>', `${editorInjection}</body>`);
+    }
+    return htmlContent + editorInjection;
+  }, [htmlContent, isVisualEditing]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
@@ -183,7 +272,7 @@ export default function GcRoteiroAdminPage() {
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            Insira o HTML do estudo da semana para compartilhar com facilitadores, líderes e pequenos grupos.
+            Edite visualmente ou via HTML o estudo da semana para compartilhar com os líderes de pequenos grupos.
           </p>
         </div>
 
@@ -251,20 +340,76 @@ export default function GcRoteiroAdminPage() {
         </div>
       </div>
 
-      {/* TABS: EDITOR / PREVIEW / HISTÓRICO */}
+      {/* TABS: PREVIEW (PADRÃO COM EDIÇÃO DIRETA) / EDITOR HTML / HISTÓRICO */}
       <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val)} className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
-          <TabsList className="grid grid-cols-3 w-full sm:w-auto min-w-[320px]">
-            <TabsTrigger value="editor" className="gap-1.5 text-xs font-bold">
-              <Code className="h-3.5 w-3.5" /> Editor HTML
-            </TabsTrigger>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b pb-3">
+          <TabsList className="grid grid-cols-3 w-full sm:w-auto min-w-[340px]">
             <TabsTrigger value="preview" className="gap-1.5 text-xs font-bold">
-              <Eye className="h-3.5 w-3.5" /> Prévia ao Vivo
+              <Eye className="h-3.5 w-3.5" /> Prévia Visual & Edição
+            </TabsTrigger>
+            <TabsTrigger value="editor" className="gap-1.5 text-xs font-bold">
+              <Code className="h-3.5 w-3.5" /> Código HTML
             </TabsTrigger>
             <TabsTrigger value="history" className="gap-1.5 text-xs font-bold">
               <History className="h-3.5 w-3.5" /> Histórico ({historyList?.length || 0})
             </TabsTrigger>
           </TabsList>
+
+          {activeTab === 'preview' && (
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* TOGGLE DE EDIÇÃO VISUAL */}
+              <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 px-3 py-1.5 rounded-xl shadow-sm">
+                <Switch
+                  id="visual-edit-mode"
+                  checked={isVisualEditing}
+                  onCheckedChange={setIsVisualEditing}
+                  className="data-[state=checked]:bg-amber-600"
+                />
+                <Label htmlFor="visual-edit-mode" className="text-xs font-bold text-amber-900 dark:text-amber-300 cursor-pointer flex items-center gap-1">
+                  <Pencil className="h-3 w-3" />
+                  Edição Visual Direta
+                </Label>
+              </div>
+
+              {/* DISPOSITIVO */}
+              <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-xl border">
+                <Button
+                  size="sm"
+                  variant={previewDevice === 'mobile' ? 'default' : 'ghost'}
+                  onClick={() => setPreviewDevice('mobile')}
+                  className="h-7 text-xs font-bold gap-1 px-2.5"
+                >
+                  <Smartphone className="h-3.5 w-3.5" /> Mobile
+                </Button>
+                <Button
+                  size="sm"
+                  variant={previewDevice === 'tablet' ? 'default' : 'ghost'}
+                  onClick={() => setPreviewDevice('tablet')}
+                  className="h-7 text-xs font-bold gap-1 px-2.5"
+                >
+                  <Tablet className="h-3.5 w-3.5" /> Tablet
+                </Button>
+                <Button
+                  size="sm"
+                  variant={previewDevice === 'desktop' ? 'default' : 'ghost'}
+                  onClick={() => setPreviewDevice('desktop')}
+                  className="h-7 text-xs font-bold gap-1 px-2.5"
+                >
+                  <Monitor className="h-3.5 w-3.5" /> Desktop
+                </Button>
+              </div>
+
+              <Button
+                size="sm"
+                onClick={handleSaveAndPublish}
+                disabled={isSaving}
+                className="gap-1.5 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-sm"
+              >
+                {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                Salvar e Publicar
+              </Button>
+            </div>
+          )}
 
           {activeTab === 'editor' && (
             <div className="flex items-center gap-2">
@@ -289,39 +434,57 @@ export default function GcRoteiroAdminPage() {
               </Button>
             </div>
           )}
-
-          {activeTab === 'preview' && (
-            <div className="flex items-center gap-2 bg-muted/60 p-1 rounded-xl border">
-              <span className="text-[11px] font-bold text-muted-foreground px-2">Dispositivo:</span>
-              <Button
-                size="sm"
-                variant={previewDevice === 'mobile' ? 'default' : 'ghost'}
-                onClick={() => setPreviewDevice('mobile')}
-                className="h-7 text-xs font-bold gap-1 px-2.5"
-              >
-                <Smartphone className="h-3.5 w-3.5" /> Mobile
-              </Button>
-              <Button
-                size="sm"
-                variant={previewDevice === 'tablet' ? 'default' : 'ghost'}
-                onClick={() => setPreviewDevice('tablet')}
-                className="h-7 text-xs font-bold gap-1 px-2.5"
-              >
-                <Tablet className="h-3.5 w-3.5" /> Tablet
-              </Button>
-              <Button
-                size="sm"
-                variant={previewDevice === 'desktop' ? 'default' : 'ghost'}
-                onClick={() => setPreviewDevice('desktop')}
-                className="h-7 text-xs font-bold gap-1 px-2.5"
-              >
-                <Monitor className="h-3.5 w-3.5" /> Desktop
-              </Button>
-            </div>
-          )}
         </div>
 
-        {/* ── ABA 1: EDITOR HTML ────────────────────────────────────────── */}
+        {/* ── ABA 1: PRÉ-VISUALIZAÇÃO AO VIVO COM EDIÇÃO DIRETA ────────── */}
+        <TabsContent value="preview" className="space-y-3 focus-visible:outline-none">
+          {isVisualEditing && (
+            <div className="bg-amber-50/90 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-900/60 p-3 rounded-xl flex items-center justify-between text-xs text-amber-900 dark:text-amber-200">
+              <span className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-amber-600 shrink-0" />
+                <span>
+                  <strong>Modo de Edição Visual Ativo:</strong> Clique diretamente em qualquer texto, título, perguntas ou avisos na tela abaixo para alterar o conteúdo. O HTML é sincronizado em tempo real!
+                </span>
+              </span>
+              <Badge variant="outline" className="bg-white/80 dark:bg-stone-900/80 text-amber-700 border-amber-300 font-bold shrink-0 ml-2">
+                ✏️ Clique & Digite
+              </Badge>
+            </div>
+          )}
+
+          <div className="flex justify-center bg-stone-100 dark:bg-stone-950/60 p-4 sm:p-8 rounded-2xl border min-h-[650px]">
+            <div
+              className={`transition-all duration-300 bg-white rounded-2xl shadow-xl overflow-hidden border border-stone-300 flex flex-col ${
+                previewDevice === 'mobile'
+                  ? 'w-[390px] h-[780px]'
+                  : previewDevice === 'tablet'
+                  ? 'w-[768px] h-[850px]'
+                  : 'w-full h-[850px]'
+              }`}
+            >
+              {/* Barra do mock de navegador */}
+              <div className="bg-stone-200 dark:bg-stone-800 px-4 py-2 flex items-center gap-2 border-b text-xs text-stone-600 dark:text-stone-300 font-mono">
+                <span className="w-2.5 h-2.5 rounded-full bg-stone-400 inline-block" />
+                <span className="w-2.5 h-2.5 rounded-full bg-stone-400 inline-block" />
+                <span className="w-2.5 h-2.5 rounded-full bg-stone-400 inline-block" />
+                <span className="ml-2 bg-white/80 dark:bg-stone-900/80 px-3 py-0.5 rounded-md flex-1 truncate text-center">
+                  {publicUrl}
+                </span>
+              </div>
+
+              {/* Iframe com preview e suporte à edição in-place */}
+              <iframe
+                ref={iframeRef}
+                srcDoc={previewHtml}
+                title="Prévia do Roteiro de GC"
+                className="w-full flex-1 border-0"
+                sandbox="allow-scripts allow-same-origin allow-popups"
+              />
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* ── ABA 2: EDITOR HTML ────────────────────────────────────────── */}
         <TabsContent value="editor" className="space-y-3 focus-visible:outline-none">
           <div className="relative border rounded-2xl overflow-hidden bg-slate-950 text-slate-100 shadow-inner">
             <div className="flex items-center justify-between px-4 py-2 bg-slate-900 border-b border-slate-800 text-xs text-slate-400 font-mono">
@@ -345,7 +508,7 @@ export default function GcRoteiroAdminPage() {
           </div>
 
           <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
-            <p>💡 Dica: Você pode usar Tailwind CSS (CDN já incluso no template) e adicionar suas próprias seções.</p>
+            <p>💡 Dica: Você pode editar tanto visualmente na aba "Prévia Visual" quanto diretamente no código HTML aqui.</p>
             <Button
               size="sm"
               onClick={handleSaveAndPublish}
@@ -353,41 +516,8 @@ export default function GcRoteiroAdminPage() {
               className="gap-1.5 font-bold bg-amber-600 hover:bg-amber-700 text-white"
             >
               {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-              Publicar Agora
+              Salvar e Publicar
             </Button>
-          </div>
-        </TabsContent>
-
-        {/* ── ABA 2: PRÉ-VISUALIZAÇÃO AO VIVO ───────────────────────────── */}
-        <TabsContent value="preview" className="space-y-3 focus-visible:outline-none">
-          <div className="flex justify-center bg-stone-100 dark:bg-stone-950/60 p-4 sm:p-8 rounded-2xl border min-h-[650px]">
-            <div
-              className={`transition-all duration-300 bg-white rounded-2xl shadow-xl overflow-hidden border border-stone-300 flex flex-col ${
-                previewDevice === 'mobile'
-                  ? 'w-[390px] h-[780px]'
-                  : previewDevice === 'tablet'
-                  ? 'w-[768px] h-[850px]'
-                  : 'w-full h-[850px]'
-              }`}
-            >
-              {/* Barra do mock de navegador */}
-              <div className="bg-stone-200 dark:bg-stone-800 px-4 py-2 flex items-center gap-2 border-b text-xs text-stone-600 dark:text-stone-300 font-mono">
-                <span className="w-2.5 h-2.5 rounded-full bg-stone-400 inline-block" />
-                <span className="w-2.5 h-2.5 rounded-full bg-stone-400 inline-block" />
-                <span className="w-2.5 h-2.5 rounded-full bg-stone-400 inline-block" />
-                <span className="ml-2 bg-white/80 dark:bg-stone-900/80 px-3 py-0.5 rounded-md flex-1 truncate text-center">
-                  {publicUrl}
-                </span>
-              </div>
-
-              {/* Iframe com sandbox permissiva para rodar Tailwind e scripts */}
-              <iframe
-                srcDoc={htmlContent || '<p class="p-8 text-center text-gray-500">Nenhum conteúdo inserido.</p>'}
-                title="Prévia do Roteiro de GC"
-                className="w-full flex-1 border-0"
-                sandbox="allow-scripts allow-same-origin allow-popups"
-              />
-            </div>
           </div>
         </TabsContent>
 
