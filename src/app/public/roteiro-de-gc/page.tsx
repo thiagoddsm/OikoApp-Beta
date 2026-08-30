@@ -56,10 +56,56 @@ export default function PublicGcRoteiroPage() {
   };
 
   const handlePrint = () => {
-    const iframe = document.getElementById('roteiro-frame') as HTMLIFrameElement;
-    if (iframe && iframe.contentWindow) {
-      iframe.contentWindow.print();
-    } else {
+    try {
+      // Cria uma janela dedicada para impressão perfeita e multi-página (PDF)
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        // Injeta CSS para expandir o conteúdo de apoio e otimizar margens na impressão
+        const printOptimizedHtml = roteiro.htmlContent.replace(
+          '</head>',
+          `  <style>
+            @media print {
+              header { display: none !important; }
+              .accordion-content { max-height: none !important; display: block !important; }
+              #toggle-apoio-btn { display: none !important; }
+              body { background-color: #ffffff !important; padding: 0 !important; }
+              main { max-width: 100% !important; padding: 0 !important; }
+            }
+          </style>
+        </head>`
+        );
+
+        printWindow.document.open();
+        printWindow.document.write(printOptimizedHtml);
+        printWindow.document.close();
+
+        // Aguarda carregar as fontes e estilos do Tailwind antes de abrir o diálogo de impressão
+        printWindow.onload = () => {
+          setTimeout(() => {
+            printWindow.focus();
+            printWindow.print();
+          }, 350);
+        };
+
+        // Fallback de timeout caso o onload não dispare
+        setTimeout(() => {
+          try {
+            printWindow.focus();
+            printWindow.print();
+          } catch {}
+        }, 800);
+      } else {
+        // Fallback no iframe
+        const iframe = document.getElementById('roteiro-frame') as HTMLIFrameElement;
+        if (iframe && iframe.contentWindow) {
+          iframe.contentWindow.focus();
+          iframe.contentWindow.print();
+        } else {
+          window.print();
+        }
+      }
+    } catch (e) {
+      console.error('Erro ao imprimir:', e);
       window.print();
     }
   };
@@ -88,11 +134,11 @@ export default function PublicGcRoteiroPage() {
 
         <button
           onClick={handlePrint}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full hover:bg-stone-100 transition-all text-stone-700"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-stone-900 text-white hover:bg-stone-800 transition-all shadow-sm font-medium"
           title="Imprimir / Salvar PDF"
         >
           <Printer className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Imprimir</span>
+          <span>Imprimir</span>
         </button>
       </div>
 
@@ -102,7 +148,7 @@ export default function PublicGcRoteiroPage() {
         srcDoc={roteiro.htmlContent}
         title={roteiro.title || 'Roteiro de GC'}
         className="w-full h-full border-0 bg-transparent"
-        sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+        sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals"
       />
     </div>
   );
