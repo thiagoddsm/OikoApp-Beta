@@ -119,6 +119,7 @@ const menuItems = [
       subItems: [
         { href: "/dashboard/gc/structure", label: "Estrutura", icon: Network, permissionId: 'gcs_structure' },
         { href: "/dashboard/gc/cells", label: "Células", icon: Users2, permissionId: 'gcs_cells' },
+        { href: "/dashboard/gc/roteiro", label: "Roteiro de GC", icon: BookOpen, permissionId: 'gcs_cells' },
         { href: "/dashboard/gc/report", label: "Relatório de Célula", icon: ClipboardList, permissionId: 'gcs_report' },
         { href: "/dashboard/gc/supervisor", label: "Supervisor", icon: BarChart2, permissionId: 'gcs_supervisor' },
         { href: "/dashboard/gc/map", label: "Mapa", icon: Map, permissionId: 'gcs_map' },
