@@ -1,26 +1,37 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useFirebase, useMemoFirebase, useDoc } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { getActiveGcRoteiro, type PublicGcRoteiroData } from './actions';
 import { DEFAULT_GC_ROTEIRO_HTML, DEFAULT_GC_ROTEIRO_TITLE } from '@/lib/constants/default-gc-roteiro';
-import { Share2, Copy, Printer, CheckCircle2 } from 'lucide-react';
+import { Share2, Copy, Printer, CheckCircle2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function PublicGcRoteiroPage() {
-  const { firestore } = useFirebase();
   const { toast } = useToast();
-
-  const { data: activeRoteiro, isLoading } = useDoc<any>('gc_roteiros/active');
-
-  const [htmlToRender, setHtmlToRender] = useState<string>(DEFAULT_GC_ROTEIRO_HTML);
+  const [roteiro, setRoteiro] = useState<PublicGcRoteiroData>({
+    title: DEFAULT_GC_ROTEIRO_TITLE,
+    date: '',
+    htmlContent: DEFAULT_GC_ROTEIRO_HTML,
+  });
   const [copied, setCopied] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (activeRoteiro?.htmlContent) {
-      setHtmlToRender(activeRoteiro.htmlContent);
+    async function loadActiveRoteiro() {
+      try {
+        const data = await getActiveGcRoteiro();
+        if (data && data.htmlContent) {
+          setRoteiro(data);
+        }
+      } catch (err) {
+        console.error('Falha ao carregar roteiro:', err);
+      } finally {
+        setIsLoading(false);
+      }
     }
-  }, [activeRoteiro]);
+
+    loadActiveRoteiro();
+  }, []);
 
   const handleCopyLink = async () => {
     try {
@@ -37,7 +48,7 @@ export default function PublicGcRoteiroPage() {
   };
 
   const handleShareWhatsApp = () => {
-    const title = activeRoteiro?.title || DEFAULT_GC_ROTEIRO_TITLE;
+    const title = roteiro.title || DEFAULT_GC_ROTEIRO_TITLE;
     const message = encodeURIComponent(
       `📖 *Roteiro de GC Semanal — ${title}*\n\nOlá líder! Acesse o roteiro e material de apoio para a reunião do seu GC:\n👉 ${window.location.href}`
     );
@@ -88,8 +99,8 @@ export default function PublicGcRoteiroPage() {
       {/* RENDERIZADOR DO ROTEIRO COMPLETO */}
       <iframe
         id="roteiro-frame"
-        srcDoc={htmlToRender}
-        title={activeRoteiro?.title || 'Roteiro de GC'}
+        srcDoc={roteiro.htmlContent}
+        title={roteiro.title || 'Roteiro de GC'}
         className="w-full h-full border-0 bg-transparent"
         sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
       />

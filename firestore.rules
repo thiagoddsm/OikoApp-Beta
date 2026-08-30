@@ -22,13 +22,17 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
-    // ── Exceções de Segurança Restritivas ─────────────────────────────────────
     // Formulários públicos (criação anônima permitida para inscrições)
     match /enrollment_requests/{requestId} {
       allow create: if true;
     }
     match /finance_requests/{reqId} {
       allow create: if true;
+    }
+
+    // Roteiros de GC (Leitura pública para membros e líderes)
+    match /gc_roteiros/{roteiroId} {
+      allow read: if true;
     }
 
     // Audit Logs (Imutável por clientes)
