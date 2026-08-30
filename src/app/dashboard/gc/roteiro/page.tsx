@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useFirebase, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { doc, setDoc, collection, query, orderBy, Timestamp, addDoc, limit } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -28,9 +28,9 @@ import {
   History,
   Sparkles,
   CalendarDays,
-  PenTool,
   Pencil,
-  Check
+  Check,
+  AlertCircle
 } from 'lucide-react';
 import { DEFAULT_GC_ROTEIRO_HTML, DEFAULT_GC_ROTEIRO_TITLE } from '@/lib/constants/default-gc-roteiro';
 
@@ -58,6 +58,10 @@ export default function GcRoteiroAdminPage() {
   const [previewDevice, setPreviewDevice] = useState<'mobile' | 'tablet' | 'desktop'>('mobile');
   const [activeTab, setActiveTab] = useState<'preview' | 'editor' | 'history'>('preview');
   const [isVisualEditing, setIsVisualEditing] = useState(true);
+  const [hasUnsavedVisualEdits, setHasUnsavedVisualEdits] = useState(false);
+
+  // Armazena temporariamente a última versão digitada no iframe sem forçar re-render do srcDoc
+  const latestVisualHtmlRef = useRef<string>('');
 
   // Inicializa com dados do Firestore ou template padrão
   useEffect(() => {
@@ -65,24 +69,78 @@ export default function GcRoteiroAdminPage() {
       setTitle(activeRoteiro.title || DEFAULT_GC_ROTEIRO_TITLE);
       setReferenceDate(activeRoteiro.date || new Date().toISOString().split('T')[0]);
       setHtmlContent(activeRoteiro.htmlContent || DEFAULT_GC_ROTEIRO_HTML);
+      latestVisualHtmlRef.current = activeRoteiro.htmlContent || DEFAULT_GC_ROTEIRO_HTML;
     } else if (!isLoadingActive) {
       setTitle(DEFAULT_GC_ROTEIRO_TITLE);
       setReferenceDate(new Date().toISOString().split('T')[0]);
       setHtmlContent(DEFAULT_GC_ROTEIRO_HTML);
+      latestVisualHtmlRef.current = DEFAULT_GC_ROTEIRO_HTML;
     }
   }, [activeRoteiro, isLoadingActive]);
 
-  // Listener para capturar edições visuais originadas do iframe
+  // Listener para capturar o conteúdo digitado no iframe sem re-renderizar o srcDoc na hora
   useEffect(() => {
     const handleVisualEditMessage = (event: MessageEvent) => {
       if (event.data?.type === 'OIKO_ROTEIRO_VISUAL_EDIT' && typeof event.data.html === 'string') {
-        setHtmlContent(event.data.html);
+        latestVisualHtmlRef.current = event.data.html;
+        setHasUnsavedVisualEdits(true);
       }
     };
 
     window.addEventListener('message', handleVisualEditMessage);
     return () => window.removeEventListener('message', handleVisualEditMessage);
   }, []);
+
+  // Extrai o HTML limpo do iframe
+  const extractCleanHtmlFromIframe = useCallback((): string => {
+    if (iframeRef.current?.contentDocument) {
+      try {
+        const doc = iframeRef.current.contentDocument;
+        const clone = doc.documentElement.cloneNode(true) as HTMLElement;
+
+        // Remove scripts e estilos auxiliares de edição
+        const styleEl = clone.querySelector('#oiko-visual-editor-style');
+        if (styleEl) styleEl.remove();
+
+        const scriptEl = clone.querySelector('#oiko-visual-editor-script');
+        if (scriptEl) scriptEl.remove();
+
+        const bodyEl = clone.querySelector('body');
+        if (bodyEl) {
+          bodyEl.removeAttribute('contenteditable');
+          bodyEl.removeAttribute('spellcheck');
+        }
+
+        return '<!DOCTYPE html>\n' + clone.outerHTML;
+      } catch (e) {
+        console.error('Erro ao ler DOM do iframe:', e);
+      }
+    }
+    return latestVisualHtmlRef.current || htmlContent;
+  }, [htmlContent]);
+
+  // Função para sincronizar a edição visual para o estado React do HTML
+  const handleApplyVisualEdits = useCallback(() => {
+    const currentHtml = extractCleanHtmlFromIframe();
+    setHtmlContent(currentHtml);
+    latestVisualHtmlRef.current = currentHtml;
+    setHasUnsavedVisualEdits(false);
+    toast({
+      title: '✅ Alterações Visuais Salvas!',
+      description: 'O código HTML foi sincronizado com o que você digitou na tela.',
+    });
+  }, [extractCleanHtmlFromIframe, toast]);
+
+  // Ao trocar de aba, se houver edições visuais pendentes, sincroniza automaticamente
+  const handleTabChange = (val: 'preview' | 'editor' | 'history') => {
+    if (activeTab === 'preview' && hasUnsavedVisualEdits) {
+      const currentHtml = extractCleanHtmlFromIframe();
+      setHtmlContent(currentHtml);
+      latestVisualHtmlRef.current = currentHtml;
+      setHasUnsavedVisualEdits(false);
+    }
+    setActiveTab(val);
+  };
 
   const publicUrl = typeof window !== 'undefined'
     ? `${window.location.origin}/public/roteiro-de-gc`
@@ -117,6 +175,8 @@ export default function GcRoteiroAdminPage() {
     if (window.confirm('Deseja restaurar o modelo padrão do Roteiro de GC? O conteúdo atual no editor será substituído.')) {
       setTitle(DEFAULT_GC_ROTEIRO_TITLE);
       setHtmlContent(DEFAULT_GC_ROTEIRO_HTML);
+      latestVisualHtmlRef.current = DEFAULT_GC_ROTEIRO_HTML;
+      setHasUnsavedVisualEdits(false);
       toast({
         title: 'Modelo Padrão Carregado',
         description: 'O template base com visual moderno e acordeão foi carregado no editor.',
@@ -126,7 +186,11 @@ export default function GcRoteiroAdminPage() {
 
   const handleSaveAndPublish = async () => {
     if (!firestore) return;
-    if (!htmlContent.trim()) {
+
+    // Se houver edição visual pendente no iframe, pega a versão mais recente
+    const finalHtml = hasUnsavedVisualEdits ? extractCleanHtmlFromIframe() : htmlContent;
+
+    if (!finalHtml.trim()) {
       toast({
         variant: 'destructive',
         title: 'Conteúdo vazio',
@@ -141,7 +205,7 @@ export default function GcRoteiroAdminPage() {
       const payload = {
         title: title.trim() || 'Roteiro de GC Semanal',
         date: referenceDate || new Date().toISOString().split('T')[0],
-        htmlContent: htmlContent.trim(),
+        htmlContent: finalHtml.trim(),
         isActive: true,
         updatedAt: now,
         updatedBy: user?.displayName || user?.email || 'Administrador',
@@ -155,6 +219,11 @@ export default function GcRoteiroAdminPage() {
         ...payload,
         createdAt: now,
       });
+
+      // Atualiza os estados locais
+      setHtmlContent(finalHtml.trim());
+      latestVisualHtmlRef.current = finalHtml.trim();
+      setHasUnsavedVisualEdits(false);
 
       toast({
         title: '🎉 Roteiro Publicado com Sucesso!',
@@ -177,6 +246,8 @@ export default function GcRoteiroAdminPage() {
       setTitle(item.title || '');
       setReferenceDate(item.date || '');
       setHtmlContent(item.htmlContent || '');
+      latestVisualHtmlRef.current = item.htmlContent || '';
+      setHasUnsavedVisualEdits(false);
       setActiveTab('preview');
       toast({
         title: 'Versão Carregada no Editor',
@@ -185,7 +256,7 @@ export default function GcRoteiroAdminPage() {
     }
   };
 
-  // Prepara o HTML da prévia com injeção de script de edição visual caso ativado
+  // Prepara o HTML da prévia injetando os estilos visuais de foco e listeners internos
   const previewHtml = useMemo(() => {
     if (!htmlContent) return '<p class="p-8 text-center text-gray-500">Nenhum conteúdo inserido.</p>';
     if (!isVisualEditing) return htmlContent;
@@ -196,14 +267,14 @@ export default function GcRoteiroAdminPage() {
           outline: none !important;
         }
         body[contenteditable="true"] *:hover {
-          outline: 1.5px dashed rgba(217, 119, 6, 0.45) !important;
+          outline: 1.5px dashed rgba(217, 119, 6, 0.4) !important;
           outline-offset: 2px;
           cursor: text;
         }
         body[contenteditable="true"] *:focus {
           outline: 2px solid #d97706 !important;
           outline-offset: 2px;
-          background-color: rgba(254, 243, 199, 0.25) !important;
+          background-color: rgba(254, 243, 199, 0.2) !important;
         }
       </style>
       <script id="oiko-visual-editor-script">
@@ -245,7 +316,7 @@ export default function GcRoteiroAdminPage() {
               } catch(e) {
                 console.error('[Visual Edit] Erro ao sincronizar:', e);
               }
-            }, 250);
+            }, 100);
           });
         })();
       </script>
@@ -272,7 +343,7 @@ export default function GcRoteiroAdminPage() {
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            Edite visualmente ou via HTML o estudo da semana para compartilhar com os líderes de pequenos grupos.
+            Edite visualmente na tela ou via código HTML para compartilhar com os líderes de pequenos grupos.
           </p>
         </div>
 
@@ -340,8 +411,8 @@ export default function GcRoteiroAdminPage() {
         </div>
       </div>
 
-      {/* TABS: PREVIEW (PADRÃO COM EDIÇÃO DIRETA) / EDITOR HTML / HISTÓRICO */}
-      <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val)} className="space-y-4">
+      {/* TABS: PREVIEW / EDITOR HTML / HISTÓRICO */}
+      <Tabs value={activeTab} onValueChange={(val: any) => handleTabChange(val)} className="space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b pb-3">
           <TabsList className="grid grid-cols-3 w-full sm:w-auto min-w-[340px]">
             <TabsTrigger value="preview" className="gap-1.5 text-xs font-bold">
@@ -356,7 +427,7 @@ export default function GcRoteiroAdminPage() {
           </TabsList>
 
           {activeTab === 'preview' && (
-            <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
               {/* TOGGLE DE EDIÇÃO VISUAL */}
               <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 px-3 py-1.5 rounded-xl shadow-sm">
                 <Switch
@@ -367,9 +438,23 @@ export default function GcRoteiroAdminPage() {
                 />
                 <Label htmlFor="visual-edit-mode" className="text-xs font-bold text-amber-900 dark:text-amber-300 cursor-pointer flex items-center gap-1">
                   <Pencil className="h-3 w-3" />
-                  Edição Visual Direta
+                  Edição Visual
                 </Label>
               </div>
+
+              {/* BOTÃO SALVAR EDIÇÃO VISUAL */}
+              {hasUnsavedVisualEdits && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleApplyVisualEdits}
+                  className="gap-1.5 text-xs font-bold bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-400 animate-pulse shadow-sm"
+                  title="Salva as alterações de texto digitadas na tela"
+                >
+                  <Save className="h-3.5 w-3.5 text-amber-700" />
+                  Salvar Edição na Tela
+                </Button>
+              )}
 
               {/* DISPOSITIVO */}
               <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-xl border">
@@ -439,16 +524,22 @@ export default function GcRoteiroAdminPage() {
         {/* ── ABA 1: PRÉ-VISUALIZAÇÃO AO VIVO COM EDIÇÃO DIRETA ────────── */}
         <TabsContent value="preview" className="space-y-3 focus-visible:outline-none">
           {isVisualEditing && (
-            <div className="bg-amber-50/90 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-900/60 p-3 rounded-xl flex items-center justify-between text-xs text-amber-900 dark:text-amber-200">
+            <div className="bg-amber-50/90 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-900/60 p-3 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-amber-900 dark:text-amber-200">
               <span className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-amber-600 shrink-0" />
                 <span>
-                  <strong>Modo de Edição Visual Ativo:</strong> Clique diretamente em qualquer texto, título, perguntas ou avisos na tela abaixo para alterar o conteúdo. O HTML é sincronizado em tempo real!
+                  <strong>Edição na Tela:</strong> Clique em qualquer texto para digitar livremente sem interrupções. Quando terminar de editar, clique no botão <strong>"Salvar e Publicar"</strong> ou <strong>"Salvar Edição na Tela"</strong>.
                 </span>
               </span>
-              <Badge variant="outline" className="bg-white/80 dark:bg-stone-900/80 text-amber-700 border-amber-300 font-bold shrink-0 ml-2">
-                ✏️ Clique & Digite
-              </Badge>
+              {hasUnsavedVisualEdits ? (
+                <Badge className="bg-amber-600 text-white font-bold shrink-0 self-start sm:self-auto">
+                  ● Alterações não salvas
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="bg-white/80 dark:bg-stone-900/80 text-emerald-700 border-emerald-300 font-bold shrink-0 self-start sm:self-auto">
+                  ✓ Tudo sincronizado
+                </Badge>
+              )}
             </div>
           )}
 
@@ -472,7 +563,7 @@ export default function GcRoteiroAdminPage() {
                 </span>
               </div>
 
-              {/* Iframe com preview e suporte à edição in-place */}
+              {/* Iframe com preview e suporte à edição in-place sem reload contínuo */}
               <iframe
                 ref={iframeRef}
                 srcDoc={previewHtml}
@@ -499,7 +590,10 @@ export default function GcRoteiroAdminPage() {
 
             <textarea
               value={htmlContent}
-              onChange={(e) => setHtmlContent(e.target.value)}
+              onChange={(e) => {
+                setHtmlContent(e.target.value);
+                latestVisualHtmlRef.current = e.target.value;
+              }}
               rows={24}
               placeholder="Cole o código HTML completo aqui..."
               className="w-full bg-transparent p-4 font-mono text-xs text-slate-200 resize-y focus:outline-none leading-relaxed selection:bg-amber-600 selection:text-white"
