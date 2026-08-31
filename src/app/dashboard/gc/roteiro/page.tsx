@@ -106,8 +106,11 @@ export default function GcRoteiroAdminPage() {
     if (activeRoteiro) {
       setTitle(activeRoteiro.title || DEFAULT_GC_ROTEIRO_TITLE);
       setReferenceDate(activeRoteiro.date || new Date().toISOString().split('T')[0]);
-      setHtmlContent(activeRoteiro.htmlContent || DEFAULT_GC_ROTEIRO_HTML);
-      latestVisualHtmlRef.current = activeRoteiro.htmlContent || DEFAULT_GC_ROTEIRO_HTML;
+      const cleanHtml = (activeRoteiro.htmlContent || DEFAULT_GC_ROTEIRO_HTML)
+        .replace(/max-height:\s*1200px/gi, 'max-height: 15000px')
+        .replace(/max-height:\s*1000px/gi, 'max-height: 15000px');
+      setHtmlContent(cleanHtml);
+      latestVisualHtmlRef.current = cleanHtml;
     } else if (!isLoadingActive) {
       setTitle(DEFAULT_GC_ROTEIRO_TITLE);
       setReferenceDate(new Date().toISOString().split('T')[0]);

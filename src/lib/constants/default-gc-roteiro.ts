@@ -27,11 +27,11 @@ export const DEFAULT_GC_ROTEIRO_HTML = `<!DOCTYPE html>
         .accordion-content {
             max-height: 0;
             overflow: hidden;
-            transition: max-height 0.35s ease-out;
+            transition: max-height 0.4s ease-out;
         }
         .accordion-content.open {
-            max-height: 1200px;
-            transition: max-height 0.5s ease-in;
+            max-height: 15000px;
+            transition: max-height 0.6s ease-in;
         }
         .badge-step {
             background: #EFE8DA;

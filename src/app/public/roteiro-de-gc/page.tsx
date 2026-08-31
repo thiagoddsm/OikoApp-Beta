@@ -21,7 +21,10 @@ export default function PublicGcRoteiroPage() {
       try {
         const data = await getActiveGcRoteiro();
         if (data && data.htmlContent) {
-          setRoteiro(data);
+          const fixedHtml = data.htmlContent
+            .replace(/max-height:\s*1200px/gi, 'max-height: 15000px')
+            .replace(/max-height:\s*1000px/gi, 'max-height: 15000px');
+          setRoteiro({ ...data, htmlContent: fixedHtml });
         }
       } catch (err) {
         console.error('Falha ao carregar roteiro:', err);

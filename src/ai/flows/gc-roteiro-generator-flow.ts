@@ -187,6 +187,10 @@ export async function generateGcRoteiroWithGemini(input: GcRoteiroGeneratorInput
       rawOutput = rawOutput.split('```')[1].split('```')[0].trim();
     }
 
+    // Garante que o acordeão não corte o conteúdo por limite de altura
+    rawOutput = rawOutput.replace(/max-height:\s*1200px/gi, 'max-height: 15000px');
+    rawOutput = rawOutput.replace(/max-height:\s*1000px/gi, 'max-height: 15000px');
+
     // Extrai o título do HTML
     let extractedTitle = 'Roteiro de GC Semanal';
     const titleMatch = rawOutput.match(/<h1[^>]*>([^<]+)<\/h1>/i) || rawOutput.match(/<title[^>]*>([^<]+)<\/title>/i);
