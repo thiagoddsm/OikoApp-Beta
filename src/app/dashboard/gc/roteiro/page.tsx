@@ -7,9 +7,18 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import {
   BookOpen,
@@ -29,10 +38,18 @@ import {
   Sparkles,
   CalendarDays,
   Pencil,
-  Check,
-  AlertCircle
+  Upload,
+  Mic,
+  MicOff,
+  Music,
+  Bell,
+  Users,
+  FileAudio,
+  Trash2,
+  Wand2
 } from 'lucide-react';
 import { DEFAULT_GC_ROTEIRO_HTML, DEFAULT_GC_ROTEIRO_TITLE } from '@/lib/constants/default-gc-roteiro';
+import { generateGcRoteiroAction } from './actions';
 
 export default function GcRoteiroAdminPage() {
   const { firestore, user } = useFirebase();
@@ -49,7 +66,7 @@ export default function GcRoteiroAdminPage() {
   );
   const { data: historyList, isLoading: isLoadingHistory } = useCollection<any>(historyQuery);
 
-  // Estados do formulário
+  // Estados do formulário principal
   const [title, setTitle] = useState('');
   const [referenceDate, setReferenceDate] = useState('');
   const [htmlContent, setHtmlContent] = useState('');
@@ -60,7 +77,28 @@ export default function GcRoteiroAdminPage() {
   const [isVisualEditing, setIsVisualEditing] = useState(true);
   const [hasUnsavedVisualEdits, setHasUnsavedVisualEdits] = useState(false);
 
-  // Armazena temporariamente a última versão digitada no iframe sem forçar re-render do srcDoc
+  // Estados do Modal da IA (Gemini)
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [aiSourceMode, setAiSourceMode] = useState<'audio' | 'text'>('audio');
+  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [audioBase64, setAudioBase64] = useState<string>('');
+  const [audioMimeType, setAudioMimeType] = useState<string>('');
+  const [textOutline, setTextOutline] = useState('');
+  const [pastoralMessage, setPastoralMessage] = useState('');
+  const [louvores, setLouvores] = useState('Em Teus Braços - Laura Souguellis / Cristo, Nossa Certeza - Soberana Graça');
+  const [avisos, setAvisos] = useState('Início do IBM College nesta quinta-feira / Conferência Missão de Casa com Pr. Alvin e Pr. Rafael Abdalla');
+  const [perfilGc, setPerfilGc] = useState('Geral');
+  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
+  const [aiStepStatus, setAiStepStatus] = useState('');
+
+  // Gravação de microfone
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<any>(null);
+
+  // Armazena temporariamente a última versão digitada no iframe
   const latestVisualHtmlRef = useRef<string>('');
 
   // Inicializa com dados do Firestore ou template padrão
@@ -78,7 +116,7 @@ export default function GcRoteiroAdminPage() {
     }
   }, [activeRoteiro, isLoadingActive]);
 
-  // Listener para capturar o conteúdo digitado no iframe sem re-renderizar o srcDoc na hora
+  // Listener para capturar o conteúdo digitado no iframe sem re-renderizar o srcDoc
   useEffect(() => {
     const handleVisualEditMessage = (event: MessageEvent) => {
       if (event.data?.type === 'OIKO_ROTEIRO_VISUAL_EDIT' && typeof event.data.html === 'string') {
@@ -98,7 +136,6 @@ export default function GcRoteiroAdminPage() {
         const doc = iframeRef.current.contentDocument;
         const clone = doc.documentElement.cloneNode(true) as HTMLElement;
 
-        // Remove scripts e estilos auxiliares de edição
         const styleEl = clone.querySelector('#oiko-visual-editor-style');
         if (styleEl) styleEl.remove();
 
@@ -119,7 +156,6 @@ export default function GcRoteiroAdminPage() {
     return latestVisualHtmlRef.current || htmlContent;
   }, [htmlContent]);
 
-  // Função para sincronizar a edição visual para o estado React do HTML
   const handleApplyVisualEdits = useCallback(() => {
     const currentHtml = extractCleanHtmlFromIframe();
     setHtmlContent(currentHtml);
@@ -131,7 +167,6 @@ export default function GcRoteiroAdminPage() {
     });
   }, [extractCleanHtmlFromIframe, toast]);
 
-  // Ao trocar de aba, se houver edições visuais pendentes, sincroniza automaticamente
   const handleTabChange = (val: 'preview' | 'editor' | 'history') => {
     if (activeTab === 'preview' && hasUnsavedVisualEdits) {
       const currentHtml = extractCleanHtmlFromIframe();
@@ -140,6 +175,156 @@ export default function GcRoteiroAdminPage() {
       setHasUnsavedVisualEdits(false);
     }
     setActiveTab(val);
+  };
+
+  // Upload de arquivo de áudio
+  const handleAudioFileUpload = (file: File) => {
+    setAudioFile(file);
+    setAudioMimeType(file.type || 'audio/mpeg');
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const base64Data = result.split(',')[1];
+      setAudioBase64(base64Data);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Gravação de microfone
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const file = new File([audioBlob], `gravacao-mensagem-${Date.now()}.webm`, { type: 'audio/webm' });
+        handleAudioFileUpload(file);
+        stream.getTracks().forEach(t => t.stop());
+      };
+
+      mediaRecorder.start(200);
+      setIsRecording(true);
+      setRecordingSeconds(0);
+
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingSeconds((prev) => prev + 1);
+      }, 1000);
+    } catch (err) {
+      console.error('Erro ao acessar microfone:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Microfone não autorizado',
+        description: 'Permita o acesso ao microfone no navegador para gravar o áudio.',
+      });
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      clearInterval(recordingTimerRef.current);
+    }
+  };
+
+  const formatTimer = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
+
+  // Gerar Roteiro com IA Gemini
+  const handleGenerateWithAi = async () => {
+    if (aiSourceMode === 'audio' && !audioBase64) {
+      toast({
+        variant: 'destructive',
+        title: 'Áudio não encontrado',
+        description: 'Faça upload de um arquivo de áudio ou grave uma mensagem pelo microfone.',
+      });
+      return;
+    }
+
+    if (aiSourceMode === 'text' && !textOutline.trim()) {
+      toast({
+        variant: 'destructive',
+        title: 'Esboço vazio',
+        description: 'Cole o resumo, esboço ou notas da pregação para a IA analisar.',
+      });
+      return;
+    }
+
+    setIsGeneratingAi(true);
+    setAiStepStatus(aiSourceMode === 'audio' ? '1. Enviando e transcrevendo áudio com Gemini 2.5 Flash...' : '1. Analisando estrutura bíblica e esboço...');
+
+    try {
+      const stepTimer1 = setTimeout(() => {
+        setAiStepStatus('2. Identificando passagens bíblicas, verdades centrais e ilustrações...');
+      }, 3500);
+
+      const stepTimer2 = setTimeout(() => {
+        setAiStepStatus('3. Elaborando blocos de conversa, perguntas reflexivas e dinâmicas...');
+      }, 8500);
+
+      const stepTimer3 = setTimeout(() => {
+        setAiStepStatus('4. Formatando HTML com Material de Apoio ao Líder e design responsivo...');
+      }, 14000);
+
+      const result = await generateGcRoteiroAction({
+        audioBase64: aiSourceMode === 'audio' ? audioBase64 : undefined,
+        audioMimeType: aiSourceMode === 'audio' ? audioMimeType : undefined,
+        textOutline: aiSourceMode === 'text' ? textOutline : undefined,
+        pastoralMessage: pastoralMessage.trim() || undefined,
+        louvores: louvores.trim() || undefined,
+        avisos: avisos.trim() || undefined,
+        perfilGc: perfilGc || 'Geral',
+        date: referenceDate || new Date().toISOString().split('T')[0],
+      });
+
+      clearTimeout(stepTimer1);
+      clearTimeout(stepTimer2);
+      clearTimeout(stepTimer3);
+
+      if (result.success && result.htmlContent) {
+        setTitle(result.title);
+        setReferenceDate(result.date || referenceDate);
+        setHtmlContent(result.htmlContent);
+        latestVisualHtmlRef.current = result.htmlContent;
+        setHasUnsavedVisualEdits(false);
+        setActiveTab('preview');
+        setIsAiModalOpen(false);
+
+        toast({
+          title: '✨ Roteiro Gerado com Sucesso!',
+          description: `"${result.title}" foi criado pelo Gemini e está pronto na sua prévia!`,
+        });
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Erro na geração',
+          description: result.error || 'Não foi possível gerar o roteiro. Tente novamente.',
+        });
+      }
+    } catch (err: any) {
+      console.error('Erro ao gerar com IA:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Falha na comunicação com a IA',
+        description: err.message || 'Ocorreu um erro ao processar o áudio.',
+      });
+    } finally {
+      setIsGeneratingAi(false);
+      setAiStepStatus('');
+    }
   };
 
   const publicUrl = typeof window !== 'undefined'
@@ -187,7 +372,6 @@ export default function GcRoteiroAdminPage() {
   const handleSaveAndPublish = async () => {
     if (!firestore) return;
 
-    // Se houver edição visual pendente no iframe, pega a versão mais recente
     const finalHtml = hasUnsavedVisualEdits ? extractCleanHtmlFromIframe() : htmlContent;
 
     if (!finalHtml.trim()) {
@@ -211,16 +395,13 @@ export default function GcRoteiroAdminPage() {
         updatedBy: user?.displayName || user?.email || 'Administrador',
       };
 
-      // 1. Salva documento ativo singleton
       await setDoc(doc(firestore, 'gc_roteiros', 'active'), payload);
 
-      // 2. Registra no histórico para auditoria e recuperação
       await addDoc(collection(firestore, 'gc_roteiros_historico'), {
         ...payload,
         createdAt: now,
       });
 
-      // Atualiza os estados locais
       setHtmlContent(finalHtml.trim());
       latestVisualHtmlRef.current = finalHtml.trim();
       setHasUnsavedVisualEdits(false);
@@ -256,7 +437,6 @@ export default function GcRoteiroAdminPage() {
     }
   };
 
-  // Prepara o HTML da prévia injetando os estilos visuais de foco e listeners internos
   const previewHtml = useMemo(() => {
     if (!htmlContent) return '<p class="p-8 text-center text-gray-500">Nenhum conteúdo inserido.</p>';
     if (!isVisualEditing) return htmlContent;
@@ -343,12 +523,21 @@ export default function GcRoteiroAdminPage() {
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            Edite visualmente na tela ou via código HTML para compartilhar com os líderes de pequenos grupos.
+            Gere com IA Gemini a partir do áudio da pregação ou edite visualmente na tela para compartilhar com os líderes.
           </p>
         </div>
 
-        {/* AÇÕES DE COMPARTILHAMENTO */}
+        {/* AÇÕES DE DESTAQUE */}
         <div className="flex items-center gap-2 flex-wrap">
+          {/* BOTÃO GERAR COM IA GEMINI */}
+          <Button
+            onClick={() => setIsAiModalOpen(true)}
+            className="gap-2 font-bold bg-gradient-to-r from-amber-600 via-amber-500 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white shadow-md text-xs sm:text-sm"
+          >
+            <Sparkles className="h-4 w-4 animate-pulse" />
+            Gerar com IA (Gemini)
+          </Button>
+
           <Button
             variant="outline"
             size="sm"
@@ -563,7 +752,7 @@ export default function GcRoteiroAdminPage() {
                 </span>
               </div>
 
-              {/* Iframe com preview e suporte à edição in-place sem reload contínuo */}
+              {/* Iframe com preview */}
               <iframe
                 ref={iframeRef}
                 srcDoc={previewHtml}
@@ -673,6 +862,245 @@ export default function GcRoteiroAdminPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* ── MODAL: GERADOR INTELIGENTE COM GEMINI IA ───────────────────────── */}
+      <Dialog open={isAiModalOpen} onOpenChange={setIsAiModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center gap-2">
+              <span className="p-2 rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+                <Sparkles className="h-5 w-5" />
+              </span>
+              <div>
+                <DialogTitle className="text-lg font-black text-foreground">
+                  Mestre dos Roteiros de GC (Gemini IA)
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground">
+                  Envie o áudio da mensagem ou esboço para gerar o estudo bíblico completo e o Material de Apoio ao Líder.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {isGeneratingAi ? (
+            <div className="py-12 flex flex-col items-center justify-center space-y-4 text-center">
+              <div className="relative">
+                <div className="w-16 h-16 rounded-full border-4 border-amber-200 border-t-amber-600 animate-spin flex items-center justify-center" />
+                <Sparkles className="h-6 w-6 text-amber-600 absolute inset-0 m-auto animate-pulse" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="font-bold text-foreground text-sm">Gerando Roteiro com Gemini 2.5 Flash</h4>
+                <p className="text-xs text-amber-700 dark:text-amber-400 font-medium animate-pulse">
+                  {aiStepStatus || 'Processando mensagem pastoral...'}
+                </p>
+                <p className="text-[11px] text-muted-foreground pt-2 max-w-sm">
+                  Isso pode levar de 15 a 45 segundos dependendo do tamanho do áudio.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4 pt-2">
+              {/* SELEÇÃO DO TIPO DE ENTRADA: ÁUDIO OU ESBOÇO */}
+              <div className="grid grid-cols-2 gap-2 bg-muted p-1 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setAiSourceMode('audio')}
+                  className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
+                    aiSourceMode === 'audio'
+                      ? 'bg-background shadow-sm text-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <FileAudio className="h-4 w-4" /> Áudio da Mensagem
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setAiSourceMode('text')}
+                  className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
+                    aiSourceMode === 'text'
+                      ? 'bg-background shadow-sm text-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Code className="h-4 w-4" /> Esboço / Anotações
+                </button>
+              </div>
+
+              {/* OPÇÃO 1: ÁUDIO */}
+              {aiSourceMode === 'audio' && (
+                <div className="space-y-3">
+                  {!audioFile && !isRecording ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* UPLOAD ARQUIVO */}
+                      <label className="border-2 border-dashed border-amber-300 dark:border-amber-800/80 hover:bg-amber-50/50 dark:hover:bg-amber-950/30 rounded-xl p-5 flex flex-col items-center justify-center cursor-pointer transition-colors text-center">
+                        <Upload className="h-7 w-7 text-amber-600 mb-2" />
+                        <span className="text-xs font-bold text-foreground">Selecionar Áudio</span>
+                        <span className="text-[11px] text-muted-foreground mt-0.5">MP3, M4A, WAV, AAC, OGG</span>
+                        <input
+                          type="file"
+                          accept="audio/*,.mp3,.m4a,.wav,.aac,.ogg,.mp4,.webm"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleAudioFileUpload(file);
+                          }}
+                        />
+                      </label>
+
+                      {/* GRAVAR MICROFONE */}
+                      <button
+                        type="button"
+                        onClick={startRecording}
+                        className="border-2 border-dashed border-stone-300 dark:border-stone-800 hover:bg-stone-50 dark:hover:bg-stone-900 rounded-xl p-5 flex flex-col items-center justify-center transition-colors text-center"
+                      >
+                        <Mic className="h-7 w-7 text-stone-600 dark:text-stone-400 mb-2" />
+                        <span className="text-xs font-bold text-foreground">Gravar pelo Microfone</span>
+                        <span className="text-[11px] text-muted-foreground mt-0.5">Gravar resumo ao vivo</span>
+                      </button>
+                    </div>
+                  ) : isRecording ? (
+                    <div className="p-5 border-2 border-rose-400 bg-rose-50 dark:bg-rose-950/40 rounded-xl flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="w-3.5 h-3.5 rounded-full bg-rose-600 animate-ping" />
+                        <div>
+                          <p className="text-xs font-bold text-rose-900 dark:text-rose-200">Gravando mensagem...</p>
+                          <p className="text-sm font-mono font-bold text-rose-700">{formatTimer(recordingSeconds)}</p>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={stopRecording}
+                        className="gap-1 text-xs font-bold"
+                      >
+                        <MicOff className="h-3.5 w-3.5" /> Parar Gravação
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="p-4 border rounded-xl bg-muted/40 flex items-center justify-between">
+                      <div className="flex items-center gap-3 truncate">
+                        <FileAudio className="h-6 w-6 text-amber-600 shrink-0" />
+                        <div className="truncate">
+                          <p className="text-xs font-bold text-foreground truncate">{audioFile?.name}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {(audioFile!.size / (1024 * 1024)).toFixed(2)} MB &middot; Pronto para análise
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setAudioFile(null);
+                          setAudioBase64('');
+                          setAudioMimeType('');
+                        }}
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* OPÇÃO 2: TEXTO */}
+              {aiSourceMode === 'text' && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="textOutline" className="text-xs font-bold text-foreground">
+                    Esboço / Anotações da Pregação
+                  </Label>
+                  <Textarea
+                    id="textOutline"
+                    value={textOutline}
+                    onChange={(e) => setTextOutline(e.target.value)}
+                    placeholder="Cole aqui os tópicos da mensagem, versículos citados, ilustrações ou anotações pastorais..."
+                    rows={6}
+                    className="text-xs leading-relaxed"
+                  />
+                </div>
+              )}
+
+              {/* CAMPOS ADICIONAIS / CONTEXTO DA SEMANA */}
+              <div className="space-y-3 pt-2 border-t">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs font-bold flex items-center gap-1">
+                      <Music className="h-3 w-3 text-amber-600" /> Louvores Sugeridos
+                    </Label>
+                    <Input
+                      value={louvores}
+                      onChange={(e) => setLouvores(e.target.value)}
+                      placeholder="Ex: Em Teus Braços / Cristo, Nossa Certeza"
+                      className="text-xs"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs font-bold flex items-center gap-1">
+                      <Users className="h-3 w-3 text-amber-600" /> Perfil do GC
+                    </Label>
+                    <select
+                      value={perfilGc}
+                      onChange={(e) => setPerfilGc(e.target.value)}
+                      className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <option value="Geral">Geral (Toda a Igreja)</option>
+                      <option value="Jovens">Jovens / Universitários</option>
+                      <option value="Casais">Casais e Famílias</option>
+                      <option value="Visitantes Não Cristãos">Foco em Visitantes & Acolhimento</option>
+                      <option value="Evangelístico">Evangelístico</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold flex items-center gap-1">
+                    <Bell className="h-3 w-3 text-amber-600" /> Avisos da Igreja
+                  </Label>
+                  <Input
+                    value={avisos}
+                    onChange={(e) => setAvisos(e.target.value)}
+                    placeholder="Ex: Início do IBM College quinta / Conferência Missão de Casa"
+                    className="text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="pt-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsAiModalOpen(false)}
+              disabled={isGeneratingAi}
+              className="text-xs"
+            >
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleGenerateWithAi}
+              disabled={isGeneratingAi || (aiSourceMode === 'audio' && !audioBase64) || (aiSourceMode === 'text' && !textOutline.trim())}
+              className="gap-1.5 text-xs font-bold bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white shadow-sm"
+            >
+              {isGeneratingAi ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Gerando Roteiro...
+                </>
+              ) : (
+                <>
+                  <Wand2 className="h-3.5 w-3.5" />
+                  Gerar Roteiro Completo
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
