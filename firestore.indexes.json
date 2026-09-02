@@ -80,6 +80,14 @@
         { "fieldPath": "enrollmentId", "order": "ASCENDING" },
         { "fieldPath": "dueDate", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "reuniao_logs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "cellId", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

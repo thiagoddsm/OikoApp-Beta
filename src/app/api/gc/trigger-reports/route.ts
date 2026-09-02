@@ -176,11 +176,15 @@ export async function POST(request: Request) {
           // 2. Verificar se já existe relatório/cancelamento/adiamento enviado nos últimos 6 dias para esta célula
           const reportsSnap = await db.collection('reuniao_logs')
             .where('cellId', '==', cellId)
-            .where('date', '>=', dateLimitStr)
-            .limit(1)
             .get();
 
-          if (!reportsSnap.empty) {
+          const hasRecentReport = reportsSnap.docs.some(doc => {
+            const d = doc.data();
+            const logDate = d.date || (d.createdAt?.toDate?.() ? d.createdAt.toDate().toISOString().split('T')[0] : '');
+            return logDate >= dateLimitStr;
+          });
+
+          if (hasRecentReport) {
             // Relatório, cancelamento ou reagendamento já registrado para esta célula esta semana, pula
             continue;
           }

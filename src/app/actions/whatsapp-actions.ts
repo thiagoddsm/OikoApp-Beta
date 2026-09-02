@@ -442,12 +442,16 @@ export async function triggerGcReportsBatch(options: {
 
                 const existingSnap = await db.collection('reuniao_logs')
                     .where('cellId', '==', cDoc.id)
-                    .where('date', '>=', weekStartStr)
-                    .limit(1)
                     .get();
 
-                if (!existingSnap.empty) {
-                    const existingData = existingSnap.docs[0].data();
+                const recentDoc = existingSnap.docs.find(doc => {
+                    const d = doc.data();
+                    const logDate = d.date || (d.createdAt?.toDate?.() ? d.createdAt.toDate().toISOString().split('T')[0] : '');
+                    return logDate >= weekStartStr;
+                });
+
+                if (recentDoc) {
+                    const existingData = recentDoc.data();
                     const st = existingData.statusReuniao || 'realizado';
                     alreadyRunningCount++;
                     details.push({ 
