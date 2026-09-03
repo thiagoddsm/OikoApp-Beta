@@ -107,6 +107,7 @@ export function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors,
   const [memberSearch, setMemberSearch] = useState('');
   const [anfitriaoElegiveiIds, setAnfitriaoElegiveiIds] = useState<string[]>([]);
   const [addingSpouseFor, setAddingSpouseFor] = useState<number | null>(null);
+  const [addingHostSpouse, setAddingHostSpouse] = useState(false);
   const [liderEAnfitriao, setLiderEAnfitriao] = useState(false);
 
   const availableAreas = useMemo(() => {
@@ -145,7 +146,7 @@ export function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors,
       setMeetingDay(''); setMeetingTime(''); setMultiplicationDate(''); setSelectedMembers([]);
       setStatus('active'); setAnfitriaoElegiveiIds([]); setLiderEAnfitriao(false);
     }
-    setMemberSearch(''); setAddingSpouseFor(null);
+    setMemberSearch(''); setAddingSpouseFor(null); setAddingHostSpouse(false);
   }, [existingCell, open]);
   
   useEffect(() => {
@@ -171,10 +172,13 @@ export function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors,
     }
     setIsSaving(true);
     // Deriva coLiderIds flat (todos os IDs de co-líderes, incluindo cônjuges)
-    const flatCoLiderIds = [...new Set(coLideres.flatMap(c => [c.id, c.casalId].filter(Boolean) as string[]))];
+    const flatCoLiderIds = [...new Set(coLideres.flatMap(c => [c.id, c.casalId].filter(Boolean) as string[]))]
+      .filter(id => id && id !== '__adding' && id !== '__none');
+    
     // Se líder é anfitrião, usa liderId; senão usa o campo manual
-    const resolvedAnfitriaoId = liderEAnfitriao ? liderId : anfitriaoId;
-    const resolvedAnfitriãoCasalId = liderEAnfitriao ? liderCasalId : anfitriãoCasalId;
+    const resolvedAnfitriaoId = liderEAnfitriao ? liderId : (anfitriaoId === '__adding' ? '' : anfitriaoId);
+    const resolvedAnfitriãoCasalId = liderEAnfitriao ? liderCasalId : (anfitriãoCasalId === '__adding' ? '' : anfitriãoCasalId);
+    
     // Membros finais: líder + casal líder + co-líderes + anfitrião + casal anfitrião + secretaria + selecionados
     const finalMembers = [...new Set([
       liderId, liderCasalId,
@@ -183,19 +187,24 @@ export function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors,
       secretariaId,
       ...selectedMembers,
       ...anfitriaoElegiveiIds,
-    ].filter(Boolean) as string[])];
+    ].filter(Boolean) as string[])].filter(id => id && id !== '__adding' && id !== '__none');
+
     const cellData = {
       nome, liderId, liderCasalId: liderCasalId || null,
-      coLideres, coLiderIds: flatCoLiderIds,
+      coLideres: coLideres.map(c => ({
+        id: c.id,
+        ...(c.casalId && c.casalId !== '__adding' ? { casalId: c.casalId } : {})
+      })),
+      coLiderIds: flatCoLiderIds,
       anfitriaoId: resolvedAnfitriaoId || null,
       anfitriãoCasalId: resolvedAnfitriãoCasalId || null,
       liderEAnfitriao,
-      secretariaId: secretariaId || null,
+      secretariaId: (secretariaId && secretariaId !== '__adding') ? secretariaId : null,
       supervisorId, areaId, redeId,
       status,
       address: { street, lat, lng },
       meetingDay, meetingTime, multiplicationDate: multiplicationDate || null,
-      anfitriaoElegiveiIds,
+      anfitriaoElegiveiIds: anfitriaoElegiveiIds.filter(id => id && id !== '__adding'),
     };
     try {
       if (existingCell) {
@@ -393,20 +402,54 @@ export function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors,
               {/* Campo manual — só exibe se não for líder */}
               {!liderEAnfitriao && (
                 <>
-                  <PersonSearchInput value={anfitriaoId} onChange={id => { setAnfitriaoId(id); if (!id) setAnfitriãoCasalId(''); }} users={users} excludeIds={[liderId, liderCasalId].filter(Boolean)} placeholder="Buscar anfitrião..." optional />
-                  {anfitriaoId && !anfitriãoCasalId && (
-                    <button type="button" onClick={() => setAnfitriãoCasalId('__adding')} className="text-xs text-primary font-semibold hover:underline">+ É casal? Adicionar cônjuge</button>
+                  <PersonSearchInput 
+                    value={anfitriaoId} 
+                    onChange={id => { 
+                      setAnfitriaoId(id); 
+                      if (!id) {
+                        setAnfitriãoCasalId(''); 
+                        setAddingHostSpouse(false);
+                      }
+                    }} 
+                    users={users} 
+                    excludeIds={[liderId, liderCasalId].filter(Boolean)} 
+                    placeholder="Buscar anfitrião..." 
+                    optional 
+                  />
+                  {anfitriaoId && !anfitriãoCasalId && !addingHostSpouse && (
+                    <button 
+                      type="button" 
+                      onClick={() => setAddingHostSpouse(true)} 
+                      className="text-xs text-primary font-semibold hover:underline"
+                    >
+                      + É casal? Adicionar cônjuge
+                    </button>
                   )}
-                  {(anfitriãoCasalId === '__adding' || anfitriãoCasalId) && anfitriaoId && (
+                  {(addingHostSpouse || anfitriãoCasalId) && anfitriaoId && (
                     <div className="space-y-1">
                       <p className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wide">Cônjuge do Anfitrião</p>
                       <PersonSearchInput
-                        value={anfitriãoCasalId === '__adding' ? '' : anfitriãoCasalId}
-                        onChange={id => setAnfitriãoCasalId(id || '')}
-                        users={users} excludeIds={[anfitriaoId].filter(Boolean)} placeholder="Buscar cônjuge..." optional
+                        value={anfitriãoCasalId}
+                        onChange={id => {
+                          setAnfitriãoCasalId(id || '');
+                          if (!id) setAddingHostSpouse(false);
+                        }}
+                        users={users} 
+                        excludeIds={[anfitriaoId, liderId, liderCasalId].filter(Boolean)} 
+                        placeholder="Buscar cônjuge..." 
+                        optional
                       />
-                      {anfitriãoCasalId && anfitriãoCasalId !== '__adding' && (
-                        <button type="button" onClick={() => setAnfitriãoCasalId('')} className="text-[11px] text-destructive hover:underline">Remover cônjuge</button>
+                      {anfitriãoCasalId && (
+                        <button 
+                          type="button" 
+                          onClick={() => {
+                            setAnfitriãoCasalId('');
+                            setAddingHostSpouse(false);
+                          }} 
+                          className="text-[11px] text-destructive hover:underline"
+                        >
+                          Remover cônjuge
+                        </button>
                       )}
                     </div>
                   )}
