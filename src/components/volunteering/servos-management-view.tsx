@@ -363,12 +363,12 @@ export function ServosManagementView() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2.5">
           <Button
             variant="outline"
             size="sm"
             onClick={handleExportCsv}
-            className="h-9 text-xs font-bold gap-1.5 bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur-md shadow-sm"
+            className="h-9 text-xs font-bold gap-1.5 bg-slate-800/90 hover:bg-slate-700 text-slate-100 border-slate-600/80 shadow-sm transition-all"
           >
             <FileSpreadsheet className="size-4 text-emerald-400" />
             Planilha CSV
@@ -378,13 +378,15 @@ export function ServosManagementView() {
             variant="outline"
             size="sm"
             onClick={handleExportJson}
-            className="h-9 text-xs font-bold gap-1.5 bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur-md shadow-sm"
+            className="h-9 text-xs font-bold gap-1.5 bg-slate-800/90 hover:bg-slate-700 text-slate-100 border-slate-600/80 shadow-sm transition-all"
           >
-            <FileJson className="size-4 text-amber-400" />
+            <FileJson className="size-4 text-amber-300" />
             JSON para IA
           </Button>
 
-          <ImportVolunteersJsonDialog />
+          <ImportVolunteersJsonDialog
+            triggerClassName="h-9 text-xs font-black gap-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 border-0 shadow-lg shadow-amber-500/20 hover:shadow-amber-500/30 transition-all cursor-pointer"
+          />
         </div>
       </div>
 

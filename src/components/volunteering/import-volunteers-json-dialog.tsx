@@ -59,7 +59,12 @@ function normalizeString(str: string): string {
     .trim();
 }
 
-export function ImportVolunteersJsonDialog() {
+interface ImportVolunteersJsonDialogProps {
+  triggerClassName?: string;
+  triggerLabel?: string;
+}
+
+export function ImportVolunteersJsonDialog({ triggerClassName, triggerLabel }: ImportVolunteersJsonDialogProps = {}) {
   const [open, setOpen] = useState(false);
   const [jsonInput, setJsonInput] = useState('');
   const [isApplying, setIsApplying] = useState(false);
@@ -330,9 +335,16 @@ export function ImportVolunteersJsonDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-1.5 font-bold shadow-sm text-xs bg-background">
-          <FileJson className="size-4 text-amber-600" />
-          Atualizar Vínculos via JSON
+        <Button
+          variant="outline"
+          size="sm"
+          className={
+            triggerClassName ||
+            "gap-1.5 font-bold shadow-sm text-xs bg-amber-500 hover:bg-amber-400 text-slate-950 border-0"
+          }
+        >
+          <FileJson className="size-4 shrink-0 text-current" />
+          <span>{triggerLabel || "Atualizar Vínculos via JSON"}</span>
         </Button>
       </DialogTrigger>
 

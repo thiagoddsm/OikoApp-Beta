@@ -60,7 +60,7 @@ export function AreasManagement() {
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 mb-4">
         <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Lista de Áreas de Serviço</h3>
         <div className="flex items-center gap-2">
-          <ImportVolunteersJsonDialog />
+          <ImportVolunteersJsonDialog triggerClassName="h-8 text-xs font-bold gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 shadow-sm" />
           <Button onClick={handleAdd} size="sm" className="font-bold shadow-sm">
             <PlusCircle className="mr-2 h-4 w-4" />
             Adicionar Área
