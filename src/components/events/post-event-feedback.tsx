@@ -95,7 +95,8 @@ export function PostEventFeedback({ event }: PostEventFeedbackProps) {
     }
   };
 
-  const isEventPast = event?.date ? new Date(event.date + 'T23:59:59') < new Date() : false;
+  const rawEndDate = event?.endDate || event?.startDate || event?.date || event?.eventDate;
+  const isEventPast = rawEndDate ? new Date(rawEndDate.includes('T') ? rawEndDate : `${rawEndDate}T23:59:59`) < new Date() : false;
 
   return (
     <form onSubmit={handleSave} className="space-y-6">

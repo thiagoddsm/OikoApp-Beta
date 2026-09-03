@@ -24,15 +24,47 @@ type StrategicEvent = {
   id: string;
   eventName: string;
   ministry: string;
-  date: string;
+  date?: string;
+  startDate?: string;
+  endDate?: string;
+  eventDate?: string;
+  dateTime?: string;
+  timeStart?: string;
+  timeEnd?: string;
   status: string;
-}
+  [key: string]: any;
+};
 
 const statusConfig: { [key: string]: { label: string; color: string; } } = {
   analise_estrategica: { label: "Análise Estratégica", color: "bg-yellow-100 text-yellow-800" },
   aprovado: { label: "Aprovado", color: "bg-green-100 text-green-800" },
   rejeitado: { label: "Rejeitado", color: "bg-red-100 text-red-800" },
 };
+
+function formatEventDates(event: StrategicEvent): string {
+  const startRaw = event.startDate || event.date || event.eventDate || event.dateTime;
+  const endRaw = event.endDate;
+
+  if (!startRaw) return '—';
+
+  try {
+    const cleanStart = startRaw.includes('T') ? startRaw : `${startRaw}T12:00:00`;
+    const startDateObj = new Date(cleanStart);
+    if (isNaN(startDateObj.getTime())) return '—';
+
+    if (endRaw && endRaw !== startRaw) {
+      const cleanEnd = endRaw.includes('T') ? endRaw : `${endRaw}T12:00:00`;
+      const endDateObj = new Date(cleanEnd);
+      if (!isNaN(endDateObj.getTime())) {
+        return `${format(startDateObj, 'dd/MM', { locale: ptBR })} a ${format(endDateObj, 'dd/MM/yyyy', { locale: ptBR })}`;
+      }
+    }
+
+    return format(startDateObj, 'dd/MM/yyyy', { locale: ptBR });
+  } catch {
+    return '—';
+  }
+}
 
 export default function EventsListPage() {
   return (
@@ -53,8 +85,10 @@ function EventsListContent() {
   const sortedEvents = useMemo(() => {
     if (!events) return [];
     return [...events].sort((a, b) => {
-      const timeA = a.date ? new Date(a.date).getTime() : 0;
-      const timeB = b.date ? new Date(b.date).getTime() : 0;
+      const startA = a.startDate || a.date || a.eventDate || a.dateTime || '';
+      const startB = b.startDate || b.date || b.eventDate || b.dateTime || '';
+      const timeA = startA ? new Date(startA.includes('T') ? startA : `${startA}T12:00:00`).getTime() : 0;
+      const timeB = startB ? new Date(startB.includes('T') ? startB : `${startB}T12:00:00`).getTime() : 0;
       const validA = !isNaN(timeA) ? timeA : 0;
       const validB = !isNaN(timeB) ? timeB : 0;
       return validB - validA;
@@ -166,17 +200,8 @@ function EventsListContent() {
                                     <TableCell className="text-muted-foreground">
                                         {event.ministry}
                                     </TableCell>
-                                    <TableCell>
-                                        {(() => {
-                                            try {
-                                                if (!event.date) return '—';
-                                                const d = new Date(event.date + 'T12:00:00');
-                                                if (isNaN(d.getTime())) return '—';
-                                                return format(d, 'dd/MM/yyyy', { locale: ptBR });
-                                            } catch {
-                                                return '—';
-                                            }
-                                        })()}
+                                    <TableCell className="font-medium text-xs">
+                                        {formatEventDates(event)}
                                     </TableCell>
                                     <TableCell>
                                         <Badge variant="outline" className={statusInfo.color}>{statusInfo.label}</Badge>

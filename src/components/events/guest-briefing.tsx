@@ -100,9 +100,10 @@ export function GuestBriefingGenerator({ event }: { event: any }) {
         window.print();
     };
     
-    const eventDate = event?.date ? new Date(event.date + 'T12:00:00') : null;
-    const formattedDay = eventDate ? format(eventDate, 'dd') : 'DD';
-    const formattedMonth = eventDate ? format(eventDate, 'MMM', { locale: ptBR }).toUpperCase() : 'MÊS';
+    const rawEventDate = event?.startDate || event?.date || event?.eventDate;
+    const eventDate = rawEventDate ? new Date(rawEventDate.includes('T') ? rawEventDate : `${rawEventDate}T12:00:00`) : null;
+    const formattedDay = eventDate && !isNaN(eventDate.getTime()) ? format(eventDate, 'dd') : 'DD';
+    const formattedMonth = eventDate && !isNaN(eventDate.getTime()) ? format(eventDate, 'MMM', { locale: ptBR }).toUpperCase() : 'MÊS';
 
     return (
         <div className="flex flex-col md:flex-row min-h-screen bg-gray-100 font-sans text-gray-800 -m-6">
