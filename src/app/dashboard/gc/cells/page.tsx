@@ -134,7 +134,10 @@ export function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors,
       setMeetingDay(existingCell.meetingDay || '');
       setMeetingTime(existingCell.meetingTime || '');
       setMultiplicationDate(existingCell.multiplicationDate || '');
-      const computedMembers = users.filter((u: any) => u.hierarchy?.celulaId === existingCell.id).map((u: any) => u.id);
+      const computedMembers = Array.from(new Set([
+        ...(existingCell.membros || []),
+        ...(users || []).filter((u: any) => u.hierarchy?.celulaId === existingCell.id).map((u: any) => u.id)
+      ]));
       setSelectedMembers(computedMembers);
       setStatus(existingCell.status || 'active');
       setAnfitriaoElegiveiIds(existingCell.anfitriaoElegiveiIds || []);
@@ -203,10 +206,12 @@ export function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors,
       supervisorId, areaId, redeId,
       status,
       address: { street, lat, lng },
-      meetingDay, meetingTime, multiplicationDate: multiplicationDate || null,
       anfitriaoElegiveiIds: anfitriaoElegiveiIds.filter(id => id && id !== '__adding'),
+      membros: finalMembers,
     };
     try {
+      const validUserIds = new Set((users || []).map((u: any) => u.id));
+
       if (existingCell) {
         updateDocumentNonBlocking(doc(firestore, 'cells', existingCell.id), cellData);
 
@@ -217,10 +222,14 @@ export function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors,
         if (newMembers.length > 0 || removedMembers.length > 0) {
           const batch = writeBatch(firestore);
           newMembers.forEach(uid => {
-            batch.update(doc(firestore, 'users', uid), { 'hierarchy.celulaId': existingCell.id });
+            if (validUserIds.has(uid)) {
+              batch.set(doc(firestore, 'users', uid), { hierarchy: { celulaId: existingCell.id } }, { merge: true });
+            }
           });
           removedMembers.forEach(uid => {
-            batch.update(doc(firestore, 'users', uid), { 'hierarchy.celulaId': null });
+            if (validUserIds.has(uid)) {
+              batch.set(doc(firestore, 'users', uid), { hierarchy: { celulaId: null } }, { merge: true });
+            }
           });
           await batch.commit();
         }
@@ -232,7 +241,9 @@ export function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors,
         if (docRef && finalMembers.length > 0) {
           const batch = writeBatch(firestore);
           finalMembers.forEach(uid => {
-            batch.update(doc(firestore, 'users', uid), { 'hierarchy.celulaId': docRef.id });
+            if (validUserIds.has(uid)) {
+              batch.set(doc(firestore, 'users', uid), { hierarchy: { celulaId: docRef.id } }, { merge: true });
+            }
           });
           await batch.commit();
         }
@@ -497,13 +508,29 @@ export function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors,
                         return (
                           <div 
                             key={user.id} 
-                            onClick={() => setSelectedMembers(prev => isChecked ? prev.filter(id => id !== user.id) : [...prev, user.id])}
+                            onClick={() => setSelectedMembers(prev => {
+                              const currentSet = new Set(prev);
+                              if (currentSet.has(user.id)) {
+                                currentSet.delete(user.id);
+                              } else {
+                                currentSet.add(user.id);
+                              }
+                              return Array.from(currentSet);
+                            })}
                             className="flex items-center gap-2 py-1 px-2 rounded-md hover:bg-muted cursor-pointer transition-colors"
                           >
                             <Checkbox 
                               id={`member-${user.id}`} 
                               checked={isChecked}
-                              onCheckedChange={checked => setSelectedMembers(prev => checked ? [...prev, user.id] : prev.filter(id => id !== user.id))} 
+                              onCheckedChange={checked => setSelectedMembers(prev => {
+                                const currentSet = new Set(prev);
+                                if (checked) {
+                                  currentSet.add(user.id);
+                                } else {
+                                  currentSet.delete(user.id);
+                                }
+                                return Array.from(currentSet);
+                              })} 
                             />
                             <Label htmlFor={`member-${user.id}`} className="font-normal cursor-pointer text-sm flex-1">{user.name}</Label>
                           </div>
@@ -516,7 +543,8 @@ export function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors,
 
               {/* Lista dos membros atualmente selecionados no GC */}
               {(() => {
-                const additionalSelected = selectedMembers.filter(id => id !== liderId && id !== liderCasalId);
+                const uniqueSelected = Array.from(new Set(selectedMembers));
+                const additionalSelected = uniqueSelected.filter(id => id && id !== liderId && id !== liderCasalId);
                 return (
                   <div className="space-y-1.5 pt-1">
                     <p className="text-[11px] font-semibold text-muted-foreground flex items-center justify-between">
@@ -533,10 +561,10 @@ export function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors,
                     </p>
                     {additionalSelected.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-1.5 rounded-lg border bg-muted/20">
-                        {additionalSelected.map(id => {
+                        {additionalSelected.map((id, idx) => {
                           const u = (users || []).find((x: any) => x.id === id);
                           return (
-                            <div key={id} className="flex items-center gap-1 bg-primary/10 text-primary border border-primary/20 rounded-full px-2.5 py-0.5 text-xs font-medium">
+                            <div key={`${id}-${idx}`} className="flex items-center gap-1 bg-primary/10 text-primary border border-primary/20 rounded-full px-2.5 py-0.5 text-xs font-medium">
                               <span>{u?.name || id}</span>
                               <button 
                                 type="button" 
