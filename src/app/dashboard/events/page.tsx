@@ -42,6 +42,31 @@ const statusConfig: { [key: string]: { label: string; color: string; } } = {
 };
 
 function formatEventDates(event: StrategicEvent): string {
+  // Se o evento tem múltiplas datas explícitas cadastradas (ex: 27/09, 29/09 e 01/10/2026)
+  const explicitDates = event.eventDates && Array.isArray(event.eventDates) && event.eventDates.length > 1
+    ? event.eventDates
+    : (event.additionalDates && Array.isArray(event.additionalDates) && event.additionalDates.length > 0
+        ? [{ date: event.startDate }, ...event.additionalDates]
+        : null);
+
+  if (explicitDates && explicitDates.length > 1) {
+    const validDates = explicitDates
+      .map((d: any) => typeof d === 'string' ? d : d.date)
+      .filter(Boolean)
+      .sort();
+
+    if (validDates.length > 1) {
+      const formatted = validDates.map(d => {
+        const obj = new Date(d.includes('T') ? d : `${d}T12:00:00`);
+        return !isNaN(obj.getTime()) ? format(obj, 'dd/MM', { locale: ptBR }) : d;
+      });
+      const last = formatted.pop();
+      const lastObj = new Date(validDates[validDates.length - 1].includes('T') ? validDates[validDates.length - 1] : `${validDates[validDates.length - 1]}T12:00:00`);
+      const year = !isNaN(lastObj.getTime()) ? format(lastObj, '/yyyy', { locale: ptBR }) : '';
+      return `${formatted.join(', ')} e ${last}${year}`;
+    }
+  }
+
   const startRaw = event.startDate || event.date || event.eventDate || event.dateTime;
   const endRaw = event.endDate;
 

@@ -8,7 +8,7 @@ import {
   Clock, Users, DollarSign, Utensils, FileText, Target, ListChecks, HelpCircle, 
   MapPin, Download, HeartHandshake, Baby, Music, Video, Shield, Coffee, HelpCircle as HelpIcon,
   Sparkles, Check, ChevronRight, Loader2, AlertCircle, Info, Calendar, Plus, Minus, UploadCloud,
-  Image, CreditCard
+  Image, CreditCard, Trash2, CalendarDays
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,14 @@ import 'jspdf-autotable';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useEventsData, useCoursesData, useVolunteeringServiceData } from "@/hooks/useDomainData";
+import { Badge } from '@/components/ui/badge';
+
+export interface EventSessionDate {
+  date: string;
+  timeStart?: string;
+  timeEnd?: string;
+  label?: string;
+}
 
 export interface PlanningEvent {
     id: string;
@@ -42,6 +50,8 @@ export interface PlanningEvent {
     method5w2h: Record<string, string>;
     startDate: string;
     endDate: string;
+    additionalDates?: EventSessionDate[];
+    eventDates?: EventSessionDate[];
     timeLoadIn: string;
     timeStart: string;
     timeEnd: string;
@@ -190,6 +200,7 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
     endDate: '',
     timeStart: '',
     timeEnd: '',
+    additionalDates: [] as { date: string; timeStart: string; timeEnd: string; label: string }[],
     
     eventType: 'interno',
     space: '',
@@ -236,6 +247,27 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
   // Load existing event data & map technical fields to simplified fields
   useEffect(() => {
     if (existingEvent) {
+      const loadedAdditionalDates: { date: string; timeStart: string; timeEnd: string; label: string }[] = [];
+      if (existingEvent.additionalDates && Array.isArray(existingEvent.additionalDates)) {
+        existingEvent.additionalDates.forEach(d => {
+          loadedAdditionalDates.push({
+            date: d.date || '',
+            timeStart: d.timeStart || existingEvent.timeStart || '',
+            timeEnd: d.timeEnd || existingEvent.timeEnd || '',
+            label: d.label || ''
+          });
+        });
+      } else if (existingEvent.eventDates && Array.isArray(existingEvent.eventDates) && existingEvent.eventDates.length > 1) {
+        existingEvent.eventDates.slice(1).forEach((d, idx) => {
+          loadedAdditionalDates.push({
+            date: d.date || '',
+            timeStart: d.timeStart || existingEvent.timeStart || '',
+            timeEnd: d.timeEnd || existingEvent.timeEnd || '',
+            label: d.label || `${idx + 2}º Dia`
+          });
+        });
+      }
+
       setFormData({
         ministry: existingEvent.ministry || '',
         organizer: existingEvent.organizer || 'IBM',
@@ -252,6 +284,7 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
         endDate: existingEvent.endDate || existingEvent.startDate || existingEvent.date || '',
         timeStart: existingEvent.timeStart || '',
         timeEnd: existingEvent.timeEnd || '',
+        additionalDates: loadedAdditionalDates,
         
         eventType: existingEvent.eventType || 'interno',
         space: existingEvent.space || '',
@@ -341,6 +374,36 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
     }));
   };
 
+  const handleAddAdditionalDate = () => {
+    setFormData(prev => ({
+      ...prev,
+      additionalDates: [
+        ...prev.additionalDates,
+        {
+          date: '',
+          timeStart: prev.timeStart || '',
+          timeEnd: prev.timeEnd || '',
+          label: `${prev.additionalDates.length + 2}º Dia`
+        }
+      ]
+    }));
+  };
+
+  const handleUpdateAdditionalDate = (index: number, field: string, value: string) => {
+    setFormData(prev => {
+      const next = [...prev.additionalDates];
+      next[index] = { ...next[index], [field]: value };
+      return { ...prev, additionalDates: next };
+    });
+  };
+
+  const handleRemoveAdditionalDate = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      additionalDates: prev.additionalDates.filter((_, i) => i !== index)
+    }));
+  };
+
   // Submit and map simplified fields back to technical Firestore schemas
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -359,13 +422,25 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
     // Automatic break-even calculation
     const breakEven = (price > variable) ? Math.ceil(fixed / (price - variable)) : 0;
 
+    // Processar todas as datas do evento
+    const validAdditionalDates = formData.additionalDates.filter(d => d.date);
+    const allEventDates = [
+      { date: formData.startDate, timeStart: formData.timeStart, timeEnd: formData.timeEnd, label: '1º Dia' },
+      ...validAdditionalDates
+    ].filter(d => d.date).sort((a, b) => a.date.localeCompare(b.date));
+
+    const effectiveStartDate = allEventDates[0]?.date || formData.startDate;
+    const effectiveEndDate = allEventDates[allEventDates.length - 1]?.date || formData.endDate || formData.startDate;
+
     // ── backend mapping logic ──────────────────────────────────────
     const mappedSmart = {
       specific: formData.whatWeWillDo,
       measurable: `Público-alvo e engajamento: ${formData.whatWeWillDo.substring(0, 100)}...`,
       achievable: `Recursos mapeados: ${formData.whatWeNeed.substring(0, 100)}...`,
       relevant: formData.importance,
-      timeBound: `${formData.startDate} das ${formData.timeStart} às ${formData.timeEnd}`,
+      timeBound: allEventDates.length > 1 
+        ? `${allEventDates.map(d => d.date).join(', ')}` 
+        : `${formData.startDate} das ${formData.timeStart} às ${formData.timeEnd}`,
     };
 
     const mapped5w2h = {
@@ -373,7 +448,9 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
       why: formData.importance,
       who: formData.ministry,
       where: formData.eventType === 'interno' ? formData.space : formData.externalLocation,
-      when: `${formData.startDate} (${formData.timeStart} - ${formData.timeEnd})`,
+      when: allEventDates.length > 1 
+        ? `${allEventDates.map(d => d.date).join(', ')}` 
+        : `${formData.startDate} (${formData.timeStart} - ${formData.timeEnd})`,
       how: formData.whatWeNeed,
       howMuch: formData.isPaid === 'pago' ? `Custo Total: R$ ${fixed}` : 'Gratuito (Subvenção)',
     };
@@ -392,10 +469,12 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
       smart: mappedSmart,
       method5w2h: mapped5w2h,
       
-      startDate: formData.startDate,
-      endDate: formData.endDate || formData.startDate,
+      startDate: effectiveStartDate,
+      endDate: effectiveEndDate,
       timeStart: formData.timeStart,
       timeEnd: formData.timeEnd,
+      additionalDates: validAdditionalDates,
+      eventDates: allEventDates,
       
       // Auto-set logistics markers behind the scenes
       timeLoadIn: formData.timeStart,
@@ -770,22 +849,142 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
           </div>
 
           <div className="bg-slate-950/40 p-5 border border-slate-850 rounded-2xl space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="startDate" className="text-xs text-slate-400 uppercase tracking-wider font-bold">Data do Evento</Label>
-                <Input id="startDate" type="date" required name="startDate" value={formData.startDate} onChange={handleChange} className="bg-slate-950 border-slate-800 focus-visible:ring-blue-500" />
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pb-2 border-b border-slate-850/60">
+              <Label className="text-xs text-slate-300 uppercase tracking-wider font-bold">
+                {formData.additionalDates.length > 0 ? "Datas & Sessões do Evento" : "Data do Evento"}
+              </Label>
+              <span className="text-[11px] text-slate-400">
+                {formData.additionalDates.length > 0 
+                  ? `${formData.additionalDates.length + 1} dias / sessões configurados` 
+                  : "Evento em 1 dia (ou adicione outras datas abaixo)"}
+              </span>
+            </div>
+
+            {/* Linha da 1ª Data (Data Principal / Abertura) */}
+            <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/60 space-y-3">
+              <div className="flex items-center justify-between">
+                <Badge variant="outline" className="text-[10px] font-bold text-blue-400 border-blue-500/30 bg-blue-950/40">
+                  {formData.additionalDates.length > 0 ? "1º Dia / Abertura" : "Data Principal"}
+                </Badge>
               </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="timeStart" className="text-xs text-slate-400 uppercase tracking-wider font-bold">Horário de Início</Label>
-                <Input id="timeStart" type="time" required name="timeStart" value={formData.timeStart} onChange={handleChange} className="bg-slate-950 border-slate-800 focus-visible:ring-blue-500" />
-              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="startDate" className="text-xs text-slate-400 font-medium">Data</Label>
+                  <Input 
+                    id="startDate" 
+                    type="date" 
+                    required 
+                    name="startDate" 
+                    value={formData.startDate} 
+                    onChange={handleChange} 
+                    className="bg-slate-950 border-slate-800 focus-visible:ring-blue-500 text-xs" 
+                  />
+                </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="timeEnd" className="text-xs text-slate-400 uppercase tracking-wider font-bold">Horário de Término</Label>
-                <Input id="timeEnd" type="time" required name="timeEnd" value={formData.timeEnd} onChange={handleChange} className="bg-slate-950 border-slate-800 focus-visible:ring-blue-500" />
+                <div className="space-y-1.5">
+                  <Label htmlFor="timeStart" className="text-xs text-slate-400 font-medium">Horário de Início</Label>
+                  <Input 
+                    id="timeStart" 
+                    type="time" 
+                    required 
+                    name="timeStart" 
+                    value={formData.timeStart} 
+                    onChange={handleChange} 
+                    className="bg-slate-950 border-slate-800 focus-visible:ring-blue-500 text-xs" 
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="timeEnd" className="text-xs text-slate-400 font-medium">Horário de Término</Label>
+                  <Input 
+                    id="timeEnd" 
+                    type="time" 
+                    required 
+                    name="timeEnd" 
+                    value={formData.timeEnd} 
+                    onChange={handleChange} 
+                    className="bg-slate-950 border-slate-800 focus-visible:ring-blue-500 text-xs" 
+                  />
+                </div>
               </div>
             </div>
+
+            {/* Linhas das Datas Adicionais */}
+            {formData.additionalDates.map((item, idx) => (
+              <div key={idx} className="p-4 rounded-xl border border-slate-800 bg-slate-900/60 space-y-3">
+                <div className="flex items-center justify-between">
+                  <Badge variant="outline" className="text-[10px] font-bold text-amber-400 border-amber-500/30 bg-amber-950/40">
+                    {item.label || `${idx + 2}º Dia`}
+                  </Badge>
+
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleRemoveAdditionalDate(idx)}
+                    className="h-7 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-950/30 gap-1 px-2 font-semibold"
+                  >
+                    <Trash2 className="size-3.5" />
+                    Remover data
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <div className="space-y-1.5 sm:col-span-1">
+                    <Label className="text-xs text-slate-400 font-medium">Data</Label>
+                    <Input
+                      type="date"
+                      required
+                      value={item.date}
+                      onChange={(e) => handleUpdateAdditionalDate(idx, 'date', e.target.value)}
+                      className="bg-slate-950 border-slate-800 focus-visible:ring-blue-500 text-xs"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-slate-400 font-medium">Início</Label>
+                    <Input
+                      type="time"
+                      value={item.timeStart}
+                      onChange={(e) => handleUpdateAdditionalDate(idx, 'timeStart', e.target.value)}
+                      className="bg-slate-950 border-slate-800 focus-visible:ring-blue-500 text-xs"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-slate-400 font-medium">Término</Label>
+                    <Input
+                      type="time"
+                      value={item.timeEnd}
+                      onChange={(e) => handleUpdateAdditionalDate(idx, 'timeEnd', e.target.value)}
+                      className="bg-slate-950 border-slate-800 focus-visible:ring-blue-500 text-xs"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-slate-400 font-medium">Rótulo / Sessão</Label>
+                    <Input
+                      placeholder="Ex: 2º Dia / Noite"
+                      value={item.label}
+                      onChange={(e) => handleUpdateAdditionalDate(idx, 'label', e.target.value)}
+                      className="bg-slate-950 border-slate-800 focus-visible:ring-blue-500 text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {/* Botão de Adicionar Mais Datas */}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleAddAdditionalDate}
+              className="w-full h-10 border-dashed border-slate-700 bg-slate-900/30 hover:bg-slate-800/60 text-slate-300 hover:text-white text-xs font-bold gap-2 rounded-xl transition-all"
+            >
+              <Plus className="size-4 text-blue-400" />
+              Adicionar Outra Data / Sessão ao Evento
+            </Button>
           </div>
 
           <div className="space-y-4 pt-2">
