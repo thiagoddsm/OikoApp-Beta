@@ -44,6 +44,7 @@ const permissionsConfig = [
     label: 'Serviço',
     subItems: [
       { id: 'servico_areas', label: 'Áreas de Serviço', actions: ['view', 'edit', 'delete'] },
+      { id: 'servico_servos', label: 'Servos & Voluntários', actions: ['view', 'edit', 'delete'] },
       { id: 'servico_teams', label: 'Equipes', actions: ['view', 'edit', 'delete'] },
       { id: 'servico_events', label: 'Gerenciar Eventos (Voluntariado)', actions: ['view', 'edit', 'delete'] },
       { id: 'servico_schedule', label: 'Gerar Escala', actions: ['view', 'edit', 'delete'] },
