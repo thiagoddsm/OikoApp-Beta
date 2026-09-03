@@ -197,39 +197,50 @@ export function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors,
       meetingDay, meetingTime, multiplicationDate: multiplicationDate || null,
       anfitriaoElegiveiIds,
     };
-    if (existingCell) {
-      updateDocumentNonBlocking(doc(firestore, 'cells', existingCell.id), cellData);
+    try {
+      if (existingCell) {
+        updateDocumentNonBlocking(doc(firestore, 'cells', existingCell.id), cellData);
 
-      const currentMembers = users.filter((u: any) => u.hierarchy?.celulaId === existingCell.id).map((u: any) => u.id);
-      const removedMembers = currentMembers.filter((uid: string) => !finalMembers.includes(uid));
-      // update members
-      const newMembers = finalMembers.filter(uid => !currentMembers.includes(uid));
-      const batch = writeBatch(firestore);
-      newMembers.forEach(uid => {
-         batch.update(doc(firestore, 'users', uid), { 'hierarchy.celulaId': existingCell.id });
-      });
-      removedMembers.forEach(uid => {
-         batch.update(doc(firestore, 'users', uid), { 'hierarchy.celulaId': null });
-      });
-      await batch.commit();
+        const currentMembers = (users || []).filter((u: any) => u.hierarchy?.celulaId === existingCell.id).map((u: any) => u.id);
+        const removedMembers = currentMembers.filter((uid: string) => !finalMembers.includes(uid));
+        const newMembers = finalMembers.filter(uid => !currentMembers.includes(uid));
 
-      toast({ title: "Sucesso!", description: `A célula "${nome}" foi atualizada.` });
-    } else {
-      const promise = addDocumentNonBlocking(collection(firestore, 'cells'), cellData);
-      const docRef = await promise;
-      
-      if (docRef) {
-        const batch = writeBatch(firestore);
-        finalMembers.forEach(uid => {
-           batch.update(doc(firestore, 'users', uid), { 'hierarchy.celulaId': docRef.id });
-        });
-        await batch.commit();
+        if (newMembers.length > 0 || removedMembers.length > 0) {
+          const batch = writeBatch(firestore);
+          newMembers.forEach(uid => {
+            batch.update(doc(firestore, 'users', uid), { 'hierarchy.celulaId': existingCell.id });
+          });
+          removedMembers.forEach(uid => {
+            batch.update(doc(firestore, 'users', uid), { 'hierarchy.celulaId': null });
+          });
+          await batch.commit();
+        }
+
+        toast({ title: "Sucesso!", description: `A célula "${nome}" foi atualizada.` });
+      } else {
+        const docRef = await addDocumentNonBlocking(collection(firestore, 'cells'), cellData);
+        
+        if (docRef && finalMembers.length > 0) {
+          const batch = writeBatch(firestore);
+          finalMembers.forEach(uid => {
+            batch.update(doc(firestore, 'users', uid), { 'hierarchy.celulaId': docRef.id });
+          });
+          await batch.commit();
+        }
+
+        toast({ title: "Sucesso!", description: `A célula "${nome}" foi criada.` });
       }
-
-      toast({ title: "Sucesso!", description: `A célula "${nome}" foi criada.` });
+      onOpenChange(false);
+    } catch (err: any) {
+      console.error('[CreateOrEditCellDialog] Erro ao salvar célula:', err);
+      toast({
+        variant: "destructive",
+        title: "Erro ao salvar",
+        description: err?.message || "Ocorreu um erro ao salvar as alterações da célula."
+      });
+    } finally {
+      setIsSaving(false);
     }
-    setIsSaving(false);
-    onOpenChange(false);
   };
 
   return (
@@ -412,27 +423,94 @@ export function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors,
             </div>
           </div>
 
-          {/* MEMBROS — lazy search, max 10 */}
+          {/* MEMBROS — busca com lista de selecionados */}
           <div className="grid grid-cols-4 items-start gap-4">
             <Label className="text-right pt-2">Membros</Label>
             <div className="col-span-3 space-y-2">
-              <Input placeholder="Buscar membro por nome..." value={memberSearch} onChange={e => setMemberSearch(e.target.value)} />
+              <Input 
+                placeholder="Buscar membro por nome..." 
+                value={memberSearch} 
+                onChange={e => setMemberSearch(e.target.value)} 
+              />
+              
+              {/* Resultados da busca filtrados */}
               {memberSearch.trim() && (
-                <ScrollArea className="h-40 w-full rounded-md border p-2">
+                <ScrollArea className="h-44 w-full rounded-md border p-2 bg-slate-50/50">
                   <div className="space-y-1">
-                    {users.filter((u: any) => u.id !== liderId && u.name?.toLowerCase().includes(memberSearch.toLowerCase())).slice(0, 10).map((user: any) => (
-                      <div key={user.id} className="flex items-center gap-2 py-0.5">
-                        <Checkbox id={`member-${user.id}`} checked={selectedMembers.includes(user.id)}
-                          onCheckedChange={checked => setSelectedMembers(prev => checked ? [...prev, user.id] : prev.filter(id => id !== user.id))} />
-                        <Label htmlFor={`member-${user.id}`} className="font-normal cursor-pointer text-sm">{user.name}</Label>
-                      </div>
-                    ))}
+                    {(() => {
+                      const term = memberSearch.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                      const filtered = (users || []).filter((u: any) => {
+                        if (!u?.name || u.id === liderId || u.id === liderCasalId) return false;
+                        const uName = u.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                        return uName.includes(term);
+                      }).slice(0, 15);
+
+                      if (filtered.length === 0) {
+                        return <p className="text-xs text-muted-foreground text-center py-3">Nenhum membro encontrado com esse nome.</p>;
+                      }
+
+                      return filtered.map((user: any) => {
+                        const isChecked = selectedMembers.includes(user.id);
+                        return (
+                          <div 
+                            key={user.id} 
+                            onClick={() => setSelectedMembers(prev => isChecked ? prev.filter(id => id !== user.id) : [...prev, user.id])}
+                            className="flex items-center gap-2 py-1 px-2 rounded-md hover:bg-muted cursor-pointer transition-colors"
+                          >
+                            <Checkbox 
+                              id={`member-${user.id}`} 
+                              checked={isChecked}
+                              onCheckedChange={checked => setSelectedMembers(prev => checked ? [...prev, user.id] : prev.filter(id => id !== user.id))} 
+                            />
+                            <Label htmlFor={`member-${user.id}`} className="font-normal cursor-pointer text-sm flex-1">{user.name}</Label>
+                          </div>
+                        );
+                      });
+                    })()}
                   </div>
                 </ScrollArea>
               )}
-              {selectedMembers.filter(id => id !== liderId && id !== liderCasalId).length > 0 && (
-                <p className="text-[11px] text-muted-foreground">{selectedMembers.filter(id => id !== liderId && id !== liderCasalId).length} membro(s) adicional(is)</p>
-              )}
+
+              {/* Lista dos membros atualmente selecionados no GC */}
+              {(() => {
+                const additionalSelected = selectedMembers.filter(id => id !== liderId && id !== liderCasalId);
+                return (
+                  <div className="space-y-1.5 pt-1">
+                    <p className="text-[11px] font-semibold text-muted-foreground flex items-center justify-between">
+                      <span>{additionalSelected.length} membro(s) adicional(is)</span>
+                      {additionalSelected.length > 0 && (
+                        <button 
+                          type="button" 
+                          onClick={() => setSelectedMembers([])} 
+                          className="text-destructive hover:underline text-[10px]"
+                        >
+                          Limpar adicionais
+                        </button>
+                      )}
+                    </p>
+                    {additionalSelected.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-1.5 rounded-lg border bg-muted/20">
+                        {additionalSelected.map(id => {
+                          const u = (users || []).find((x: any) => x.id === id);
+                          return (
+                            <div key={id} className="flex items-center gap-1 bg-primary/10 text-primary border border-primary/20 rounded-full px-2.5 py-0.5 text-xs font-medium">
+                              <span>{u?.name || id}</span>
+                              <button 
+                                type="button" 
+                                onClick={() => setSelectedMembers(prev => prev.filter(x => x !== id))}
+                                className="hover:text-destructive text-xs ml-0.5"
+                                title="Remover"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </div>
 

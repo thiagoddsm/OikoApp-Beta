@@ -149,9 +149,14 @@ export default function CellDetailPage() {
   const [isAddMemberOpen, setAddMemberOpen] = useState(false);
   const [isEditCellOpen, setIsEditCellOpen] = useState(false);
   const [memberSearchTerm, setMemberSearchTerm] = useState('');
-  const filteredNonMembers = useMemo(() =>
-    nonMembers.filter(u => u.name?.toLowerCase().includes(memberSearchTerm.toLowerCase())).slice(0, 8),
-    [nonMembers, memberSearchTerm]);
+  const filteredNonMembers = useMemo(() => {
+    const term = memberSearchTerm.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (!term) return nonMembers.slice(0, 8);
+    return nonMembers.filter(u => {
+      const uName = (u.name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      return uName.includes(term);
+    }).slice(0, 15);
+  }, [nonMembers, memberSearchTerm]);
 
   const updateCell = (data: Partial<Cell>) => {
     if (!firestore || !cellId) return;
