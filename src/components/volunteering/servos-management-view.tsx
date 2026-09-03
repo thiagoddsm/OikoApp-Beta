@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { cn } from '@/lib/utils';
 import {
   Select,
   SelectContent,
@@ -58,6 +59,7 @@ export function ServosManagementView() {
   // Estados dos Filtros
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'serving' | 'unassigned'>('serving');
+  const [worshipFilter, setWorshipFilter] = useState<'all' | 'worship_only' | 'no_worship'>('all');
   const [areaFilter, setAreaFilter] = useState<string>('all');
   const [teamFilter, setTeamFilter] = useState<string>('all');
   const [redeFilter, setRedeFilter] = useState<string>('all');
@@ -155,12 +157,20 @@ export function ServosManagementView() {
   const filteredUsers = useMemo(() => {
     return users.filter(user => {
       const isServing = Boolean(user.serviceAreaId || (user.worshipRoles && user.worshipRoles.length > 0));
+      const isWorship = Boolean(
+        (user.worshipRoles && user.worshipRoles.length > 0) ||
+        (user.serviceAreaId && areaMap.get(user.serviceAreaId)?.areaType === 'worship')
+      );
 
       // 1. Filtro de Status
       if (statusFilter === 'serving' && !isServing) return false;
       if (statusFilter === 'unassigned' && isServing) return false;
 
-      // 2. Filtro de Área de Serviço
+      // 2. Filtro de Louvor & Worship (se faz parte ou não)
+      if (worshipFilter === 'worship_only' && !isWorship) return false;
+      if (worshipFilter === 'no_worship' && isWorship) return false;
+
+      // 3. Filtro de Área de Serviço
       if (areaFilter !== 'all') {
         const matchesRegular = user.serviceAreaId === areaFilter;
         const matchesWorship =
@@ -169,30 +179,30 @@ export function ServosManagementView() {
         if (!matchesRegular && !matchesWorship) return false;
       }
 
-      // 3. Filtro de Equipe
+      // 4. Filtro de Equipe
       if (teamFilter !== 'all' && user.serviceTeamId !== teamFilter) {
         return false;
       }
 
-      // 4. Resolver Estrutura de GC do Usuário
+      // 5. Resolver Estrutura de GC do Usuário
       const gcInfo = resolveUserGC(user);
 
-      // 5. Filtro de Rede
+      // 6. Filtro de Rede
       if (redeFilter !== 'all' && gcInfo.redeId !== redeFilter) {
         return false;
       }
 
-      // 6. Filtro de Área de GC
+      // 7. Filtro de Área de GC
       if (gcAreaFilter !== 'all' && gcInfo.gcAreaId !== gcAreaFilter) {
         return false;
       }
 
-      // 7. Filtro de Célula
+      // 8. Filtro de Célula
       if (cellFilter !== 'all' && gcInfo.cell?.id !== cellFilter) {
         return false;
       }
 
-      // 8. Busca Textual (Nome, E-mail, Telefone)
+      // 9. Busca Textual (Nome, E-mail, Telefone)
       if (searchTerm.trim()) {
         const term = searchTerm.toLowerCase();
         const matchName = user.name?.toLowerCase().includes(term);
@@ -203,7 +213,7 @@ export function ServosManagementView() {
 
       return true;
     });
-  }, [users, statusFilter, areaFilter, teamFilter, redeFilter, gcAreaFilter, cellFilter, searchTerm, areaMap, cellMap, redeMap, gcAreaMap, userToCellMap]);
+  }, [users, statusFilter, worshipFilter, areaFilter, teamFilter, redeFilter, gcAreaFilter, cellFilter, searchTerm, areaMap, cellMap, redeMap, gcAreaMap, userToCellMap]);
 
   // Atualização rápida de Área / Equipe
   const handleUpdateUserArea = async (userId: string, newAreaId: string) => {
@@ -251,6 +261,7 @@ export function ServosManagementView() {
   const handleResetFilters = () => {
     setSearchTerm('');
     setStatusFilter('serving');
+    setWorshipFilter('all');
     setAreaFilter('all');
     setTeamFilter('all');
     setRedeFilter('all');
@@ -262,13 +273,14 @@ export function ServosManagementView() {
     let count = 0;
     if (searchTerm.trim()) count++;
     if (statusFilter !== 'serving') count++;
+    if (worshipFilter !== 'all') count++;
     if (areaFilter !== 'all') count++;
     if (teamFilter !== 'all') count++;
     if (redeFilter !== 'all') count++;
     if (gcAreaFilter !== 'all') count++;
     if (cellFilter !== 'all') count++;
     return count;
-  }, [searchTerm, statusFilter, areaFilter, teamFilter, redeFilter, gcAreaFilter, cellFilter]);
+  }, [searchTerm, statusFilter, worshipFilter, areaFilter, teamFilter, redeFilter, gcAreaFilter, cellFilter]);
 
   // Exportar para CSV
   const handleExportCsv = () => {
@@ -392,7 +404,15 @@ export function ServosManagementView() {
 
       {/* CARDS DE MÉTRICAS */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-        <div className="bg-card border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all">
+        <div 
+          onClick={() => { setStatusFilter('serving'); setWorshipFilter('all'); }}
+          className={cn(
+            "bg-card border rounded-2xl p-4 shadow-sm hover:shadow-md transition-all cursor-pointer select-none",
+            statusFilter === 'serving' && worshipFilter === 'all'
+              ? "border-emerald-500/70 ring-2 ring-emerald-500/20 bg-emerald-500/5"
+              : "border-slate-200 dark:border-slate-800"
+          )}
+        >
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-black tracking-wider text-muted-foreground uppercase">Servos Ativos</span>
             <span className="p-2 rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
@@ -403,7 +423,15 @@ export function ServosManagementView() {
           <p className="text-[11px] text-muted-foreground mt-0.5">Voluntários com área de serviço</p>
         </div>
 
-        <div className="bg-card border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all">
+        <div 
+          onClick={() => { setWorshipFilter('worship_only'); setStatusFilter('all'); }}
+          className={cn(
+            "bg-card border rounded-2xl p-4 shadow-sm hover:shadow-md transition-all cursor-pointer select-none",
+            worshipFilter === 'worship_only'
+              ? "border-purple-500/70 ring-2 ring-purple-500/20 bg-purple-500/5"
+              : "border-slate-200 dark:border-slate-800"
+          )}
+        >
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-black tracking-wider text-muted-foreground uppercase">Louvor & Worship</span>
             <span className="p-2 rounded-xl bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-400">
@@ -411,10 +439,18 @@ export function ServosManagementView() {
             </span>
           </div>
           <p className="text-2xl sm:text-3xl font-black text-purple-600 mt-2">{stats.worship}</p>
-          <p className="text-[11px] text-muted-foreground mt-0.5">Músicos e vocalistas</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">Músicos e vocalistas (clique para filtrar)</p>
         </div>
 
-        <div className="bg-card border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all">
+        <div 
+          onClick={() => { setStatusFilter('unassigned'); setWorshipFilter('all'); }}
+          className={cn(
+            "bg-card border rounded-2xl p-4 shadow-sm hover:shadow-md transition-all cursor-pointer select-none",
+            statusFilter === 'unassigned' && worshipFilter === 'all'
+              ? "border-amber-500/70 ring-2 ring-amber-500/20 bg-amber-500/5"
+              : "border-slate-200 dark:border-slate-800"
+          )}
+        >
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-black tracking-wider text-muted-foreground uppercase">Sem Área (Potenciais)</span>
             <span className="p-2 rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400">
@@ -425,7 +461,15 @@ export function ServosManagementView() {
           <p className="text-[11px] text-muted-foreground mt-0.5">Membros sem escala ativa</p>
         </div>
 
-        <div className="bg-card border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all">
+        <div 
+          onClick={() => { setStatusFilter('all'); setWorshipFilter('all'); }}
+          className={cn(
+            "bg-card border rounded-2xl p-4 shadow-sm hover:shadow-md transition-all cursor-pointer select-none",
+            statusFilter === 'all' && worshipFilter === 'all'
+              ? "border-blue-500/70 ring-2 ring-blue-500/20 bg-blue-500/5"
+              : "border-slate-200 dark:border-slate-800"
+          )}
+        >
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-black tracking-wider text-muted-foreground uppercase">Total Cadastrado</span>
             <span className="p-2 rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400">
@@ -499,6 +543,20 @@ export function ServosManagementView() {
                 <SelectItem value="serving">👥 Servos Ativos (Com Área)</SelectItem>
                 <SelectItem value="unassigned">⚠️ Sem Área (Não Servos)</SelectItem>
                 <SelectItem value="all">📋 Todos os Membros</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Equipe de Louvor (Worship) */}
+          <div>
+            <Select value={worshipFilter} onValueChange={(val: any) => setWorshipFilter(val)}>
+              <SelectTrigger className="h-10 text-xs font-semibold rounded-xl bg-background">
+                <SelectValue placeholder="Equipe de Louvor" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">🎸 Louvor: Todos</SelectItem>
+                <SelectItem value="worship_only">✨ Faz parte do Louvor (Sim)</SelectItem>
+                <SelectItem value="no_worship">🚫 Não faz parte do Louvor (Não)</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -579,7 +637,7 @@ export function ServosManagementView() {
           </div>
 
           {/* Célula / GC */}
-          <div className="sm:col-span-2 lg:col-span-2">
+          <div>
             <Select value={cellFilter} onValueChange={setCellFilter}>
               <SelectTrigger className="h-10 text-xs font-semibold rounded-xl bg-background">
                 <SelectValue placeholder="Célula / Pequeno Grupo" />
