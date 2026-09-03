@@ -38,7 +38,13 @@ import {
   CheckCircle2,
   AlertCircle,
   Music,
-  UserCheck
+  UserCheck,
+  Building,
+  Radio,
+  MapPin,
+  Tag,
+  SlidersHorizontal,
+  X
 } from 'lucide-react';
 import { ImportVolunteersJsonDialog } from './import-volunteers-json-dialog';
 
@@ -65,10 +71,51 @@ export function ServosManagementView() {
   const gcAreaMap = useMemo(() => new Map(gcAreas.map(a => [a.id, a])), [gcAreas]);
   const redeMap = useMemo(() => new Map(redes.map(r => [r.id, r])), [redes]);
 
-  // Equipes disponíveis conforme a área selecionada
+  // Índice Reverso: mapeia qualquer usuário que esteja cadastrado na célula (como membro ou líder)
+  const userToCellMap = useMemo(() => {
+    const map = new Map<string, any>();
+    cells.forEach(cell => {
+      if (cell.liderId) map.set(cell.liderId, cell);
+      if ((cell as any).liderTreinamentoId) map.set((cell as any).liderTreinamentoId, cell);
+      if ((cell as any).secretarioId) map.set((cell as any).secretarioId, cell);
+      if ((cell as any).anfitriaoId) map.set((cell as any).anfitriaoId, cell);
+      if (cell.membros && Array.isArray(cell.membros)) {
+        cell.membros.forEach((mId: string) => {
+          if (mId) map.set(mId, cell);
+        });
+      }
+    });
+    return map;
+  }, [cells]);
+
+  // Helper para resolver GC, Área e Rede de um usuário
+  const resolveUserGC = (user: any) => {
+    const userCell =
+      (user.cellId ? cellMap.get(user.cellId) : null) ||
+      (user.hierarchy?.celulaId ? cellMap.get(user.hierarchy.celulaId) : null) ||
+      userToCellMap.get(user.id) ||
+      null;
+
+    const userRedeId = user.redeId || userCell?.redeId || null;
+    const userGcAreaId = user.areaId || userCell?.areaId || null;
+
+    const redeObj = userRedeId ? redeMap.get(userRedeId) : null;
+    const gcAreaObj = userGcAreaId ? gcAreaMap.get(userGcAreaId) : null;
+
+    return {
+      cell: userCell,
+      redeId: userRedeId,
+      rede: redeObj,
+      gcAreaId: userGcAreaId,
+      gcArea: gcAreaObj
+    };
+  };
+
+  // Equipes disponíveis (As equipes são globais 1, 2, 3, 4 ou vinculadas a área)
   const availableTeams = useMemo(() => {
     if (areaFilter === 'all') return teams;
-    return teams.filter(t => t.areaId === areaFilter);
+    const filtered = teams.filter(t => !t.areaId || t.areaId === areaFilter);
+    return filtered.length > 0 ? filtered : teams;
   }, [teams, areaFilter]);
 
   // Áreas de GC disponíveis conforme a Rede selecionada
@@ -104,48 +151,48 @@ export function ServosManagementView() {
     };
   }, [users]);
 
-  // Filtragem dos Servos
+  // Filtragem inteligente dos Servos
   const filteredUsers = useMemo(() => {
     return users.filter(user => {
       const isServing = Boolean(user.serviceAreaId || (user.worshipRoles && user.worshipRoles.length > 0));
 
-      // Filtro de Status
+      // 1. Filtro de Status
       if (statusFilter === 'serving' && !isServing) return false;
       if (statusFilter === 'unassigned' && isServing) return false;
 
-      // Filtro de Área de Serviço
+      // 2. Filtro de Área de Serviço
       if (areaFilter !== 'all') {
         const matchesRegular = user.serviceAreaId === areaFilter;
-        const matchesWorship = user.worshipAreaId === areaFilter || (areaMap.get(areaFilter)?.areaType === 'worship' && user.worshipRoles?.length);
+        const matchesWorship =
+          user.worshipAreaId === areaFilter ||
+          (areaMap.get(areaFilter)?.areaType === 'worship' && user.worshipRoles?.length);
         if (!matchesRegular && !matchesWorship) return false;
       }
 
-      // Filtro de Equipe
+      // 3. Filtro de Equipe
       if (teamFilter !== 'all' && user.serviceTeamId !== teamFilter) {
         return false;
       }
 
-      // Dados de Célula do Usuário
-      const userCell = user.cellId ? cellMap.get(user.cellId) : null;
-      const userRedeId = user.redeId || userCell?.redeId;
-      const userGcAreaId = user.areaId || userCell?.areaId;
+      // 4. Resolver Estrutura de GC do Usuário
+      const gcInfo = resolveUserGC(user);
 
-      // Filtro de Rede
-      if (redeFilter !== 'all' && userRedeId !== redeFilter) {
+      // 5. Filtro de Rede
+      if (redeFilter !== 'all' && gcInfo.redeId !== redeFilter) {
         return false;
       }
 
-      // Filtro de Área de GC
-      if (gcAreaFilter !== 'all' && userGcAreaId !== gcAreaFilter) {
+      // 6. Filtro de Área de GC
+      if (gcAreaFilter !== 'all' && gcInfo.gcAreaId !== gcAreaFilter) {
         return false;
       }
 
-      // Filtro de Célula
-      if (cellFilter !== 'all' && user.cellId !== cellFilter) {
+      // 7. Filtro de Célula
+      if (cellFilter !== 'all' && gcInfo.cell?.id !== cellFilter) {
         return false;
       }
 
-      // Filtro de Busca Textual (Nome, E-mail, Telefone)
+      // 8. Busca Textual (Nome, E-mail, Telefone)
       if (searchTerm.trim()) {
         const term = searchTerm.toLowerCase();
         const matchName = user.name?.toLowerCase().includes(term);
@@ -156,7 +203,7 @@ export function ServosManagementView() {
 
       return true;
     });
-  }, [users, statusFilter, areaFilter, teamFilter, redeFilter, gcAreaFilter, cellFilter, searchTerm, cellMap, areaMap]);
+  }, [users, statusFilter, areaFilter, teamFilter, redeFilter, gcAreaFilter, cellFilter, searchTerm, areaMap, cellMap, redeMap, gcAreaMap, userToCellMap]);
 
   // Atualização rápida de Área / Equipe
   const handleUpdateUserArea = async (userId: string, newAreaId: string) => {
@@ -211,25 +258,35 @@ export function ServosManagementView() {
     setCellFilter('all');
   };
 
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (searchTerm.trim()) count++;
+    if (statusFilter !== 'serving') count++;
+    if (areaFilter !== 'all') count++;
+    if (teamFilter !== 'all') count++;
+    if (redeFilter !== 'all') count++;
+    if (gcAreaFilter !== 'all') count++;
+    if (cellFilter !== 'all') count++;
+    return count;
+  }, [searchTerm, statusFilter, areaFilter, teamFilter, redeFilter, gcAreaFilter, cellFilter]);
+
   // Exportar para CSV
   const handleExportCsv = () => {
     const headers = ['Nome', 'Email', 'Telefone', 'Área de Serviço', 'Equipe', 'Rede', 'Área GC', 'Célula'];
     const rows = filteredUsers.map(u => {
       const areaObj = areaMap.get(u.serviceAreaId);
       const teamObj = teamMap.get(u.serviceTeamId);
-      const cellObj = u.cellId ? cellMap.get(u.cellId) : null;
-      const redeObj = (u.redeId || cellObj?.redeId) ? redeMap.get(u.redeId || cellObj?.redeId) : null;
-      const gcAreaObj = (u.areaId || cellObj?.areaId) ? gcAreaMap.get(u.areaId || cellObj?.areaId) : null;
+      const gcInfo = resolveUserGC(u);
 
       return [
         `"${u.name || ''}"`,
         `"${u.email || ''}"`,
         `"${u.phone || ''}"`,
         `"${areaObj?.name || (u.worshipRoles?.length ? 'Louvor' : 'Sem Área')}"`,
-        `"${teamObj?.name || ''}"`,
-        `"${(redeObj as any)?.nome || (redeObj as any)?.name || ''}"`,
-        `"${(gcAreaObj as any)?.nome || (gcAreaObj as any)?.name || ''}"`,
-        `"${(cellObj as any)?.nome || (cellObj as any)?.name || ''}"`
+        `"${teamObj ? (teamObj.name.startsWith('Equipe') ? teamObj.name : `Equipe ${teamObj.name}`) : ''}"`,
+        `"${(gcInfo.rede as any)?.nome || (gcInfo.rede as any)?.name || ''}"`,
+        `"${(gcInfo.gcArea as any)?.nome || (gcInfo.gcArea as any)?.name || ''}"`,
+        `"${(gcInfo.cell as any)?.nome || (gcInfo.cell as any)?.name || ''}"`
       ].join(';');
     });
 
@@ -251,19 +308,17 @@ export function ServosManagementView() {
       servos: filteredUsers.map(u => {
         const areaObj = areaMap.get(u.serviceAreaId);
         const teamObj = teamMap.get(u.serviceTeamId);
-        const cellObj = u.cellId ? cellMap.get(u.cellId) : null;
-        const redeObj = (u.redeId || cellObj?.redeId) ? redeMap.get(u.redeId || cellObj?.redeId) : null;
-        const gcAreaObj = (u.areaId || cellObj?.areaId) ? gcAreaMap.get(u.areaId || cellObj?.areaId) : null;
+        const gcInfo = resolveUserGC(u);
 
         return {
           nome: u.name,
           email: u.email || '',
           telefone: u.phone || '',
           area: areaObj?.name || (u.worshipRoles?.length ? 'Louvor' : ''),
-          equipe: teamObj?.name || '',
-          rede: (redeObj as any)?.nome || (redeObj as any)?.name || '',
-          areaGc: (gcAreaObj as any)?.nome || (gcAreaObj as any)?.name || '',
-          celula: (cellObj as any)?.nome || (cellObj as any)?.name || ''
+          equipe: teamObj ? (teamObj.name.startsWith('Equipe') ? teamObj.name : `Equipe ${teamObj.name}`) : '',
+          rede: (gcInfo.rede as any)?.nome || (gcInfo.rede as any)?.name || '',
+          areaGc: (gcInfo.gcArea as any)?.nome || (gcInfo.gcArea as any)?.name || '',
+          celula: (gcInfo.cell as any)?.nome || (gcInfo.cell as any)?.name || ''
         };
       }),
       _referencia_areas_e_equipes: {
@@ -271,7 +326,7 @@ export function ServosManagementView() {
         areasDisponiveis: areas.map(a => ({
           nome: a.name,
           tipo: a.areaType || 'regular',
-          equipes: teams.filter(t => t.areaId === a.id).map(t => t.name)
+          equipes: teams.map(t => (t.name.startsWith('Equipe') ? t.name : `Equipe ${t.name}`))
         }))
       }
     };
@@ -293,14 +348,18 @@ export function ServosManagementView() {
   return (
     <div className="space-y-6">
       {/* CABEÇALHO & AÇÕES */}
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
-        <div>
-          <h2 className="text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
-            <HandHelping className="size-6 text-primary" />
-            Servos & Voluntários
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            Gerencie e filtre todos os voluntários da igreja por área de serviço, equipe e estrutura de GC.
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-3xl bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white shadow-xl border border-slate-700/50">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="p-2 rounded-2xl bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+              <HandHelping className="size-6" />
+            </span>
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+              Servos & Voluntários
+            </h1>
+          </div>
+          <p className="text-xs sm:text-sm text-slate-300">
+            Painel unificado para consulta, filtragem e gestão de todos os servos da igreja.
           </p>
         </div>
 
@@ -309,20 +368,20 @@ export function ServosManagementView() {
             variant="outline"
             size="sm"
             onClick={handleExportCsv}
-            className="h-8 text-xs font-bold gap-1.5 bg-background shadow-sm"
+            className="h-9 text-xs font-bold gap-1.5 bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur-md shadow-sm"
           >
-            <FileSpreadsheet className="size-3.5 text-emerald-600" />
-            Exportar CSV
+            <FileSpreadsheet className="size-4 text-emerald-400" />
+            Planilha CSV
           </Button>
 
           <Button
             variant="outline"
             size="sm"
             onClick={handleExportJson}
-            className="h-8 text-xs font-bold gap-1.5 bg-background shadow-sm"
+            className="h-9 text-xs font-bold gap-1.5 bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur-md shadow-sm"
           >
-            <FileJson className="size-3.5 text-blue-600" />
-            Exportar JSON
+            <FileJson className="size-4 text-amber-400" />
+            JSON para IA
           </Button>
 
           <ImportVolunteersJsonDialog />
@@ -330,92 +389,112 @@ export function ServosManagementView() {
       </div>
 
       {/* CARDS DE MÉTRICAS */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-card border rounded-2xl p-4 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Servos Ativos</p>
-            <p className="text-2xl font-black text-foreground mt-0.5">{stats.serving}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">Em alguma área ou louvor</p>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+        <div className="bg-card border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-black tracking-wider text-muted-foreground uppercase">Servos Ativos</span>
+            <span className="p-2 rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+              <UserCheck className="size-4" />
+            </span>
           </div>
-          <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
-            <UserCheck className="size-5" />
-          </div>
+          <p className="text-2xl sm:text-3xl font-black text-foreground mt-2">{stats.serving}</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">Voluntários com área de serviço</p>
         </div>
 
-        <div className="bg-card border rounded-2xl p-4 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Louvor & Worship</p>
-            <p className="text-2xl font-black text-purple-600 mt-0.5">{stats.worship}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">Vozes e Instrumentistas</p>
+        <div className="bg-card border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-black tracking-wider text-muted-foreground uppercase">Louvor & Worship</span>
+            <span className="p-2 rounded-xl bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-400">
+              <Music className="size-4" />
+            </span>
           </div>
-          <div className="p-2.5 rounded-xl bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-400">
-            <Music className="size-5" />
-          </div>
+          <p className="text-2xl sm:text-3xl font-black text-purple-600 mt-2">{stats.worship}</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">Músicos e vocalistas</p>
         </div>
 
-        <div className="bg-card border rounded-2xl p-4 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Sem Área (Potenciais)</p>
-            <p className="text-2xl font-black text-amber-600 mt-0.5">{stats.unassigned}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">Disponíveis para servir</p>
+        <div className="bg-card border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-black tracking-wider text-muted-foreground uppercase">Sem Área (Potenciais)</span>
+            <span className="p-2 rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+              <AlertCircle className="size-4" />
+            </span>
           </div>
-          <div className="p-2.5 rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400">
-            <AlertCircle className="size-5" />
-          </div>
+          <p className="text-2xl sm:text-3xl font-black text-amber-600 mt-2">{stats.unassigned}</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">Membros sem escala ativa</p>
         </div>
 
-        <div className="bg-card border rounded-2xl p-4 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Total de Membros</p>
-            <p className="text-2xl font-black text-foreground mt-0.5">{stats.total}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">Cadastros no sistema</p>
+        <div className="bg-card border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-black tracking-wider text-muted-foreground uppercase">Total Cadastrado</span>
+            <span className="p-2 rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400">
+              <Users className="size-4" />
+            </span>
           </div>
-          <div className="p-2.5 rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400">
-            <Users className="size-5" />
-          </div>
+          <p className="text-2xl sm:text-3xl font-black text-foreground mt-2">{stats.total}</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">Base geral de membros</p>
         </div>
       </div>
 
       {/* PAINEL DE FILTROS AVANÇADOS */}
-      <div className="bg-card border rounded-2xl p-4 shadow-sm space-y-3">
-        <div className="flex items-center justify-between">
+      <div className="bg-card border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-sm space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b">
           <div className="flex items-center gap-2">
-            <Filter className="size-4 text-primary" />
-            <span className="text-xs font-bold uppercase tracking-wider text-foreground">Filtros de Busca</span>
+            <span className="p-1.5 rounded-lg bg-primary/10 text-primary">
+              <SlidersHorizontal className="size-4" />
+            </span>
+            <span className="text-xs font-black uppercase tracking-wider text-foreground">
+              Filtros Avançados
+            </span>
+            {activeFiltersCount > 0 && (
+              <Badge className="bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                {activeFiltersCount} ativo(s)
+              </Badge>
+            )}
           </div>
 
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={handleResetFilters}
-            className="h-7 text-xs text-muted-foreground hover:text-foreground gap-1"
-          >
-            <RotateCcw className="size-3" />
-            Limpar Filtros
-          </Button>
+          {activeFiltersCount > 0 && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleResetFilters}
+              className="h-7 text-xs text-muted-foreground hover:text-destructive gap-1 px-2 font-semibold"
+            >
+              <RotateCcw className="size-3" />
+              Limpar Filtros
+            </Button>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {/* Busca Textual */}
-          <div className="relative sm:col-span-2 md:col-span-1">
-            <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
+          <div className="relative sm:col-span-2 lg:col-span-1">
+            <Search className="absolute left-3 top-3 size-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar por nome, email ou tel..."
+              placeholder="Buscar por nome, e-mail ou tel..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="h-9 text-xs pl-8 rounded-xl"
+              className="h-10 text-xs pl-9 pr-8 rounded-xl bg-background"
             />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="absolute right-2.5 top-3 text-muted-foreground hover:text-foreground"
+              >
+                <X className="size-4" />
+              </button>
+            )}
           </div>
 
           {/* Status */}
           <div>
             <Select value={statusFilter} onValueChange={(val: any) => setStatusFilter(val)}>
-              <SelectTrigger className="h-9 text-xs rounded-xl">
-                <SelectValue placeholder="Status de Serviço" />
+              <SelectTrigger className="h-10 text-xs font-semibold rounded-xl bg-background">
+                <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="serving">👥 Servos Ativos</SelectItem>
+                <SelectItem value="serving">👥 Servos Ativos (Com Área)</SelectItem>
                 <SelectItem value="unassigned">⚠️ Sem Área (Não Servos)</SelectItem>
                 <SelectItem value="all">📋 Todos os Membros</SelectItem>
               </SelectContent>
@@ -425,7 +504,7 @@ export function ServosManagementView() {
           {/* Área de Serviço */}
           <div>
             <Select value={areaFilter} onValueChange={(val) => { setAreaFilter(val); setTeamFilter('all'); }}>
-              <SelectTrigger className="h-9 text-xs rounded-xl">
+              <SelectTrigger className="h-10 text-xs font-semibold rounded-xl bg-background">
                 <SelectValue placeholder="Área de Serviço" />
               </SelectTrigger>
               <SelectContent>
@@ -442,14 +521,14 @@ export function ServosManagementView() {
           {/* Equipe */}
           <div>
             <Select value={teamFilter} onValueChange={setTeamFilter}>
-              <SelectTrigger className="h-9 text-xs rounded-xl">
+              <SelectTrigger className="h-10 text-xs font-semibold rounded-xl bg-background">
                 <SelectValue placeholder="Equipe" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas as Equipes</SelectItem>
                 {availableTeams.map(t => (
                   <SelectItem key={t.id} value={t.id}>
-                    🛡️ {t.name}
+                    🛡️ {t.name.startsWith('Equipe') ? t.name : `Equipe ${t.name}`}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -459,16 +538,23 @@ export function ServosManagementView() {
           {/* Rede de GC */}
           <div>
             <Select value={redeFilter} onValueChange={(val) => { setRedeFilter(val); setGcAreaFilter('all'); setCellFilter('all'); }}>
-              <SelectTrigger className="h-9 text-xs rounded-xl">
+              <SelectTrigger className="h-10 text-xs font-semibold rounded-xl bg-background">
                 <SelectValue placeholder="Rede de GC" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas as Redes</SelectItem>
-                {redes.map(r => (
-                  <SelectItem key={r.id} value={r.id}>
-                    🔴 {(r as any).nome || (r as any).name}
-                  </SelectItem>
-                ))}
+                {redes.map(r => {
+                  const rNome = (r as any).nome || (r as any).name || r.id;
+                  const rCor = (r as any).cor || '#EF4444';
+                  return (
+                    <SelectItem key={r.id} value={r.id}>
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="size-2 rounded-full" style={{ backgroundColor: rCor }} />
+                        Rede {rNome}
+                      </span>
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
@@ -476,7 +562,7 @@ export function ServosManagementView() {
           {/* Área de GC */}
           <div>
             <Select value={gcAreaFilter} onValueChange={(val) => { setGcAreaFilter(val); setCellFilter('all'); }}>
-              <SelectTrigger className="h-9 text-xs rounded-xl">
+              <SelectTrigger className="h-10 text-xs font-semibold rounded-xl bg-background">
                 <SelectValue placeholder="Área de GC" />
               </SelectTrigger>
               <SelectContent>
@@ -491,13 +577,13 @@ export function ServosManagementView() {
           </div>
 
           {/* Célula / GC */}
-          <div className="sm:col-span-2 md:col-span-2">
+          <div className="sm:col-span-2 lg:col-span-2">
             <Select value={cellFilter} onValueChange={setCellFilter}>
-              <SelectTrigger className="h-9 text-xs rounded-xl">
+              <SelectTrigger className="h-10 text-xs font-semibold rounded-xl bg-background">
                 <SelectValue placeholder="Célula / Pequeno Grupo" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos os GCs / Células</SelectItem>
+                <SelectItem value="all">Todos os GCs / Células ({cells.length})</SelectItem>
                 {availableCells.map(c => (
                   <SelectItem key={c.id} value={c.id}>
                     🏠 {(c as any).nome || (c as any).name}
@@ -510,26 +596,36 @@ export function ServosManagementView() {
       </div>
 
       {/* TABELA DE SERVOS */}
-      <div className="bg-card border rounded-2xl shadow-sm overflow-hidden">
-        <div className="p-4 border-b flex items-center justify-between">
+      <div className="bg-card border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm overflow-hidden">
+        <div className="p-4 sm:p-5 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-muted/20">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-foreground">
-              Voluntários Filtrados
+            <span className="text-sm font-black text-foreground">
+              Relação de Voluntários
             </span>
-            <Badge variant="secondary" className="font-bold text-xs">
+            <Badge variant="secondary" className="font-bold text-xs px-2.5 py-0.5 rounded-full">
               {filteredUsers.length} resultado(s)
             </Badge>
           </div>
+          <span className="text-xs text-muted-foreground">
+            Altere a área ou equipe do voluntário diretamente nos campos da tabela.
+          </span>
         </div>
 
         {isLoading ? (
-          <div className="flex items-center justify-center p-12 h-64">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <div className="flex flex-col items-center justify-center p-12 h-64 gap-2">
+            <Loader2 className="size-8 animate-spin text-primary" />
+            <p className="text-xs text-muted-foreground font-medium">Carregando dados dos voluntários...</p>
           </div>
         ) : filteredUsers.length === 0 ? (
-          <div className="p-12 text-center text-muted-foreground space-y-2">
-            <p className="text-sm font-medium">Nenhum servo encontrado com os filtros selecionados.</p>
-            <Button variant="outline" size="sm" onClick={handleResetFilters} className="text-xs">
+          <div className="p-12 text-center text-muted-foreground space-y-3">
+            <div className="size-12 rounded-2xl bg-muted flex items-center justify-center mx-auto text-muted-foreground">
+              <Users className="size-6" />
+            </div>
+            <p className="text-sm font-semibold text-foreground">Nenhum voluntário encontrado para estes filtros.</p>
+            <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+              Tente redefinir os filtros ou alterar os termos de busca para encontrar outros membros.
+            </p>
+            <Button variant="outline" size="sm" onClick={handleResetFilters} className="text-xs font-bold mt-2">
               Limpar Filtros
             </Button>
           </div>
@@ -537,32 +633,34 @@ export function ServosManagementView() {
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="bg-muted/40">
-                  <TableHead className="w-[280px]">Servo / Voluntário</TableHead>
-                  <TableHead className="w-[200px]">Área de Serviço</TableHead>
-                  <TableHead className="w-[180px]">Equipe</TableHead>
-                  <TableHead className="w-[220px]">GC & Estrutura</TableHead>
-                  <TableHead className="text-right w-[100px]">Ações</TableHead>
+                <TableRow className="bg-muted/40 hover:bg-muted/40">
+                  <TableHead className="w-[300px] text-xs font-bold">Servo / Voluntário</TableHead>
+                  <TableHead className="w-[200px] text-xs font-bold">Área de Serviço</TableHead>
+                  <TableHead className="w-[180px] text-xs font-bold">Equipe</TableHead>
+                  <TableHead className="w-[240px] text-xs font-bold">Estrutura de GC (Célula / Rede)</TableHead>
+                  <TableHead className="text-right w-[90px] text-xs font-bold">Contato</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredUsers.map(user => {
                   const areaObj = areaMap.get(user.serviceAreaId);
                   const teamObj = teamMap.get(user.serviceTeamId);
-                  const cellObj = user.cellId ? cellMap.get(user.cellId) : null;
-                  const redeObj = (user.redeId || cellObj?.redeId) ? redeMap.get(user.redeId || cellObj?.redeId) : null;
-                  const gcAreaObj = (user.areaId || cellObj?.areaId) ? gcAreaMap.get(user.areaId || cellObj?.areaId) : null;
+                  const gcInfo = resolveUserGC(user);
                   const hasWorship = user.worshipRoles && user.worshipRoles.length > 0;
                   const cleanPhone = user.phone ? user.phone.replace(/\D/g, '') : '';
+                  const redeNome = (gcInfo.rede as any)?.nome || (gcInfo.rede as any)?.name || '';
+                  const redeCor = (gcInfo.rede as any)?.cor || '#EF4444';
+                  const areaGcNome = (gcInfo.gcArea as any)?.nome || (gcInfo.gcArea as any)?.name || '';
+                  const cellNome = (gcInfo.cell as any)?.nome || (gcInfo.cell as any)?.name || '';
 
                   return (
                     <TableRow key={user.id} className="hover:bg-muted/30 transition-colors">
                       {/* MEMBRO / CONTATO */}
-                      <TableCell>
+                      <TableCell className="py-3.5">
                         <div className="flex items-center gap-3">
-                          <Avatar className="h-9 w-9 border">
+                          <Avatar className="size-10 border shadow-sm shrink-0">
                             <AvatarImage src={user.avatar} alt={user.name} />
-                            <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+                            <AvatarFallback className="bg-primary/10 text-primary text-xs font-black">
                               {user.name ? user.name.substring(0, 2).toUpperCase() : 'U'}
                             </AvatarFallback>
                           </Avatar>
@@ -584,13 +682,13 @@ export function ServosManagementView() {
                       </TableCell>
 
                       {/* ÁREA DE SERVIÇO */}
-                      <TableCell>
+                      <TableCell className="py-3.5">
                         <div className="space-y-1">
                           <Select
                             value={user.serviceAreaId || (hasWorship ? 'worship_tag' : 'none')}
                             onValueChange={(val) => handleUpdateUserArea(user.id, val)}
                           >
-                            <SelectTrigger className="h-7 text-[11px] font-bold rounded-lg max-w-[180px]">
+                            <SelectTrigger className="h-8 text-[11px] font-bold rounded-xl max-w-[190px] bg-background">
                               <SelectValue placeholder="Selecionar Área" />
                             </SelectTrigger>
                             <SelectContent>
@@ -605,7 +703,7 @@ export function ServosManagementView() {
 
                           {hasWorship && (
                             <div className="flex items-center gap-1">
-                              <Badge className="bg-purple-100 text-purple-750 border-purple-200 text-[9px] font-bold">
+                              <Badge className="bg-purple-100 text-purple-750 border-purple-200 text-[9px] font-bold px-1.5 py-0">
                                 🎸 Louvor: {user.worshipRoles.join(', ')}
                               </Badge>
                             </div>
@@ -614,34 +712,32 @@ export function ServosManagementView() {
                       </TableCell>
 
                       {/* EQUIPE */}
-                      <TableCell>
+                      <TableCell className="py-3.5">
                         <Select
                           value={user.serviceTeamId || 'none'}
                           onValueChange={(val) => handleUpdateUserTeam(user.id, val)}
                           disabled={!user.serviceAreaId}
                         >
-                          <SelectTrigger className="h-7 text-[11px] font-bold rounded-lg max-w-[160px]">
+                          <SelectTrigger className="h-8 text-[11px] font-bold rounded-xl max-w-[160px] bg-background">
                             <SelectValue placeholder="Selecionar Equipe" />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none" className="text-slate-400 font-medium">Nenhuma equipe</SelectItem>
-                            {teams
-                              .filter(t => !user.serviceAreaId || t.areaId === user.serviceAreaId || !t.areaId)
-                              .map(t => (
-                                <SelectItem key={t.id} value={t.id}>
-                                  🛡️ {t.name}
-                                </SelectItem>
-                              ))}
+                            {teams.map(t => (
+                              <SelectItem key={t.id} value={t.id}>
+                                🛡️ {t.name.startsWith('Equipe') ? t.name : `Equipe ${t.name}`}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </TableCell>
 
                       {/* GC & ESTRUTURA */}
-                      <TableCell>
-                        <div className="flex flex-col gap-0.5">
-                          {cellObj ? (
+                      <TableCell className="py-3.5">
+                        <div className="flex flex-col gap-1">
+                          {cellNome ? (
                             <span className="text-xs font-bold text-foreground flex items-center gap-1">
-                              🏠 {(cellObj as any).nome || (cellObj as any).name}
+                              🏠 {cellNome}
                             </span>
                           ) : (
                             <span className="text-xs text-muted-foreground italic">
@@ -649,15 +745,19 @@ export function ServosManagementView() {
                             </span>
                           )}
 
-                          <div className="flex flex-wrap gap-1 text-[10px] text-muted-foreground">
-                            {redeObj && (
-                              <Badge variant="outline" className="text-[9px] px-1 py-0 font-bold border-red-200 text-red-700 bg-red-50/50">
-                                {(redeObj as any).nome || (redeObj as any).name}
+                          <div className="flex flex-wrap items-center gap-1 text-[10px]">
+                            {redeNome && (
+                              <Badge
+                                variant="outline"
+                                className="text-[9px] px-1.5 py-0 font-bold border-red-200 text-red-700 bg-red-50/70 dark:bg-red-950/30 dark:text-red-300"
+                              >
+                                <span className="size-1.5 rounded-full mr-1" style={{ backgroundColor: redeCor }} />
+                                Rede {redeNome}
                               </Badge>
                             )}
-                            {gcAreaObj && (
-                              <Badge variant="outline" className="text-[9px] px-1 py-0 font-semibold">
-                                {(gcAreaObj as any).nome || (gcAreaObj as any).name}
+                            {areaGcNome && (
+                              <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-semibold bg-slate-50 dark:bg-slate-900">
+                                📍 {areaGcNome}
                               </Badge>
                             )}
                           </div>
@@ -665,13 +765,13 @@ export function ServosManagementView() {
                       </TableCell>
 
                       {/* AÇÕES */}
-                      <TableCell className="text-right">
+                      <TableCell className="py-3.5 text-right">
                         {cleanPhone ? (
                           <a
                             href={`https://wa.me/55${cleanPhone}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center justify-center size-8 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors border border-emerald-200"
+                            className="inline-flex items-center justify-center size-8 rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 transition-all shadow-sm"
                             title="Conversar no WhatsApp"
                           >
                             <MessageSquare className="size-4" />
