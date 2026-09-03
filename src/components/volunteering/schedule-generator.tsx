@@ -130,19 +130,47 @@ export function ScheduleGenerator() {
             
             const relevantEvents = [...weeklyEvents, ...biweeklyEvents, ...monthlyEvents, ...punctualEvents];
 
+            const targetAreas = isAllAreas ? areas : areas.filter(a => a.id === selectedAreaId);
+
             relevantEvents.forEach(event => {
-                event.requiredAreas?.forEach(reqArea => {
-                    const area = areas.find(a => a.id === reqArea.areaId);
-                    if (area && (isAllAreas || area.id === selectedAreaId)) {
-                        
-                        let assignedTeam = null;
+                targetAreas.forEach(area => {
+                    const reqArea = event.requiredAreas?.find(r => r.areaId === area.id);
+                    const isFixedArea = area.scheduleMode === 'fixed_monthly';
+                    
+                    // Se a área for requerida no evento OU se a área tiver modo fixed_monthly com esse evento configurado
+                    const hasFixedConfig = isFixedArea && (
+                      Boolean(area.fixedMonthlyPattern?.weeks?.[1]?.[event.id]) ||
+                      Boolean(area.fixedMonthlyPattern?.weeks?.[2]?.[event.id]) ||
+                      Boolean(area.fixedMonthlyPattern?.weeks?.[3]?.[event.id]) ||
+                      Boolean(area.fixedMonthlyPattern?.weeks?.[4]?.[event.id]) ||
+                      Boolean(area.fixedMonthlyPattern?.fifthWeekRotation?.some(r => r.slots?.[event.id]))
+                    );
+
+                    if (reqArea || hasFixedConfig) {
+                        const quantity = reqArea?.quantity || 1;
                         const weekOfMonth = getWeekOfMonth(currentDate);
-                        const assignedTeamId = weekTeams[weekOfMonth];
-                        if (assignedTeamId) {
-                            assignedTeam = teams.find(t => t.id === assignedTeamId) || null;
+
+                        let assignedTeam = null;
+                        let fixedVolunteerId: string | null = null;
+
+                        if (isFixedArea && area.fixedMonthlyPattern) {
+                            if (weekOfMonth <= 4) {
+                                fixedVolunteerId = area.fixedMonthlyPattern.weeks?.[weekOfMonth as 1|2|3|4]?.[event.id] || null;
+                            } else if (weekOfMonth === 5) {
+                                // 5º Domingo / 5ª Quinta
+                                const fifthWeekIdx = getFifthWeekOccurrenceInYear(currentDate, fifthWeeksOfYear);
+                                const rotation = area.fixedMonthlyPattern.fifthWeekRotation?.find(r => r.months?.includes(selectedMonth)) ||
+                                                 area.fixedMonthlyPattern.fifthWeekRotation?.[fifthWeekIdx >= 0 ? fifthWeekIdx % 4 : 0];
+                                fixedVolunteerId = rotation?.slots?.[event.id] || null;
+                            }
+                        } else {
+                            const assignedTeamId = weekTeams[weekOfMonth];
+                            if (assignedTeamId) {
+                                assignedTeam = teams.find(t => t.id === assignedTeamId) || null;
+                            }
                         }
 
-                         for (let i = 0; i < reqArea.quantity; i++) {
+                        for (let i = 0; i < quantity; i++) {
                             dates.push({
                                 date: currentDate.toLocaleDateString('pt-BR'),
                                 eventId: event.id,
@@ -151,12 +179,12 @@ export function ScheduleGenerator() {
                                 areaName: area.name,
                                 teamId: assignedTeam?.id || null,
                                 teamName: assignedTeam?.name || null,
-                                volunteerId: null, // Initially empty
+                                volunteerId: fixedVolunteerId || null,
                                 slotIndex: i,
                             });
                         }
                     }
-                })
+                });
             });
         }
         

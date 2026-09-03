@@ -61,12 +61,29 @@ export type User = {
   worshipAreaId?: string;
 };
 
-export type ServiceScheduleMode = 'unified' | 'individual' | 'grouped';
+export type ServiceScheduleMode = 'unified' | 'individual' | 'grouped' | 'fixed_monthly';
 export type AreaType = 'regular' | 'worship';
 
 export type ServiceGroup = {
   name: string;
   eventIds: string[];
+};
+
+export type FifthWeekRotationItem = {
+  id: string;
+  label: string; // Ex: "1º Rodízio (Março / Abril)"
+  months?: number[]; // [2, 3] etc. (0-indexed)
+  slots: Record<string, string>; // eventId -> userId
+};
+
+export type FixedMonthlyPattern = {
+  weeks: {
+    1?: Record<string, string>; // eventId -> userId
+    2?: Record<string, string>;
+    3?: Record<string, string>;
+    4?: Record<string, string>;
+  };
+  fifthWeekRotation?: FifthWeekRotationItem[];
 };
 
 export type AreaOfService = {
@@ -77,6 +94,7 @@ export type AreaOfService = {
   leaderContact?: string;
   scheduleMode?: ServiceScheduleMode;
   serviceGroups?: ServiceGroup[];
+  fixedMonthlyPattern?: FixedMonthlyPattern;
   roles?: string[];
   tenantId?: string;
   unifiedCelebrations?: boolean;

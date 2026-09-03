@@ -1,17 +1,19 @@
 'use client';
 import React, { useState, useEffect, useMemo } from 'react';
-import { useVolunteering, type AreaOfService, type AreaType, type ServiceScheduleMode, type ServiceGroup } from '@/contexts/volunteering-context';
+import { useVolunteering, type AreaOfService, type AreaType, type ServiceScheduleMode, type ServiceGroup, type FixedMonthlyPattern, type FifthWeekRotationItem } from '@/contexts/volunteering-context';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Trash2, ShieldAlert, Download, Users, UserPlus, Search, UserCheck } from 'lucide-react';
+import { Loader2, Trash2, ShieldAlert, Download, Users, UserPlus, Search, UserCheck, Calendar, Sparkles, CalendarDays, RefreshCw } from 'lucide-react';
 import { PersonSearchInput } from '@/components/common/person-search-input';
 import { useMembersData, useEventsData, useVolunteeringServiceData } from "@/hooks/useDomainData";
 import { useFirebase, useDoc, updateDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface CreateAreaDialogProps {
   open: boolean;
@@ -39,11 +41,40 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
   const [newRole, setNewRole] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
+  // Estado da Escala Fixa Mensal
+  const [fixedPattern, setFixedPattern] = useState<FixedMonthlyPattern>({
+    weeks: {
+      1: {},
+      2: {},
+      3: {},
+      4: {}
+    },
+    fifthWeekRotation: [
+      { id: '1', label: '1º Rodízio (Março / Abril)', months: [2, 3], slots: {} },
+      { id: '2', label: '2º Rodízio (Maio / Julho)', months: [4, 6], slots: {} },
+      { id: '3', label: '3º Rodízio (Agosto / Outubro)', months: [7, 9], slots: {} },
+      { id: '4', label: '4º Rodízio (Novembro / Dezembro)', months: [10, 11], slots: {} }
+    ]
+  });
+
   // Tab state
   const [activeTab, setActiveTab] = useState<'basic' | 'members'>('basic');
   const [memberSearch, setMemberSearch] = useState('');
 
-  // Filter Sunday events
+  // Filter recurring events for fixed schedule
+  const recurringEventsList = useMemo(() => {
+    if (!events || events.length === 0) return [];
+    // Sort Sunday first, then Thursday, etc.
+    const dayPriority: Record<string, number> = { domingo: 1, quinta: 2, quarta: 3, sabado: 4, terca: 5, segunda: 6, sexta: 7 };
+    return [...events].sort((a, b) => {
+      const pA = dayPriority[a.dayOfWeek?.toLowerCase() || ''] || 99;
+      const pB = dayPriority[b.dayOfWeek?.toLowerCase() || ''] || 99;
+      if (pA !== pB) return pA - pB;
+      return (a.time || '').localeCompare(b.time || '');
+    });
+  }, [events]);
+
+  // Filter Sunday events for grouped mode
   const sundayEventsList = useMemo(() => {
     if (!events) return [];
     return events.filter(e => e.dayOfWeek?.toLowerCase() === 'domingo' || e.dayOfWeek?.toLowerCase() === 'sunday');
@@ -60,6 +91,34 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
       
       const mode = existingArea?.scheduleMode || (existingArea?.unifiedCelebrations ? 'grouped' : 'unified');
       setScheduleMode(mode);
+
+      // Load fixedMonthlyPattern if available
+      if (existingArea?.fixedMonthlyPattern) {
+        setFixedPattern({
+          weeks: {
+            1: existingArea.fixedMonthlyPattern.weeks?.[1] || {},
+            2: existingArea.fixedMonthlyPattern.weeks?.[2] || {},
+            3: existingArea.fixedMonthlyPattern.weeks?.[3] || {},
+            4: existingArea.fixedMonthlyPattern.weeks?.[4] || {}
+          },
+          fifthWeekRotation: existingArea.fixedMonthlyPattern.fifthWeekRotation || [
+            { id: '1', label: '1º Rodízio (Março / Abril)', months: [2, 3], slots: {} },
+            { id: '2', label: '2º Rodízio (Maio / Julho)', months: [4, 6], slots: {} },
+            { id: '3', label: '3º Rodízio (Agosto / Outubro)', months: [7, 9], slots: {} },
+            { id: '4', label: '4º Rodízio (Novembro / Dezembro)', months: [10, 11], slots: {} }
+          ]
+        });
+      } else {
+        setFixedPattern({
+          weeks: { 1: {}, 2: {}, 3: {}, 4: {} },
+          fifthWeekRotation: [
+            { id: '1', label: '1º Rodízio (Março / Abril)', months: [2, 3], slots: {} },
+            { id: '2', label: '2º Rodízio (Maio / Julho)', months: [4, 6], slots: {} },
+            { id: '3', label: '3º Rodízio (Agosto / Outubro)', months: [7, 9], slots: {} },
+            { id: '4', label: '4º Rodízio (Novembro / Dezembro)', months: [10, 11], slots: {} }
+          ]
+        });
+      }
 
       setRoles(existingArea?.roles || []);
       setActiveTab('basic');
@@ -84,6 +143,38 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
       }
     }
   }, [open, existingArea, events]);
+
+  const handleUpdateWeekSlot = (weekNum: 1 | 2 | 3 | 4, eventId: string, userId: string) => {
+    setFixedPattern(prev => ({
+      ...prev,
+      weeks: {
+        ...prev.weeks,
+        [weekNum]: {
+          ...(prev.weeks[weekNum] || {}),
+          [eventId]: userId === 'none' ? '' : userId
+        }
+      }
+    }));
+  };
+
+  const handleUpdateFifthRotationSlot = (rotationIdx: number, eventId: string, userId: string) => {
+    setFixedPattern(prev => {
+      const nextRotations = [...(prev.fifthWeekRotation || [])];
+      if (nextRotations[rotationIdx]) {
+        nextRotations[rotationIdx] = {
+          ...nextRotations[rotationIdx],
+          slots: {
+            ...nextRotations[rotationIdx].slots,
+            [eventId]: userId === 'none' ? '' : userId
+          }
+        };
+      }
+      return {
+        ...prev,
+        fifthWeekRotation: nextRotations
+      };
+    });
+  };
 
   useEffect(() => {
     if (leaderId && leaderId !== 'null') {
@@ -268,6 +359,7 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
       areaType,
       scheduleMode,
       serviceGroups: scheduleMode === 'grouped' ? serviceGroups : [],
+      fixedMonthlyPattern: scheduleMode === 'fixed_monthly' ? fixedPattern : undefined,
       roles: areaType === 'worship' ? roles : [],
       unifiedCelebrations: scheduleMode === 'grouped',
       unifiedGroups: scheduleMode === 'grouped' ? unifiedGroupsMapped : []
@@ -285,7 +377,7 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto rounded-2xl">
+      <DialogContent className={cn("max-h-[90vh] overflow-y-auto rounded-2xl transition-all", scheduleMode === 'fixed_monthly' ? "max-w-3xl" : "max-w-md")}>
         <DialogHeader>
           <DialogTitle>{existingArea ? 'Editar Área de Serviço' : 'Criar Nova Área de Serviço'}</DialogTitle>
           <DialogDescription>
@@ -350,35 +442,163 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
             {/* Schedule Mode Toggle */}
             <div className="space-y-2">
               <Label>Modo de Escala</Label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <button
                   type="button"
-                  className={`px-3 py-2 text-[11px] font-bold border rounded-xl transition-all leading-tight ${scheduleMode === 'unified' ? 'bg-primary text-white border-primary' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'}`}
+                  className={`px-2 py-2 text-[11px] font-bold border rounded-xl transition-all leading-tight ${scheduleMode === 'unified' ? 'bg-primary text-white border-primary' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'}`}
                   onClick={() => setScheduleMode('unified')}
                 >
                   🔵 Unificada
                 </button>
                 <button
                   type="button"
-                  className={`px-3 py-2 text-[11px] font-bold border rounded-xl transition-all leading-tight ${scheduleMode === 'individual' ? 'bg-primary text-white border-primary' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'}`}
+                  className={`px-2 py-2 text-[11px] font-bold border rounded-xl transition-all leading-tight ${scheduleMode === 'individual' ? 'bg-primary text-white border-primary' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'}`}
                   onClick={() => setScheduleMode('individual')}
                 >
                   🟣 Individual
                 </button>
                 <button
                   type="button"
-                  className={`px-3 py-2 text-[11px] font-bold border rounded-xl transition-all leading-tight ${scheduleMode === 'grouped' ? 'bg-primary text-white border-primary' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'}`}
+                  className={`px-2 py-2 text-[11px] font-bold border rounded-xl transition-all leading-tight ${scheduleMode === 'grouped' ? 'bg-primary text-white border-primary' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'}`}
                   onClick={() => setScheduleMode('grouped')}
                 >
                   🟠 Agrupada
+                </button>
+                <button
+                  type="button"
+                  className={`px-2 py-2 text-[11px] font-bold border rounded-xl transition-all leading-tight ${scheduleMode === 'fixed_monthly' ? 'bg-primary text-white border-primary shadow-sm' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'}`}
+                  onClick={() => setScheduleMode('fixed_monthly')}
+                >
+                  📅 Fixa Mensal
                 </button>
               </div>
               <p className="text-[10px] text-muted-foreground mt-1 leading-normal">
                 {scheduleMode === 'unified' && 'Uma única equipe servirá em todos os cultos do dia.'}
                 {scheduleMode === 'individual' && 'Equipes completamente separadas e independentes para cada culto.'}
                 {scheduleMode === 'grouped' && 'Permite agrupar cultos em blocos (Ex: Clássico e Família) para compartilhar equipes.'}
+                {scheduleMode === 'fixed_monthly' && 'Padrão fixo por semana do mês (1º ao 4º dia) com rodízio anual especial para 5ºs domingos e quintas.'}
               </p>
             </div>
+
+            {/* Fixed Monthly Mode Settings */}
+            {scheduleMode === 'fixed_monthly' && (
+              <div className="space-y-4 border border-slate-200 bg-slate-50/60 rounded-2xl p-4">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                  <div className="flex items-center gap-2">
+                    <CalendarDays className="size-4 text-primary" />
+                    <span className="text-xs font-black uppercase tracking-wider text-slate-800">
+                      1. Padrão das 4 Primeiras Semanas do Mês
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-slate-500 font-medium">1º ao 4º culto do mês</span>
+                </div>
+
+                <div className="space-y-3">
+                  {recurringEventsList.length === 0 ? (
+                    <p className="text-xs text-slate-400 italic">Nenhum evento cadastrado no sistema.</p>
+                  ) : (
+                    recurringEventsList.map(event => (
+                      <div key={event.id} className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                            <span className="size-2 rounded-full bg-primary" />
+                            {event.name} {event.time ? `(${event.time})` : ''}
+                          </span>
+                          <span className="text-[10px] text-slate-400 uppercase font-semibold">
+                            {event.dayOfWeek || 'Semanal'}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                          {[1, 2, 3, 4].map(wNum => {
+                            const currentVal = fixedPattern.weeks[wNum as 1|2|3|4]?.[event.id] || '';
+                            return (
+                              <div key={wNum} className="space-y-1">
+                                <Label className="text-[10px] font-bold text-slate-500">
+                                  {wNum}ª Semana
+                                </Label>
+                                <Select
+                                  value={currentVal || 'none'}
+                                  onValueChange={(v) => handleUpdateWeekSlot(wNum as 1|2|3|4, event.id, v)}
+                                >
+                                  <SelectTrigger className="h-8 text-[11px] bg-slate-50 border-slate-200">
+                                    <SelectValue placeholder="Selecione..." />
+                                  </SelectTrigger>
+                                  <SelectContent className="max-h-56">
+                                    <SelectItem value="none" className="text-slate-400 text-xs">-- Vazio --</SelectItem>
+                                    {users.map(u => (
+                                      <SelectItem key={u.id} value={u.id} className="text-xs">
+                                        {u.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Seção 2: Rodízio Especial de 5ª Semana */}
+                <div className="pt-3 border-t border-slate-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <RefreshCw className="size-4 text-amber-600" />
+                      <span className="text-xs font-black uppercase tracking-wider text-slate-800">
+                        2. Rodízio Especial para 5ºs Domingos e Quintas
+                      </span>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] font-bold text-amber-700 border-amber-300 bg-amber-50">
+                      Meses com 5 semanas
+                    </Badge>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {(fixedPattern.fifthWeekRotation || []).map((rotation, rIdx) => (
+                      <div key={rotation.id || rIdx} className="bg-white border border-amber-200/80 rounded-xl p-3 shadow-xs space-y-2.5">
+                        <div className="flex items-center justify-between pb-1 border-b border-amber-100">
+                          <span className="text-[11px] font-bold text-amber-900 flex items-center gap-1.5">
+                            ✨ {rotation.label}
+                          </span>
+                        </div>
+
+                        <div className="space-y-2">
+                          {recurringEventsList.map(event => {
+                            const val = rotation.slots?.[event.id] || '';
+                            return (
+                              <div key={event.id} className="space-y-1">
+                                <Label className="text-[10px] font-bold text-slate-600 truncate block">
+                                  {event.name}
+                                </Label>
+                                <Select
+                                  value={val || 'none'}
+                                  onValueChange={(v) => handleUpdateFifthRotationSlot(rIdx, event.id, v)}
+                                >
+                                  <SelectTrigger className="h-8 text-[11px] bg-slate-50 border-slate-200">
+                                    <SelectValue placeholder="Selecione..." />
+                                  </SelectTrigger>
+                                  <SelectContent className="max-h-56">
+                                    <SelectItem value="none" className="text-slate-400 text-xs">-- Vazio --</SelectItem>
+                                    {users.map(u => (
+                                      <SelectItem key={u.id} value={u.id} className="text-xs">
+                                        {u.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Grouped Mode Settings */}
             {scheduleMode === 'grouped' && (
