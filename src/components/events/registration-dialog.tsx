@@ -13,6 +13,7 @@ import { Loader2, CheckCircle2, AlertTriangle, QrCode, Copy, Check, Info } from 
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
+import { calculateAsaasFeeBreakdown } from '@/lib/asaas-fee-calculator';
 
 interface RegistrationDialogProps {
   open: boolean;
@@ -22,6 +23,7 @@ interface RegistrationDialogProps {
     eventName: string;
     isPaid?: string;
     ticketPrice?: number;
+    passFeesToAttendee?: boolean;
     requiresBaptism?: boolean;
     requiresActiveService?: boolean;
     requiredCourseId?: string;
@@ -150,11 +152,26 @@ export function RegistrationDialog({ open, onOpenChange, event }: RegistrationDi
     return event.tickets.find(t => t.id === selectedTicketId) || event.tickets[0];
   }, [event.tickets, selectedTicketId]);
 
-  // Preço final calculado (do lote selecionado ou o preço global do evento)
-  const finalPrice = useMemo(() => {
+  // Preço base/líquido do lote selecionado ou o preço global do evento
+  const baseNetPrice = useMemo(() => {
     if (selectedTicket) return selectedTicket.price;
     return event.isPaid === 'pago' ? (event.ticketPrice || 0) : 0;
   }, [selectedTicket, event]);
+
+  // Cálculo de taxas caso o evento repasse taxas (Gross-up Asaas)
+  const feeBreakdown = useMemo(() => {
+    const shouldPassFees = event.passFeesToAttendee !== false;
+    return calculateAsaasFeeBreakdown({
+      netValue: baseNetPrice,
+      billingType: 'PIX',
+      installmentCount: 1,
+      passFees: shouldPassFees,
+      includeWhatsApp: true,
+    });
+  }, [baseNetPrice, event.passFeesToAttendee]);
+
+  // Preço final cobrado
+  const finalPrice = feeBreakdown.grossValue;
 
   const pixKey = "pix.ibmcamp.com.br";
   const pixCode = useMemo(() => {
@@ -421,11 +438,27 @@ export function RegistrationDialog({ open, onOpenChange, event }: RegistrationDi
                   </div>
                 )}
 
-                <div className="bg-slate-950/50 p-3 rounded-lg border border-slate-800 flex justify-between items-center">
-                  <span className="text-xs text-slate-400">Valor Final da Inscrição:</span>
-                  <span className="font-bold text-sm text-amber-400">
-                    {finalPrice > 0 ? `R$ ${finalPrice.toFixed(2)}` : 'Gratuito'}
-                  </span>
+                <div className="bg-slate-950/50 p-3 rounded-lg border border-slate-800 space-y-1.5">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-400">Valor da Inscrição:</span>
+                    <span className="font-semibold text-slate-200">
+                      {baseNetPrice > 0 ? `R$ ${baseNetPrice.toFixed(2)}` : 'Gratuito'}
+                    </span>
+                  </div>
+                  {event.passFeesToAttendee !== false && feeBreakdown.totalFees > 0 && (
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-slate-400">Taxas Asaas + WhatsApp:</span>
+                      <span className="font-semibold text-amber-400">
+                        + R$ {feeBreakdown.totalFees.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="pt-1.5 border-t border-slate-800 flex justify-between items-center">
+                    <span className="text-xs font-bold text-slate-300">Total a Pagar (PIX):</span>
+                    <span className="font-bold text-base text-emerald-400 font-mono">
+                      {finalPrice > 0 ? `R$ ${finalPrice.toFixed(2)}` : 'Gratuito'}
+                    </span>
+                  </div>
                 </div>
               </div>
             ) : (

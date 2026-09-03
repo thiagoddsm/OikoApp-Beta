@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -33,6 +33,9 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useChurch } from '@/hooks/useChurch';
+import { calculateAsaasFeeBreakdown, type AsaasBillingMethod } from '@/lib/asaas-fee-calculator';
+import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface EventPaymentDialogProps {
   open: boolean;
@@ -52,6 +55,7 @@ interface EventPaymentDialogProps {
   };
   eventPrice: number;
   eventTitle: string;
+  defaultPassFees?: boolean;
 }
 
 type PaymentMethod = 'PIX' | 'BOLETO' | 'CREDIT_CARD';
@@ -77,35 +81,52 @@ export function EventPaymentDialog({
   registration,
   eventPrice,
   eventTitle,
+  defaultPassFees = true,
 }: EventPaymentDialogProps) {
   const { toast } = useToast();
   const { tenantId } = useChurch();
 
   // Form state
   const [method, setMethod] = useState<PaymentMethod>('PIX');
-  const [value, setValue] = useState<string>(eventPrice.toFixed(2));
+  const [netAmount, setNetAmount] = useState<string>(eventPrice.toFixed(2));
   const [dueDate, setDueDate] = useState<string>(getTomorrow());
   const [installments, setInstallments] = useState<number>(1);
   const [cpfCnpj, setCpfCnpj] = useState<string>('');
+  const [passFees, setPassFees] = useState<boolean>(defaultPassFees);
+  const [includeWhatsApp, setIncludeWhatsApp] = useState<boolean>(true);
 
   // Flow state
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<PaymentResult | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Dynamic fee calculation
+  const feeBreakdown = useMemo(() => {
+    const parsedNet = parseFloat(netAmount) || 0;
+    return calculateAsaasFeeBreakdown({
+      netValue: parsedNet,
+      billingType: method as AsaasBillingMethod,
+      installmentCount: installments,
+      passFees,
+      includeWhatsApp,
+    });
+  }, [netAmount, method, installments, passFees, includeWhatsApp]);
+
   // Reset on open
   useEffect(() => {
     if (open) {
       setMethod('PIX');
-      setValue(eventPrice.toFixed(2));
+      setNetAmount(eventPrice.toFixed(2));
       setDueDate(getTomorrow());
       setInstallments(1);
       setCpfCnpj('');
+      setPassFees(defaultPassFees);
+      setIncludeWhatsApp(true);
       setResult(null);
       setCopied(false);
       setIsLoading(false);
     }
-  }, [open, eventPrice]);
+  }, [open, eventPrice, defaultPassFees]);
 
   // Auto-close after success
   useEffect(() => {
@@ -157,13 +178,13 @@ export function EventPaymentDialog({
 
       const { customerId } = await customerRes.json();
 
-      // Step 2: Create payment
+      // Step 2: Create payment using calculated grossValue
       const paymentBody: Record<string, unknown> = {
         customerId,
         billingType: method,
-        value: parseFloat(value) || eventPrice,
+        value: feeBreakdown.grossValue,
         dueDate,
-        description: `Inscrição: ${eventTitle}`,
+        description: `Inscrição: ${eventTitle}${passFees ? ' (c/ repasse de taxas)' : ''}`,
         externalReference: registration.id,
         tenantId,
       };
@@ -200,36 +221,15 @@ export function EventPaymentDialog({
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Ocorreu um erro inesperado.';
       console.error('[PaymentDialog]', err);
-          toast({
-            variant: 'destructive',
-            title: 'Erro ao gerar cobrança',
-            description: message,
-          });
-        } finally {
-          setIsLoading(false);
-        }
-      };
-
-      const fetchPixQrCode = async (paymentId: string) => {
-        try {
-          const url = new URL(window.location.origin + `/api/asaas/payments/${paymentId}/pix`);
-          if (tenantId) url.searchParams.set('tenantId', tenantId);
-          
-          const qrRes = await fetch(url.toString());
-          if (qrRes.ok) {
-            const qrData = await qrRes.json();
-            setResult((prev) => prev ? {
-              ...prev,
-              pixQrCodeImage: qrData.encodedImage,
-              pixCopyPaste: qrData.payload,
-            } : null);
-          }
-        } catch (e) {
-          console.error('Erro ao buscar QR Code Pix:', e);
-        }
-      };
-
-      // Atualize o handleGenerate para chamar fetchPixQrCode se PIX (opicional, pois a API já retorna o QRCode na criação do payment)
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao gerar cobrança',
+        description: message,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -385,47 +385,123 @@ export function EventPaymentDialog({
             </div>
 
             {/* Amount */}
-            <div className="space-y-1.5">
-              <Label className="text-xs text-slate-600 font-semibold">Valor (R$)</Label>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-                className="bg-slate-50 border-slate-200 h-9 text-sm"
-              />
-            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-slate-600 font-semibold">Valor Líquido Desejado (R$)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={netAmount}
+                  onChange={(e) => setNetAmount(e.target.value)}
+                  className="bg-slate-50 border-slate-200 h-9 text-sm font-semibold"
+                />
+              </div>
 
-            {/* Due date */}
-            <div className="space-y-1.5">
-              <Label className="text-xs text-slate-600 font-semibold">Vencimento</Label>
-              <Input
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className="bg-slate-50 border-slate-200 h-9 text-sm"
-              />
+              {/* Due date */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-slate-600 font-semibold">Vencimento</Label>
+                <Input
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                  className="bg-slate-50 border-slate-200 h-9 text-sm"
+                />
+              </div>
             </div>
 
             {/* Installments — only for credit card */}
             {method === 'CREDIT_CARD' && (
               <div className="space-y-1.5">
                 <Label className="text-xs text-slate-600 font-semibold">
-                  Parcelas (1–12)
+                  Número de Parcelas (1–12)
                 </Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={12}
-                  value={installments}
-                  onChange={(e) =>
-                    setInstallments(Math.min(12, Math.max(1, parseInt(e.target.value) || 1)))
-                  }
-                  className="bg-slate-50 border-slate-200 h-9 text-sm"
-                />
+                <Select
+                  value={installments.toString()}
+                  onValueChange={(v) => setInstallments(parseInt(v) || 1)}
+                >
+                  <SelectTrigger className="bg-slate-50 border-slate-200 text-sm h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => (
+                      <SelectItem key={n} value={n.toString()}>
+                        {n === 1 ? '1 parcela (à vista)' : `${n} parcelas`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
+
+            {/* CONFIGURAÇÃO DE REPASSE DE TAXAS (GROSS-UP) */}
+            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="passFeesToggle" className="text-xs font-bold text-slate-800 cursor-pointer flex items-center gap-1.5">
+                    Repassar taxas ao pagador
+                  </Label>
+                  <p className="text-[11px] text-slate-500">
+                    Acrescenta as taxas do Asaas no valor da cobrança para a igreja receber o valor líquido integral.
+                  </p>
+                </div>
+                <Switch
+                  id="passFeesToggle"
+                  checked={passFees}
+                  onCheckedChange={setPassFees}
+                />
+              </div>
+
+              {passFees && (
+                <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px] text-slate-600">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="includeWhatsApp"
+                      checked={includeWhatsApp}
+                      onCheckedChange={(c) => setIncludeWhatsApp(!!c)}
+                      className="border-slate-300 data-[state=checked]:bg-emerald-600"
+                    />
+                    <label htmlFor="includeWhatsApp" className="cursor-pointer">
+                      Incluir taxa de WhatsApp (R$ 0,55 por parcela)
+                    </label>
+                  </div>
+                  <span className="font-mono text-slate-500">
+                    +{includeWhatsApp ? `R$ ${(0.55 * installments).toFixed(2)}` : 'R$ 0,00'}
+                  </span>
+                </div>
+              )}
+
+              {/* CARD DE RESUMO DA SIMULAÇÃO (ASAAS STYLE) */}
+              <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-sm space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-500">Você recebe (líquido):</span>
+                  <span className="font-bold text-slate-800 font-mono">
+                    R$ {feeBreakdown.netValue.toFixed(2)}
+                  </span>
+                </div>
+                {passFees && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-500">Taxas Asaas + Notificações:</span>
+                    <span className="font-bold text-amber-600 font-mono">
+                      + R$ {feeBreakdown.totalFees.toFixed(2)}
+                    </span>
+                  </div>
+                )}
+                <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-700">Total a Cobrar:</span>
+                  <div className="text-right">
+                    <span className="text-base font-black text-emerald-600 font-mono">
+                      R$ {feeBreakdown.grossValue.toFixed(2)}
+                    </span>
+                    {installments > 1 && (
+                      <span className="block text-[10px] text-slate-400 font-medium font-mono">
+                        ({installments}x de R$ {feeBreakdown.installmentGrossValue.toFixed(2)})
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
 
             {/* CPF/CNPJ */}
             <div className="space-y-1.5">

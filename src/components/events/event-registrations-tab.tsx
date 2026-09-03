@@ -564,6 +564,7 @@ export function EventRegistrationsTab({ eventId, eventPrice = 0, isPaid = false,
           registration={selectedRegistration}
           eventPrice={eventPrice}
           eventTitle={eventTitle}
+          defaultPassFees={eventData?.passFeesToAttendee ?? true}
         />
       )}
       {/* Print Styles para o PDF sair perfeito */}

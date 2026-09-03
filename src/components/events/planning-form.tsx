@@ -89,6 +89,7 @@ export interface PlanningEvent {
     installmentsInterestType?: 'com_juros' | 'sem_juros';
     acceptRecurring?: boolean;
     recurringLimitMonth?: string;
+    passFeesToAttendee?: boolean;
     isPublicForRegistration?: boolean;
     requiresBaptism?: boolean;
     requiresActiveService?: boolean;
@@ -229,6 +230,7 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
     installmentsInterestType: 'sem_juros' as 'com_juros' | 'sem_juros',
     acceptRecurring: false,
     recurringLimitMonth: '',
+    passFeesToAttendee: true,
 
     isPublicForRegistration: false,
     requiresBaptism: false,
@@ -313,6 +315,7 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
         installmentsInterestType: existingEvent.installmentsInterestType || 'sem_juros',
         acceptRecurring: existingEvent.acceptRecurring || false,
         recurringLimitMonth: existingEvent.recurringLimitMonth || '',
+        passFeesToAttendee: existingEvent.passFeesToAttendee !== undefined ? existingEvent.passFeesToAttendee : true,
 
         isPublicForRegistration: existingEvent.isPublicForRegistration || false,
         requiresBaptism: existingEvent.requiresBaptism || false,
@@ -508,6 +511,7 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
       installmentsInterestType: formData.acceptInstallments ? formData.installmentsInterestType : null,
       acceptRecurring: formData.acceptRecurring,
       recurringLimitMonth: formData.acceptRecurring ? formData.recurringLimitMonth : null,
+      passFeesToAttendee: formData.passFeesToAttendee ?? true,
       
       isPublicForRegistration: formData.isPublicForRegistration,
       requiresBaptism: formData.requiresBaptism,
@@ -1292,6 +1296,26 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
                         className="border-slate-700 data-[state=checked]:bg-blue-500"
                       />
                       <label htmlFor="acceptRecurring" className="text-xs font-semibold cursor-pointer text-slate-200">Recorrência (Mensalidade)</label>
+                    </div>
+                  </div>
+
+                  {/* Configuração de Repasse de Taxas (Asaas Gross-Up) */}
+                  <div className="p-4 rounded-xl border border-blue-900/40 bg-blue-950/20 space-y-2">
+                    <div className="flex items-center space-x-3">
+                      <Checkbox 
+                        id="passFeesToAttendee" 
+                        checked={formData.passFeesToAttendee} 
+                        onCheckedChange={(c) => setFormData(p => ({ ...p, passFeesToAttendee: !!c }))}
+                        className="border-blue-500 data-[state=checked]:bg-blue-600 size-4"
+                      />
+                      <div>
+                        <label htmlFor="passFeesToAttendee" className="text-xs font-bold cursor-pointer text-white flex items-center gap-1.5">
+                          Repassar taxas de pagamento (PIX / Cartão / Boleto) ao participante
+                        </label>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          O valor digitado no evento/ingressos será o <strong>valor líquido</strong> que a igreja receberá integralmente. O sistema calculará o acréscimo das taxas do Asaas e notificações WhatsApp na fatura do participante.
+                        </p>
+                      </div>
                     </div>
                   </div>
 
