@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Trash2, ShieldAlert } from 'lucide-react';
+import { Loader2, Trash2, ShieldAlert, Download, Users, UserPlus, Search, UserCheck } from 'lucide-react';
 import { PersonSearchInput } from '@/components/common/person-search-input';
 import { useMembersData, useEventsData, useVolunteeringServiceData } from "@/hooks/useDomainData";
 import { useFirebase, useDoc, updateDocumentNonBlocking } from '@/firebase';
@@ -22,7 +22,7 @@ interface CreateAreaDialogProps {
 export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAreaDialogProps) {
   const { users } = useMembersData();
   const { events } = useEventsData();
-  const { serviceAreas: areas } = useVolunteeringServiceData();
+  const { serviceAreas: areas, teams } = useVolunteeringServiceData();
   const { firestore } = useFirebase();
 
   const { addArea, updateArea } = useVolunteering();
@@ -96,34 +96,80 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
     }
   }, [leaderId, users]);
 
-  // Volunteers filter and compliance calculations
-  const filteredWorshipUsers = useMemo(() => {
-    if (!users) return [];
-    
-    let list = users;
-    if (memberSearch) {
-      list = users.filter(u => 
-        u.name?.toLowerCase().includes(memberSearch.toLowerCase()) ||
-        (areaType === 'worship' && u.worshipRoles && u.worshipRoles.length > 0)
-      );
-    }
-
+  // Membros que já pertencem a esta área de serviço
+  const currentAreaMembers = useMemo(() => {
+    if (!users || !existingArea) return [];
     if (areaType === 'worship') {
-      return [...list].sort((a, b) => {
-        const aHas = a.worshipRoles && a.worshipRoles.length > 0 ? 1 : 0;
-        const bHas = b.worshipRoles && b.worshipRoles.length > 0 ? 1 : 0;
-        if (aHas !== bHas) return bHas - aHas;
-        return (a.name || '').localeCompare(b.name || '');
-      });
-    } else {
-      return [...list].sort((a, b) => {
-        const aHas = a.serviceAreaId === existingArea?.id ? 1 : 0;
-        const bHas = b.serviceAreaId === existingArea?.id ? 1 : 0;
-        if (aHas !== bHas) return bHas - aHas;
-        return (a.name || '').localeCompare(b.name || '');
-      });
+      return users.filter(u => u.worshipRoles && u.worshipRoles.length > 0);
     }
-  }, [users, memberSearch, areaType, existingArea]);
+    return users.filter(u => u.serviceAreaId === existingArea.id);
+  }, [users, existingArea, areaType]);
+
+  // Membros atuais filtrados pela busca (se houver)
+  const filteredCurrentMembers = useMemo(() => {
+    if (!memberSearch.trim()) return currentAreaMembers;
+    const term = memberSearch.toLowerCase();
+    return currentAreaMembers.filter(u => 
+      u.name?.toLowerCase().includes(term) || 
+      u.email?.toLowerCase().includes(term)
+    );
+  }, [currentAreaMembers, memberSearch]);
+
+  // Busca sob demanda de outros voluntários para adicionar (só exibe se digitar >= 2 caracteres)
+  const searchAvailableUsers = useMemo(() => {
+    if (!users || !existingArea || memberSearch.trim().length < 2) return [];
+    const term = memberSearch.toLowerCase();
+    const currentMemberIds = new Set(currentAreaMembers.map(u => u.id));
+
+    return users
+      .filter(u => !currentMemberIds.has(u.id) && (
+        u.name?.toLowerCase().includes(term) || 
+        u.email?.toLowerCase().includes(term)
+      ))
+      .slice(0, 15);
+  }, [users, existingArea, memberSearch, currentAreaMembers]);
+
+  // Download do JSON pré-preenchido com os membros desta área e referências
+  const handleDownloadAreaJson = () => {
+    if (!existingArea) return;
+    const areaTeams = (teams || []).filter(t => t.areaId === existingArea.id).map(t => t.name);
+
+    const payload = {
+      voluntarios: currentAreaMembers.map(u => {
+        const userTeam = (teams || []).find(t => t.id === u.serviceTeamId);
+        return {
+          nome: u.name,
+          email: u.email || '',
+          area: existingArea.name,
+          equipe: userTeam?.name || ''
+        };
+      }),
+      _referencia_areas_e_equipes: {
+        _aviso_para_ia: "Este bloco lista as áreas e equipes cadastradas para guiar a IA. Será ignorado na importação.",
+        areaAtual: {
+          nome: existingArea.name,
+          tipo: areaType,
+          equipes: areaTeams
+        },
+        todasAsAreas: (areas || []).map(a => ({
+          nome: a.name,
+          tipo: a.areaType || 'regular',
+          equipes: (teams || []).filter(t => t.areaId === a.id).map(t => t.name)
+        }))
+      }
+    };
+
+    const jsonStr = JSON.stringify(payload, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `voluntarios_area_${existingArea.name.toLowerCase().replace(/[^a-z0-9]/g, '_')}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   const nonCompliantCount = useMemo(() => {
     if (!dualServiceRuleActive || !users || !existingArea) return 0;
@@ -454,14 +500,48 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
         ) : (
           /* Members Panel */
           <div className="space-y-4 py-2">
-            <Input
-              placeholder="Buscar voluntários..."
-              value={memberSearch}
-              onChange={(e) => setMemberSearch(e.target.value)}
-              className="h-9 text-xs"
-            />
+            {/* Header com contador e botão de exportação JSON */}
+            <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+              <div className="flex items-center gap-2">
+                <Users className="size-4 text-primary" />
+                <span className="text-xs font-bold text-slate-800">
+                  {filteredCurrentMembers.length} {filteredCurrentMembers.length === 1 ? 'Voluntário' : 'Voluntários'} nesta Área
+                </span>
+              </div>
 
-            {/* Non-compliance Alert Box */}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadAreaJson}
+                className="h-7 text-[11px] font-bold gap-1 bg-white hover:bg-slate-100 shadow-sm"
+              >
+                <Download className="size-3 text-amber-600" />
+                Baixar JSON desta Área
+              </Button>
+            </div>
+
+            {/* Campo de Busca */}
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 size-4 text-slate-400" />
+              <Input
+                placeholder="Buscar por nome ou e-mail..."
+                value={memberSearch}
+                onChange={(e) => setMemberSearch(e.target.value)}
+                className="h-9 text-xs pl-8 pr-4 rounded-xl"
+              />
+              {memberSearch && (
+                <button
+                  type="button"
+                  onClick={() => setMemberSearch('')}
+                  className="absolute right-2.5 top-2.5 text-[10px] text-slate-400 hover:text-slate-600 font-bold"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* Non-compliance Alert Box para Louvor */}
             {areaType === 'worship' && dualServiceRuleActive && nonCompliantCount > 0 && (
               <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 text-amber-800 dark:text-amber-300 p-2.5 rounded-xl text-xs font-semibold flex items-start gap-2 leading-normal">
                 <ShieldAlert className="size-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
@@ -469,11 +549,20 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
               </div>
             )}
 
-            <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-1">
-              {filteredWorshipUsers.length === 0 ? (
-                <p className="text-xs text-slate-400 italic text-center py-4">Nenhum voluntário encontrado.</p>
+            {/* SEÇÃO 1: MEMBROS ATUAIS DESTA ÁREA */}
+            <div className="space-y-2 max-h-[35vh] overflow-y-auto pr-1">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
+                Membros da Equipe ({filteredCurrentMembers.length})
+              </span>
+
+              {filteredCurrentMembers.length === 0 ? (
+                <div className="p-4 border rounded-xl bg-slate-50 text-center text-xs text-slate-500 italic">
+                  {memberSearch.trim()
+                    ? 'Nenhum membro desta área corresponde ao filtro.'
+                    : 'Nenhum voluntário vinculado a esta área de serviço ainda. Use o campo de busca abaixo para adicionar pessoas.'}
+                </div>
               ) : (
-                filteredWorshipUsers.map(user => {
+                filteredCurrentMembers.map(user => {
                   const hasRegularArea = user.serviceAreaId && user.serviceAreaId !== existingArea?.id;
                   const regularAreaObj = hasRegularArea ? areas.find(a => a.id === user.serviceAreaId) : null;
                   const userHasWorshipRoles = user.worshipRoles && user.worshipRoles.length > 0;
@@ -531,10 +620,6 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
                       </div>
                     );
                   } else {
-                    const isMemberOfThisArea = user.serviceAreaId === existingArea?.id;
-                    const hasOtherArea = user.serviceAreaId && user.serviceAreaId !== existingArea?.id;
-                    const otherAreaObj = hasOtherArea ? areas.find(a => a.id === user.serviceAreaId) : null;
-
                     return (
                       <div key={user.id} className="border border-slate-150 rounded-xl p-3 bg-white flex items-center justify-between gap-3 shadow-sm">
                         <div className="flex items-center gap-2">
@@ -546,25 +631,19 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
                           </Avatar>
                           <div className="flex flex-col">
                             <span className="text-xs font-bold text-slate-800">{user.name}</span>
-                            {hasOtherArea && (
-                              <span className="text-[9px] text-amber-600 dark:text-amber-400 font-semibold">Outra área: {otherAreaObj?.name}</span>
-                            )}
-                            {isMemberOfThisArea && (
-                              <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold">👥 Nesta equipe</span>
-                            )}
+                            <span className="text-[9px] text-emerald-600 font-bold flex items-center gap-0.5">
+                              <UserCheck className="size-3" />
+                              Nesta equipe
+                            </span>
                           </div>
                         </div>
                         <Button
                           type="button"
-                          variant={isMemberOfThisArea ? 'outline' : 'default'}
-                          className={`h-7 px-3 text-[10px] font-bold rounded-lg transition-all ${
-                            isMemberOfThisArea 
-                              ? 'bg-red-50 hover:bg-red-100 text-red-600 border-red-200 hover:text-red-700' 
-                              : 'hover:bg-primary/90'
-                          }`}
+                          variant="outline"
+                          className="h-7 px-3 text-[10px] font-bold rounded-lg bg-red-50 hover:bg-red-100 text-red-600 border-red-200 hover:text-red-700 transition-all"
                           onClick={() => handleToggleRegularMember(user)}
                         >
-                          {isMemberOfThisArea ? 'Remover' : 'Adicionar'}
+                          Remover
                         </Button>
                       </div>
                     );
@@ -572,6 +651,73 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
                 })
               )}
             </div>
+
+            {/* SEÇÃO 2: RESULTADOS DE BUSCA PARA ADICIONAR NOVAS PESSOAS */}
+            {memberSearch.trim().length >= 2 ? (
+              <div className="space-y-2 pt-2 border-t border-dashed">
+                <span className="text-[10px] font-black text-primary uppercase tracking-wider flex items-center gap-1">
+                  <UserPlus className="size-3.5" />
+                  Pessoas Encontradas para Adicionar ({searchAvailableUsers.length})
+                </span>
+
+                {searchAvailableUsers.length === 0 ? (
+                  <p className="text-xs text-slate-400 italic text-center py-2">
+                    Nenhuma outra pessoa encontrada com o termo "{memberSearch}".
+                  </p>
+                ) : (
+                  <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                    {searchAvailableUsers.map(user => {
+                      const hasOtherArea = user.serviceAreaId && user.serviceAreaId !== existingArea?.id;
+                      const otherAreaObj = hasOtherArea ? areas.find(a => a.id === user.serviceAreaId) : null;
+
+                      return (
+                        <div key={user.id} className="border border-slate-150 rounded-lg p-2 bg-slate-50/70 flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 truncate">
+                            <Avatar className="h-6 w-6 border border-slate-200">
+                              <AvatarImage src={user.avatar} />
+                              <AvatarFallback className="bg-primary/5 text-primary text-[9px] font-bold">
+                                {user.name?.substring(0, 2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="truncate">
+                              <span className="text-xs font-bold text-slate-800 truncate block">{user.name}</span>
+                              {hasOtherArea && (
+                                <span className="text-[9px] text-amber-600 font-semibold truncate block">
+                                  Já serve em: {otherAreaObj?.name}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="h-6 px-2.5 text-[10px] font-bold rounded-lg bg-primary hover:bg-primary/90 text-white shrink-0"
+                            onClick={() => {
+                              if (areaType === 'worship') {
+                                if (roles.length > 0) {
+                                  handleToggleWorshipRole(user, roles[0]);
+                                }
+                              } else {
+                                handleToggleRegularMember(user);
+                              }
+                            }}
+                          >
+                            + Adicionar
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="p-2.5 rounded-lg bg-slate-50 border border-dashed border-slate-200 text-center">
+                <p className="text-[11px] text-slate-500 font-medium">
+                  🔍 Digite pelo menos <strong className="text-slate-800">2 letras</strong> no campo de busca para pesquisar e adicionar novos voluntários a esta área.
+                </p>
+              </div>
+            )}
           </div>
         )}
 

@@ -86,6 +86,9 @@ export type AreaOfService = {
 export type Team = {
   id: string;
   name: string;
+  areaId?: string;
+  leaderId?: string;
+  leaderContact?: string;
 };
 
 export type VolunteeringEvent = {

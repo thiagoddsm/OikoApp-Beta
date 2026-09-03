@@ -8,6 +8,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Loader2, PlusCircle, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import { CreateAreaDialog } from './create-area-dialog';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
+import { ImportVolunteersJsonDialog } from './import-volunteers-json-dialog';
 import { useMembersData, useVolunteeringServiceData } from "@/hooks/useDomainData";
 import { Badge } from '@/components/ui/badge';
 
@@ -56,12 +57,15 @@ export function AreasManagement() {
 
   return (
     <>
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold">Lista de Áreas de Serviço</h3>
-        <Button onClick={handleAdd} size="sm">
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Adicionar Área
-        </Button>
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 mb-4">
+        <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Lista de Áreas de Serviço</h3>
+        <div className="flex items-center gap-2">
+          <ImportVolunteersJsonDialog />
+          <Button onClick={handleAdd} size="sm" className="font-bold shadow-sm">
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Adicionar Área
+          </Button>
+        </div>
       </div>
       <div className="rounded-lg border">
         <Table>
