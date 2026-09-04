@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
     const { context, tenantId: resolvedTenantId } = await optionalAuth(request);
 
     const body = await request.json();
-    const { name, cpfCnpj, email, phone, userId } = body;
+    const { name, cpfCnpj, email, phone, userId, notificationMethod } = body;
     const tenantId = body.tenantId || context?.tenantId || resolvedTenantId;
 
     if (!name) {
@@ -26,7 +26,16 @@ export async function POST(request: NextRequest) {
       phone,
       externalReference: userId || context.userId,
       tenantId,
+      notificationDisabled: notificationMethod === 'NONE',
     });
+
+    if (notificationMethod && notificationMethod !== 'NONE') {
+      const { configureCustomerNotifications } = await import('@/lib/asaas');
+      await configureCustomerNotifications(customer.id, {
+        whatsapp: notificationMethod === 'WHATSAPP',
+        email: notificationMethod === 'EMAIL',
+      }, tenantId).catch(err => console.error('[Asaas] Falha ao configurar notificações:', err));
+    }
 
     return NextResponse.json({ customerId: customer.id });
   } catch (error: unknown) {

@@ -169,6 +169,7 @@ export async function findOrCreateCustomer(data: {
   phone?: string;
   externalReference?: string;
   tenantId?: string;
+  notificationDisabled?: boolean;
 }): Promise<AsaasCustomer> {
   const cleanCpfCnpj = data.cpfCnpj ? data.cpfCnpj.replace(/\D/g, '') : '';
   
@@ -180,7 +181,14 @@ export async function findOrCreateCustomer(data: {
       data.tenantId // Bug fix: passar tenantId para usar a API key correta do tenant
     );
     if (searchResult.data && searchResult.data.length > 0) {
-      return searchResult.data[0];
+      const customer = searchResult.data[0];
+      // Update notificationDisabled if needed
+      if (data.notificationDisabled !== undefined) {
+        await asaasRequest(`/customers/${customer.id}`, 'POST', {
+          notificationDisabled: data.notificationDisabled
+        }, data.tenantId).catch(() => {});
+      }
+      return customer;
     }
   }
 
@@ -195,7 +203,14 @@ export async function findOrCreateCustomer(data: {
     );
 
     if (searchResultRef.data && searchResultRef.data.length > 0) {
-      return searchResultRef.data[0];
+      const customer = searchResultRef.data[0];
+      // Update notificationDisabled if needed
+      if (data.notificationDisabled !== undefined) {
+        await asaasRequest(`/customers/${customer.id}`, 'POST', {
+          notificationDisabled: data.notificationDisabled
+        }, data.tenantId).catch(() => {});
+      }
+      return customer;
     }
   }
 
@@ -205,6 +220,7 @@ export async function findOrCreateCustomer(data: {
     email: data.email || undefined,
     phone: data.phone || undefined,
     externalReference: hasValidRef ? data.externalReference : undefined,
+    notificationDisabled: data.notificationDisabled,
   }, data.tenantId);
 
   return customer;
@@ -287,3 +303,36 @@ export async function createSubscription(data: {
   }, data.tenantId);
 }
 
+/**
+ * Configura quais canais de notificação o cliente receberá.
+ */
+export async function configureCustomerNotifications(
+  customerId: string,
+  options: {
+    whatsapp?: boolean;
+    email?: boolean;
+    sms?: boolean;
+  },
+  tenantId?: string
+) {
+  try {
+    // 1. Get current notifications
+    const response = await asaasRequest<AsaasListResponse<any>>(`/customers/${customerId}/notifications`, 'GET', undefined, tenantId);
+    if (!response.data || response.data.length === 0) return;
+
+    // 2. Prepare batch update
+    const batchUpdates = response.data.map(notif => ({
+      id: notif.id,
+      emailEnabledForProvider: options.email ?? notif.emailEnabledForProvider,
+      smsEnabledForProvider: options.sms ?? notif.smsEnabledForProvider,
+      emailEnabledForCustomer: options.email ?? notif.emailEnabledForCustomer,
+      smsEnabledForCustomer: options.sms ?? notif.smsEnabledForCustomer,
+      whatsappEnabledForCustomer: options.whatsapp ?? notif.whatsappEnabledForCustomer,
+    }));
+
+    // 3. Send batch update
+    await asaasRequest<any>('/notifications/batch', 'POST', { notifications: batchUpdates }, tenantId);
+  } catch (error) {
+    console.error('[Asaas] configureCustomerNotifications error:', error);
+  }
+}

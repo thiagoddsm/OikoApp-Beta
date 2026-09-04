@@ -93,7 +93,8 @@ export function EventPaymentDialog({
   const [installments, setInstallments] = useState<number>(1);
   const [cpfCnpj, setCpfCnpj] = useState<string>('');
   const [passFees, setPassFees] = useState<boolean>(defaultPassFees);
-  const [includeWhatsApp, setIncludeWhatsApp] = useState<boolean>(true);
+  const [notificationMethod, setNotificationMethod] = useState<'WHATSAPP' | 'EMAIL' | 'NONE'>('WHATSAPP');
+  const includeWhatsApp = notificationMethod === 'WHATSAPP';
 
   // Flow state
   const [isLoading, setIsLoading] = useState(false);
@@ -121,7 +122,7 @@ export function EventPaymentDialog({
       setInstallments(1);
       setCpfCnpj('');
       setPassFees(defaultPassFees);
-      setIncludeWhatsApp(true);
+      setNotificationMethod('WHATSAPP');
       setResult(null);
       setCopied(false);
       setIsLoading(false);
@@ -167,6 +168,7 @@ export function EventPaymentDialog({
           phone: registration.userMetadata.phone || '',
           cpfCnpj: cpfCnpj.trim(),
           userId: registration.userId,
+          notificationMethod,
           tenantId,
         }),
       });
@@ -452,24 +454,30 @@ export function EventPaymentDialog({
                 />
               </div>
 
-              {passFees && (
-                <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px] text-slate-600">
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="includeWhatsApp"
-                      checked={includeWhatsApp}
-                      onCheckedChange={(c) => setIncludeWhatsApp(!!c)}
-                      className="border-slate-300 data-[state=checked]:bg-emerald-600"
-                    />
-                    <label htmlFor="includeWhatsApp" className="cursor-pointer">
-                      Incluir taxa de WhatsApp (R$ 0,55 por parcela)
-                    </label>
-                  </div>
-                  <span className="font-mono text-slate-500">
-                    +{includeWhatsApp ? `R$ ${(0.55 * installments).toFixed(2)}` : 'R$ 0,00'}
-                  </span>
-                </div>
-              )}
+              <div className="pt-2 border-t border-slate-200/60 flex flex-col gap-2">
+                <Label className="text-[11px] text-slate-600 font-semibold">
+                  Canal de Notificação (Envio automático do Asaas)
+                </Label>
+                <Select
+                  value={notificationMethod}
+                  onValueChange={(v) => setNotificationMethod(v as 'WHATSAPP' | 'EMAIL' | 'NONE')}
+                >
+                  <SelectTrigger className="bg-white border-slate-200 text-xs h-8">
+                    <SelectValue placeholder="Selecione o canal..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="WHATSAPP">
+                      📱 WhatsApp (+ R$ {(0.55 * installments).toFixed(2)})
+                    </SelectItem>
+                    <SelectItem value="EMAIL">
+                      📧 E-mail (Gratuito)
+                    </SelectItem>
+                    <SelectItem value="NONE">
+                      🔕 Não enviar notificação (Copiar e colar link)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
               {/* CARD DE RESUMO DA SIMULAÇÃO (ASAAS STYLE) */}
               <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-sm space-y-1.5">
