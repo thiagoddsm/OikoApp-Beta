@@ -135,7 +135,7 @@ export async function getPublicCatalog() {
             db.collection('courses').get(),
             db.collection('classes').get(),
             db.collection('events').get(),
-            db.collection('strategicEvents').get(),
+            db.collection('strategic_events').get(),
         ]);
 
         const courses = coursesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));

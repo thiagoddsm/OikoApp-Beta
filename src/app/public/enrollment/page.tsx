@@ -987,21 +987,26 @@ function EnrollmentForm() {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 {filteredEvents.map(evt => {
                                     const isPaid = evt.isPaid === 'pago';
+                                    const coverUrl = evt.coverImageUrl || evt.imageUrl || evt.coverImage || evt.bannerUrl || `https://picsum.photos/seed/${evt.id}/600/300`;
                                     return (
-                                        <Card
-                                            key={evt.id}
-                                            className="overflow-hidden rounded-[2rem] cursor-pointer transition-all duration-300 hover:shadow-xl border-2 hover:border-primary group bg-white"
-                                            onClick={() => {
-                                                setSelectedEventId(evt.id);
-                                                setSelectedCourseId(null);
-                                                setSelectedClassId(null);
-                                                nextStep();
-                                            }}
-                                        >
-                                            <div className="relative aspect-video bg-slate-100">
-                                                <img src={`https://picsum.photos/seed/${evt.id}/600/300`} alt="" className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-700" />
-                                                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent z-10" />
-                                                <div className="absolute top-4 right-4 z-20 flex gap-1.5">
+                                                <Card
+                                                    key={evt.id}
+                                                    className="overflow-hidden rounded-[2rem] cursor-pointer transition-all duration-300 hover:shadow-xl border-2 hover:border-primary group bg-white"
+                                                    onClick={() => {
+                                                        setSelectedEventId(evt.id);
+                                                        setSelectedCourseId(null);
+                                                        setSelectedClassId(null);
+                                                        nextStep();
+                                                    }}
+                                                >
+                                                    <div className="relative aspect-video bg-slate-100">
+                                                        <img 
+                                                            src={coverUrl} 
+                                                            alt={evt.eventName || "Capa do evento"} 
+                                                            className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-700" 
+                                                        />
+                                                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent z-10" />
+                                                        <div className="absolute top-4 right-4 z-20 flex gap-1.5">
                                                     <Badge className={cn("border-none text-[9px] font-bold uppercase", isPaid ? "bg-amber-500 text-slate-900" : "bg-emerald-500 text-white")}>
                                                         {isPaid ? `R$ ${evt.ticketPrice?.toFixed(2)}` : 'Gratuito'}
                                                     </Badge>
