@@ -26,6 +26,9 @@ service cloud.firestore {
     match /enrollment_requests/{requestId} {
       allow create: if true;
     }
+    match /event_registrations/{regId} {
+      allow create: if true;
+    }
     match /finance_requests/{reqId} {
       allow create: if true;
     }
