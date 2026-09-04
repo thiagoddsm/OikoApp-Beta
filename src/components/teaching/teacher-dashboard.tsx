@@ -74,7 +74,8 @@ export function TeacherDashboard() {
             </CardHeader>
             <CardContent>
                 <div className="rounded-md border">
-                    <Table>
+                    <div className="overflow-x-auto w-full">
+<Table>
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Turma</TableHead>
@@ -130,6 +131,7 @@ export function TeacherDashboard() {
                             )}
                         </TableBody>
                     </Table>
+</div>
                 </div>
             </CardContent>
         </Card>

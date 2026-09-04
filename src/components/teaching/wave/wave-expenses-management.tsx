@@ -62,7 +62,7 @@ function ExpenseFormDialog({ open, onOpenChange, existingExpense }: ExpenseFormD
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{existingExpense ? 'Editar Despesa' : 'Registrar Nova Despesa'}</DialogTitle>
         </DialogHeader>
@@ -153,7 +153,8 @@ export function WaveExpensesManagement() {
         </CardHeader>
         <CardContent>
             <div className="rounded-lg border">
-                <Table>
+                <div className="overflow-x-auto w-full">
+<Table>
                 <TableHeader>
                     <TableRow>
                     <TableHead>Data</TableHead>
@@ -190,6 +191,7 @@ export function WaveExpensesManagement() {
                     )}
                 </TableBody>
                 </Table>
+</div>
             </div>
         </CardContent>
       </Card>

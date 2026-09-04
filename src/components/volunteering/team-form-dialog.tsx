@@ -43,7 +43,7 @@ export function TeamFormDialog({ open, onOpenChange, existingTeam }: TeamFormDia
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{existingTeam ? 'Editar Equipe' : 'Criar Nova Equipe'}</DialogTitle>
           <DialogDescription>

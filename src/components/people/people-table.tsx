@@ -306,7 +306,8 @@ export function PeopleTable() {
 
             <CardContent className="px-0">
                 <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
-                    <Table>
+                    <div className="overflow-x-auto w-full">
+<Table>
                         <TableHeader className="bg-slate-50">
                             <TableRow>
                                 <TableHead className="w-[60px]"></TableHead>
@@ -408,6 +409,7 @@ export function PeopleTable() {
                             )}
                         </TableBody>
                     </Table>
+</div>
                     {totalPages > 1 && (
                         <div className="flex items-center justify-between border-t px-4 py-3 bg-slate-50/50">
                             <div className="text-xs text-muted-foreground font-medium">

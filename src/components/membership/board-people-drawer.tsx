@@ -145,7 +145,8 @@ export function BoardPeopleDrawer({ board, isOpen, onClose }: BoardPeopleDrawerP
               <Loader2 className="size-8 animate-spin text-primary" />
             </div>
           ) : (
-            <Table>
+            <div className="overflow-x-auto w-full">
+<Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="text-xs">Membro</TableHead>
@@ -205,6 +206,7 @@ export function BoardPeopleDrawer({ board, isOpen, onClose }: BoardPeopleDrawerP
                 )}
               </TableBody>
             </Table>
+</div>
           )}
         </div>
 

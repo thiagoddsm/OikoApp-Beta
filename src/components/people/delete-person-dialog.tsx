@@ -86,7 +86,7 @@ export function DeletePersonDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open && !isSubmitting) onClose(); }}>
-      <DialogContent className="sm:max-w-md rounded-3xl p-6 border-slate-200">
+      <DialogContent className="sm:max-w-md rounded-3xl p-6 border-slate-200 max-h-[85vh] overflow-y-auto">
         <DialogHeader className="space-y-3 text-center sm:text-left">
           <div className="size-12 rounded-2xl bg-rose-100 dark:bg-rose-950/50 text-rose-600 flex items-center justify-center mx-auto sm:mx-0 shadow-inner">
             <AlertTriangle size={24} />

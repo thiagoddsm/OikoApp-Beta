@@ -82,7 +82,7 @@ function ActionFormDialog({ open, onOpenChange, existingAction, beneficiaries }:
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
+            <DialogContent className="max-h-[85vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>{existingAction ? 'Editar Ação' : 'Registrar Nova Ação'}</DialogTitle>
                 </DialogHeader>
@@ -193,7 +193,8 @@ export function SocialActionManagement() {
                 </div>
             </div>
              <div className="rounded-lg border">
-                <Table>
+                <div className="overflow-x-auto w-full">
+<Table>
                     <TableHeader><TableRow><TableHead>Data</TableHead><TableHead>Beneficiário</TableHead><TableHead>Tipo</TableHead><TableHead>Descrição</TableHead><TableHead className="text-right">Ações</TableHead></TableRow></TableHeader>
                     <TableBody>
                         {filteredItems.length === 0 ? (
@@ -214,6 +215,7 @@ export function SocialActionManagement() {
                         )}
                     </TableBody>
                 </Table>
+</div>
             </div>
             <ActionFormDialog open={isFormOpen} onOpenChange={setFormOpen} existingAction={selectedAction} beneficiaries={beneficiaries || []} />
             {selectedAction && <DeleteConfirmationDialog open={isDeleteOpen} onOpenChange={setDeleteOpen} onConfirm={confirmDelete} itemName={`Ação para ${beneficiaryMap.get(selectedAction.beneficiaryId)}`} itemType="Ação Social" />}

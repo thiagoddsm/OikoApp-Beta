@@ -77,7 +77,8 @@ export function TeachersManagement({ filterCourseIds }: TeachersManagementProps)
                 </CardHeader>
                 <CardContent className={filterCourseIds ? "px-0" : ""}>
                     <div className="rounded-lg border overflow-hidden">
-                        <Table>
+                        <div className="overflow-x-auto w-full">
+<Table>
                             <TableHeader className="bg-muted/50">
                                 <TableRow>
                                     <TableHead>Professor</TableHead>
@@ -135,6 +136,7 @@ export function TeachersManagement({ filterCourseIds }: TeachersManagementProps)
                                 )}
                             </TableBody>
                         </Table>
+</div>
                     </div>
                 </CardContent>
             </Card>

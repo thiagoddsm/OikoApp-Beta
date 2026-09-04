@@ -163,7 +163,8 @@ export function CourseClassesManager({ course }: { course: any }) {
                 </div>
             </div>
             <div className="rounded-md border bg-background">
-                <Table>
+                <div className="overflow-x-auto w-full">
+<Table>
                     <TableHeader>
                         <TableRow>
                             <TableHead>Ciclo / Turma</TableHead>
@@ -233,6 +234,7 @@ export function CourseClassesManager({ course }: { course: any }) {
                         )}
                     </TableBody>
                 </Table>
+</div>
             </div>
             <ClassFormDialog
                 open={isClassFormOpen}

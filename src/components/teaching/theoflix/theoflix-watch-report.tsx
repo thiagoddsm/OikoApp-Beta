@@ -334,7 +334,8 @@ export function TheoflixWatchReport() {
             {/* Students Table */}
             <Card className="border-slate-200 shadow-sm">
                 <CardContent className="p-0">
-                    <Table>
+                    <div className="overflow-x-auto w-full">
+<Table>
                         <TableHeader>
                             <TableRow className="bg-slate-50/75 hover:bg-slate-50/75">
                                 <TableHead className="w-10"></TableHead>
@@ -490,6 +491,7 @@ export function TheoflixWatchReport() {
                             )}
                         </TableBody>
                     </Table>
+</div>
                 </CardContent>
             </Card>
         </div>

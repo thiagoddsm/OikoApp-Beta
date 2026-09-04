@@ -98,7 +98,8 @@ export function RecordsList({ registros, loading, onEdit }: RecordsListProps) {
       />
       <h2 className="text-xl font-bold mb-4">Registros Salvos</h2>
       <div className="rounded-lg border">
-        <Table>
+        <div className="overflow-x-auto w-full">
+<Table>
           <TableHeader>
             <TableRow>
               <TableHead>Data</TableHead>
@@ -149,6 +150,7 @@ export function RecordsList({ registros, loading, onEdit }: RecordsListProps) {
             ))}
           </TableBody>
         </Table>
+</div>
       </div>
     </div>
   );

@@ -510,7 +510,8 @@ export function WaveAdminDashboard() {
             </CardHeader>
             <CardContent>
               <div className="rounded-xl border border-slate-100 dark:border-slate-800 overflow-hidden">
-                <Table>
+                <div className="overflow-x-auto w-full">
+<Table>
                   <TableHeader className="bg-slate-50 dark:bg-slate-850">
                     <TableRow>
                       <TableHead>Turma</TableHead>
@@ -549,6 +550,7 @@ export function WaveAdminDashboard() {
                     )}
                   </TableBody>
                 </Table>
+</div>
               </div>
             </CardContent>
           </Card>

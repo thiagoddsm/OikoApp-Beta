@@ -202,7 +202,7 @@ export function CampaignSimulatorCard({
 
       {/* Dialog de Confirmação Reforçada (Override Emergencial) */}
       <Dialog open={openOverrideDialog} onOpenChange={setOpenOverrideDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-red-600 font-black">
               <AlertOctagon className="size-5" /> Confirmação Reforçada de Envio Especial

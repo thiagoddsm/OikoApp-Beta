@@ -627,7 +627,7 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
         {/* Modal de Detalhamento das Aulas do Curso */}
         {selectedCourseModal && (
             <Dialog open={!!selectedCourseModal} onOpenChange={() => setSelectedCourseModal(null)}>
-                <DialogContent className="sm:max-w-md rounded-3xl p-6 bg-white">
+                <DialogContent className="sm:max-w-md rounded-3xl p-6 bg-white max-h-[85vh] overflow-y-auto">
                     <DialogHeader>
                         <div className="flex items-center gap-3 mb-1">
                             <div className={cn(

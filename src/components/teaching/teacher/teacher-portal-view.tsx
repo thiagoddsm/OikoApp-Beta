@@ -95,7 +95,8 @@ export function TeacherPortalView() {
 
         <CardContent>
           <div className="rounded-xl border overflow-hidden">
-            <Table>
+            <div className="overflow-x-auto w-full">
+<Table>
               <TableHeader className="bg-slate-50 dark:bg-slate-900">
                 <TableRow>
                   <TableHead className="text-xs">Turma</TableHead>
@@ -145,6 +146,7 @@ export function TeacherPortalView() {
                 )}
               </TableBody>
             </Table>
+</div>
           </div>
         </CardContent>
       </Card>

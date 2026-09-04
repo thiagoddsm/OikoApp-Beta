@@ -238,7 +238,7 @@ function PublicCalendarContent() {
 
             {/* Read-Only Details Dialog */}
             <Dialog open={isDetailsOpen} onOpenChange={setDetailsOpen}>
-                <DialogContent className="sm:max-w-[480px]">
+                <DialogContent className="sm:max-w-[480px] max-h-[85vh] overflow-y-auto">
                     <DialogHeader>
                         <div className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-wider mb-1">
                             <Info className="size-3.5" />

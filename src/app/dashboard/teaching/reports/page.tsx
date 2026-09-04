@@ -1690,7 +1690,8 @@ function GeneralTeachingReportsContent() {
 
                       {isExpanded && (
                         <div className="border-t border-slate-100 p-2 bg-white">
-                          <Table>
+                          <div className="overflow-x-auto w-full">
+<Table>
                             <TableHeader>
                               <TableRow>
                                 <TableHead className="h-9 text-[10px] font-black uppercase text-slate-500">Aula / Conteúdo</TableHead>
@@ -1726,6 +1727,7 @@ function GeneralTeachingReportsContent() {
                               )}
                             </TableBody>
                           </Table>
+</div>
                         </div>
                       )}
                     </div>
@@ -1744,7 +1746,8 @@ function GeneralTeachingReportsContent() {
           <CardDescription className="text-xs">Visão geral consolidada para liderança e coordenação de Ensino</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
+          <div className="overflow-x-auto w-full">
+<Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Curso</TableHead>
@@ -1786,12 +1789,13 @@ function GeneralTeachingReportsContent() {
               )}
             </TableBody>
           </Table>
+</div>
         </CardContent>
       </Card>
 
       {/* ── 6. MODAL DE GESTÃO DE EXCEÇÕES DA COORDENAÇÃO ───────────── */}
       <Dialog open={isExceptionModalOpen} onOpenChange={setIsExceptionModalOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-base font-black text-slate-800 flex items-center gap-2">
               <ShieldCheck className="size-5 text-emerald-600" />

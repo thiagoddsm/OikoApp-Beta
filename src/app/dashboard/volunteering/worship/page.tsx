@@ -346,7 +346,7 @@ function PlansList() {
       )}
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Novo Plano de Culto</DialogTitle>
             <DialogDescription>Preencha os dados básicos. Você vai montar a ordem detalhada no editor.</DialogDescription>
@@ -802,7 +802,7 @@ function SongsLibrary() {
         setCreateOpen(open);
         if (!open) resetForm();
       }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingSong ? 'Editar Música' : 'Cadastrar Música no Acervo'}</DialogTitle>
             <DialogDescription>

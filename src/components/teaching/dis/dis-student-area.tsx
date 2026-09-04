@@ -177,7 +177,8 @@ export function DisStudentArea() {
               </p>
             ) : (
               <div className="rounded-lg border overflow-hidden">
-                <Table>
+                <div className="overflow-x-auto w-full">
+<Table>
                   <TableBody>
                     {myPayments.map(p => (
                       <TableRow key={p.id}>
@@ -198,6 +199,7 @@ export function DisStudentArea() {
                     ))}
                   </TableBody>
                 </Table>
+</div>
               </div>
             )}
           </CardContent>

@@ -242,7 +242,8 @@ export function FinanceRequestsManager() {
       </div>
 
       <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
-        <Table>
+        <div className="overflow-x-auto w-full">
+<Table>
           <TableHeader className="bg-muted/50">
             <TableRow>
               <TableHead className="align-top py-3">
@@ -339,6 +340,7 @@ export function FinanceRequestsManager() {
             )}
           </TableBody>
         </Table>
+</div>
       </div>
 
       <Dialog open={isFormOpen} onOpenChange={(isOpen) => { if (!isOpen) resetForm(); setIsFormOpen(isOpen); }}>

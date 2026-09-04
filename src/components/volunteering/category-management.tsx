@@ -138,7 +138,8 @@ export function CategoryManagement() {
         </div>
 
         <div className="rounded-xl border shadow-sm bg-white overflow-hidden">
-          <Table>
+          <div className="overflow-x-auto w-full">
+<Table>
             <TableHeader className="bg-muted/50">
               <TableRow>
                 <TableHead>Nome da Categoria</TableHead>
@@ -223,6 +224,7 @@ export function CategoryManagement() {
               )}
             </TableBody>
           </Table>
+</div>
         </div>
       </div>
       

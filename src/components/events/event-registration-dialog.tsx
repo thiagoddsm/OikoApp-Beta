@@ -130,7 +130,7 @@ export function EventRegistrationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md rounded-3xl p-6 bg-white space-y-4">
+      <DialogContent className="sm:max-w-md rounded-3xl p-6 bg-white space-y-4 max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-3 mb-1">
             <div className="p-3 rounded-2xl bg-amber-100 text-amber-800">

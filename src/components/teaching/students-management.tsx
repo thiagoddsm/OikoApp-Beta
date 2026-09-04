@@ -261,7 +261,8 @@ export function StudentsManagement({ filterCourseIds, defaultCourseId }: Student
 
           <CardContent className="px-0">
               <div className="rounded-lg border overflow-hidden">
-                  <Table>
+                  <div className="overflow-x-auto w-full">
+<Table>
                       <TableHeader className="bg-muted/50">
                           <TableRow>
                               <TableHead>Aluno</TableHead>
@@ -307,6 +308,7 @@ export function StudentsManagement({ filterCourseIds, defaultCourseId }: Student
                           )}
                       </TableBody>
                   </Table>
+</div>
               </div>
           </CardContent>
       </Card>

@@ -114,7 +114,7 @@ export function CreateRedeDialog({ open, onOpenChange, users, existingRede }: Cr
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{existingRede ? 'Editar Rede' : 'Criar Nova Rede'}</DialogTitle>
           <DialogDescription>

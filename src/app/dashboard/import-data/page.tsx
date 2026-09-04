@@ -1121,7 +1121,8 @@ export default function ImportDataPage() {
 
                                             {/* Preview Table */}
                                             <div className="border rounded-md max-h-[400px] overflow-y-auto">
-                                                <Table>
+                                                <div className="overflow-x-auto w-full">
+<Table>
                                                     <TableHeader className="bg-slate-50 sticky top-0">
                                                         <TableRow>
                                                             <TableHead>Nome</TableHead>
@@ -1209,6 +1210,7 @@ export default function ImportDataPage() {
                                                         ))}
                                                     </TableBody>
                                                 </Table>
+</div>
                                             </div>
 
                                             {/* Action Buttons */}

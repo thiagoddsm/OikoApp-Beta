@@ -933,7 +933,7 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
 
                         {/* Modal para Disparo de Link de Convite no Privado */}
                         <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
-                            <DialogContent className="sm:max-w-lg">
+                            <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
                                 <DialogHeader>
                                     <DialogTitle className="text-lg font-black text-slate-800 flex items-center gap-2">
                                         <Send className="size-5 text-emerald-600" />
@@ -1005,7 +1005,7 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
 
                         {/* Modal para Edição Manual de Nome e Descrição */}
                         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-                            <DialogContent className="sm:max-w-md">
+                            <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
                                 <DialogHeader>
                                     <DialogTitle className="text-lg font-black text-slate-800 flex items-center gap-2">
                                         <Settings className="h-5 w-5 text-emerald-600" />

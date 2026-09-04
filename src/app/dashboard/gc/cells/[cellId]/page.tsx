@@ -618,7 +618,7 @@ export default function CellDetailPage() {
 
       {/* Dialog — Adicionar Membro */}
       <Dialog open={isAddMemberOpen} onOpenChange={setAddMemberOpen}>
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className="sm:max-w-sm max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Adicionar Membro</DialogTitle>
           </DialogHeader>
@@ -656,7 +656,7 @@ export default function CellDetailPage() {
 
       {/* Dialog — Adicionar Visitante */}
       <Dialog open={isAddVisitorOpen} onOpenChange={setAddVisitorOpen}>
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className="sm:max-w-sm max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Registrar Visitante</DialogTitle>
           </DialogHeader>

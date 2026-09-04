@@ -56,7 +56,8 @@ export function DisTeacherArea() {
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
-            <Table>
+            <div className="overflow-x-auto w-full">
+<Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Turma</TableHead>
@@ -104,6 +105,7 @@ export function DisTeacherArea() {
                 )}
               </TableBody>
             </Table>
+</div>
           </div>
         </CardContent>
       </Card>

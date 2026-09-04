@@ -128,7 +128,7 @@ export function PatrimonyFormDialog({ open, onOpenChange, existingItem }: Patrim
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{existingItem ? 'Editar Item' : 'Adicionar Novo Item'}</DialogTitle>
           <DialogDescription>

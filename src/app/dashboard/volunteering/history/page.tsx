@@ -184,7 +184,8 @@ function VolunteerHistoryContent() {
 
                             {/* History Table */}
                             <div className="border rounded-xl overflow-hidden bg-white shadow-sm">
-                                <Table>
+                                <div className="overflow-x-auto w-full">
+<Table>
                                     <TableHeader className="bg-slate-50">
                                         <TableRow>
                                             <TableHead>Data</TableHead>
@@ -255,6 +256,7 @@ function VolunteerHistoryContent() {
                                         )}
                                     </TableBody>
                                 </Table>
+</div>
                             </div>
                         </>
                     ) : (

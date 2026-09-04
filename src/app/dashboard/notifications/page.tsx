@@ -2162,7 +2162,8 @@ function NotificationsHistory() {
 
     return (
         <div className="rounded-xl border-2 bg-card overflow-hidden shadow-sm text-slate-900">
-            <Table>
+            <div className="overflow-x-auto w-full">
+<Table>
                 <TableHeader className="bg-muted/50">
                     <TableRow>
                         <TableHead>Data</TableHead>
@@ -2202,6 +2203,7 @@ function NotificationsHistory() {
                     )}
                 </TableBody>
             </Table>
+</div>
 
             <Sheet open={!!selectedErrorItem} onOpenChange={(open) => !open && setSelectedErrorItem(null)}>
                 <SheetContent className="w-full sm:max-w-md overflow-y-auto">

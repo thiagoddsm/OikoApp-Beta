@@ -168,7 +168,7 @@ export function InviteUserButton({ user }: { user: any }) {
             </Button>
 
             <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                <DialogContent>
+                <DialogContent className="max-h-[85vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             <KeyRound className="size-5 text-indigo-500" />

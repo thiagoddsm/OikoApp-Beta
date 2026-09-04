@@ -234,7 +234,8 @@ export function QuizPedagogicalDashboard() {
             {/* Attempts Table */}
             <Card className="border-slate-200 dark:border-slate-800">
                 <CardContent className="p-0">
-                    <Table>
+                    <div className="overflow-x-auto w-full">
+<Table>
                         <TableHeader>
                             <TableRow className="bg-slate-50 dark:bg-slate-900/50">
                                 <TableHead className="w-[200px]">Aluno</TableHead>
@@ -307,6 +308,7 @@ export function QuizPedagogicalDashboard() {
                             )}
                         </TableBody>
                     </Table>
+</div>
                 </CardContent>
             </Card>
 

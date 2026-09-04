@@ -125,7 +125,8 @@ export function MinistryManagement() {
 
       {/* Lista */}
       <div className="lg:col-span-2 rounded-lg border">
-        <Table>
+        <div className="overflow-x-auto w-full">
+<Table>
           <TableHeader>
             <TableRow>
               <TableHead>Nome</TableHead>
@@ -163,6 +164,7 @@ export function MinistryManagement() {
             )}
           </TableBody>
         </Table>
+</div>
       </div>
 
       {deleteTarget && (

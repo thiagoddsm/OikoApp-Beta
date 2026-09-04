@@ -65,7 +65,8 @@ export function TeamsManagement() {
               </Button>
           </CardHeader>
           <CardContent className="p-0">
-             <Table>
+             <div className="overflow-x-auto w-full">
+<Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome</TableHead>
@@ -108,6 +109,7 @@ export function TeamsManagement() {
                 )}
               </TableBody>
             </Table>
+</div>
           </CardContent>
       </Card>
       

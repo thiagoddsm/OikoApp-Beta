@@ -194,7 +194,8 @@ export function TeacherDashboard() {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
+          <div className="overflow-x-auto w-full">
+<Table>
             <TableHeader>
               <TableRow className="bg-slate-50">
                 <TableHead>Horário</TableHead>
@@ -253,6 +254,7 @@ export function TeacherDashboard() {
               )}
             </TableBody>
           </Table>
+</div>
         </CardContent>
       </Card>
 

@@ -578,7 +578,8 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
             </Card>
             
             <div className="mt-6 rounded-lg border overflow-hidden bg-white shadow-sm">
-                <Table>
+                <div className="overflow-x-auto w-full">
+<Table>
                     <TableHeader className="bg-muted/50">
                         <TableRow>
                             <TableHead>Data</TableHead>
@@ -658,11 +659,12 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
                         )}
                     </TableBody>
                 </Table>
+</div>
             </div>
 
             {/* Notification Modal for Targeted Audiences */}
             <Dialog open={isNotifyModalOpen} onOpenChange={setNotifyModalOpen}>
-                <DialogContent className="sm:max-w-[500px]">
+                <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2 text-slate-900">
                             <Send className="h-5 w-5 text-emerald-600" />

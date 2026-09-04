@@ -419,7 +419,7 @@ export default function DiarioDeClassePage() {
 
       {/* Check-out Modal */}
       <Dialog open={isFinishModalOpen} onOpenChange={setIsFinishModalOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Conteúdo Ministrado (Diário de Classe)</DialogTitle>
             <DialogDescription>
@@ -455,7 +455,7 @@ export default function DiarioDeClassePage() {
 
       {/* Absence Modal */}
       <Dialog open={isAbsenceModalOpen} onOpenChange={setIsAbsenceModalOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Registrar Ausência / Falta</DialogTitle>
             <DialogDescription>
@@ -491,7 +491,7 @@ export default function DiarioDeClassePage() {
 
       {/* Agendar Nova Aula Modal */}
       <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Agendar Nova Aula / Mentoria</DialogTitle>
             <DialogDescription>
@@ -550,7 +550,7 @@ export default function DiarioDeClassePage() {
 
       {/* Lançar Chamada por Turma Modal */}
       <Dialog open={isLogClassOpen} onOpenChange={setIsLogClassOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Lançar Presença por Turma</DialogTitle>
             <DialogDescription>

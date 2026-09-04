@@ -81,7 +81,7 @@ function BeneficiaryFormDialog({ open, onOpenChange, existingBeneficiary }: Bene
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
+            <DialogContent className="max-h-[85vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>{existingBeneficiary ? 'Editar Beneficiário' : 'Novo Beneficiário'}</DialogTitle>
                 </DialogHeader>
@@ -168,7 +168,8 @@ export function BeneficiaryManagement() {
                 </div>
             </div>
             <div className="rounded-lg border">
-                <Table>
+                <div className="overflow-x-auto w-full">
+<Table>
                     <TableHeader><TableRow><TableHead>Nome</TableHead><TableHead>Contato</TableHead><TableHead className="text-right">Ações</TableHead></TableRow></TableHeader>
                     <TableBody>
                         {filteredItems.map(item => (
@@ -183,6 +184,7 @@ export function BeneficiaryManagement() {
                         ))}
                     </TableBody>
                 </Table>
+</div>
             </div>
             <BeneficiaryFormDialog open={isFormOpen} onOpenChange={setFormOpen} existingBeneficiary={selectedBeneficiary} />
             {selectedBeneficiary && <DeleteConfirmationDialog open={isDeleteOpen} onOpenChange={setDeleteOpen} onConfirm={confirmDelete} itemName={selectedBeneficiary.name} itemType="Beneficiário" />}

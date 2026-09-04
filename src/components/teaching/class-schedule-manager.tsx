@@ -314,7 +314,7 @@ export function ClassScheduleManager({ classData }: ClassScheduleManagerProps) {
             </div>
 
             <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-                <DialogContent className="bg-slate-900 border-slate-800 text-white sm:max-w-md">
+                <DialogContent className="bg-slate-900 border-slate-800 text-white sm:max-w-md max-h-[85vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="text-xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
                             Nova Aula Extra

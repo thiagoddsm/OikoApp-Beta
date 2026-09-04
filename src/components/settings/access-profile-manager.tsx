@@ -136,7 +136,7 @@ function EditProfileDialog({ open, onOpenChange, onSave, existingProfile }: Edit
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
+            <DialogContent className="max-h-[85vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>{existingProfile ? 'Editar Perfil' : 'Criar Novo Perfil'}</DialogTitle>
                     <DialogDescription>

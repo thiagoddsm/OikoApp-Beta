@@ -60,7 +60,7 @@ export function EditTeacherCoursesDialog({ open, onOpenChange, user }: EditTeach
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Gerenciar Cursos para {user.name}</DialogTitle>
           <DialogDescription>

@@ -240,7 +240,8 @@ function CheckinPanelContent() {
                                     <span className="text-sm font-bold text-slate-800">Presença do Dia ({formattedSelectedDate})</span>
                                 </div>
                             </div>
-                            <Table>
+                            <div className="overflow-x-auto w-full">
+<Table>
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Culto / Evento</TableHead>
@@ -357,6 +358,7 @@ function CheckinPanelContent() {
                                     )}
                                 </TableBody>
                             </Table>
+</div>
                         </div>
                     </div>
                 </CardContent>

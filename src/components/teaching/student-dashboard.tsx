@@ -559,7 +559,7 @@ function ClassAttendanceCard({
 
     {/* Modal de Solicitação de Exceção */}
     <Dialog open={isExceptionDialogOpen} onOpenChange={setIsExceptionDialogOpen}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-base font-black text-slate-800 flex items-center gap-2">
             <ShieldCheck className="size-5 text-amber-600" />

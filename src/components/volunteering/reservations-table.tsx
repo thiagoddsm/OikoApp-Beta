@@ -144,7 +144,8 @@ export function ReservationsTable({
     return (
         <>
             <div className="rounded-lg border">
-                <Table>
+                <div className="overflow-x-auto w-full">
+<Table>
                     <TableHeader>
                         <TableRow>
                             <TableHead>Evento / Origem</TableHead>
@@ -217,6 +218,7 @@ export function ReservationsTable({
                         )}
                     </TableBody>
                 </Table>
+</div>
             </div>
             
             <CreateReservationDialog

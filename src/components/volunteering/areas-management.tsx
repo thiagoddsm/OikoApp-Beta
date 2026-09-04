@@ -68,7 +68,8 @@ export function AreasManagement() {
         </div>
       </div>
       <div className="rounded-lg border">
-        <Table>
+        <div className="overflow-x-auto w-full">
+<Table>
           <TableHeader>
             <TableRow>
               <TableHead>Nome</TableHead>
@@ -139,6 +140,7 @@ export function AreasManagement() {
             }))}
           </TableBody>
         </Table>
+</div>
       </div>
       
       <CreateAreaDialog

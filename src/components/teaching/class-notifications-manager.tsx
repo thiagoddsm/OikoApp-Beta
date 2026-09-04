@@ -523,7 +523,8 @@ export function ClassNotificationsManager({ classData, courseData }: ClassNotifi
                         </div>
 
                         <div className="rounded-md border bg-card overflow-hidden">
-                            <Table>
+                            <div className="overflow-x-auto w-full">
+<Table>
                                 <TableHeader>
                                     <TableRow className="bg-muted/50">
                                         <TableHead>Aluno</TableHead>
@@ -577,6 +578,7 @@ export function ClassNotificationsManager({ classData, courseData }: ClassNotifi
                                     )}
                                 </TableBody>
                             </Table>
+</div>
                         </div>
                     </div>
                 </div>

@@ -66,7 +66,8 @@ export function RoomsManagement() {
         </div>
 
         <div className="rounded-lg border">
-          <Table>
+          <div className="overflow-x-auto w-full">
+<Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Nome do Ambiente</TableHead>
@@ -94,6 +95,7 @@ export function RoomsManagement() {
               )}
             </TableBody>
           </Table>
+</div>
         </div>
       </div>
       

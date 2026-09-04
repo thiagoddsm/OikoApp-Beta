@@ -92,7 +92,8 @@ export function JourneySettingsManager() {
 
                 <TabsContent value="phases" className="space-y-4">
                     <div className="rounded-xl border shadow-sm bg-card overflow-hidden">
-                        <Table>
+                        <div className="overflow-x-auto w-full">
+<Table>
                             <TableHeader className="bg-muted/50">
                                 <TableRow>
                                     <TableHead>Fase</TableHead>
@@ -160,6 +161,7 @@ export function JourneySettingsManager() {
                                 })}
                             </TableBody>
                         </Table>
+</div>
                     </div>
                 </TabsContent>
 
@@ -170,7 +172,8 @@ export function JourneySettingsManager() {
                         </Button>
                     </div>
                     <div className="rounded-xl border shadow-sm bg-card overflow-hidden">
-                        <Table>
+                        <div className="overflow-x-auto w-full">
+<Table>
                             <TableHeader className="bg-muted/50">
                                 <TableRow>
                                     <TableHead>Título</TableHead>
@@ -213,6 +216,7 @@ export function JourneySettingsManager() {
                                 )}
                             </TableBody>
                         </Table>
+</div>
                     </div>
                 </TabsContent>
             </Tabs>

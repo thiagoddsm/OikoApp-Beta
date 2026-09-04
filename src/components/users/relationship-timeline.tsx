@@ -736,7 +736,7 @@ export function RelationshipTimeline({ userId, personName }: { userId: string; p
       {/* Modal de Criação de Marco Histórico Manual (Botão "+") */}
       {isAddEventOpen && (
         <Dialog open={isAddEventOpen} onOpenChange={setIsAddEventOpen}>
-          <DialogContent className="sm:max-w-lg rounded-3xl p-6 bg-white space-y-4">
+          <DialogContent className="sm:max-w-lg rounded-3xl p-6 bg-white space-y-4 max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-lg font-black uppercase italic tracking-tight text-slate-900 flex items-center gap-2">
                 <Plus className="size-5 text-primary" /> Adicionar Marco Histórico

@@ -205,7 +205,8 @@ export function CloseClassDialog({ open, onOpenChange, classData, courseData }: 
           </div>
 
           <div className="rounded-xl border shadow-sm bg-background overflow-hidden">
-            <Table>
+            <div className="overflow-x-auto w-full">
+<Table>
               <TableHeader className="bg-muted/50">
                 <TableRow>
                   <TableHead className="font-bold text-slate-800">Aluno</TableHead>
@@ -268,6 +269,7 @@ export function CloseClassDialog({ open, onOpenChange, classData, courseData }: 
                 )}
               </TableBody>
             </Table>
+</div>
           </div>
         </div>
 

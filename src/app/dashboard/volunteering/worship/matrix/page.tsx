@@ -750,7 +750,7 @@ function MatrixViewInner() {
 
       {/* Assignment Dialog */}
       <Dialog open={!!assignmentCell} onOpenChange={open => !open && setAssignmentCell(null)}>
-        <DialogContent className="max-w-md rounded-2xl">
+        <DialogContent className="max-w-md rounded-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-base font-bold text-slate-800">
               Escalar Voluntário - {assignmentCell?.role}
@@ -849,7 +849,7 @@ function MatrixViewInner() {
 
       {/* Add Role Dialog */}
       <Dialog open={showAddRoleDialog} onOpenChange={setShowAddRoleDialog}>
-        <DialogContent className="max-w-sm rounded-2xl">
+        <DialogContent className="max-w-sm rounded-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-base font-bold text-slate-800">
               Adicionar Função

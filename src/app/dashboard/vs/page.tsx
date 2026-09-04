@@ -1020,7 +1020,7 @@ export default function VsMainStagePage() {
 
       {/* DIÁLOGO DE ADICIONAR MÚSICA AO REPERTÓRIO DO CULTO */}
       <Dialog open={isAddSongDialogOpen} onOpenChange={setIsAddSongDialogOpen}>
-        <DialogContent className="bg-[#121824] border-slate-800 text-white rounded-3xl max-w-md">
+        <DialogContent className="bg-[#121824] border-slate-800 text-white rounded-3xl max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-lg font-black italic text-emerald-400">Adicionar Música ao Repertório</DialogTitle>
             <DialogDescription className="text-xs text-slate-400">
@@ -1056,7 +1056,7 @@ export default function VsMainStagePage() {
 
       {/* DIÁLOGO DE MAPEAMENTO MIDI & ATALHOS DE PALCO */}
       <Dialog open={isMidiGuideOpen} onOpenChange={setIsMidiGuideOpen}>
-        <DialogContent className="bg-[#121824] border-slate-800 text-white rounded-3xl max-w-lg">
+        <DialogContent className="bg-[#121824] border-slate-800 text-white rounded-3xl max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-lg font-black italic text-emerald-400 flex items-center gap-2">
               <Sliders size={20} /> Atalhos de Palco & Pedais Bluetooth / MIDI

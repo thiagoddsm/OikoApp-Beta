@@ -265,7 +265,7 @@ export function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors,
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{existingCell ? 'Editar Célula' : 'Criar Nova Célula'}</DialogTitle>
           <DialogDescription>{existingCell ? 'Altere as informações da célula.' : 'Preencha as informações para criar uma nova célula.'}</DialogDescription>
@@ -825,7 +825,8 @@ export default function CellsPage() {
           </div>
         ) : (
           <div className="rounded-b-lg overflow-hidden">
-            <Table>
+            <div className="overflow-x-auto w-full">
+<Table>
               <TableHeader className="bg-muted/40">
                 <TableRow>
                   <TableHead className="pl-6">Célula</TableHead>
@@ -1021,6 +1022,7 @@ export default function CellsPage() {
                 })}
               </TableBody>
             </Table>
+</div>
           </div>
         )}
       </CardContent>

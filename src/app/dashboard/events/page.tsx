@@ -189,7 +189,8 @@ function EventsListContent() {
         </CardHeader>
         <CardContent>
             <div className="rounded-lg border">
-                <Table>
+                <div className="overflow-x-auto w-full">
+<Table>
                     <TableHeader>
                         <TableRow>
                             <TableHead>Nome do Evento</TableHead>
@@ -257,6 +258,7 @@ function EventsListContent() {
                         )}
                     </TableBody>
                 </Table>
+</div>
             </div>
         </CardContent>
       </Card>

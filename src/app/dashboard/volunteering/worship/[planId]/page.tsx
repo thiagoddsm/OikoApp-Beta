@@ -1232,7 +1232,7 @@ function PlanEditorInner({ planId }: { planId: string }) {
 
       {/* Save as template dialog */}
       <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
-        <DialogContent>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Salvar como Template</DialogTitle>
             <DialogDescription>Este plano será salvo como um template reutilizável para futuros cultos.</DialogDescription>
@@ -1250,7 +1250,7 @@ function PlanEditorInner({ planId }: { planId: string }) {
 
       {/* Apply template dialog */}
       <Dialog open={showApplyDialog} onOpenChange={setShowApplyDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Importar Template</DialogTitle>
             <DialogDescription>

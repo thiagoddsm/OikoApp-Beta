@@ -50,7 +50,7 @@ export function PlanFormDialog({ open, onOpenChange, existingPlan }: PlanFormDia
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{existingPlan ? 'Editar Plano' : 'Criar Novo Plano'}</DialogTitle>
           <DialogDescription>

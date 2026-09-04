@@ -416,7 +416,8 @@ export function MensalidadesManager({
           </div>
 
           <div className="rounded-xl border overflow-hidden">
-            <Table>
+            <div className="overflow-x-auto w-full">
+<Table>
               <TableHeader className="bg-slate-50 dark:bg-slate-900">
                 <TableRow>
                   <TableHead className="text-xs">Aluno</TableHead>
@@ -496,6 +497,7 @@ export function MensalidadesManager({
                 )}
               </TableBody>
             </Table>
+</div>
           </div>
         </CardContent>
       </Card>
@@ -503,7 +505,7 @@ export function MensalidadesManager({
       {/* DIALOG DE EDIÇÃO DE COBRANÇA */}
       {editingFee && (
         <Dialog open={Boolean(editingFee)} onOpenChange={(open) => !open && setEditingFee(null)}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-base font-bold">Editar Cobrança</DialogTitle>
               <DialogDescription className="text-xs">
@@ -563,7 +565,7 @@ export function MensalidadesManager({
       )}
       {isBatchOpen && (
         <Dialog open={isBatchOpen} onOpenChange={open => !open && setIsBatchOpen(false)}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-base font-bold flex items-center gap-2">
                 <Calendar className="size-4 text-indigo-600" /> Gerar Mensalidades em Lote

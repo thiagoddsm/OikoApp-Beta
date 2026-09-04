@@ -248,7 +248,8 @@ export function DisFinanceDashboard() {
                         </DropdownMenu>
                     </div>
                     <div className="rounded-lg border">
-                        <Table>
+                        <div className="overflow-x-auto w-full">
+<Table>
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Aluno</TableHead>
@@ -313,6 +314,7 @@ export function DisFinanceDashboard() {
                                 )}
                             </TableBody>
                         </Table>
+</div>
                     </div>
                 </CardContent>
             </Card>

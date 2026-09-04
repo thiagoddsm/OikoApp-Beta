@@ -268,7 +268,8 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string | strin
 
             {/* Tabela de Solicitações */}
             <div className="rounded-xl border bg-card overflow-hidden shadow-sm">
-                <Table>
+                <div className="overflow-x-auto w-full">
+<Table>
                     <TableHeader className="bg-muted/50">
                         <TableRow>
                             <TableHead className="w-[120px]">Data</TableHead>
@@ -429,6 +430,7 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string | strin
                         )}
                     </TableBody>
                 </Table>
+</div>
             </div>
         </div>
     );

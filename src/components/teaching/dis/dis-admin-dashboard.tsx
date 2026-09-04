@@ -211,7 +211,8 @@ export function DisAdminDashboard() {
                 </CardHeader>
                 <CardContent>
                     <div className="rounded-md border overflow-hidden">
-                        <Table>
+                        <div className="overflow-x-auto w-full">
+<Table>
                             <TableHeader className="bg-muted/50">
                                 <TableRow>
                                     <TableHead>Turma</TableHead>
@@ -273,6 +274,7 @@ export function DisAdminDashboard() {
                                 )}
                             </TableBody>
                         </Table>
+</div>
                     </div>
                 </CardContent>
             </Card>

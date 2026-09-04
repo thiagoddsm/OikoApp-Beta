@@ -240,7 +240,8 @@ export default function ProgramDetailPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="rounded-xl border border-slate-100 dark:border-slate-800 overflow-hidden">
-                    <Table>
+                    <div className="overflow-x-auto w-full">
+<Table>
                       <TableHeader className="bg-slate-50 dark:bg-slate-850">
                         <TableRow>
                           <TableHead>Turma</TableHead>
@@ -290,6 +291,7 @@ export default function ProgramDetailPage() {
                         )}
                       </TableBody>
                     </Table>
+</div>
                   </div>
                 </CardContent>
               </Card>

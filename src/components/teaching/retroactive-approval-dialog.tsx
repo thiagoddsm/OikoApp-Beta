@@ -166,7 +166,8 @@ export function RetroactiveApprovalDialog({ open, onOpenChange, courseId, course
             <div className="flex justify-center p-12"><Loader2 className="animate-spin text-primary" /></div>
           ) : (
             <div className="rounded-xl border bg-background overflow-hidden">
-              <Table>
+              <div className="overflow-x-auto w-full">
+<Table>
                 <TableHeader className="bg-muted/30">
                   <TableRow>
                     <TableHead className="w-12 text-center">
@@ -223,6 +224,7 @@ export function RetroactiveApprovalDialog({ open, onOpenChange, courseId, course
                   )}
                 </TableBody>
               </Table>
+</div>
             </div>
           )}
         </div>

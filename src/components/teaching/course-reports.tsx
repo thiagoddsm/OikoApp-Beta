@@ -368,7 +368,8 @@ export function CourseReports({ courseId }: CourseReportsProps) {
             <CardDescription className="text-xs">Classificação ordenada por taxa de presença</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
-            <Table>
+            <div className="overflow-x-auto w-full">
+<Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Aluno</TableHead>
@@ -398,6 +399,7 @@ export function CourseReports({ courseId }: CourseReportsProps) {
                 )}
               </TableBody>
             </Table>
+</div>
           </CardContent>
         </Card>
 
@@ -408,7 +410,8 @@ export function CourseReports({ courseId }: CourseReportsProps) {
             <CardDescription className="text-xs">Detalhamento por data e módulo correspondente</CardDescription>
           </CardHeader>
           <CardContent className="p-0 max-h-[400px] overflow-y-auto custom-scrollbar">
-            <Table>
+            <div className="overflow-x-auto w-full">
+<Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Aula</TableHead>
@@ -447,6 +450,7 @@ export function CourseReports({ courseId }: CourseReportsProps) {
                 )}
               </TableBody>
             </Table>
+</div>
           </CardContent>
         </Card>
       </div>

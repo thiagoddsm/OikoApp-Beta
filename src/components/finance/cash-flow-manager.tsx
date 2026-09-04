@@ -154,7 +154,8 @@ export function CashFlowManager() {
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
-            <Table>
+            <div className="overflow-x-auto w-full">
+<Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Data</TableHead>
@@ -205,6 +206,7 @@ export function CashFlowManager() {
                 )}
               </TableBody>
             </Table>
+</div>
           </div>
         </CardContent>
       </Card>

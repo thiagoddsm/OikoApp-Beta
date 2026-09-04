@@ -91,7 +91,8 @@ export function UserRoleAssignment({ roles }: UserRoleAssignmentProps) {
             />
         </div>
         <div className="rounded-lg border">
-          <Table>
+          <div className="overflow-x-auto w-full">
+<Table>
               <TableHeader>
                   <TableRow>
                       <TableHead>Usuário</TableHead>
@@ -141,6 +142,7 @@ export function UserRoleAssignment({ roles }: UserRoleAssignmentProps) {
                   })}
               </TableBody>
           </Table>
+</div>
         </div>
 
         {totalPages > 1 && (

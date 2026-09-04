@@ -155,7 +155,8 @@ export function WaveFinanceDashboard() {
                         </DropdownMenu>
                     </div>
                     <div className="rounded-lg border">
-                        <Table>
+                        <div className="overflow-x-auto w-full">
+<Table>
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Aluno</TableHead>
@@ -217,6 +218,7 @@ export function WaveFinanceDashboard() {
                                 })}
                             </TableBody>
                         </Table>
+</div>
                     </div>
                 </CardContent>
             </Card>

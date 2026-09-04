@@ -254,7 +254,7 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
     const sEvt = existingReservation as any;
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-slate-900 font-bold">
               <span>⭐ Evento Estratégico</span>
@@ -332,7 +332,7 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
   if (open && flowChoice === 'selection') {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>O que você deseja solicitar?</DialogTitle>
             <DialogDescription>
@@ -385,7 +385,7 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{existingReservation ? 'Editar Reserva' : 'Solicitar Nova Entrada no Calendário Geral'}</DialogTitle>
           <DialogDescription>

@@ -167,7 +167,8 @@ export default function FilaDeReposicoesPage() {
               <Loader2 className="h-10 w-10 animate-spin text-indigo-600" />
             </div>
           ) : (
-            <Table>
+            <div className="overflow-x-auto w-full">
+<Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Aluno</TableHead>
@@ -219,13 +220,14 @@ export default function FilaDeReposicoesPage() {
                 )}
               </TableBody>
             </Table>
+</div>
           )}
         </CardContent>
       </Card>
 
       {/* Reschedule Modal */}
       <Dialog open={isRescheduleOpen} onOpenChange={setIsRescheduleOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Reagendar Aula de Reposição</DialogTitle>
             <DialogDescription>

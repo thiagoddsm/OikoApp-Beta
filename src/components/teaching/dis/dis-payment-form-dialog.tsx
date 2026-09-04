@@ -83,7 +83,7 @@ export function DisPaymentFormDialog({ open, onOpenChange, existingPayment }: Di
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{existingPayment ? 'Editar Fatura DIS' : 'Lançar Nova Fatura DIS'}</DialogTitle>
         </DialogHeader>

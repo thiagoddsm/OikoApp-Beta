@@ -233,7 +233,8 @@ export function FamilyManagement({ user }: FamilyManagementProps) {
                     )}
 
                     <div className="rounded-md border">
-                        <Table>
+                        <div className="overflow-x-auto w-full">
+<Table>
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Parente</TableHead>
@@ -275,6 +276,7 @@ export function FamilyManagement({ user }: FamilyManagementProps) {
                                 )}
                             </TableBody>
                         </Table>
+</div>
                     </div>
                 </CardContent>
             </Card>

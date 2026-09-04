@@ -277,7 +277,7 @@ export function ImportEnrollmentsDialog({ open, onOpenChange }: ImportEnrollment
     <Dialog open={open} onOpenChange={(val) => {
         if (!isProcessing && !isDownloading) onOpenChange(val);
     }}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileSpreadsheet className="size-5 text-emerald-600" />

@@ -252,7 +252,7 @@ export function MemberCourseProgress({ user }: { user: any }) {
             {/* Modal de Detalhes da Aula / Módulo */}
             {selectedMod && (
                 <Dialog open={!!selectedMod} onOpenChange={() => setSelectedMod(null)}>
-                    <DialogContent className="sm:max-w-md rounded-3xl p-6 bg-white">
+                    <DialogContent className="sm:max-w-md rounded-3xl p-6 bg-white max-h-[85vh] overflow-y-auto">
                         <DialogHeader>
                             <div className="flex items-center gap-3 mb-1">
                                 <div className={cn(

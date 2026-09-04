@@ -90,7 +90,8 @@ export function InventoryView() {
             </div>
 
             <div className="rounded-lg border">
-                <Table>
+                <div className="overflow-x-auto w-full">
+<Table>
                     <TableHeader>
                         <TableRow>
                             <TableHead>ID</TableHead>
@@ -149,6 +150,7 @@ export function InventoryView() {
                         )}
                     </TableBody>
                 </Table>
+</div>
             </div>
             
             <PatrimonyFormDialog 

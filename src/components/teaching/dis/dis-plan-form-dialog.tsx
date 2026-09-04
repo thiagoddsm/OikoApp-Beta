@@ -66,7 +66,7 @@ export function DisPlanFormDialog({ open, onOpenChange, existingPlan }: DisPlanF
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{existingPlan ? 'Editar Plano DIS' : 'Criar Novo Plano DIS'}</DialogTitle>
           <DialogDescription>

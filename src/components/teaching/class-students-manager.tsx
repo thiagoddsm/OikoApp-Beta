@@ -61,7 +61,8 @@ export function ClassStudentsManager({ classData }: ClassStudentsManagerProps) {
                 </Button>
             </div>
             <div className="rounded-md border">
-                <Table>
+                <div className="overflow-x-auto w-full">
+<Table>
                     <TableHeader>
                         <TableRow>
                             <TableHead>Aluno</TableHead>
@@ -106,6 +107,7 @@ export function ClassStudentsManager({ classData }: ClassStudentsManagerProps) {
                         )}
                     </TableBody>
                 </Table>
+</div>
             </div>
             
             <EnrollmentDialog

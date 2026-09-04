@@ -64,7 +64,8 @@ export function WavePlansManagement() {
         </CardHeader>
         <CardContent>
             <div className="rounded-lg border">
-                <Table>
+                <div className="overflow-x-auto w-full">
+<Table>
                 <TableHeader>
                     <TableRow>
                     <TableHead>Nome do Plano</TableHead>
@@ -93,6 +94,7 @@ export function WavePlansManagement() {
                     )}
                 </TableBody>
                 </Table>
+</div>
             </div>
         </CardContent>
       </Card>

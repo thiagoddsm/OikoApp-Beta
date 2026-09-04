@@ -335,7 +335,7 @@ export default function TarefasPastoraisPage() {
       {/* MODAL DE DETALHES COMPLETOS DO CARD / SOLICITAÇÃO */}
       {selectedTask && (
         <Dialog open={!!selectedTask} onOpenChange={(open) => !open && setSelectedTask(null)}>
-          <DialogContent className="sm:max-w-lg rounded-3xl p-6 bg-white space-y-4">
+          <DialogContent className="sm:max-w-lg rounded-3xl p-6 bg-white space-y-4 max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-3">

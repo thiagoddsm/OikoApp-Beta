@@ -81,7 +81,7 @@ export function PaymentFormDialog({ open, onOpenChange, existingPayment }: Payme
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{existingPayment ? 'Editar Mensalidade' : 'Registrar Nova Mensalidade'}</DialogTitle>
         </DialogHeader>

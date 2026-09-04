@@ -1100,7 +1100,7 @@ function TheoFlixContent() {
 
       {/* Pop-up de Aviso Flutuante sobre Regras de Frequência Online */}
       <Dialog open={isAttendanceNoticeOpen} onOpenChange={setIsAttendanceNoticeOpen}>
-        <DialogContent className="sm:max-w-md bg-slate-900 border-slate-800 text-slate-100">
+        <DialogContent className="sm:max-w-md bg-slate-900 border-slate-800 text-slate-100 max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-base font-black text-white flex items-center gap-2">
               <AlertTriangle className="size-5 text-amber-400" />

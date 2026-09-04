@@ -1730,7 +1730,7 @@ export default function SupervisorPage() {
 
     {/* ── DIALOG DE CONFIGURAÇÃO DE REGRAS DO RADAR ──────────────────── */}
     <Dialog open={isRulesDialogOpen} onOpenChange={setIsRulesDialogOpen}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-lg font-black flex items-center gap-2">
             <Pencil className="h-5 w-5 text-primary" />

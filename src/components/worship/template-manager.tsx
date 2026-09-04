@@ -173,7 +173,7 @@ export function TemplateManager({ onApplyToCurrentPlan, currentPlanId }: Templat
 
       {/* Create dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Novo Template de Culto</DialogTitle>
             <DialogDescription>
@@ -209,7 +209,7 @@ export function TemplateManager({ onApplyToCurrentPlan, currentPlanId }: Templat
 
       {/* Edit dialog */}
       <Dialog open={!!editTarget} onOpenChange={() => setEditTarget(null)}>
-        <DialogContent>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Renomear Template</DialogTitle>
           </DialogHeader>

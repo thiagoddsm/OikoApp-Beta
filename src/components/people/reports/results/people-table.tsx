@@ -121,7 +121,8 @@ export function PeopleTableResults({ filteredUsers, cellMap, areaMap }: PeopleTa
 
       {/* Tabela de Resultados */}
       <div className="rounded-xl border bg-card overflow-hidden shadow-sm">
-        <Table>
+        <div className="overflow-x-auto w-full">
+<Table>
           <TableHeader className="bg-slate-50 dark:bg-slate-900">
             <TableRow>
               <TableHead className="w-[240px]">Pessoa</TableHead>
@@ -266,6 +267,7 @@ export function PeopleTableResults({ filteredUsers, cellMap, areaMap }: PeopleTa
             )}
           </TableBody>
         </Table>
+</div>
 
         {/* Paginação */}
         {totalPages > 1 && (

@@ -352,7 +352,7 @@ export default function SongsLibraryPage() {
 
       {/* Editor Modal */}
       <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingSong ? 'Editar Música' : 'Nova Música'}</DialogTitle>
             <DialogDescription>

@@ -352,7 +352,8 @@ export function DisFinanceHub({ disPayments }: DisFinanceHubProps) {
             </CardHeader>
             <CardContent>
               <div className="rounded-xl border overflow-hidden">
-                <Table>
+                <div className="overflow-x-auto w-full">
+<Table>
                   <TableHeader className="bg-slate-50 dark:bg-slate-900">
                     <TableRow>
                       <TableHead className="text-xs">Descrição</TableHead>
@@ -393,6 +394,7 @@ export function DisFinanceHub({ disPayments }: DisFinanceHubProps) {
                     )}
                   </TableBody>
                 </Table>
+</div>
               </div>
             </CardContent>
           </Card>
@@ -412,7 +414,8 @@ export function DisFinanceHub({ disPayments }: DisFinanceHubProps) {
             </CardHeader>
             <CardContent>
               <div className="rounded-xl border overflow-hidden">
-                <Table>
+                <div className="overflow-x-auto w-full">
+<Table>
                   <TableHeader className="bg-slate-50 dark:bg-slate-900">
                     <TableRow>
                       <TableHead className="text-xs">Nome do Plano</TableHead>
@@ -453,6 +456,7 @@ export function DisFinanceHub({ disPayments }: DisFinanceHubProps) {
                     )}
                   </TableBody>
                 </Table>
+</div>
               </div>
             </CardContent>
           </Card>
@@ -461,7 +465,7 @@ export function DisFinanceHub({ disPayments }: DisFinanceHubProps) {
 
       {/* PLAN DIALOG */}
       <Dialog open={isPlanModalOpen} onOpenChange={setIsPlanModalOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingPlan ? 'Editar Plano de Mensalidade' : 'Novo Plano de Mensalidade'}</DialogTitle>
             <DialogDescription className="text-xs">
@@ -534,7 +538,7 @@ export function DisFinanceHub({ disPayments }: DisFinanceHubProps) {
 
       {/* EXPENSE DIALOG */}
       <Dialog open={isExpenseModalOpen} onOpenChange={setIsExpenseModalOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingExpense ? 'Editar Lançamento de Despesa' : 'Lançar Nova Despesa do DIS'}</DialogTitle>
             <DialogDescription className="text-xs">

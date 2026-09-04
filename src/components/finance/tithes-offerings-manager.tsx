@@ -149,7 +149,8 @@ export function TithesOfferingsManager() {
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
-            <Table>
+            <div className="overflow-x-auto w-full">
+<Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Data</TableHead>
@@ -190,6 +191,7 @@ export function TithesOfferingsManager() {
                 )}
               </TableBody>
             </Table>
+</div>
           </div>
         </CardContent>
       </Card>

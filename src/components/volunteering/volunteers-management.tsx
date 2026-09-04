@@ -63,7 +63,8 @@ export function VolunteersManagement() {
       </div>
 
       <div className="rounded-lg border">
-        <Table>
+        <div className="overflow-x-auto w-full">
+<Table>
         <TableHeader>
           <TableRow>
             <TableHead className="w-[250px]">Membro</TableHead>
@@ -134,6 +135,7 @@ export function VolunteersManagement() {
           })}
         </TableBody>
       </Table>
+</div>
       </div>
     </div>
   );
