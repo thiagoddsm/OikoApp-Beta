@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { collection, query, limit, orderBy, startAfter, where } from 'firebase/firestore';
 import { useFirebase, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { User, AreaOfService, Team, VolunteeringEvent, Room, RoomReservation, ReservationCategory, SavedSchedule } from '@/contexts/volunteering-context';
+import { useGlobalUsers } from './useGlobalUsers';
 import { Course, Class, EnrollmentRequest, PedagogicalLog, WavePayment, DisPayment, WavePlan, DisPlan, WaveExpense, FinancialTransaction, FinanceRequest } from '@/contexts/volunteering-context';
 import { Cell, Area, Rede } from '@/contexts/volunteering-context';
 import { JourneyStage } from '@/domains/engagement/entities/JourneyStage';
@@ -15,26 +16,28 @@ export function useMembersData(pageSize?: number) {
   
   const [lastDoc, setLastDoc] = useState<any>(null);
 
-  const usersQ = useMemoFirebase(() => {
-    if (!firestore || !user || !roleResolved) return null;
-    if (pageSize !== undefined) {
-      // Paginação: aplica limit e startAfter
-      let q = query(collection(firestore, 'users'), limit(pageSize));
-      if (lastDoc) {
-        q = query(collection(firestore, 'users'), startAfter(lastDoc), limit(pageSize));
-      }
-      return q;
-    } else {
-      // Sem limite: busca todos os membros (para telas de turmas, chamada, etc.)
-      return query(collection(firestore, 'users'), orderBy('name'));
+  // Paged queries for list views
+  const pagedUsersQ = useMemoFirebase(() => {
+    if (!firestore || !user || !roleResolved || pageSize === undefined) return null;
+    let q = query(collection(firestore, 'users'), limit(pageSize));
+    if (lastDoc) {
+      q = query(collection(firestore, 'users'), startAfter(lastDoc), limit(pageSize));
     }
+    return q;
   }, [firestore, user, roleResolved, lastDoc, pageSize]);
 
-  const { data: users, isLoading: lu } = useCollection<any>(usersQ);
+  const { data: pagedUsers, isLoading: pagedLoading } = useCollection<any>(pagedUsersQ);
+
+  // Global cache for non-paged usage (Comboboxes, Selects, etc.)
+  const globalUsers = useGlobalUsers(firestore, user, roleResolved);
 
   const loadMore = (lastVisibleDoc: any) => setLastDoc(lastVisibleDoc);
 
-  return { users: users || [], isLoading: lu, loadMore };
+  if (pageSize !== undefined) {
+    return { users: pagedUsers || [], isLoading: pagedLoading, loadMore };
+  } else {
+    return { users: globalUsers.users, isLoading: globalUsers.isLoading, loadMore };
+  }
 }
 
 export function useEventsData() {
