@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { PlusCircle, CalendarCheck, MoreHorizontal, Loader2, CheckCircle, XCircle, Trash2, Share2 } from "lucide-react";
 import Link from 'next/link';
+import { slugify } from '@/lib/slug-utils';
 import { useCollection, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, query, doc } from 'firebase/firestore';
 import { useFirebase } from '@/firebase/provider';
@@ -241,6 +242,14 @@ function EventsListContent() {
                                             </Button>
                                           </DropdownMenuTrigger>
                                           <DropdownMenuContent align="end">
+                                             <DropdownMenuItem onClick={() => {
+                                               const targetSlug = event.slug || slugify(event.eventName) || event.id;
+                                               const fullUrl = `${window.location.origin}/inscricao/${targetSlug}`;
+                                               navigator.clipboard.writeText(fullUrl);
+                                               toast({ title: 'Link Copiado!', description: fullUrl });
+                                             }}>
+                                               <Share2 className="mr-2 h-4 w-4 text-blue-600" /> Copiar Link de Inscrição
+                                             </DropdownMenuItem>
                                             <DropdownMenuItem onClick={() => handleStatusChange(event.id, 'aprovado')}>
                                               <CheckCircle className="mr-2 h-4 w-4 text-green-600" /> Aprovar
                                             </DropdownMenuItem>

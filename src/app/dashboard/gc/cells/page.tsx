@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Building, User, Pencil, Trash2, Network, MapPin, AreaChart, Calendar, Clock, PlusCircle, Droplets, ChevronRight, Users, UserCheck } from "lucide-react";
+import { Loader2, Building, User, Pencil, Trash2, Network, MapPin, AreaChart, Calendar, Clock, PlusCircle, Droplets, ChevronRight, Users, UserCheck, BookOpen } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useToast } from '@/hooks/use-toast';
@@ -61,6 +61,8 @@ type Cell = {
   anfitriaoElegiveiIds?: string[];
   multiplicationDate?: string;
   liderEAnfitriao?: boolean;
+  targetAudience?: string;
+  tags?: string[];
 };
 
 type Area = { id: string; nome: string; liderId: string; redeId: string; };
@@ -109,6 +111,8 @@ export function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors,
   const [addingSpouseFor, setAddingSpouseFor] = useState<number | null>(null);
   const [addingHostSpouse, setAddingHostSpouse] = useState(false);
   const [liderEAnfitriao, setLiderEAnfitriao] = useState(false);
+  const [targetAudience, setTargetAudience] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
 
   const availableAreas = useMemo(() => {
     if (!redeId || !areas) return [];
@@ -142,12 +146,15 @@ export function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors,
       setStatus(existingCell.status || 'active');
       setAnfitriaoElegiveiIds(existingCell.anfitriaoElegiveiIds || []);
       setLiderEAnfitriao(existingCell.liderEAnfitriao === true || (!!existingCell.anfitriaoId && existingCell.anfitriaoId === existingCell.liderId));
+      setTargetAudience(existingCell.targetAudience || '');
+      setTags(existingCell.tags || []);
     } else {
       setNome(''); setLiderId(''); setLiderCasalId(''); setCoLideres([]); setAnfitriaoId('');
       setAnfitriãoCasalId(''); setSecretariaId(''); setAreaId(''); setRedeId('');
       setStreet(''); setLat(undefined); setLng(undefined);
       setMeetingDay(''); setMeetingTime(''); setMultiplicationDate(''); setSelectedMembers([]);
       setStatus('active'); setAnfitriaoElegiveiIds([]); setLiderEAnfitriao(false);
+      setTargetAudience(''); setTags([]);
     }
     setMemberSearch(''); setAddingSpouseFor(null); setAddingHostSpouse(false);
   }, [existingCell, open]);
@@ -208,6 +215,8 @@ export function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors,
       address: { street, lat, lng },
       anfitriaoElegiveiIds: anfitriaoElegiveiIds.filter(id => id && id !== '__adding'),
       membros: finalMembers,
+      targetAudience,
+      tags,
     };
     try {
       const validUserIds = new Set((users || []).map((u: any) => u.id));
@@ -287,6 +296,26 @@ export function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors,
                 <SelectItem value="inactive">Inativa</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          {/* PÚBLICO E TAGS */}
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label className="text-right">Público-alvo</Label>
+            <Select value={targetAudience} onValueChange={setTargetAudience}>
+              <SelectTrigger className="col-span-3"><SelectValue placeholder="Selecione o público" /></SelectTrigger>
+              <SelectContent>
+                {['Kids', 'Adolescentes', 'Jovens', 'Mulheres', 'Bem vividos', 'Geral'].map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label className="text-right">Tags</Label>
+            <Input 
+              value={tags.join(', ')} 
+              onChange={e => setTags(e.target.value.split(',').map(t => t.trim()).filter(Boolean))} 
+              className="col-span-3" 
+              placeholder="Ex: Casais, Universitários (separados por vírgula)"
+            />
           </div>
 
           {/* REDE + ÁREA */}
@@ -750,6 +779,12 @@ export default function CellsPage() {
           <CardDescription>Visualize, crie e edite as células e sua estrutura hierárquica.</CardDescription>
         </div>
         <div className="flex items-center gap-2">
+          <Link href="/dashboard/gc/guia">
+            <Button variant="outline" className="text-xs font-bold gap-1.5 border-slate-300">
+              <BookOpen className="size-4 text-primary" />
+              Guia do Líder (PDF)
+            </Button>
+          </Link>
           <TriggerGcBotDialog buttonVariant="outline" buttonText="Disparar Bot WhatsApp" />
           {isSupervisor && (
             <Button onClick={() => { setEditingCell(null); setDialogOpen(true); }}>

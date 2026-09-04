@@ -121,7 +121,7 @@ export default function ConectarPage() {
   // Sub-passo para o formulário de Visitando (Página 1, 2 e 3)
   const [visitorSubStep, setVisitorSubStep] = useState<number>(1);
 
-  const [cells, setCells] = useState<{ id: string; nome: string; leaderName?: string }[]>([]);
+  const [cells, setCells] = useState<{ id: string; nome: string; leaderName?: string; targetAudience?: string; tags?: string[] }[]>([]);
   const [areas, setAreas] = useState<{ id: string; name: string }[]>([]);
   const [config, setConfig] = useState<ConectarConfig>({});
 
@@ -359,12 +359,22 @@ export default function ConectarPage() {
                   <Label htmlFor="identifier" className="text-xs font-bold text-slate-900 uppercase">
                     E-mail ou WhatsApp (com DDD)
                   </Label>
+                  <p className="text-[11px] text-slate-500 mb-2">
+                    Para WhatsApp, digite <b>apenas números</b> (incluindo o DDD). Não é necessário colocar DDI (+55), espaços ou traços.
+                  </p>
                   <Input
                     id="identifier"
                     required
-                    placeholder="seu@email.com ou (99) 99999-9999"
+                    placeholder="seu@email.com ou 21999999999"
                     value={identifier}
-                    onChange={e => setIdentifier(e.target.value)}
+                    onChange={e => {
+                      let val = e.target.value;
+                      // Se não for um email (não tem @ nem letras), removemos tudo que não for dígito.
+                      if (!val.includes('@') && !/[a-zA-Z]/.test(val)) {
+                         val = val.replace(/\D/g, '');
+                      }
+                      setIdentifier(val);
+                    }}
                     className="h-14 rounded-2xl text-lg font-medium border-slate-300 text-slate-900 bg-white shadow-sm"
                   />
                 </div>
@@ -466,16 +476,16 @@ export default function ConectarPage() {
                     <div className="flex items-center justify-between border-b pb-4">
                       <div className="flex items-center gap-2">
                         <span className="flex items-center justify-center size-6 rounded-full bg-primary text-white text-xs font-black">
-                          {visitorSubStep}
+                          {visitorSubStep === 3 && !(formData.decisaoProximoPasso === 'Decidi entregar minha vida a Cristo' || formData.decisaoProximoPasso === 'Estou me reconciliando com Jesus') ? 2 : visitorSubStep}
                         </span>
                         <span className="text-xs font-black uppercase text-slate-800 tracking-wider">
                           {visitorSubStep === 1 && 'Página 1: Informações de Contato'}
                           {visitorSubStep === 2 && 'Página 2: Mais Detalhes (Decisão)'}
-                          {visitorSubStep === 3 && 'Página 3: Finalização e Mensagem'}
+                          {visitorSubStep === 3 && 'Página Final: Comentários e Conclusão'}
                         </span>
                       </div>
                       <span className="text-xs font-bold text-slate-400">
-                        Passo {visitorSubStep} de {(formData.decisaoProximoPasso === 'Decidi entregar minha vida a Cristo' || formData.decisaoProximoPasso === 'Estou me reconciliando com Jesus') ? 3 : 2}
+                        Passo {visitorSubStep === 3 && !(formData.decisaoProximoPasso === 'Decidi entregar minha vida a Cristo' || formData.decisaoProximoPasso === 'Estou me reconciliando com Jesus') ? 2 : visitorSubStep} de {(formData.decisaoProximoPasso === 'Decidi entregar minha vida a Cristo' || formData.decisaoProximoPasso === 'Estou me reconciliando com Jesus') ? 3 : 2}
                       </span>
                     </div>
 
@@ -627,7 +637,7 @@ export default function ConectarPage() {
 
                         <div className="space-y-3">
                           <Label className="text-xs font-bold text-slate-900">
-                            Essa pessoa tomou essa decisão publicamente (durante o culto)? *
+                            Essa decisão foi manifestada publicamente durante o culto? *
                           </Label>
                           <div className="grid grid-cols-2 gap-3">
                             {['sim', 'não'].map((resp) => (
@@ -835,11 +845,15 @@ export default function ConectarPage() {
                                 <SelectValue placeholder="Selecione um GC (ou indicação automática)..." />
                               </SelectTrigger>
                               <SelectContent>
-                                {cells.map(c => (
-                                  <SelectItem key={c.id} value={c.id}>
-                                    {c.nome} {c.leaderName ? `(${c.leaderName})` : ''}
-                                  </SelectItem>
-                                ))}
+                                <SelectItem value="indicacao">🎯 Não sei, gostaria de uma indicação</SelectItem>
+                                {cells.map(c => {
+                                  const audience = c.targetAudience && c.targetAudience !== 'Geral' ? `[${c.targetAudience}] ` : '';
+                                  return (
+                                    <SelectItem key={c.id} value={c.id}>
+                                      {audience}{c.nome} {c.leaderName ? `(${c.leaderName})` : ''}
+                                    </SelectItem>
+                                  );
+                                })}
                               </SelectContent>
                             </Select>
                           </div>

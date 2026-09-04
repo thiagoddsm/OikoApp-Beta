@@ -277,7 +277,16 @@ export type Class = {
 };
 
 export type Area = { id: string; nome: string; liderId: string; redeId: string; };
-export type Cell = { id: string; nome: string; liderId: string; areaId: string; redeId: string; membros: string[] };
+export type Cell = { 
+  id: string; 
+  nome: string; 
+  liderId: string; 
+  areaId: string; 
+  redeId: string; 
+  membros: string[];
+  targetAudience?: string;
+  tags?: string[];
+};
 export type Rede = { id: string; nome: string; liderId: string; pastorId: string; };
 
 export const weekDayMap: Record<string, number> = {

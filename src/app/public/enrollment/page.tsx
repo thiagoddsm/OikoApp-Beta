@@ -25,6 +25,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Logo } from '@/components/icons';
 import { cn } from '@/lib/utils';
 import { verifyMemberEmail, submitEnrollmentRequest, getPublicCatalog } from './actions';
+import { matchSlug } from '@/lib/slug-utils';
 import { useFirebase } from '@/firebase';
 import { useEventsData, useCoursesData } from "@/hooks/useDomainData";
 
@@ -71,7 +72,8 @@ function Stepper({ currentStep }: { currentStep: number }) {
 function EnrollmentForm() {
     const searchParams = useSearchParams();
     const intentParam = searchParams.get('intent');
-    const courseIdParam = searchParams.get('courseId');
+    const courseIdParam = searchParams.get('courseId') || searchParams.get('course');
+    const eventParam = searchParams.get('event') || searchParams.get('eventId') || searchParams.get('slug');
     const emailParam = searchParams.get('email');
 
     const { firestore } = useFirebase();
@@ -123,12 +125,22 @@ function EnrollmentForm() {
     const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
     const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
-    // Auto-direcionamento direto para o Curso / Passo 4 (Turmas Disponíveis)
+    // Auto-direcionamento direto para o Evento ou Curso
     useEffect(() => {
         if (emailParam && !emailInput) {
             setEmailInput(emailParam);
         }
 
+        // 1. Caso haja parâmetro de Evento (por ID, slug ou nome)
+        if (eventParam && strategicEvents && strategicEvents.length > 0) {
+            const targetEvent = strategicEvents.find((e: any) => matchSlug(e, eventParam));
+            if (targetEvent) {
+                setSelectedCategory('eventos');
+                setSelectedEventId(targetEvent.id);
+            }
+        }
+
+        // 2. Caso haja cursos carregados
         if (!courses || courses.length === 0) return;
 
         if (intentParam === 'membresia' || intentParam === 'membership') {
@@ -137,7 +149,6 @@ function EnrollmentForm() {
             if (target) {
                 setSelectedCategory('lumine');
                 setSelectedCourseId(target.id);
-                setCurrentStep(4);
             }
         } else if (intentParam === 'batismo' || intentParam === 'baptism') {
             const target = courses.find((c: any) => c.isBaptismCourse) || 
@@ -145,17 +156,15 @@ function EnrollmentForm() {
             if (target) {
                 setSelectedCategory('lumine');
                 setSelectedCourseId(target.id);
-                setCurrentStep(4);
             }
         } else if (courseIdParam) {
-            const target = courses.find((c: any) => c.id === courseIdParam);
+            const target = courses.find((c: any) => matchSlug(c, courseIdParam));
             if (target) {
                 setSelectedCategory('lumine');
                 setSelectedCourseId(target.id);
-                setCurrentStep(4);
             }
         }
-    }, [courses, intentParam, courseIdParam, emailParam]);
+    }, [courses, strategicEvents, intentParam, courseIdParam, eventParam, emailParam]);
 
     // Step 4: Class Selection
     const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
@@ -329,7 +338,13 @@ function EnrollmentForm() {
     };
 
     const nextStep = () => {
-        if (selectedCategory === 'eventos' && currentStep === 3) {
+        if (currentStep === 1 && (selectedEventId || selectedCourseId)) {
+            if (selectedCategory === 'eventos') {
+                setCurrentStep(5);
+            } else {
+                setCurrentStep(4);
+            }
+        } else if (selectedCategory === 'eventos' && currentStep === 3) {
             setCurrentStep(5);
         } else {
             setCurrentStep(p => Math.min(p + 1, 5));
@@ -338,7 +353,9 @@ function EnrollmentForm() {
     };
 
     const prevStep = () => {
-        if (selectedCategory === 'eventos' && currentStep === 5) {
+        if ((selectedEventId || selectedCourseId) && (currentStep === 4 || currentStep === 5)) {
+            setCurrentStep(1);
+        } else if (selectedCategory === 'eventos' && currentStep === 5) {
             setCurrentStep(3);
         } else {
             setCurrentStep(p => Math.max(p - 1, 1));

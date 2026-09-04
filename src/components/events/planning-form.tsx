@@ -8,8 +8,9 @@ import {
   Clock, Users, DollarSign, Utensils, FileText, Target, ListChecks, HelpCircle, 
   MapPin, Download, HeartHandshake, Baby, Music, Video, Shield, Coffee, HelpCircle as HelpIcon,
   Sparkles, Check, ChevronRight, Loader2, AlertCircle, Info, Calendar, Plus, Minus, UploadCloud,
-  Image, CreditCard, Trash2, CalendarDays
+  Image, CreditCard, Trash2, CalendarDays, Share2, ExternalLink
 } from 'lucide-react';
+import { slugify } from '@/lib/slug-utils';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -96,6 +97,7 @@ export interface PlanningEvent {
     requiredCourseId?: string;
     registrationPageType?: 'system' | 'custom_html';
     customHtmlCode?: string;
+    slug?: string;
 
     // Novos atributos: múltiplos ingressos e acompanhantes
     tickets?: {
@@ -238,6 +240,7 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
     requiredCourseId: '',
     registrationPageType: 'system',
     customHtmlCode: '',
+    slug: '',
 
     // Novos campos
     tickets: [] as { id: string; name: string; description: string; price: number; limit?: number; isActive: boolean }[],
@@ -323,6 +326,7 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
         requiredCourseId: existingEvent.requiredCourseId || '',
         registrationPageType: existingEvent.registrationPageType || 'system',
         customHtmlCode: existingEvent.customHtmlCode || '',
+        slug: existingEvent.slug || '',
 
         // Novos campos
         tickets: existingEvent.tickets || [],
@@ -519,6 +523,7 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
       requiredCourseId: formData.requiredCourseId,
       registrationPageType: formData.registrationPageType,
       customHtmlCode: formData.customHtmlCode,
+      slug: formData.slug || slugify(formData.eventName || ''),
 
       // Novos campos salvos no Firestore
       tickets: formData.tickets,
@@ -1586,8 +1591,60 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
                   </div>
                 </div>
 
+                {/* Link Direto e Slug Personalizado */}
+                <div className="space-y-2 pt-4 border-t border-slate-800">
+                  <Label className="text-xs text-slate-300 font-bold uppercase tracking-wider block">
+                    Link de Inscrição Direto (Slug da URL)
+                  </Label>
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <div className="relative flex-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-mono text-slate-500 select-none">
+                        /inscricao/
+                      </span>
+                      <Input
+                        value={formData.slug}
+                        onChange={(e) => setFormData(p => ({ ...p, slug: slugify(e.target.value) }))}
+                        placeholder={slugify(formData.eventName) || 'conferencia-missao-de-casa'}
+                        className="pl-24 bg-slate-950 border-slate-800 text-sm font-mono text-emerald-400"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const targetSlug = formData.slug || slugify(formData.eventName) || existingEvent?.id;
+                        if (!targetSlug) return;
+                        const fullUrl = `${window.location.origin}/inscricao/${targetSlug}`;
+                        navigator.clipboard.writeText(fullUrl);
+                        toast({ title: 'Link Copiado!', description: fullUrl });
+                      }}
+                      className="border-slate-800 text-xs font-bold gap-1.5 h-10 px-4"
+                    >
+                      <Share2 className="size-3.5" /> Copiar Link
+                    </Button>
+                    <a
+                      href={`/inscricao/${formData.slug || slugify(formData.eventName) || existingEvent?.id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs text-slate-400 hover:text-white h-10 px-3 border border-slate-800"
+                      >
+                        <ExternalLink className="size-3.5 mr-1" /> Testar
+                      </Button>
+                    </a>
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    O link direto abre a página de inscrição focada exclusivamente neste evento. Deixe em branco para usar o nome do evento automaticamente.
+                  </p>
+                </div>
+
                 {/* Custom Page Type */}
-                <div className="space-y-3 pt-4 border-t border-slate-850">
+                <div className="space-y-3 pt-4 border-t border-slate-800">
                   <Label className="text-xs text-slate-405 font-bold uppercase tracking-wider block">Tipo de Página de Inscrição</Label>
                   <div className="flex flex-col sm:flex-row gap-4 mt-2">
                     <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer text-slate-200">

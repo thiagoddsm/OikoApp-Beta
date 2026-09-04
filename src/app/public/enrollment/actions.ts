@@ -149,3 +149,41 @@ export async function getPublicCatalog() {
         return { courses: [], classes: [], events: [], strategicEvents: [] };
     }
 }
+
+/**
+ * Busca um evento ou curso público pelo seu slug amigável ou ID.
+ */
+export async function getPublicItemBySlug(slugOrId: string) {
+    try {
+        const catalog = await getPublicCatalog();
+        const { matchSlug } = await import('@/lib/slug-utils');
+
+        // 1. Buscar em strategicEvents (apenas aprovados)
+        const foundEvent = catalog.strategicEvents.find(
+            e => e.status === 'aprovado' && matchSlug(e, slugOrId)
+        );
+        if (foundEvent) {
+            return {
+                type: 'event' as const,
+                item: foundEvent,
+            };
+        }
+
+        // 2. Buscar em courses
+        const foundCourse = catalog.courses.find(c => matchSlug(c, slugOrId));
+        if (foundCourse) {
+            const courseClasses = catalog.classes.filter(cl => cl.courseId === foundCourse.id);
+            return {
+                type: 'course' as const,
+                item: foundCourse,
+                classes: courseClasses,
+            };
+        }
+
+        return null;
+    } catch (e) {
+        console.error("Error finding item by slug:", e);
+        return null;
+    }
+}
+

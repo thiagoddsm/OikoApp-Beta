@@ -6,9 +6,12 @@ export interface GcReportSession {
   id: string; // Telefone do líder formatado (ex: 5521999998888)
   cellId: string;
   liderId: string;
-  step: 'START' | 'CHECK_MEETING' | 'MEETING_STATUS_CHOICE' | 'POSTPONED_DATE' | 'CANCELLED_REASON' | 'ATTENDANCE' | 'CARE_CHOICE' | 'CARE_SELECT' | 'CARE_MEMBER_THERMOMETER' | 'CARE_MEMBER_PRAYER' | 'METRICS_LESSON' | 'METRICS_VISITORS' | 'METRICS_CONVERSIONS' | 'FEEDBACK';
+  step: 'START' | 'CHECK_MEETING' | 'MEETING_STATUS_CHOICE' | 'POSTPONED_DATE' | 'CANCELLED_REASON' | 'ATTENDANCE' | 'ATTENDANCE_CONFIRM' | 'CARE_CHOICE' | 'CARE_SELECT' | 'CARE_MEMBER_THERMOMETER' | 'CARE_MEMBER_PRAYER' | 'METRICS_LESSON' | 'METRICS_VISITORS' | 'METRICS_CONVERSIONS' | 'FEEDBACK' | 'SUMMARY_CONFIRM';
   members: { id: string; name: string }[];
   
+  // Modo Edição de Relatório
+  editingLogId?: string;
+
   // Controle de reunião (Adiada ou Cancelada)
   meetingOccurred?: boolean;
   meetingStatus?: 'postponed' | 'cancelled';
@@ -39,6 +42,7 @@ export interface GcReportSession {
     conversoes: number;
   };
   feedback: string;
+  pendingFeedback?: string;
   isTestData?: boolean;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -178,7 +182,8 @@ export async function startGcReportSession(
   cellId: string, 
   recipientPhone: string, 
   isTestData = false,
-  recipientInfo?: { userId?: string; name?: string; role?: 'secretario' | 'lider' }
+  recipientInfo?: { userId?: string; name?: string; role?: 'secretario' | 'lider' },
+  editingLogId?: string
 ): Promise<boolean> {
   const db = getAdminDb();
   const sessionRef = db.collection('gc_report_sessions').doc(recipientPhone);
@@ -248,17 +253,21 @@ export async function startGcReportSession(
     const roleLabel = respondentRole === 'secretario' ? 'secretário(a)' : 'líder';
 
     // 4. Enviar mensagem de boas-vindas primeiro
-    console.log(`[GC Bot] Enviando fluxo de relatório para ${recipientPhone} (${roleLabel}: ${respondentName})...`);
+    console.log(`[GC Bot] Enviando fluxo de relatório para ${recipientPhone} (${roleLabel}: ${respondentName}, editando: ${!!editingLogId})...`);
+
+    const greetingText = editingLogId
+      ? `Olá, ${roleLabel}${firstName}! 👋\n\n🔄 *Modo de Edição de Relatório*\nVamos revisar os dados da reunião do GC *${cellData.nome || 'Célula'}*.\n\n❓ *Aconteceu a reunião do GC esta semana?*`
+      : `Olá, ${roleLabel}${firstName}! 👋\nQue a paz do Senhor esteja com você!\n\nChegou a hora de registrar as bençãos da reunião do GC *${cellData.nome || 'Célula'}* desta semana.\n\n❓ *Aconteceu a reunião do GC esta semana?*`;
 
     // Saudação + pergunta em UMA ÚNICA mensagem de botão para evitar race condition de ordem
     await sendButton(
       recipientPhone,
-      `Olá, ${roleLabel}${firstName}! 👋\nQue a paz do Senhor esteja com você!\n\nChegou a hora de registrar as bençãos da reunião do GC *${cellData.nome || 'Célula'}* desta semana.\n\n❓ *Aconteceu a reunião do GC esta semana?*`,
+      greetingText,
       [
         { id: 'meeting_yes', text: 'Sim' },
         { id: 'meeting_no', text: 'Não' }
       ],
-      'Relatório Semanal de Célula'
+      editingLogId ? 'Edição de Relatório' : 'Relatório Semanal de Célula'
     );
 
     // 5. Salvar estado da sessão na coleção `gc_report_sessions`
@@ -270,6 +279,7 @@ export async function startGcReportSession(
       respondentId: respondentId || liderId,
       respondentName: respondentName || undefined,
       respondentRole,
+      editingLogId: editingLogId || undefined,
       step: 'CHECK_MEETING',
       members: membersList,
       attendancePage: 0,
@@ -300,6 +310,94 @@ export async function startGcReportSession(
 }
 
 /**
+ * Localiza a célula do remetente e o último relatório para permitir edição.
+ */
+export async function startGcReportEditSession(fromPhone: string): Promise<boolean> {
+  const db = getAdminDb();
+  const digits = fromPhone.replace(/\D/g, '');
+  const last8 = digits.slice(-8);
+
+  if (!last8) return false;
+
+  try {
+    // 1. Localizar usuário pelo telefone
+    const usersSnap = await db.collection('users').get();
+    let foundUser: any = null;
+    for (const doc of usersSnap.docs) {
+      const data = doc.data();
+      const phone = String(data.phone || data.phoneNumber || '').replace(/\D/g, '');
+      if (phone && (phone.endsWith(last8) || digits.endsWith(phone.slice(-8)))) {
+        foundUser = { id: doc.id, ...data };
+        break;
+      }
+    }
+
+    if (!foundUser) {
+      await sendText(fromPhone, '⚠️ Não encontramos um cadastro de líder ou secretário associado ao seu número de WhatsApp.');
+      return false;
+    }
+
+    // 2. Localizar a célula do usuário
+    const cellsSnap = await db.collection('cells').get();
+    let foundCell: any = null;
+    for (const doc of cellsSnap.docs) {
+      const data = doc.data();
+      const isLeader = data.liderId === foundUser.id || data.liderCasalId === foundUser.id;
+      const isSec = data.secretariaId === foundUser.id || (data as any).secretarioId === foundUser.id;
+      const isCoLider = Array.isArray(data.coLiderIds) && data.coLiderIds.includes(foundUser.id);
+      if (isLeader || isSec || isCoLider) {
+        foundCell = { id: doc.id, ...data };
+        break;
+      }
+    }
+
+    if (!foundCell) {
+      await sendText(fromPhone, `⚠️ Olá, ${foundUser.name || 'irmão(ã)'}! Não encontramos nenhum GC vinculado à sua liderança no sistema.`);
+      return false;
+    }
+
+    // 3. Localizar o último relatório da reunião em reuniao_logs
+    const logsSnap = await db.collection('reuniao_logs')
+      .where('cellId', '==', foundCell.id)
+      .get();
+
+    if (logsSnap.empty) {
+      await sendText(fromPhone, `⚠️ O GC *${foundCell.nome || 'Célula'}* ainda não possui nenhum relatório registrado para ser editado.`);
+      return false;
+    }
+
+    // Ordenar em memória para garantir o mais recente sem depender de índice composto no Firestore
+    const sortedLogs = logsSnap.docs.sort((a, b) => {
+      const timeA = a.data().createdAt?.toMillis?.() || new Date(a.data().date || 0).getTime();
+      const timeB = b.data().createdAt?.toMillis?.() || new Date(b.data().date || 0).getTime();
+      return timeB - timeA;
+    });
+    const lastLogDoc = sortedLogs[0];
+    const lastLog = lastLogDoc.data();
+
+    // Notificar e iniciar
+    await sendText(
+      fromPhone,
+      `🔄 *Editando Último Relatório*\n\nLocalizamos o relatório registrado em *${lastLog.date || 'data recente'}* do GC *${foundCell.nome || 'Célula'}*.\n\nVamos refazer o lançamento. As novas respostas substituirão o relatório anterior!`
+    );
+
+    await new Promise(r => setTimeout(r, 1500));
+
+    return startGcReportSession(
+      foundCell.id,
+      fromPhone,
+      false,
+      { userId: foundUser.id, name: foundUser.name, role: foundCell.secretariaId === foundUser.id ? 'secretario' : 'lider' },
+      lastLogDoc.id
+    );
+  } catch (err: any) {
+    console.error('[GC Bot] Erro ao iniciar edição de relatório:', err);
+    await sendText(fromPhone, '⚠️ Ocorreu um erro ao buscar o último relatório para edição. Tente novamente mais tarde.');
+    return false;
+  }
+}
+
+/**
  * Handler principal para processar mensagens recebidas no Webhook vinculadas a sessões ativas.
  * Usa respostas por TEXTO em vez de botões interativos para máxima compatibilidade.
  */
@@ -319,10 +417,16 @@ export async function handleGcReportIncomingMessage(
   const now = Timestamp.now();
   const msg = messageText.trim().toLowerCase();
 
-  // Comando global de reset
+  // Comandos globais de controle
   if (type === 'text' && msg === '/reiniciar') {
     await sessionRef.delete();
     await startGcReportSession(session.cellId, fromPhone, session.isTestData);
+    return true;
+  }
+
+  if (type === 'text' && (msg === '/editar' || msg === 'editar reuniao' || msg === 'editar reunião' || msg === 'editar relatorio' || msg === 'editar relatório')) {
+    await sessionRef.delete();
+    await startGcReportEditSession(fromPhone);
     return true;
   }
 
@@ -638,22 +742,32 @@ export async function handleGcReportIncomingMessage(
 
           const presentCount = presentIds.length;
           const absentCount = session.members.length - presentCount;
+
+          const presentNames = session.members.filter(m => presentIds.includes(m.id)).map(m => m.name);
+          const absentNames = session.members.filter(m => !presentIds.includes(m.id)).map(m => m.name);
           
           await sessionRef.update({
             attendance: attendanceMap,
             attendanceAccumulated: presentIds,
-            step: 'METRICS_LESSON',
+            step: 'ATTENDANCE_CONFIRM',
             updatedAt: now
           });
           
-          await sendText(
+          const summaryAttendanceText = `📋 *Resumo da Chamada:*\n\n` +
+            `✅ *Presentes (${presentCount}):*\n${presentNames.length > 0 ? presentNames.map(n => `• ${n}`).join('\n') : '_Nenhum_'}\n\n` +
+            `❌ *Ausentes (${absentCount}):*\n${absentNames.length > 0 ? absentNames.map(n => `• ${n}`).join('\n') : '_Nenhum_'}\n\n` +
+            `Deseja avançar ou refazer a chamada?\n` +
+            `*1* ou *Avançar* ➡️ Prosseguir para a Lição\n` +
+            `*2* ou *Refazer* 🔄 Refazer marcações`;
+
+          await sendButton(
             fromPhone,
-            `✅ Chamada registrada! ${presentCount} presentes, ${absentCount} ausentes.`
-          );
-          
-          await sendText(
-            fromPhone,
-            '📖 *Etapa 2: Tema da Lição*\n\nQual foi o tema ou título da lição ministrada no GC esta semana?\n\n_Envie o título por mensagem de texto._'
+            summaryAttendanceText,
+            [
+              { id: 'attendance_advance', text: 'Avançar ➡️' },
+              { id: 'attendance_retry', text: 'Refazer Chamada 🔄' }
+            ],
+            'Confirmação da Chamada'
           );
         } else if (type === 'button') {
            const memberId = payload.buttonId;
@@ -695,6 +809,46 @@ export async function handleGcReportIncomingMessage(
                await sendText(fromPhone, `👍 Seleção registrada! Se tiver mais alguém, envie o número, senão, envie *OK* para avançar.`);
              }
            }
+        }
+        break;
+      }
+
+      case 'ATTENDANCE_CONFIRM': {
+        const isAdvance = payload?.buttonId === 'attendance_advance' || ['1', 'avancar', 'avançar', 'proximo', 'próximo', 'ok', 'sim', 'attendance_advance'].includes(msg);
+        const isRetry = payload?.buttonId === 'attendance_retry' || ['2', 'refazer', 'corrigir', 'voltar', 'não', 'nao', 'attendance_retry'].includes(msg);
+
+        if (isAdvance) {
+          await sessionRef.update({
+            step: 'METRICS_LESSON',
+            updatedAt: now
+          });
+          await sendText(
+            fromPhone,
+            '📖 *Etapa 2: Tema da Lição*\n\nQual foi o tema ou título da lição ministrada no GC esta semana?\n\n_Envie o título por mensagem de texto._'
+          );
+        } else if (isRetry) {
+          await sessionRef.update({
+            step: 'ATTENDANCE',
+            attendance: {},
+            attendanceAccumulated: [],
+            pollSelections: {},
+            updatedAt: now
+          });
+          await sendText(
+            fromPhone,
+            '🔄 *Refazendo a Chamada*\n\nMarque novamente na enquete abaixo quem esteve *PRESENTE*:'
+          );
+          await wait(1500);
+          await sendMembersListAsPoll(fromPhone, session.members, false);
+        } else {
+          await sendButton(
+            fromPhone,
+            'Por favor, escolha se deseja avançar para a lição ou refazer a chamada:',
+            [
+              { id: 'attendance_advance', text: 'Avançar ➡️' },
+              { id: 'attendance_retry', text: 'Refazer Chamada 🔄' }
+            ]
+          );
         }
         break;
       }
@@ -757,18 +911,76 @@ export async function handleGcReportIncomingMessage(
         }
         break;
 
-      case 'FEEDBACK':
+      case 'FEEDBACK': {
+        let feedbackContent = '';
         if (type === 'text') {
-          const feedbackContent = (msg === '0' || msg === 'pular' || msg === '-') ? '' : messageText.trim();
-          
+          feedbackContent = (msg === '0' || msg === 'pular' || msg === '-') ? '' : messageText.trim();
+        } else if (type === 'button' && payload?.buttonId === 'feed_skip') {
+          feedbackContent = '';
+        } else {
+          break;
+        }
+
+        const latestDoc = await sessionRef.get();
+        const latest = latestDoc.data() as GcReportSession;
+
+        await sessionRef.update({
+          pendingFeedback: feedbackContent,
+          step: 'SUMMARY_CONFIRM',
+          updatedAt: now
+        });
+
+        // Buscar dados da célula para resumo
+        let cellNome = 'Célula';
+        try {
+          const cellSnap = await db.collection('cells').doc(latest.cellId).get();
+          if (cellSnap.exists) cellNome = cellSnap.data()?.nome || 'Célula';
+        } catch (_) {}
+
+        const presentCount = (latest.attendanceAccumulated || []).length;
+        const totalMembers = (latest.members || []).length;
+        const absentCount = totalMembers - presentCount;
+        const visitors = latest.metrics?.visitantes?.trim() || 'Nenhum';
+        const conversions = latest.metrics?.conversoes || 0;
+        const lesson = latest.metrics?.licao || 'Não informada';
+        const fbDisplay = feedbackContent || 'Nenhum';
+
+        const summaryGeneral = `📊 *Resumo Geral do Relatório - ${cellNome}*\n\n` +
+          `👥 *Chamada:* ${presentCount} presentes / ${absentCount} ausentes\n` +
+          `📖 *Lição:* ${lesson}\n` +
+          `🤝 *Visitantes:* ${visitors}\n` +
+          `🎯 *Decisões:* ${conversions}\n` +
+          `💬 *Feedback:* ${fbDisplay}\n\n` +
+          `Deseja confirmar e enviar o relatório?\n` +
+          `*1* ou *Confirmar* ✅ Enviar relatório\n` +
+          `*2* ou *Refazer* 🔄 Recomeçar do início`;
+
+        await sendButton(
+          fromPhone,
+          summaryGeneral,
+          [
+            { id: 'summary_confirm', text: 'Confirmar e Enviar ✅' },
+            { id: 'summary_retry', text: 'Recomeçar 🔄' }
+          ],
+          'Confirmação Final'
+        );
+        break;
+      }
+
+      case 'SUMMARY_CONFIRM': {
+        const isConfirm = payload?.buttonId === 'summary_confirm' || ['1', 'sim', 'confirmar', 'enviar', 'ok', 'summary_confirm'].includes(msg);
+        const isRetry = payload?.buttonId === 'summary_retry' || ['2', 'refazer', 'recomecar', 'recomeçar', 'summary_retry'].includes(msg);
+
+        if (isConfirm) {
           const latestDoc = await sessionRef.get();
           const latest = latestDoc.data() as GcReportSession;
-          const success = await finalizeAndSubmitReport(latest, feedbackContent);
+          const success = await finalizeAndSubmitReport(latest, latest.pendingFeedback || '');
           if (success) {
-            await sendText(
-              fromPhone,
-              '🎉 *Relatório Enviado com Sucesso!*\n\nMuito obrigado pelo seu relatório e pela dedicação na liderança do seu GC! Que Deus continue abençoando vocês. 🚀'
-            );
+            const isEdit = !!latest.editingLogId;
+            const successMsg = isEdit
+              ? '🎉 *Relatório Atualizado com Sucesso!*\n\nAs alterações da reunião foram salvas e sincronizadas com a liderança. Obrigado pela atenção e cuidado! 🚀'
+              : '🎉 *Relatório Enviado com Sucesso!*\n\nMuito obrigado pelo seu relatório e pela dedicação na liderança do seu GC! Que Deus continue abençoando vocês. 🚀';
+            await sendText(fromPhone, successMsg);
             await sessionRef.delete();
           } else {
             await sendText(
@@ -776,12 +988,23 @@ export async function handleGcReportIncomingMessage(
               '⚠️ Desculpe, ocorreu um erro ao salvar o seu relatório. Por favor, tente enviar novamente ou use o comando /reiniciar.'
             );
           }
-        }
-        // Aceitar botão legado
-        if (type === 'button') {
-          if (payload?.buttonId === 'feed_skip') return handleGcReportIncomingMessage(fromPhone, '0', 'text');
+        } else if (isRetry) {
+          const latestDoc = await sessionRef.get();
+          const latest = latestDoc.data() as GcReportSession;
+          await sessionRef.delete();
+          await startGcReportSession(latest.cellId, fromPhone, latest.isTestData, undefined, latest.editingLogId);
+        } else {
+          await sendButton(
+            fromPhone,
+            'Por favor, escolha se deseja confirmar o envio ou recomeçar o preenchimento:',
+            [
+              { id: 'summary_confirm', text: 'Confirmar e Enviar ✅' },
+              { id: 'summary_retry', text: 'Recomeçar 🔄' }
+            ]
+          );
         }
         break;
+      }
     }
     return true;
   } catch (error) {
@@ -823,6 +1046,26 @@ async function resendCurrentStepMessage(to: string, session: GcReportSession) {
         '💬 *Etapa 5: Feedback*'
       );
       break;
+    case 'ATTENDANCE_CONFIRM':
+      await sendButton(
+        to,
+        'Você deseja avançar para a lição ou refazer a chamada?',
+        [
+          { id: 'attendance_advance', text: 'Avançar ➡️' },
+          { id: 'attendance_retry', text: 'Refazer Chamada 🔄' }
+        ]
+      );
+      break;
+    case 'SUMMARY_CONFIRM':
+      await sendButton(
+        to,
+        'Você deseja confirmar e enviar o relatório ou recomeçar o preenchimento?',
+        [
+          { id: 'summary_confirm', text: 'Confirmar e Enviar ✅' },
+          { id: 'summary_retry', text: 'Recomeçar 🔄' }
+        ]
+      );
+      break;
   }
 }
 
@@ -856,14 +1099,30 @@ async function finalizeAndSubmitReport(session: GcReportSession, feedback: strin
       }
     });
 
-    const visitantesCount = session.metrics.visitantes
+    const visitantesCount = (session.metrics?.visitantes || '')
       .split(',')
       .map(v => v.trim())
       .filter(v => v.length > 0).length;
 
-    // Documento principal da reunião
-    const logRef = db.collection('reuniao_logs').doc();
-    batch.set(logRef, {
+    // Se estiver editando, sobrescreve o documento existente
+    const logRef = session.editingLogId
+      ? db.collection('reuniao_logs').doc(session.editingLogId)
+      : db.collection('reuniao_logs').doc();
+
+    if (session.editingLogId) {
+      try {
+        const oldPresSnap = await db.collection('presencas_historico')
+          .where('reuniaoLogId', '==', session.editingLogId)
+          .get();
+        oldPresSnap.forEach(pDoc => {
+          batch.delete(pDoc.ref);
+        });
+      } catch (err) {
+        console.warn('[GC Bot] Erro ao limpar presenças do relatório editado:', err);
+      }
+    }
+
+    const logData: any = {
       cellId: session.cellId,
       cellNome: cellData.nome || 'Célula',
       date: reportDate,
@@ -878,12 +1137,15 @@ async function finalizeAndSubmitReport(session: GcReportSession, feedback: strin
         conversoes: session.metrics.conversoes,
         oferta: 0
       },
-      licaoMinistrada: session.metrics.licao,
-      visitantesNomes: session.metrics.visitantes,
-      feedbackAoSupervisor: feedback,
+      licaoMinistrada: session.metrics.licao || '',
+      visitantesNomes: session.metrics.visitantes || '',
+      feedbackAoSupervisor: feedback || '',
       isTestData: !!session.isTestData,
-      createdAt: now
-    });
+      updatedAt: now,
+      ...(session.editingLogId ? { editadoEm: now } : { createdAt: now })
+    };
+
+    batch.set(logRef, logData, { merge: true });
 
     // Registros individuais em presencas_historico
     session.members.forEach(member => {

@@ -4,6 +4,7 @@ import { getAdminDb } from '@/lib/firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
 import { formatName } from '@/lib/utils';
 import { SituacaoCaminhada } from '@/types/person';
+import { getWhatsAppClient } from '@/lib/whatsapp';
 
 export interface ConectarConfig {
   intentRedirects?: {
@@ -14,6 +15,10 @@ export interface ConectarConfig {
     GC?: string;
     VOLUNTARIADO?: string;
     ACONSELHAMENTO?: string;
+  };
+  notificationPhones?: {
+    visitantes?: string;
+    decisoes?: string;
   };
 }
 
@@ -72,7 +77,9 @@ export async function getConectarOptions() {
       return {
         id: doc.id,
         nome: data.nome || data.name || 'Célula sem nome',
-        leaderName: leaderName ? formatName(leaderName) : ''
+        leaderName: leaderName ? formatName(leaderName) : '',
+        targetAudience: data.targetAudience || '',
+        tags: data.tags || []
       };
     }).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
 
@@ -110,9 +117,15 @@ export async function identifyPerson(identifier: string) {
       const snap = await db.collection('users').get();
       for (const uDoc of snap.docs) {
         const uData = uDoc.data();
-        const userPhoneDigits = (uData.phone || uData.contacts?.cellPhone || uData.contacts?.phone || '').replace(/\D/g, '');
-        if (userPhoneDigits && (userPhoneDigits.endsWith(digitsOnly) || digitsOnly.endsWith(userPhoneDigits))) {
-          return { found: true, userId: uDoc.id, userData: extractUserData(uData) };
+        // Inclui phoneNumber (padrão Firebase Auth) e previne strings nulas
+        const rawPhone = String(uData.phoneNumber || uData.phone || uData.contacts?.cellPhone || uData.contacts?.phone || '');
+        const userPhoneDigits = rawPhone.replace(/\D/g, '');
+        
+        // Exige no mínimo 8 dígitos no BD para não dar falso positivo com números quebrados (ex: "21")
+        if (userPhoneDigits.length >= 8 && digitsOnly.length >= 8) {
+          if (userPhoneDigits.endsWith(digitsOnly) || digitsOnly.endsWith(userPhoneDigits)) {
+            return { found: true, userId: uDoc.id, userData: extractUserData(uData) };
+          }
         }
       }
     }
@@ -293,6 +306,75 @@ export async function submitSolicitacao(data: {
       createdAt: now,
       updatedAt: now,
     });
+
+    // 5. Disparo de Alerta no WhatsApp para Liderança / Equipe Pastoral
+    try {
+      const whatsapp = await getWhatsAppClient();
+
+      // A) Se selecionou um GC específico, notificar o Líder do GC
+      const selectedCellId = data.intentDetails?.celulaId;
+      if (selectedCellId && selectedCellId !== 'indicacao') {
+        const cellDoc = await db.collection('cells').doc(selectedCellId).get();
+        if (cellDoc.exists) {
+          const cellData = cellDoc.data()!;
+          const liderId = cellData.liderId;
+          if (liderId) {
+            const liderDoc = await db.collection('users').doc(liderId).get();
+            if (liderDoc.exists) {
+              const liderPhone = String(liderDoc.data()?.phone || liderDoc.data()?.phoneNumber || '').replace(/\D/g, '');
+              if (liderPhone) {
+                const gcNotifyText = `🔔 *Novo Contato para seu GC!*\n\n` +
+                  `🏠 *Célula:* ${cellData.nome || 'GC'}\n` +
+                  `👤 *Nome:* ${formatName(data.name)}\n` +
+                  `📱 *WhatsApp:* ${cleanPhone}\n` +
+                  `📍 *Bairro:* ${data.bairro || 'Não informado'}\n` +
+                  `🎯 *Decisão/Passo:* ${data.decisaoProximoPasso || data.intentType}\n` +
+                  (data.intentDetails?.observacoes ? `💬 *Mensagem:* ${data.intentDetails.observacoes}\n\n` : '\n') +
+                  `_Favor realizar o contato acolhedor em até 24h! Deus abençoe! 🙏_`;
+
+                await whatsapp.sendMessage({
+                  type: 'text',
+                  body: { to: liderPhone, text: gcNotifyText }
+                });
+              }
+            }
+          }
+        }
+      }
+
+      // B) Se for decisão por Cristo/Reconciliação ou acolhimento geral, notificar equipe pastoral/acolhimento
+      const isDecision = data.decisaoProximoPasso === 'Decidi entregar minha vida a Cristo' || data.decisaoProximoPasso === 'Estou me reconciliando com Jesus';
+      const config = await getConectarConfig();
+      const adminOrTeamPhone = isDecision 
+        ? (config.notificationPhones?.decisoes || config.notificationPhones?.visitantes) 
+        : config.notificationPhones?.visitantes;
+
+      if (adminOrTeamPhone) {
+        const teamNotifyText = isDecision 
+          ? `🎉 *Nova Decisão por Cristo!*\n\n` +
+            `👤 *Nome:* ${formatName(data.name)}\n` +
+            `📱 *WhatsApp:* ${cleanPhone}\n` +
+            `📍 *Bairro:* ${data.bairro || 'Não informado'}\n` +
+            `🎯 *Decisão:* ${data.decisaoProximoPasso}\n` +
+            `⛪ *Decisão pública no culto:* ${data.decisaoPublicaCulto || 'Não informada'}\n` +
+            (data.intentDetails?.observacoes ? `💬 *Observações:* ${data.intentDetails.observacoes}\n\n` : '\n') +
+            `_Acolhimento pastoral necessário via Central Oiko._`
+          : `👋 *Novo Visitante Registrado!*\n\n` +
+            `👤 *Nome:* ${formatName(data.name)}\n` +
+            `📱 *WhatsApp:* ${cleanPhone}\n` +
+            `📍 *Bairro:* ${data.bairro || 'Não informado'}\n` +
+            `🎯 *Próximo Passo:* ${data.decisaoProximoPasso || data.intentType}\n` +
+            (data.intentDetails?.observacoes ? `💬 *Mensagem:* ${data.intentDetails.observacoes}\n\n` : '\n') +
+            `_Cadastrado via Portal Conectar._`;
+
+        await whatsapp.sendMessage({
+          type: 'text',
+          body: { to: adminOrTeamPhone, text: teamNotifyText }
+        });
+      }
+    } catch (whatsappErr: any) {
+      console.warn('[submitSolicitacao] Aviso ao enviar notificação WhatsApp para liderança:', whatsappErr.message);
+    }
 
     return {
       success: true,

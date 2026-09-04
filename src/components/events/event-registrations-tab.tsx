@@ -9,7 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Users, DollarSign, CheckCircle2, AlertCircle, Phone, Mail, UserPlus, Check, X, CreditCard, FileSpreadsheet, Printer } from 'lucide-react';
+import { Loader2, Users, DollarSign, CheckCircle2, AlertCircle, Phone, Mail, UserPlus, Check, X, CreditCard, FileSpreadsheet, Printer, Share2, ExternalLink, Link as LinkIcon, MessageSquare } from 'lucide-react';
+import { slugify } from '@/lib/slug-utils';
 import { PaymentStatusBadge } from '@/components/events/payment-status-badge';
 import { EventPaymentDialog } from '@/components/events/payment-dialog';
 
@@ -272,6 +273,72 @@ export function EventRegistrationsTab({ eventId, eventPrice = 0, isPaid = false,
 
   return (
     <div className="space-y-6">
+      {/* Direct Link & Share Banner */}
+      <Card className="bg-gradient-to-r from-blue-50/70 via-indigo-50/40 to-slate-50 border-blue-100 shadow-sm overflow-hidden">
+        <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="size-10 rounded-xl bg-blue-600/10 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
+              <LinkIcon className="size-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-bold text-slate-800">Link Direto de Divulgação</h4>
+                <Badge variant="outline" className="text-[10px] bg-blue-100/50 text-blue-700 border-blue-200">
+                  Exclusivo deste evento
+                </Badge>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5 font-mono">
+                {typeof window !== 'undefined' ? `${window.location.origin}/inscricao/${eventData?.slug || slugify(eventData?.eventName || '') || eventId}` : `/inscricao/${eventData?.slug || slugify(eventData?.eventName || '') || eventId}`}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const targetSlug = eventData?.slug || slugify(eventData?.eventName || '') || eventId;
+                const fullUrl = `${window.location.origin}/inscricao/${targetSlug}`;
+                navigator.clipboard.writeText(fullUrl);
+                toast({ title: 'Link Copiado!', description: 'Pronto para colar e divulgar.' });
+              }}
+              className="text-xs font-bold gap-1.5 bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
+            >
+              <Share2 className="size-3.5 text-blue-600" /> Copiar Link
+            </Button>
+
+            <Button
+              size="sm"
+              onClick={() => {
+                const targetSlug = eventData?.slug || slugify(eventData?.eventName || '') || eventId;
+                const fullUrl = `${window.location.origin}/inscricao/${targetSlug}`;
+                const eventName = eventData?.eventName || 'nosso evento';
+                const msg = encodeURIComponent(`Olá! Garanta sua vaga para *${eventName}* da Igreja Batista da Manhã pelo link oficial:\n\n👉 ${fullUrl}`);
+                window.open(`https://wa.me/?text=${msg}`, '_blank');
+              }}
+              className="text-xs font-bold gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white"
+            >
+              <MessageSquare className="size-3.5" /> Divulgar no WhatsApp
+            </Button>
+
+            <a
+              href={`/inscricao/${eventData?.slug || slugify(eventData?.eventName || '') || eventId}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-xs font-bold text-slate-500 hover:text-slate-900 gap-1"
+              >
+                <ExternalLink className="size-3.5" /> Abrir
+              </Button>
+            </a>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Metrics Row */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="bg-white border-slate-100 shadow-sm">

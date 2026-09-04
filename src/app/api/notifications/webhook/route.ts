@@ -367,6 +367,16 @@ export async function POST(request: Request) {
                 payload
             );
             return NextResponse.json({ success: true });
+        } else {
+            // Se não houver sessão ativa, checar se é comando para editar último relatório
+            const rawIncomingText = (msgContent.conversation || msgContent.extendedTextMessage?.text || msgObject.text || '').trim().toLowerCase();
+            const isEditCommand = ['/editar', 'editar reuniao', 'editar reunião', 'editar relatorio', 'editar relatório', 'corrigir relatorio', 'corrigir relatório'].includes(rawIncomingText);
+            if (isEditCommand) {
+                console.log(`[Webhook DEBUG] Comando de edição de relatório recebido de ${fromPhone}`);
+                const { startGcReportEditSession } = await import('@/lib/gc-report-bot');
+                await startGcReportEditSession(fromPhone);
+                return NextResponse.json({ success: true });
+            }
         }
     } else {
         console.log(`[Webhook DEBUG] Mensagem ignorada pelo Bot GC: isFromMe=${isFromMe}, isGroup=${isGroup}`);
