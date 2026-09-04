@@ -26,8 +26,10 @@ type StrategicEvent = {
 };
 
 export default function EventDetailPage() {
+    const router = useRouter();
     const params = useParams();
     const eventId = params.eventId as string;
+    const { toast } = useToast();
 
     const { data: eventData, isLoading } = useDoc<StrategicEvent>(eventId ? `strategic_events/${eventId}` : null);
     
@@ -46,13 +48,12 @@ export default function EventDetailPage() {
                     <CardTitle>Evento não encontrado</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <p>O evento que você está tentando visualizar não foi encontrado ou foi removido.</p>
+                    <p>O evento que você tentou acessar não existe ou foi removido.</p>
                 </CardContent>
             </Card>
-        )
+        );
     }
     
-    const { toast } = useToast();
     const planningEvent = eventData as unknown as PlanningEvent;
     const targetSlug = eventData.slug || slugify(eventData.eventName || '') || eventId;
 

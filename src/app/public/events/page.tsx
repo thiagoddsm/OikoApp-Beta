@@ -163,8 +163,8 @@ function EventsListContent() {
                             </Badge>
                           )}
                           {evt.requiredCourseId && (
-                            <Badge variant="outline" className="text-[9px] bg-indigo-950/30 text-indigo-300 border-indigo-900/50 px-1.5 py-0 truncate max-w-[130px]" title={courses.find(c => c.id === evt.requiredCourseId)?.name}>
-                              🎓 {courses.find(c => c.id === evt.requiredCourseId)?.name || 'Lumine'}
+                            <Badge variant="outline" className="text-[9px] bg-indigo-950/30 text-indigo-300 border-indigo-900/50 px-1.5 py-0 truncate max-w-[130px]">
+                              🎓 Curso Requerido
                             </Badge>
                           )}
                         </div>

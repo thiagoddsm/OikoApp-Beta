@@ -34,6 +34,7 @@ export default function DirectRegistrationPage() {
   const [phone, setPhone] = useState('');
   const [cpfCnpj, setCpfCnpj] = useState('');
   const [isMember, setIsMember] = useState(false);
+  const [emailChecked, setEmailChecked] = useState(false);
   const [isVerifyingEmail, setIsVerifyingEmail] = useState(false);
   const [verifiedUser, setVerifiedUser] = useState<any>(null);
 
@@ -80,6 +81,7 @@ export default function DirectRegistrationPage() {
     setIsVerifyingEmail(true);
     try {
       const res = await verifyMemberEmail(email.toLowerCase().trim());
+      setEmailChecked(true);
       if (res.found) {
         setVerifiedUser(res);
         setIsMember(true);
@@ -613,6 +615,7 @@ export default function DirectRegistrationPage() {
                         onChange={e => {
                           setEmail(e.target.value);
                           if (isMember) setIsMember(false);
+                          if (emailChecked) setEmailChecked(false);
                         }}
                         onBlur={handleCheckEmail}
                         className="h-11 bg-slate-950 border-slate-800 text-white rounded-xl text-sm"
@@ -635,37 +638,41 @@ export default function DirectRegistrationPage() {
                     )}
                   </div>
 
-                  {/* Nome Completo (se não membro) */}
-                  {!isMember && (
-                    <div className="space-y-1.5">
-                      <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-300">
-                        Nome Completo
-                      </Label>
-                      <Input
-                        required
-                        type="text"
-                        placeholder="Ex: Carlos Eduardo Silva"
-                        value={name}
-                        onChange={e => setName(e.target.value)}
-                        className="h-11 bg-slate-950 border-slate-800 text-white rounded-xl text-sm"
-                      />
-                    </div>
-                  )}
+                  {emailChecked && (
+                    <>
+                      {/* Nome Completo (se não membro) */}
+                      {!isMember && (
+                        <div className="space-y-1.5">
+                          <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-300">
+                            Nome Completo
+                          </Label>
+                          <Input
+                            required
+                            type="text"
+                            placeholder="Ex: Carlos Eduardo Silva"
+                            value={name}
+                            onChange={e => setName(e.target.value)}
+                            className="h-11 bg-slate-950 border-slate-800 text-white rounded-xl text-sm"
+                          />
+                        </div>
+                      )}
 
-                  {/* WhatsApp */}
-                  <div className="space-y-1.5">
-                    <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-300">
-                      WhatsApp para Confirmação
-                    </Label>
-                    <Input
-                      required
-                      type="tel"
-                      placeholder="(21) 99999-9999"
-                      value={phone}
-                      onChange={e => setPhone(e.target.value)}
-                      className="h-11 bg-slate-950 border-slate-800 text-white rounded-xl text-sm"
-                    />
-                  </div>
+                      {/* WhatsApp (se não membro) */}
+                      {!isMember && (
+                        <div className="space-y-1.5">
+                          <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-300">
+                            WhatsApp para Confirmação
+                          </Label>
+                          <Input
+                            required
+                            type="tel"
+                            placeholder="(21) 99999-9999"
+                            value={phone}
+                            onChange={e => setPhone(e.target.value)}
+                            className="h-11 bg-slate-950 border-slate-800 text-white rounded-xl text-sm"
+                          />
+                        </div>
+                      )}
 
                   {/* CPF se evento for pago */}
                   {isPaid && (!isMember || !verifiedUser?.hasCpf) && (
@@ -699,6 +706,8 @@ export default function DirectRegistrationPage() {
                       />
                     </div>
                   ))}
+                  </>
+                  )}
 
                   {/* Resumo do Pedido e Botão Final */}
                   <div className="pt-4 border-t border-slate-800/80 space-y-3">
