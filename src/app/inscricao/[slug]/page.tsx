@@ -57,7 +57,7 @@ export default function DirectRegistrationPage() {
         const res = await getPublicItemBySlug(slug);
         setData(res);
         if (res?.type === 'event') {
-          const tickets = res.item?.tickets || [];
+          const tickets = (res.item as any)?.tickets || [];
           const active = tickets.filter((t: any) => t.isActive !== false);
           if (active.length > 0) {
             setSelectedTicketId(active[0].id);

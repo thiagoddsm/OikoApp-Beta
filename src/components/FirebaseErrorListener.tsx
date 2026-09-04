@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -20,50 +20,24 @@ import { FirestorePermissionError } from '@/firebase/errors';
  *     cleared and the app continues normally.
  */
 export function FirebaseErrorListener() {
-  const [fatalError, setFatalError] = useState<FirestorePermissionError | null>(null);
-  // Track the debounce timers keyed by collection path so each path is
-  // treated independently.
-  const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-
   useEffect(() => {
     const handleError = (err: FirestorePermissionError) => {
       const path = err.request?.path ?? 'unknown';
 
       // Log immediately so the developer can see it in the console.
-      console.error(
+      console.warn(
         `[FirebaseErrorListener] Permission denied on "${path}". ` +
-        'This may be a transient auth-race error — waiting 3 s before escalating.',
+        'This is often a transient auth-race error when the page loads.',
         err
       );
-
-      // Clear any existing timer for this path (reset the debounce).
-      if (timers.current[path]) {
-        clearTimeout(timers.current[path]);
-      }
-
-      // Only escalate to a fatal throw after 3 seconds of continued failure.
-      timers.current[path] = setTimeout(() => {
-        console.error(
-          `[FirebaseErrorListener] Persistent permission error on "${path}" — escalating.`,
-          err
-        );
-        setFatalError(err);
-      }, 3000);
     };
 
     errorEmitter.on('permission-error', handleError);
 
     return () => {
       errorEmitter.off('permission-error', handleError);
-      // Clear all pending timers on unmount.
-      Object.values(timers.current).forEach(clearTimeout);
     };
   }, []);
-
-  // Only throw if the error was persistent (timer elapsed without resolution).
-  if (fatalError) {
-    throw fatalError;
-  }
 
   return null;
 }

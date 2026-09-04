@@ -124,6 +124,42 @@ export async function submitEnrollmentRequest(data: {
 }
 
 /**
+ * Converte recursivamente Timestamps do Firestore e objetos não-planos em dados primitivos/JSON.
+ * Essencial para que Server Actions do Next.js passem objetos limpos para Client Components.
+ */
+function sanitizeFirestoreData<T = any>(data: any): T {
+    if (data === null || data === undefined) return data;
+    if (typeof data.toDate === 'function') {
+        try {
+            return data.toDate().toISOString() as any;
+        } catch {
+            return null as any;
+        }
+    }
+    if (typeof data._seconds === 'number' && typeof data._nanoseconds === 'number') {
+        try {
+            return new Date(data._seconds * 1000 + Math.round(data._nanoseconds / 1000000)).toISOString() as any;
+        } catch {
+            return null as any;
+        }
+    }
+    if (data instanceof Date) {
+        return data.toISOString() as any;
+    }
+    if (Array.isArray(data)) {
+        return data.map(sanitizeFirestoreData) as any;
+    }
+    if (typeof data === 'object') {
+        const plain: Record<string, any> = {};
+        for (const [key, value] of Object.entries(data)) {
+            plain[key] = sanitizeFirestoreData(value);
+        }
+        return plain as any;
+    }
+    return data;
+}
+
+/**
  * Busca o catálogo público de Cursos, Turmas e Eventos via Firebase Admin SDK.
  * Evita erros de regra de segurança do Firestore para visitantes deslogados (auth: null).
  */
@@ -138,12 +174,12 @@ export async function getPublicCatalog() {
             db.collection('strategic_events').get(),
         ]);
 
-        const courses = coursesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        const classes = classesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        const events = eventsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        const strategicEvents = strategicEventsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const courses = coursesSnap.docs.map(doc => ({ id: doc.id, ...sanitizeFirestoreData(doc.data()) }));
+        const classes = classesSnap.docs.map(doc => ({ id: doc.id, ...sanitizeFirestoreData(doc.data()) }));
+        const events = eventsSnap.docs.map(doc => ({ id: doc.id, ...sanitizeFirestoreData(doc.data()) }));
+        const strategicEvents = strategicEventsSnap.docs.map(doc => ({ id: doc.id, ...sanitizeFirestoreData(doc.data()) }));
 
-        return { courses, classes, events, strategicEvents };
+        return JSON.parse(JSON.stringify({ courses, classes, events, strategicEvents }));
     } catch (e) {
         console.error("Error fetching public catalog:", e);
         return { courses: [], classes: [], events: [], strategicEvents: [] };
@@ -160,24 +196,24 @@ export async function getPublicItemBySlug(slugOrId: string) {
 
         // 1. Buscar em strategicEvents (apenas aprovados)
         const foundEvent = catalog.strategicEvents.find(
-            e => e.status === 'aprovado' && matchSlug(e, slugOrId)
+            (e: any) => e.status === 'aprovado' && matchSlug(e, slugOrId)
         );
         if (foundEvent) {
-            return {
+            return JSON.parse(JSON.stringify({
                 type: 'event' as const,
                 item: foundEvent,
-            };
+            }));
         }
 
         // 2. Buscar em courses
-        const foundCourse = catalog.courses.find(c => matchSlug(c, slugOrId));
+        const foundCourse = catalog.courses.find((c: any) => matchSlug(c, slugOrId));
         if (foundCourse) {
-            const courseClasses = catalog.classes.filter(cl => cl.courseId === foundCourse.id);
-            return {
+            const courseClasses = catalog.classes.filter((cl: any) => cl.courseId === foundCourse.id);
+            return JSON.parse(JSON.stringify({
                 type: 'course' as const,
                 item: foundCourse,
                 classes: courseClasses,
-            };
+            }));
         }
 
         return null;
