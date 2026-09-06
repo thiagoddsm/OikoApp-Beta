@@ -194,7 +194,7 @@ export async function submitEventRegistration(data: {
                 name: finalName,
                 email: finalEmail,
                 phone: finalPhone || '',
-                cpfCnpj: finalCpf || undefined,
+                cpfCnpj: finalCpf || null,
             },
             payment: {
                 status: data.payment?.status || 'approved',

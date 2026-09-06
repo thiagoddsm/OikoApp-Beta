@@ -76,8 +76,18 @@ export function getAdminApp(): App {
 
 import { getAuth } from 'firebase-admin/auth';
 
+let adminDbInstance: Firestore | null = null;
+
 export function getAdminDb(): Firestore {
-  return getFirestore(getAdminApp());
+  if (!adminDbInstance) {
+    adminDbInstance = getFirestore(getAdminApp());
+    try {
+      adminDbInstance.settings({ ignoreUndefinedProperties: true });
+    } catch {
+      // Ignora caso settings já tenham sido aplicados anteriormente
+    }
+  }
+  return adminDbInstance;
 }
 
 export function getAdminAuth() {
