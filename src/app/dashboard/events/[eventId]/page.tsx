@@ -26,7 +26,6 @@ type StrategicEvent = {
 };
 
 export default function EventDetailPage() {
-    const router = useRouter();
     const params = useParams();
     const eventId = params.eventId as string;
     const { toast } = useToast();
