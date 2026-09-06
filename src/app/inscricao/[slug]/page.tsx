@@ -15,15 +15,18 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { getPublicItemBySlug, verifyMemberEmail } from '@/app/public/enrollment/actions';
-import { useFirebase } from '@/firebase';
+import { 
+  getPublicItemBySlug, 
+  verifyMemberEmail, 
+  submitEventRegistration, 
+  submitEnrollmentRequest 
+} from '@/app/public/enrollment/actions';
 
 export default function DirectRegistrationPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const slug = params?.slug as string;
   const { toast } = useToast();
-  const { firestore } = useFirebase();
 
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<{ type: 'event' | 'course'; item: any; classes?: any[] } | null>(null);
@@ -62,6 +65,11 @@ export default function DirectRegistrationPage() {
           const active = tickets.filter((t: any) => t.isActive !== false);
           if (active.length > 0) {
             setSelectedTicketId(active[0].id);
+          }
+          if (res.item?.acceptCreditCard === true && res.item?.acceptPix === false) {
+            setPaymentMethod('CREDIT_CARD');
+          } else {
+            setPaymentMethod('PIX');
           }
         } else if (res?.type === 'course' && res.classes && res.classes.length > 0) {
           setSelectedClassId(res.classes[0].id);
@@ -123,6 +131,8 @@ export default function DirectRegistrationPage() {
   }, [isEvent, selectedTicket, item]);
 
   const isPaid = finalPrice > 0;
+  const allowsPix = item?.acceptPix !== false;
+  const allowsCreditCard = item?.acceptCreditCard === true;
 
   // Formatar Datas
   const formattedDates = useMemo(() => {
@@ -138,8 +148,8 @@ export default function DirectRegistrationPage() {
     if (item.startDate) {
       const startParts = item.startDate.split('-');
       const startFormatted = startParts.length === 3 ? `${startParts[2]}/${startParts[1]}/${startParts[0]}` : item.startDate;
-      const timeStr = item.timeStart ? ` às ${item.timeStart}` : '';
-      return `${startFormatted}${timeStr}`;
+      const endFormatted = item.endDate ? (item.endDate.split('-').length === 3 ? `${item.endDate.split('-')[2]}/${item.endDate.split('-')[1]}/${item.endDate.split('-')[0]}` : item.endDate) : '';
+      return `${startFormatted}${endFormatted && endFormatted !== startFormatted ? ` até ${endFormatted}` : ''}`;
     }
     return '';
   }, [item]);
@@ -159,7 +169,7 @@ export default function DirectRegistrationPage() {
     }
 
     if (isPaid && !cpfCnpj.trim() && !verifiedUser?.hasCpf) {
-      toast({ variant: 'destructive', title: 'CPF/CNPJ obrigatório', description: 'Necessário para emissão do PIX no Asaas.' });
+      toast({ variant: 'destructive', title: 'CPF/CNPJ obrigatório', description: 'Necessário para emissão do pagamento no Asaas.' });
       return;
     }
 
@@ -178,36 +188,22 @@ export default function DirectRegistrationPage() {
       const finalEmail = email.toLowerCase().trim();
       let finalName = name.trim();
       let finalPhone = phone.trim();
-      let userId = verifiedUser?.userId;
-      let finalCpf = cpfCnpj.replace(/\D/g, '');
-
-      // Se é membro identificado, resgata os dados reais do Firestore
-      if (userId && firestore) {
-        const { doc, getDoc } = await import('firebase/firestore');
-        const userSnap = await getDoc(doc(firestore, 'users', userId));
-        if (userSnap.exists()) {
-          const uData = userSnap.data();
-          finalName = uData.name || finalName;
-          finalPhone = uData.phone || finalPhone;
-          if (!finalCpf) finalCpf = (uData.cpfCnpj || uData.cpf || uData.cnpj || '').replace(/\D/g, '');
-        }
-      }
-
-      if (!finalName) finalName = finalEmail.split('@')[0];
+      const userId = verifiedUser?.userId;
+      const finalCpf = cpfCnpj.replace(/\D/g, '');
 
       let asaasCharge: any = null;
       let pixData: any = null;
 
       if (isPaid) {
-        // 1. Criar/Buscar Cliente no Asaas
+        // 1. Criar/Buscar Cliente no Asaas via API Route
         const custRes = await fetch('/api/asaas/customers', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            name: finalName,
+            name: finalName || (verifiedUser?.maskedName ? undefined : finalEmail.split('@')[0]),
             email: finalEmail,
-            phone: finalPhone,
-            cpfCnpj: finalCpf,
+            phone: finalPhone || undefined,
+            cpfCnpj: finalCpf || undefined,
             userId: userId || undefined,
             tenantId: searchParams.get('tenantId') || undefined
           })
@@ -243,84 +239,96 @@ export default function DirectRegistrationPage() {
         }
         asaasCharge = await payRes.json();
 
-        // 3. Buscar PIX QR Code se método for PIX
-        if (paymentMethod === 'PIX' && asaasCharge?.id) {
-          const pixRes = await fetch(`/api/asaas/payments/${asaasCharge.id}/pix`);
-          if (pixRes.ok) {
-            pixData = await pixRes.json();
+        // 3. Obter PIX QR Code se método for PIX
+        if (paymentMethod === 'PIX') {
+          pixData = asaasCharge?.pixQrCode || null;
+          if (!pixData && asaasCharge?.id) {
+            try {
+              const pixRes = await fetch(`/api/asaas/payments/${asaasCharge.id}/pix`);
+              if (pixRes.ok) {
+                pixData = await pixRes.json();
+              }
+            } catch (e) {
+              console.warn('Erro ao buscar QR code PIX:', e);
+            }
           }
         }
       }
 
-      // Salvar registro no Firestore
-      if (firestore) {
-        const { collection, addDoc, Timestamp } = await import('firebase/firestore');
-        
-        if (isEvent) {
-          const regDoc = await addDoc(collection(firestore, 'event_registrations'), {
-            eventId: item.id,
-            userId: userId || 'anonymous',
-            userMetadata: {
-              name: finalName,
-              email: finalEmail,
-              phone: finalPhone || '',
-            },
-            payment: {
-              status: isPaid ? 'pending' : 'approved',
-              method: isPaid ? paymentMethod.toLowerCase() : 'free',
-              valuePaid: isPaid ? finalPrice : 0,
-              paidAt: isPaid ? null : Timestamp.now(),
-              transactionId: asaasCharge?.id || 'free',
-              asaasPaymentId: asaasCharge?.id || null,
-              invoiceUrl: asaasCharge?.invoiceUrl || null,
-              bankSlipUrl: asaasCharge?.bankSlipUrl || null,
-            },
-            attendance: { checkedIn: false },
-            ticketId: selectedTicket?.id || 'default',
-            ticketName: selectedTicket?.name || 'Geral',
-            customAnswers,
-            createdAt: Timestamp.now(),
-          });
+      // 4. Salvar registro no Firestore via Server Action
+      let registrationId = '';
+      let confirmedName = finalName;
 
-          setResult({
-            success: true,
-            registrationId: regDoc.id,
-            name: finalName,
-            isPaid,
-            price: finalPrice,
-            asaasCharge,
-            pixData,
-            ticketName: selectedTicket?.name || 'Geral'
-          });
-        } else {
-          // Registro em curso
-          const reqDoc = await addDoc(collection(firestore, 'enrollment_requests'), {
-            name: finalName,
-            email: finalEmail,
-            phone: finalPhone,
-            courseId: item.id,
-            classId: selectedClassId || '',
-            paymentMethod: isPaid ? paymentMethod : 'FREE',
-            status: 'pending',
-            createdAt: Timestamp.now(),
-          });
+      if (isEvent) {
+        const regRes = await submitEventRegistration({
+          eventId: item.id,
+          userId: userId || undefined,
+          name: finalName,
+          email: finalEmail,
+          phone: finalPhone,
+          cpfCnpj: finalCpf,
+          ticketId: selectedTicket?.id || 'default',
+          ticketName: selectedTicket?.name || 'Geral',
+          customAnswers,
+          tenantId: searchParams.get('tenantId') || undefined,
+          payment: {
+            status: isPaid ? 'pending' : 'approved',
+            method: isPaid ? paymentMethod.toLowerCase() : 'free',
+            valuePaid: isPaid ? finalPrice : 0,
+            transactionId: asaasCharge?.id || 'free',
+            asaasPaymentId: asaasCharge?.id || null,
+            invoiceUrl: asaasCharge?.invoiceUrl || null,
+            bankSlipUrl: asaasCharge?.bankSlipUrl || null,
+          }
+        });
 
-          setResult({
-            success: true,
-            registrationId: reqDoc.id,
-            name: finalName,
-            isPaid: false,
-            courseName: item.name
-          });
+        if (regRes.error) {
+          throw new Error(regRes.error);
         }
+        registrationId = regRes.registrationId || '';
+        confirmedName = regRes.finalName || finalName || finalEmail.split('@')[0];
+      } else {
+        const reqRes = await submitEnrollmentRequest({
+          userId: userId || undefined,
+          name: finalName,
+          email: finalEmail,
+          phone: finalPhone,
+          courseId: item.id,
+          classId: selectedClassId || '',
+          paymentMethod: isPaid ? paymentMethod : 'FREE',
+          asaasPaymentId: asaasCharge?.id || '',
+          tenantId: searchParams.get('tenantId') || undefined,
+        });
+
+        if (reqRes.error) {
+          throw new Error(reqRes.error);
+        }
+        registrationId = reqRes.requestId || '';
+        confirmedName = finalName || finalEmail.split('@')[0];
       }
 
+      setResult({
+        success: true,
+        registrationId,
+        name: confirmedName,
+        isPaid,
+        price: finalPrice,
+        paymentMethod,
+        asaasCharge,
+        pixData,
+        ticketName: selectedTicket?.name || 'Geral'
+      });
+
       toast({
-        title: isPaid ? 'Inscrição aguardando pagamento!' : 'Inscrição Confirmada com Sucesso!',
-        description: isPaid ? 'Efetue o pagamento PIX para garantir sua vaga.' : 'Sua vaga está garantida.',
+        title: isPaid 
+          ? (paymentMethod === 'CREDIT_CARD' ? 'Inscrição aguardando pagamento no cartão!' : 'Inscrição aguardando pagamento PIX!') 
+          : 'Inscrição Confirmada com Sucesso!',
+        description: isPaid 
+          ? (paymentMethod === 'CREDIT_CARD' ? 'Acesse o link do Asaas para preencher os dados do cartão.' : 'Efetue o pagamento PIX para garantir sua vaga.') 
+          : 'Sua vaga está garantida.',
       });
     } catch (err: any) {
-      console.error(err);
+      console.error('Erro na inscrição:', err);
       toast({
         variant: 'destructive',
         title: 'Erro ao processar inscrição',
@@ -380,21 +388,35 @@ export default function DirectRegistrationPage() {
       <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white flex items-center justify-center p-4 sm:p-6">
         <Card className="max-w-xl w-full bg-slate-900/90 backdrop-blur border-slate-800 rounded-[2.5rem] shadow-2xl overflow-hidden p-6 sm:p-8">
           <div className="text-center mb-6">
-            <div className="size-16 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-500/30">
-              <CheckCircle2 className="size-9" />
+            <div className={`size-16 rounded-full flex items-center justify-center mx-auto mb-4 border ${
+              result.isPaid && result.paymentMethod === 'CREDIT_CARD'
+                ? 'bg-blue-500/10 text-blue-400 border-blue-500/30'
+                : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+            }`}>
+              {result.isPaid && result.paymentMethod === 'CREDIT_CARD' ? (
+                <CreditCard className="size-8" />
+              ) : (
+                <CheckCircle2 className="size-9" />
+              )}
             </div>
-            <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 mb-2">
-              {result.isPaid ? 'Aguardando Pagamento PIX' : 'Inscrição Confirmada'}
+            <Badge className={`mb-2 ${
+              result.isPaid && result.paymentMethod === 'CREDIT_CARD'
+                ? 'bg-blue-500/20 text-blue-300 border-blue-500/30'
+                : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+            }`}>
+              {result.isPaid 
+                ? (result.paymentMethod === 'CREDIT_CARD' ? 'Aguardando Pagamento no Cartão' : 'Aguardando Pagamento PIX') 
+                : 'Inscrição Confirmada'}
             </Badge>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight">{item.eventName || item.name}</h1>
             <p className="text-xs text-slate-400 mt-1">Participante: <strong className="text-slate-200">{result.name}</strong></p>
           </div>
 
-          {result.isPaid && result.pixData ? (
+          {result.isPaid && (result.paymentMethod === 'PIX' || result.pixData) ? (
             <div className="bg-slate-950/70 border border-slate-800 rounded-3xl p-6 text-center space-y-4 mb-6">
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Escaneie o QR Code PIX no seu app</p>
               
-              {result.pixData.encodedImage && (
+              {result.pixData?.encodedImage && (
                 <div className="inline-block p-4 bg-white rounded-2xl shadow-lg">
                   <img
                     src={`data:image/png;base64,${result.pixData.encodedImage}`}
@@ -405,19 +427,71 @@ export default function DirectRegistrationPage() {
               )}
 
               <div className="pt-2">
-                <p className="text-xl font-black text-emerald-400">R$ {result.price.toFixed(2)}</p>
+                <p className="text-2xl font-black text-emerald-400">R$ {result.price.toFixed(2)}</p>
                 <p className="text-[11px] text-slate-400">Ingresso: {result.ticketName}</p>
               </div>
 
-              {result.pixData.payload && (
+              {result.pixData?.payload && (
                 <div className="pt-2 space-y-2">
                   <Button 
                     onClick={copyPixCode} 
-                    className="w-full h-12 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-sm gap-2"
+                    className="w-full h-12 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-sm gap-2 shadow-lg shadow-emerald-600/20"
                   >
                     {pixCopied ? <Check className="size-4" /> : <Copy className="size-4" />}
                     {pixCopied ? 'Código PIX Copiado!' : 'Copiar Chave PIX Copia-e-Cola'}
                   </Button>
+                </div>
+              )}
+
+              {result.asaasCharge?.invoiceUrl && (
+                <div className="pt-1">
+                  <a 
+                    href={result.asaasCharge.invoiceUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="text-xs text-blue-400 hover:underline inline-flex items-center gap-1 font-medium"
+                  >
+                    Abrir fatura completa no Asaas <ExternalLink className="size-3" />
+                  </a>
+                </div>
+              )}
+
+              {result.registrationId && (
+                <div className="pt-2 text-[10px] font-mono text-slate-500">
+                  Protocolo: #{result.registrationId.slice(0, 10).toUpperCase()}
+                </div>
+              )}
+            </div>
+          ) : result.isPaid && result.paymentMethod === 'CREDIT_CARD' ? (
+            <div className="bg-slate-950/70 border border-slate-800 rounded-3xl p-6 text-center space-y-4 mb-6">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Pagamento com Cartão de Crédito</p>
+              <p className="text-xs text-slate-300 max-w-sm mx-auto leading-relaxed">
+                Para sua segurança, os dados do cartão são preenchidos diretamente no ambiente protegido do Asaas.
+              </p>
+
+              <div className="pt-1">
+                <p className="text-2xl font-black text-blue-400">R$ {result.price.toFixed(2)}</p>
+                <p className="text-[11px] text-slate-400">Ingresso: {result.ticketName}</p>
+              </div>
+
+              {result.asaasCharge?.invoiceUrl ? (
+                <a 
+                  href={result.asaasCharge.invoiceUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="inline-block w-full pt-2"
+                >
+                  <Button className="w-full h-14 rounded-xl bg-blue-600 hover:bg-blue-500 font-bold text-sm gap-2 shadow-lg shadow-blue-600/20">
+                    <CreditCard className="size-4" /> Pagar com Cartão no Asaas <ExternalLink className="size-4" />
+                  </Button>
+                </a>
+              ) : (
+                <p className="text-xs text-amber-400">A fatura foi gerada. Verifique seu e-mail para concluir o pagamento.</p>
+              )}
+
+              {result.registrationId && (
+                <div className="pt-2 text-[10px] font-mono text-slate-500">
+                  Protocolo: #{result.registrationId.slice(0, 10).toUpperCase()}
                 </div>
               )}
             </div>
@@ -428,9 +502,11 @@ export default function DirectRegistrationPage() {
               <p className="text-xs text-slate-400 leading-relaxed">
                 Você receberá informações adicionais da organização e avisos importantes no seu e-mail ou WhatsApp cadastrado.
               </p>
-              <div className="pt-2 text-xs font-mono text-slate-500">
-                Protocolo: #{result.registrationId.slice(0, 10).toUpperCase()}
-              </div>
+              {result.registrationId && (
+                <div className="pt-2 text-xs font-mono text-slate-500">
+                  Protocolo: #{result.registrationId.slice(0, 10).toUpperCase()}
+                </div>
+              )}
             </div>
           )}
 
@@ -678,7 +754,7 @@ export default function DirectRegistrationPage() {
                   {isPaid && (!isMember || !verifiedUser?.hasCpf) && (
                     <div className="space-y-1.5">
                       <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-300">
-                        CPF do Pagador (para chave PIX)
+                        CPF do Pagador (Obrigatório para cobrança)
                       </Label>
                       <Input
                         required
@@ -706,6 +782,43 @@ export default function DirectRegistrationPage() {
                       />
                     </div>
                   ))}
+
+                  {/* Formas de Pagamento Aceitas (quando o evento aceita múltiplos métodos) */}
+                  {isPaid && allowsPix && allowsCreditCard && (
+                    <div className="space-y-2 pt-2 border-t border-slate-850">
+                      <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-300">
+                        Forma de Pagamento
+                      </Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod('PIX')}
+                          className={`p-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                            paymentMethod === 'PIX'
+                              ? 'bg-emerald-500/15 border-emerald-500 text-emerald-300 ring-1 ring-emerald-500/40 shadow-sm'
+                              : 'bg-slate-950 border-slate-800 text-slate-400 hover:bg-slate-900 hover:text-white'
+                          }`}
+                        >
+                          <span className="text-sm">⚡</span>
+                          <span>PIX</span>
+                          <span className="text-[9px] px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-normal">Imediato</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod('CREDIT_CARD')}
+                          className={`p-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                            paymentMethod === 'CREDIT_CARD'
+                              ? 'bg-blue-500/15 border-blue-500 text-blue-300 ring-1 ring-blue-500/40 shadow-sm'
+                              : 'bg-slate-950 border-slate-800 text-slate-400 hover:bg-slate-900 hover:text-white'
+                          }`}
+                        >
+                          <CreditCard className="size-3.5 text-blue-400" />
+                          <span>Cartão de Crédito</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   </>
                   )}
 
@@ -729,9 +842,15 @@ export default function DirectRegistrationPage() {
                           Processando...
                         </>
                       ) : isPaid ? (
-                        <>
-                          Gerar Chave PIX e Inscrever-se <ArrowRight className="size-4" />
-                        </>
+                        paymentMethod === 'CREDIT_CARD' ? (
+                          <>
+                            Pagar com Cartão de Crédito <ArrowRight className="size-4" />
+                          </>
+                        ) : (
+                          <>
+                            Gerar Chave PIX e Inscrever-se <ArrowRight className="size-4" />
+                          </>
+                        )
                       ) : (
                         <>
                           Confirmar Inscrição Gratuita <CheckCircle2 className="size-4" />

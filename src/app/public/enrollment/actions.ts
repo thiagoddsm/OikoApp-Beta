@@ -124,6 +124,111 @@ export async function submitEnrollmentRequest(data: {
 }
 
 /**
+ * Registra a inscrição em um evento público via Admin SDK.
+ * Evita bloqueios de regras de segurança do Firestore para visitantes (auth: null).
+ */
+export async function submitEventRegistration(data: {
+    eventId: string;
+    userId?: string;
+    name?: string;
+    email: string;
+    phone?: string;
+    cpfCnpj?: string;
+    ticketId?: string;
+    ticketName?: string;
+    customAnswers?: Record<string, string>;
+    payment?: {
+        status: 'approved' | 'pending';
+        method: string;
+        valuePaid: number;
+        paidAt?: any;
+        transactionId?: string;
+        asaasPaymentId?: string | null;
+        invoiceUrl?: string | null;
+        bankSlipUrl?: string | null;
+    };
+    tenantId?: string;
+}) {
+    try {
+        const db = getAdminDb();
+
+        let finalName = data.name?.trim();
+        let finalPhone = data.phone?.trim();
+        let finalEmail = data.email?.toLowerCase().trim();
+        let finalCpf = data.cpfCnpj?.replace(/\D/g, '') || '';
+
+        // Se userId for fornecido, busca dados reais do membro no Firestore (Admin SDK)
+        if (data.userId) {
+            const userDoc = await db.collection('users').doc(data.userId).get();
+            if (userDoc.exists) {
+                const uData = userDoc.data()!;
+                finalName = uData.name || finalName;
+                finalPhone = uData.phone || finalPhone;
+                finalEmail = uData.email || finalEmail;
+                if (!finalCpf) finalCpf = (uData.cpfCnpj || uData.cpf || uData.cnpj || '').replace(/\D/g, '');
+            }
+        }
+
+        if (!finalName && finalEmail) {
+            const userSnap = await db.collection('users').where('email', '==', finalEmail).limit(1).get();
+            if (!userSnap.empty) {
+                const uData = userSnap.docs[0].data();
+                finalName = uData.name || finalName;
+                finalPhone = uData.phone || finalPhone;
+                if (!finalCpf) finalCpf = (uData.cpfCnpj || uData.cpf || uData.cnpj || '').replace(/\D/g, '');
+            }
+        }
+
+        if (!finalName) {
+            finalName = finalEmail ? finalEmail.split('@')[0] : 'Participante';
+        }
+
+        if (!finalEmail) {
+            throw new Error("E-mail é obrigatório para realizar a inscrição.");
+        }
+
+        const regDoc = await db.collection('event_registrations').add({
+            eventId: data.eventId,
+            userId: data.userId || 'anonymous',
+            userMetadata: {
+                name: finalName,
+                email: finalEmail,
+                phone: finalPhone || '',
+                cpfCnpj: finalCpf || undefined,
+            },
+            payment: {
+                status: data.payment?.status || 'approved',
+                method: data.payment?.method || 'free',
+                valuePaid: data.payment?.valuePaid || 0,
+                paidAt: data.payment?.status === 'approved' ? Timestamp.now() : null,
+                transactionId: data.payment?.transactionId || 'free',
+                asaasPaymentId: data.payment?.asaasPaymentId || null,
+                invoiceUrl: data.payment?.invoiceUrl || null,
+                bankSlipUrl: data.payment?.bankSlipUrl || null,
+            },
+            attendance: { checkedIn: false },
+            ticketId: data.ticketId || 'default',
+            ticketName: data.ticketName || 'Geral',
+            customAnswers: data.customAnswers || {},
+            tenantId: data.tenantId || null,
+            createdAt: Timestamp.now(),
+        });
+
+        return {
+            success: true,
+            registrationId: regDoc.id,
+            finalName,
+            finalPhone,
+            finalEmail,
+            finalCpf
+        };
+    } catch (e: any) {
+        console.error("Error submitting event registration:", e);
+        return { error: e.message || "Erro ao salvar inscrição do evento." };
+    }
+}
+
+/**
  * Converte recursivamente Timestamps do Firestore e objetos não-planos em dados primitivos/JSON.
  * Essencial para que Server Actions do Next.js passem objetos limpos para Client Components.
  */

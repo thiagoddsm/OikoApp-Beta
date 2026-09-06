@@ -9,8 +9,25 @@ export async function POST(request: NextRequest) {
     const { context, tenantId: resolvedTenantId } = await optionalAuth(request);
 
     const body = await request.json();
-    const { name, cpfCnpj, email, phone, userId, notificationMethod } = body;
+    let { name, cpfCnpj, email, phone, userId, notificationMethod } = body;
     const tenantId = body.tenantId || context?.tenantId || resolvedTenantId;
+
+    // Se userId foi fornecido e falta CPF, telefone ou nome, resgata com segurança via Admin SDK
+    if (userId && (!cpfCnpj || !phone || !name)) {
+      try {
+        const { getAdminDb } = await import('@/lib/firebase-admin');
+        const db = getAdminDb();
+        const userDoc = await db.collection('users').doc(userId).get();
+        if (userDoc.exists) {
+          const uData = userDoc.data()!;
+          name = name || uData.name;
+          phone = phone || uData.phone;
+          cpfCnpj = cpfCnpj || uData.cpfCnpj || uData.cpf || uData.cnpj;
+        }
+      } catch (e) {
+        console.warn('[Asaas Customer] Aviso ao buscar dados complementares do user:', e);
+      }
+    }
 
     if (!name) {
       return NextResponse.json(
