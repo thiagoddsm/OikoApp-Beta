@@ -6,7 +6,7 @@ export interface GcReportSession {
   id: string; // Telefone do líder formatado (ex: 5521999998888)
   cellId: string;
   liderId: string;
-  step: 'START' | 'CHECK_MEETING' | 'MEETING_STATUS_CHOICE' | 'POSTPONED_DATE' | 'CANCELLED_REASON' | 'ATTENDANCE' | 'ATTENDANCE_CONFIRM' | 'CARE_CHOICE' | 'CARE_SELECT' | 'CARE_MEMBER_THERMOMETER' | 'CARE_MEMBER_PRAYER' | 'METRICS_LESSON' | 'METRICS_VISITORS' | 'METRICS_CONVERSIONS' | 'FEEDBACK' | 'SUMMARY_CONFIRM';
+  step: 'START' | 'CHOOSE_CHANNEL' | 'CHECK_MEETING' | 'MEETING_STATUS_CHOICE' | 'POSTPONED_DATE' | 'CANCELLED_REASON' | 'ATTENDANCE' | 'ATTENDANCE_CONFIRM' | 'CARE_CHOICE' | 'CARE_SELECT' | 'CARE_MEMBER_THERMOMETER' | 'CARE_MEMBER_PRAYER' | 'METRICS_LESSON' | 'METRICS_VISITORS' | 'METRICS_CONVERSIONS' | 'FEEDBACK' | 'SUMMARY_CONFIRM';
   members: { id: string; name: string }[];
   
   // Modo Edição de Relatório
@@ -252,22 +252,22 @@ export async function startGcReportSession(
     const firstName = respondentName ? ` ${respondentName.split(' ')[0]}` : '';
     const roleLabel = respondentRole === 'secretario' ? 'secretário(a)' : 'líder';
 
-    // 4. Enviar mensagem de boas-vindas primeiro
+    // 4. Enviar mensagem de boas-vindas com escolha de canal (WhatsApp simplificado vs Link completo)
     console.log(`[GC Bot] Enviando fluxo de relatório para ${recipientPhone} (${roleLabel}: ${respondentName}, editando: ${!!editingLogId})...`);
 
     const greetingText = editingLogId
-      ? `Olá, ${roleLabel}${firstName}! 👋\n\n🔄 *Modo de Edição de Relatório*\nVamos revisar os dados da reunião do GC *${cellData.nome || 'Célula'}*.\n\n❓ *Aconteceu a reunião do GC esta semana?*`
-      : `Olá, ${roleLabel}${firstName}! 👋\nQue a paz do Senhor esteja com você!\n\nChegou a hora de registrar as bençãos da reunião do GC *${cellData.nome || 'Célula'}* desta semana.\n\n❓ *Aconteceu a reunião do GC esta semana?*`;
+      ? `Olá, ${roleLabel}${firstName}! 👋\n\n🔄 *Modo de Edição de Relatório*\nVamos revisar os dados da reunião do GC *${cellData.nome || 'Célula'}*.\n\nComo você prefere preencher o relatório?\n1️⃣ *No WhatsApp* (simplificado)\n2️⃣ *Pelo Link* (completo com tela de chamada)`
+      : `Olá, ${roleLabel}${firstName}! 👋\nQue a paz do Senhor esteja com você!\n\nChegou a hora de registrar as bênçãos da reunião do GC *${cellData.nome || 'Célula'}* desta semana.\n\nComo você prefere responder o relatório?\n1️⃣ *No WhatsApp* (simplificado)\n2️⃣ *Pelo Link* (completo com lista de presença na tela)`;
 
-    // Saudação + pergunta em UMA ÚNICA mensagem de botão para evitar race condition de ordem
+    // Saudação + botões de escolha de canal
     await sendButton(
       recipientPhone,
       greetingText,
       [
-        { id: 'meeting_yes', text: 'Sim' },
-        { id: 'meeting_no', text: 'Não' }
+        { id: 'channel_whatsapp', text: '💬 No WhatsApp' },
+        { id: 'channel_link', text: '🔗 Pelo Link' }
       ],
-      editingLogId ? 'Edição de Relatório' : 'Relatório Semanal de Célula'
+      editingLogId ? 'Edição de Relatório' : 'Relatório Semanal de GC'
     );
 
     // 5. Salvar estado da sessão na coleção `gc_report_sessions`
@@ -280,7 +280,7 @@ export async function startGcReportSession(
       respondentName: respondentName || undefined,
       respondentRole,
       editingLogId: editingLogId || undefined,
-      step: 'CHECK_MEETING',
+      step: 'CHOOSE_CHANNEL',
       members: membersList,
       attendancePage: 0,
       attendanceAccumulated: [],
@@ -430,6 +430,23 @@ export async function handleGcReportIncomingMessage(
     return true;
   }
 
+  if (type === 'text' && (msg === '/whatsapp' || msg === 'whatsapp')) {
+    await sessionRef.update({
+      step: 'CHECK_MEETING',
+      updatedAt: now
+    });
+    await sendButton(
+      fromPhone,
+      'Perfeito! Vamos responder aqui pelo WhatsApp. 💬\n\n❓ *Aconteceu a reunião do GC esta semana?*',
+      [
+        { id: 'meeting_yes', text: 'Sim' },
+        { id: 'meeting_no', text: 'Não' }
+      ],
+      'Status da Reunião'
+    );
+    return true;
+  }
+
   // Helper: detecta palavras de avanço
   const isAdvanceCommand = (t: string) => [
     'ok', 'pronto', 'avançar', 'avancar', 'proximo', 'próximo', 'concluir', 'done', 'sim',
@@ -448,6 +465,50 @@ export async function handleGcReportIncomingMessage(
           await startGcReportSession(session.cellId, fromPhone, session.isTestData);
         }
         break;
+
+      case 'CHOOSE_CHANNEL': {
+        const isWhatsapp = payload?.buttonId === 'channel_whatsapp' || ['1', 'whatsapp', 'zap', 'no whatsapp', 'simplificado', 'channel_whatsapp'].includes(msg);
+        const isLink = payload?.buttonId === 'channel_link' || ['2', 'link', 'pelo link', 'completo', 'site', 'pagina', 'página', 'channel_link'].includes(msg);
+
+        if (isWhatsapp) {
+          await sessionRef.update({
+            step: 'CHECK_MEETING',
+            updatedAt: now
+          });
+          await sendButton(
+            fromPhone,
+            'Perfeito! Vamos responder aqui pelo WhatsApp. 💬\n\n❓ *Aconteceu a reunião do GC esta semana?*',
+            [
+              { id: 'meeting_yes', text: 'Sim' },
+              { id: 'meeting_no', text: 'Não' }
+            ],
+            'Status da Reunião'
+          );
+        } else if (isLink) {
+          const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ibmanha.com.br';
+          const link = `${baseUrl}/public/gc-report?cellId=${session.cellId}&phone=${fromPhone}`;
+
+          await sendText(
+            fromPhone,
+            `Perfeito! 🌟\n\nClique no link abaixo para preencher o relatório completo com lista de presença na tela:\n\n👉 ${link}\n\n💡 Basta confirmar seu e-mail para abrir a chamada do seu GC.\n\n_(Se preferir responder pelo WhatsApp a qualquer momento, digite /whatsapp)_`
+          );
+
+          await sessionRef.update({
+            step: 'CHOOSE_CHANNEL',
+            updatedAt: now
+          });
+        } else {
+          await sendButton(
+            fromPhone,
+            'Por favor, escolha como deseja responder o relatório do seu GC:',
+            [
+              { id: 'channel_whatsapp', text: '💬 No WhatsApp' },
+              { id: 'channel_link', text: '🔗 Pelo Link' }
+            ]
+          );
+        }
+        break;
+      }
 
       case 'CHECK_MEETING': {
         const isYes = payload?.buttonId === 'meeting_yes' || ['sim', 's', '1', 'teve', 'aconteceu', 'meeting_yes'].includes(msg);
@@ -1021,6 +1082,16 @@ async function resendCurrentStepMessage(to: string, session: GcReportSession) {
   switch (session.step) {
     case 'START':
       await startGcReportSession(session.cellId, to, session.isTestData);
+      break;
+    case 'CHOOSE_CHANNEL':
+      await sendButton(
+        to,
+        'Como você prefere responder o relatório do GC esta semana?',
+        [
+          { id: 'channel_whatsapp', text: '💬 No WhatsApp' },
+          { id: 'channel_link', text: '🔗 Pelo Link' }
+        ]
+      );
       break;
     case 'ATTENDANCE':
       await sendText(
