@@ -1,5 +1,4 @@
 import { getAdminDb } from '@/lib/firebase-admin';
-import { Timestamp } from 'firebase-admin/firestore';
 import { getWhatsAppClient } from '@/lib/whatsapp';
 
 export interface GcReportSession {
@@ -44,8 +43,8 @@ export interface GcReportSession {
   feedback: string;
   pendingFeedback?: string;
   isTestData?: boolean;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+  createdAt: any;
+  updatedAt: any;
 }
 
 /**
@@ -271,7 +270,7 @@ export async function startGcReportSession(
     );
 
     // 5. Salvar estado da sessão na coleção `gc_report_sessions`
-    const now = Timestamp.now();
+    const now = new Date();
     const newSession: GcReportSession = {
       id: recipientPhone,
       cellId,
@@ -414,7 +413,7 @@ export async function handleGcReportIncomingMessage(
   if (!sessionDoc.exists) return false;
 
   const session = sessionDoc.data() as GcReportSession;
-  const now = Timestamp.now();
+  const now = new Date();
   const msg = messageText.trim().toLowerCase();
 
   // Comandos globais de controle
@@ -1145,7 +1144,7 @@ async function resendCurrentStepMessage(to: string, session: GcReportSession) {
  */
 async function finalizeAndSubmitReport(session: GcReportSession, feedback: string): Promise<boolean> {
   const db = getAdminDb();
-  const now = Timestamp.now();
+  const now = new Date();
   const batch = db.batch();
 
   try {
