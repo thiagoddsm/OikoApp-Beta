@@ -324,6 +324,18 @@ function PlanEditorInner({ planId }: { planId: string }) {
       }
 
       const payload = buildAvPayloadFromPlan(currentPlanData);
+
+      // Push direto do navegador se o operador estiver no mesmo PC da Central AV
+      try {
+        fetch('http://localhost:3001/api/oiko/webhook', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          mode: 'cors',
+          signal: AbortSignal.timeout(1500)
+        }).catch(() => {});
+      } catch {}
+
       const res = await transmitWorshipPlanToAv(payload);
       if (!res.success) {
         throw new Error(res.error || 'Erro ao comunicar com a Central AV.');

@@ -128,7 +128,46 @@ export async function transmitWorshipPlanToAv(payloadOrPlan: any, customWebhookU
     firestoreOk = true;
     console.log(`[Central AV] ✅ Escrito no Firestore worship-order/singleton`);
   } catch (err: any) {
-    console.warn('[Central AV] ⚠️ Falha ao escrever no Firestore:', err.message);
+    console.warn('[Central AV] ⚠️ Falha ao escrever no Firestore padrão:', err.message);
+  }
+
+  // Escreve diretamente no projeto da Central AV (studio-4506386725-ea297)
+  try {
+    const { initializeApp, getApps } = await import('firebase/app');
+    const { getFirestore, doc, setDoc } = await import('firebase/firestore');
+    const avFirebaseConfig = {
+      apiKey: 'AIzaSyAvNl4pj3AThCDmOwLB4Z9PEuJEU_ek81s',
+      authDomain: 'studio-4506386725-ea297.firebaseapp.com',
+      projectId: 'studio-4506386725-ea297',
+      storageBucket: 'studio-4506386725-ea297.firebasestorage.app',
+      messagingSenderId: '587892665992',
+      appId: '1:587892665992:web:1c8320d82dacfc4778f93d'
+    };
+    const avApp = getApps().find(a => a.name === 'central-av-bridge') || initializeApp(avFirebaseConfig, 'central-av-bridge');
+    const avDb = getFirestore(avApp);
+    const avDocRef = doc(avDb, 'artifacts', 'gestao-de-culto', 'public', 'data', 'worship-order', 'singleton');
+    await setDoc(avDocRef, {
+      id: payload.id,
+      planoTitulo: payload.planoTitulo,
+      cultoId: payload.id,
+      data: payload.data,
+      startTime: payload.startTime,
+      indexAtual: 0,
+      itemAtual: payload.items[0] || null,
+      items: payload.items,
+      cultInfo: {
+        title: payload.planoTitulo,
+        date: payload.data,
+        startTime: payload.startTime,
+      },
+      liveState: { currentItemIndex: 0 },
+      updatedAt: new Date().toISOString(),
+      sentByOiko: true,
+    });
+    firestoreOk = true;
+    console.log('[Central AV] ✅ Escrito diretamente no Firestore da Central AV (studio-4506386725-ea297)');
+  } catch (avErr: any) {
+    console.warn('[Central AV] ⚠️ Falha ao escrever no Firestore da Central AV:', avErr.message);
   }
 
   // ── CANAL 2: HTTP Webhook (fallback/complementar) ──
@@ -162,8 +201,13 @@ export async function transmitWorshipPlanToAv(payloadOrPlan: any, customWebhookU
       console.warn(`[Central AV] ⚠️ Webhook HTTP respondeu com erro ${response.status}`);
     }
 
-    // Também envia push direto para o Integrador se estiver rodando localmente (localhost:3000 / 127.0.0.1:3000)
-    const localEndpoints = ['http://localhost:3000/api/oiko/webhook', 'http://127.0.0.1:3000/api/oiko/webhook'];
+    // Também envia push direto para o Integrador se estiver rodando localmente (portas 3000 ou 3001)
+    const localEndpoints = [
+      'http://localhost:3000/api/oiko/webhook', 
+      'http://127.0.0.1:3000/api/oiko/webhook',
+      'http://localhost:3001/api/oiko/webhook',
+      'http://127.0.0.1:3001/api/oiko/webhook'
+    ];
     for (const localUrl of localEndpoints) {
       if (targetUrl !== localUrl) {
         try {
