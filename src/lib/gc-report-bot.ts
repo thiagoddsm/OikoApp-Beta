@@ -258,18 +258,7 @@ export async function startGcReportSession(
       ? `Olá, ${roleLabel}${firstName}! 👋\n\n🔄 *Modo de Edição de Relatório*\nVamos revisar os dados da reunião do GC *${cellData.nome || 'Célula'}*.\n\nComo você prefere preencher o relatório?\n1️⃣ *No WhatsApp* (simplificado)\n2️⃣ *Pelo Link* (completo com tela de chamada)`
       : `Olá, ${roleLabel}${firstName}! 👋\nQue a paz do Senhor esteja com você!\n\nChegou a hora de registrar as bênçãos da reunião do GC *${cellData.nome || 'Célula'}* desta semana.\n\nComo você prefere responder o relatório?\n1️⃣ *No WhatsApp* (simplificado)\n2️⃣ *Pelo Link* (completo com lista de presença na tela)`;
 
-    // Saudação + botões de escolha de canal
-    await sendButton(
-      recipientPhone,
-      greetingText,
-      [
-        { id: 'channel_whatsapp', text: '💬 No WhatsApp' },
-        { id: 'channel_link', text: '🔗 Pelo Link' }
-      ],
-      editingLogId ? 'Edição de Relatório' : 'Relatório Semanal de GC'
-    );
-
-    // 5. Salvar estado da sessão na coleção `gc_report_sessions`
+    // 4. Salvar estado da sessão na coleção `gc_report_sessions`
     const now = new Date();
     const newSession: GcReportSession = {
       id: recipientPhone,
@@ -299,7 +288,18 @@ export async function startGcReportSession(
     };
 
     await sessionRef.set(newSession);
-    console.log('[GC Bot] Sessão criada com sucesso (step: CHECK_MEETING) para', recipientPhone);
+    console.log('[GC Bot] Sessão criada com sucesso (step: CHOOSE_CHANNEL) para', recipientPhone);
+
+    // 5. Enviar mensagem de boas-vindas com escolha de canal (WhatsApp simplificado vs Link completo)
+    await sendButton(
+      recipientPhone,
+      greetingText,
+      [
+        { id: 'channel_whatsapp', text: '💬 No WhatsApp' },
+        { id: 'channel_link', text: '🔗 Pelo Link' }
+      ],
+      editingLogId ? 'Edição de Relatório' : 'Relatório Semanal de GC'
+    );
 
     return true;
   } catch (error) {
@@ -466,8 +466,18 @@ export async function handleGcReportIncomingMessage(
         break;
 
       case 'CHOOSE_CHANNEL': {
-        const isWhatsapp = payload?.buttonId === 'channel_whatsapp' || ['1', 'whatsapp', 'zap', 'no whatsapp', 'simplificado', 'channel_whatsapp'].includes(msg);
-        const isLink = payload?.buttonId === 'channel_link' || ['2', 'link', 'pelo link', 'completo', 'site', 'pagina', 'página', 'channel_link'].includes(msg);
+        const isWhatsapp = payload?.buttonId === 'channel_whatsapp' ||
+          msg.includes('whatsapp') ||
+          msg.includes('zap') ||
+          msg === '1' ||
+          msg.includes('simplificado');
+        const isLink = payload?.buttonId === 'channel_link' ||
+          msg.includes('link') ||
+          msg.includes('site') ||
+          msg === '2' ||
+          msg.includes('completo') ||
+          msg.includes('pagin') ||
+          msg.includes('página');
 
         if (isWhatsapp) {
           await sessionRef.update({

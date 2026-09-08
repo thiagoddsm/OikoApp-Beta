@@ -348,12 +348,23 @@ export async function POST(request: Request) {
                 messageText = msgContent.conversation || msgContent.extendedTextMessage?.text || msgObject.text || '';
             }
 
-            // Fallback para respostas de botões do WhatsApp Web onde o payload vem como texto "Sim" / "Não"
-            if (responseType === 'text' && (messageText.trim().toLowerCase() === 'sim' || messageText.trim().toLowerCase() === 'não' || messageText.trim().toLowerCase() === 'nao')) {
+            // Fallback para respostas de botões do WhatsApp Web onde o payload vem como texto
+            if (responseType === 'text') {
                 const sessionData = sessionDoc.data();
-                if (sessionData?.step === 'CHECK_MEETING') {
+                const t = messageText.trim().toLowerCase();
+                if (sessionData?.step === 'CHOOSE_CHANNEL') {
+                    if (t.includes('whatsapp') || t.includes('zap') || t === '1') {
+                        responseType = 'button';
+                        payload = { buttonId: 'channel_whatsapp' };
+                        messageText = payload.buttonId;
+                    } else if (t.includes('link') || t.includes('site') || t === '2') {
+                        responseType = 'button';
+                        payload = { buttonId: 'channel_link' };
+                        messageText = payload.buttonId;
+                    }
+                } else if (sessionData?.step === 'CHECK_MEETING' && (t === 'sim' || t === 'não' || t === 'nao')) {
                     responseType = 'button';
-                    payload = { buttonId: messageText.trim().toLowerCase() === 'sim' ? 'meeting_yes' : 'meeting_no' };
+                    payload = { buttonId: t === 'sim' ? 'meeting_yes' : 'meeting_no' };
                     messageText = payload.buttonId;
                 }
             }
