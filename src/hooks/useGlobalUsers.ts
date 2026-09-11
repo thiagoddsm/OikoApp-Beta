@@ -5,6 +5,7 @@ import { User } from '@/contexts/volunteering-context';
 let globalUsers: any[] | null = null;
 let globalUsersLoading = true;
 let unsubscribe: (() => void) | null = null;
+let activeUid: string | null = null;
 const listeners = new Set<() => void>();
 
 function notifyListeners() {
@@ -22,12 +23,24 @@ export function useGlobalUsers(firestore: Firestore | undefined | null, user: an
     };
     listeners.add(listener);
 
+    // Se o usuário mudou (logout / troca de conta), limpa o listener anterior
+    const currentUid = user?.uid || null;
+    if (activeUid !== currentUid) {
+      if (unsubscribe) {
+        unsubscribe();
+        unsubscribe = null;
+      }
+      activeUid = currentUid;
+      globalUsers = null;
+      globalUsersLoading = true;
+    }
+
     if (!unsubscribe && firestore && user && roleResolved) {
       globalUsersLoading = true;
       notifyListeners();
       
       const q = query(collection(firestore, 'users'), orderBy('name'));
-      unsubscribe = onSnapshot(
+      const unsub = onSnapshot(
         q,
         (snapshot) => {
           globalUsers = snapshot.docs.map(doc => ({ ...(doc.data() as any), id: doc.id }));
@@ -37,10 +50,13 @@ export function useGlobalUsers(firestore: Firestore | undefined | null, user: an
         (error) => {
           console.error("Global users error:", error);
           globalUsersLoading = false;
-          globalUsers = [];
+          if (unsubscribe === unsub) {
+            unsubscribe = null;
+          }
           notifyListeners();
         }
       );
+      unsubscribe = unsub;
     }
     return () => {
       listeners.delete(listener);

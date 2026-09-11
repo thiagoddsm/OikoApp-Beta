@@ -156,14 +156,48 @@ function PedagogicalLogPageContent() {
             name.includes('libras');
     }, [courseData]);
 
+    const [fallbackStudents, setFallbackStudents] = useState<any[]>([]);
+
+    useEffect(() => {
+        if (!firestore || !classData?.students || classData.students.length === 0) {
+            setFallbackStudents([]);
+            return;
+        }
+        const studentIds = classData.students;
+        if (users && users.length > 0) {
+            const hasAny = studentIds.some(id => users.some(u => u.id === id));
+            if (hasAny) {
+                setFallbackStudents([]);
+                return;
+            }
+        }
+        let isCancelled = false;
+        import('firebase/firestore').then(async ({ doc, getDoc }) => {
+            try {
+                const promises = studentIds.map(id => getDoc(doc(firestore, 'users', id)));
+                const snaps = await Promise.all(promises);
+                if (isCancelled) return;
+                const loaded: any[] = [];
+                snaps.forEach(s => {
+                    if (s.exists()) loaded.push({ ...(s.data() as any), id: s.id });
+                });
+                setFallbackStudents(loaded);
+            } catch (err) {
+                console.error("Erro ao carregar alunos no diário:", err);
+            }
+        });
+        return () => { isCancelled = true; };
+    }, [firestore, classData?.students, users]);
+
     const enrolledStudents = useMemo(() => {
-        if (!users || !classData?.students) return [];
-        const studentSet = new Set(classData.students);
-        return users
+        const studentSet = new Set(classData?.students || []);
+        if (studentSet.size === 0) return [];
+        const pool = (users && users.length > 0) ? users : fallbackStudents;
+        return pool
             .filter(u => studentSet.has(u.id))
             .filter(u => (u.name || '').toLowerCase().includes(searchTerm.toLowerCase()))
             .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR'));
-    }, [users, classData, searchTerm]);
+    }, [users, fallbackStudents, classData, searchTerm]);
 
     // Alunos de OUTRAS TURMAS do mesmo curso que faltaram a este módulo específico (calculado apenas com turmas já passadas)
     const previousClassStudentsForModule = useMemo(() => {
