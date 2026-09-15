@@ -42,14 +42,14 @@ export async function mergeUsersDeepAction(primaryId: string, secondaryIds: stri
             return acc;
         }, {} as any);
 
+        safeMergedData.unificadoEm = FieldValue.serverTimestamp();
+        safeMergedData.idsMesclados = FieldValue.arrayUnion(...secondaryIds);
+
         await primaryRef.set(safeMergedData, { merge: true });
 
         // 2. Transferir histórico de Turmas (classes)
         const classesSnapshot = await db.collection('classes').get();
-        const classBatch = db.batch();
-        let classesUpdated = 0;
-
-        classesSnapshot.docs.forEach(doc => {
+        for (const doc of classesSnapshot.docs) {
             const data = doc.data();
             let needsUpdate = false;
             const updates: any = {};
@@ -96,6 +96,27 @@ export async function mergeUsersDeepAction(primaryId: string, secondaryIds: stri
                         }
                     }
 
+                    if (record.justifiedStudentIds && Array.isArray(record.justifiedStudentIds)) {
+                        if (record.justifiedStudentIds.some((id: string) => secondaryIds.includes(id))) {
+                            const newJustified = new Set(record.justifiedStudentIds.filter((id: string) => !secondaryIds.includes(id)));
+                            newJustified.add(primaryId);
+                            newRecord.justifiedStudentIds = Array.from(newJustified);
+                            recordChanged = true;
+                        }
+                    }
+
+                    if (record.repositions && Array.isArray(record.repositions)) {
+                        let reposChanged = false;
+                        newRecord.repositions = record.repositions.map((repo: any) => {
+                            if (secondaryIds.includes(repo.studentId)) {
+                                reposChanged = true;
+                                return { ...repo, studentId: primaryId, studentName: safeMergedData.name || repo.studentName };
+                            }
+                            return repo;
+                        });
+                        if (reposChanged) recordChanged = true;
+                    }
+
                     if (recordChanged) attendanceChanged = true;
                     return newRecord;
                 });
@@ -107,31 +128,33 @@ export async function mergeUsersDeepAction(primaryId: string, secondaryIds: stri
             }
 
             if (needsUpdate) {
-                classBatch.update(doc.ref, updates);
-                classesUpdated++;
+                await doc.ref.update(updates);
             }
-        });
-
-        if (classesUpdated > 0) {
-            await classBatch.commit();
         }
 
         // 3. Transferir histórico de Células (cells)
         const cellsSnapshot = await db.collection('cells').get();
-        const cellBatch = db.batch();
-        let cellsUpdated = 0;
-
-        cellsSnapshot.docs.forEach(doc => {
+        for (const doc of cellsSnapshot.docs) {
             const data = doc.data();
             let needsUpdate = false;
             const updates: any = {};
 
-            if (secondaryIds.includes(data.leaderId)) {
-                updates.leaderId = primaryId;
+            if (secondaryIds.includes(data.leaderId) || secondaryIds.includes(data.liderId)) {
+                if (data.leaderId) updates.leaderId = primaryId;
+                if (data.liderId) updates.liderId = primaryId;
                 needsUpdate = true;
             }
-            if (secondaryIds.includes(data.hostId)) {
-                updates.hostId = primaryId;
+            if (secondaryIds.includes(data.liderCasalId)) {
+                updates.liderCasalId = primaryId;
+                needsUpdate = true;
+            }
+            if (secondaryIds.includes(data.secretariaId)) {
+                updates.secretariaId = primaryId;
+                needsUpdate = true;
+            }
+            if (secondaryIds.includes(data.hostId) || secondaryIds.includes(data.anfitriaoId)) {
+                if (data.hostId) updates.hostId = primaryId;
+                if (data.anfitriaoId) updates.anfitriaoId = primaryId;
                 needsUpdate = true;
             }
 
@@ -145,22 +168,81 @@ export async function mergeUsersDeepAction(primaryId: string, secondaryIds: stri
                 }
             }
 
-            if (needsUpdate) {
-                cellBatch.update(doc.ref, updates);
-                cellsUpdated++;
+            if (data.membros && Array.isArray(data.membros)) {
+                const hasSecondary = data.membros.some((m: any) => {
+                    const mid = typeof m === 'string' ? m : m?.id;
+                    return secondaryIds.includes(mid);
+                });
+                if (hasSecondary) {
+                    updates.membros = data.membros.map((m: any) => {
+                        const mid = typeof m === 'string' ? m : m?.id;
+                        if (secondaryIds.includes(mid)) {
+                            return typeof m === 'string' ? primaryId : { ...m, id: primaryId, name: safeMergedData.name || m.name };
+                        }
+                        return m;
+                    });
+                    needsUpdate = true;
+                }
             }
-        });
 
-        if (cellsUpdated > 0) {
-            await cellBatch.commit();
+            if (needsUpdate) {
+                await doc.ref.update(updates);
+            }
         }
 
-        // 4. Excluir contas secundárias
-        const deleteBatch = db.batch();
-        secondaryIds.forEach(id => {
-            deleteBatch.delete(db.collection('users').doc(id));
-        });
-        await deleteBatch.commit();
+        // 4. Transferir inscrições (enrollment_requests)
+        const enrollmentsSnapshot = await db.collection('enrollment_requests').get();
+        for (const doc of enrollmentsSnapshot.docs) {
+            const data = doc.data();
+            let needsUpdate = false;
+            const updates: any = {};
+
+            if (secondaryIds.includes(data.userId)) {
+                updates.userId = primaryId;
+                if (safeMergedData.name) updates.userName = safeMergedData.name;
+                needsUpdate = true;
+            }
+            if (secondaryIds.includes(data.studentId)) {
+                updates.studentId = primaryId;
+                if (safeMergedData.name) {
+                    updates.studentName = safeMergedData.name;
+                    updates.userName = safeMergedData.name;
+                }
+                needsUpdate = true;
+            }
+
+            if (needsUpdate) {
+                await doc.ref.update(updates);
+            }
+        }
+
+        // 5. Transferir diários pedagógicos (pedagogical_logs)
+        const logsSnapshot = await db.collection('pedagogical_logs').get();
+        for (const doc of logsSnapshot.docs) {
+            const data = doc.data();
+            if (secondaryIds.includes(data.studentId)) {
+                await doc.ref.update({
+                    studentId: primaryId,
+                    ...(safeMergedData.name ? { studentName: safeMergedData.name } : {})
+                });
+            }
+        }
+
+        // 6. Transferir presenças históricas de célula (presencas_historico)
+        for (const secId of secondaryIds) {
+            const presSnap = await db.collection('presencas_historico').where('membroId', '==', secId).get();
+            for (const pDoc of presSnap.docs) {
+                await pDoc.ref.update({
+                    membroId: primaryId,
+                    ...(safeMergedData.name ? { membroNome: safeMergedData.name } : {})
+                });
+            }
+        }
+
+        // 7. Excluir contas secundárias
+        for (const id of secondaryIds) {
+            await db.collection('users').doc(id).delete();
+        }
 
         revalidatePath('/dashboard/people');
         return { success: true, message: 'Usuários unificados com sucesso.' };
