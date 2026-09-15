@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mapeamento de Bairros - São Gonçalo</title>
+  <title>Status da Rede de Igrejas - São Gonçalo</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Phosphor Icons CDN -->
@@ -30,7 +30,6 @@
     }
   </script>
   <style>
-    /* Estilização suave de rolagem */
     ::-webkit-scrollbar {
       width: 6px;
       height: 6px;
@@ -85,10 +84,10 @@
         </div>
         <div>
           <div class="flex items-center gap-2">
-            <h1 class="font-bold text-lg text-slate-900 leading-tight">Mapeamento São Gonçalo</h1>
-            <span class="text-xs bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-full">SG • RJ (5 Distritos)</span>
+            <h1 class="font-bold text-lg text-slate-900 leading-tight">Status da Rede de Igrejas</h1>
+            <span class="text-xs bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-full">SG • RJ</span>
           </div>
-          <p class="text-xs text-slate-500">Mapeamento oficial de 91 bairros e congregações parceiras</p>
+          <p class="text-xs text-slate-500">Mapeamento e gestão dos 91 bairros e congregações</p>
         </div>
       </div>
       <div class="flex items-center gap-2">
@@ -106,14 +105,14 @@
     <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm">
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
         <div>
-          <span class="text-xs font-bold tracking-wider text-emerald-700 uppercase">Meta Regional</span>
-          <h2 class="text-xl font-bold text-slate-900">Cobertura de Bairros & Igrejas</h2>
-          <p class="text-xs text-slate-500">Acompanhamento das 91 regiões oficiais distribuídas nos 5 distritos da cidade.</p>
+          <span class="text-xs font-bold tracking-wider text-emerald-700 uppercase">Rede Ministerial</span>
+          <h2 class="text-xl font-bold text-slate-900">Status da Rede de Igrejas</h2>
+          <p class="text-xs text-slate-500">Acompanhamento dos 91 bairros nos 5 distritos e status de adesão de cada igreja.</p>
         </div>
         <div class="flex items-center gap-4">
           <div class="text-right">
             <span id="stat-porcentagem" class="text-3xl font-extrabold text-emerald-600">0%</span>
-            <p class="text-xs text-slate-400">bairros com congregação ativa</p>
+            <p class="text-xs text-slate-400">bairros com igreja ativa na rede</p>
           </div>
         </div>
       </div>
@@ -123,36 +122,44 @@
         <div id="progresso-fill" class="bg-gradient-to-r from-emerald-500 to-teal-500 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
       </div>
 
-      <!-- Indicadores numéricos com 4 Status e Total de Igrejas -->
-      <div class="grid grid-cols-2 sm:grid-cols-6 gap-2 sm:gap-3 mt-5 pt-4 border-t border-slate-100 text-center">
-        <div class="bg-slate-50 rounded-xl p-3 border border-slate-100">
-          <span id="stat-total" class="text-lg sm:text-2xl font-bold text-slate-800">91</span>
-          <p class="text-[11px] sm:text-xs text-slate-500 font-medium">Total Bairros</p>
+      <!-- Indicadores numéricos dos 5 Status da Rede + Pastores + Bairros -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 mt-5 pt-4 border-t border-slate-100 text-center">
+        <div class="bg-slate-50 rounded-xl p-2.5 border border-slate-100">
+          <span id="stat-total" class="text-lg font-bold text-slate-800">91</span>
+          <p class="text-[10px] sm:text-[11px] text-slate-500 font-medium">Bairros</p>
         </div>
-        <div class="bg-slate-50 rounded-xl p-3 border border-slate-200">
-          <span id="stat-total-igrejas" class="text-lg sm:text-2xl font-bold text-emerald-800">0</span>
-          <p class="text-[11px] sm:text-xs text-slate-600 font-medium">Igrejas Cadastradas</p>
+        <div class="bg-slate-50 rounded-xl p-2.5 border border-slate-200">
+          <span id="stat-total-igrejas" class="text-lg font-bold text-slate-800">0</span>
+          <p class="text-[10px] sm:text-[11px] text-slate-600 font-medium">Igrejas</p>
         </div>
-        <div class="bg-emerald-50/70 border border-emerald-100 rounded-xl p-3">
-          <span id="stat-ativos" class="text-lg sm:text-2xl font-bold text-emerald-700">0</span>
-          <p class="text-[11px] sm:text-xs text-emerald-700 font-medium">Ativos</p>
+        <div class="bg-emerald-50/80 border border-emerald-100 rounded-xl p-2.5">
+          <span id="stat-ativo-rede" class="text-lg font-bold text-emerald-700">0</span>
+          <p class="text-[10px] sm:text-[11px] text-emerald-700 font-medium">Ativo na rede</p>
         </div>
-        <div class="bg-blue-50/70 border border-blue-100 rounded-xl p-3">
-          <span id="stat-pendente-convite" class="text-lg sm:text-2xl font-bold text-blue-700">0</span>
-          <p class="text-[11px] sm:text-xs text-blue-700 font-medium">Pend. Convite</p>
+        <div class="bg-blue-50/80 border border-blue-100 rounded-xl p-2.5">
+          <span id="stat-pend-convite" class="text-lg font-bold text-blue-700">0</span>
+          <p class="text-[10px] sm:text-[11px] text-blue-700 font-medium">Pend. Convite</p>
         </div>
-        <div class="bg-purple-50/70 border border-purple-100 rounded-xl p-3">
-          <span id="stat-pendente-aceite" class="text-lg sm:text-2xl font-bold text-purple-700">0</span>
-          <p class="text-[11px] sm:text-xs text-purple-700 font-medium">Pend. Aceite</p>
+        <div class="bg-purple-50/80 border border-purple-100 rounded-xl p-2.5">
+          <span id="stat-pend-aceite" class="text-lg font-bold text-purple-700">0</span>
+          <p class="text-[10px] sm:text-[11px] text-purple-700 font-medium">Pend. Aceite</p>
         </div>
-        <div class="bg-amber-50/70 border border-amber-100 rounded-xl p-3">
-          <span id="stat-pendentes" class="text-lg sm:text-2xl font-bold text-amber-700">0</span>
-          <p class="text-[11px] sm:text-xs text-amber-700 font-medium">Sem Igreja</p>
+        <div class="bg-rose-50/80 border border-rose-100 rounded-xl p-2.5">
+          <span id="stat-nao-aceito" class="text-lg font-bold text-rose-700">0</span>
+          <p class="text-[10px] sm:text-[11px] text-rose-700 font-medium">Não Aceito</p>
+        </div>
+        <div class="bg-slate-100/80 border border-slate-200 rounded-xl p-2.5">
+          <span id="stat-sem-convite" class="text-lg font-bold text-slate-700">0</span>
+          <p class="text-[10px] sm:text-[11px] text-slate-700 font-medium">Sem Convite</p>
+        </div>
+        <div class="bg-amber-50/80 border border-amber-100 rounded-xl p-2.5">
+          <span id="stat-sem-igreja" class="text-lg font-bold text-amber-700">0</span>
+          <p class="text-[10px] sm:text-[11px] text-amber-700 font-medium">Sem Igreja</p>
         </div>
       </div>
     </div>
 
-    <!-- Barra de Controle: Busca, Alternador de Visão (Lista / Mapa), Filtros de Status, Distrito e Botão Novo -->
+    <!-- Barra de Controle: Busca, Alternador de Visão (Lista / Mapa), Filtros -->
     <div class="space-y-3">
       <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <!-- Input de Pesquisa -->
@@ -188,28 +195,47 @@
         </div>
       </div>
 
-      <!-- Filtros Duplos: Por Distrito e Por Status -->
-      <div class="space-y-2 bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs">
-        <!-- Filtro por Distrito -->
+      <!-- Caixa de Filtros Integrados: Status da Rede, Presença de Pastor, Distrito -->
+      <div class="space-y-2.5 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
+        
+        <!-- Linha 1: Filtro de Status da Rede de Igrejas -->
         <div class="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
-          <span class="text-slate-400 font-semibold text-[11px] mr-1 flex-shrink-0">Distrito:</span>
-          <button onclick="setDistrito('todos')" id="distrito-todos" class="px-2.5 py-1 rounded-lg font-semibold bg-slate-900 text-white shadow-2xs transition whitespace-nowrap">Todos Distritos</button>
-          <button onclick="setDistrito(1)" id="distrito-1" class="px-2.5 py-1 rounded-lg font-medium bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 transition whitespace-nowrap">1º Dist. (Centro)</button>
-          <button onclick="setDistrito(2)" id="distrito-2" class="px-2.5 py-1 rounded-lg font-medium bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 transition whitespace-nowrap">2º Dist. (Ipiíba)</button>
-          <button onclick="setDistrito(3)" id="distrito-3" class="px-2.5 py-1 rounded-lg font-medium bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 transition whitespace-nowrap">3º Dist. (Monjolo)</button>
-          <button onclick="setDistrito(4)" id="distrito-4" class="px-2.5 py-1 rounded-lg font-medium bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 transition whitespace-nowrap">4º Dist. (Neves)</button>
-          <button onclick="setDistrito(5)" id="distrito-5" class="px-2.5 py-1 rounded-lg font-medium bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 transition whitespace-nowrap">5º Dist. (Sete Pontes)</button>
-        </div>
-
-        <!-- Filtro por Status -->
-        <div class="flex items-center gap-1.5 overflow-x-auto text-xs pt-1 border-t border-slate-100">
-          <span class="text-slate-400 font-semibold text-[11px] mr-1 flex-shrink-0">Status:</span>
+          <span class="text-slate-500 font-bold text-[11px] mr-1 flex-shrink-0">Status da Rede:</span>
           <button onclick="setFiltro('todos')" id="filtro-todos" class="px-2.5 py-1 rounded-lg font-semibold bg-slate-800 text-white shadow-2xs transition whitespace-nowrap">Todos</button>
-          <button onclick="setFiltro('ativo')" id="filtro-ativo" class="px-2.5 py-1 rounded-lg font-medium bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-50 transition whitespace-nowrap">🟢 Ativo</button>
+          <button onclick="setFiltro('ativo_na_rede')" id="filtro-ativo_na_rede" class="px-2.5 py-1 rounded-lg font-medium bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-50 transition whitespace-nowrap">🟢 Ativo na rede</button>
           <button onclick="setFiltro('pendente_convite')" id="filtro-pendente_convite" class="px-2.5 py-1 rounded-lg font-medium bg-white text-blue-700 border border-blue-200 hover:bg-blue-50 transition whitespace-nowrap">🔵 Pendente de convite</button>
           <button onclick="setFiltro('pendente_aceite')" id="filtro-pendente_aceite" class="px-2.5 py-1 rounded-lg font-medium bg-white text-purple-700 border border-purple-200 hover:bg-purple-50 transition whitespace-nowrap">🟣 Pendente de aceite</button>
-          <button onclick="setFiltro('pendente')" id="filtro-pendente" class="px-2.5 py-1 rounded-lg font-medium bg-white text-amber-700 border border-amber-200 hover:bg-amber-50 transition whitespace-nowrap">🟡 Sem Igreja</button>
+          <button onclick="setFiltro('convite_recusado')" id="filtro-convite_recusado" class="px-2.5 py-1 rounded-lg font-medium bg-white text-rose-700 border border-rose-200 hover:bg-rose-50 transition whitespace-nowrap">🔴 Convite não aceito</button>
+          <button onclick="setFiltro('sem_convite')" id="filtro-sem_convite" class="px-2.5 py-1 rounded-lg font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-100 transition whitespace-nowrap">⚪ Sem convite</button>
+          <button onclick="setFiltro('sem_igreja')" id="filtro-sem_igreja" class="px-2.5 py-1 rounded-lg font-medium bg-white text-amber-700 border border-amber-200 hover:bg-amber-50 transition whitespace-nowrap">🟡 Sem Igreja</button>
         </div>
+
+        <!-- Linha 2: Checkbox Pastor + Filtro por Distrito -->
+        <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
+          <!-- Checkbox / Filtro Pastor -->
+          <div class="flex items-center gap-2">
+            <span class="text-slate-500 font-bold text-[11px] mr-1">Pastor:</span>
+            <button onclick="setFiltroPastor('todos')" id="pastor-todos" class="px-2.5 py-1 rounded-lg font-semibold bg-slate-900 text-white shadow-2xs transition whitespace-nowrap">Todos</button>
+            <button onclick="setFiltroPastor('com_pastor')" id="pastor-com" class="px-2.5 py-1 rounded-lg font-medium bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-50 transition whitespace-nowrap flex items-center gap-1">
+              <i class="ph-bold ph-check text-xs"></i> Com pastor
+            </button>
+            <button onclick="setFiltroPastor('sem_pastor')" id="pastor-sem" class="px-2.5 py-1 rounded-lg font-medium bg-white text-amber-700 border border-amber-200 hover:bg-amber-50 transition whitespace-nowrap flex items-center gap-1">
+              <i class="ph-bold ph-x text-xs"></i> Sem pastor
+            </button>
+          </div>
+
+          <!-- Filtro por Distrito -->
+          <div class="flex items-center gap-1 overflow-x-auto">
+            <span class="text-slate-500 font-bold text-[11px] mr-1 flex-shrink-0">Distrito:</span>
+            <button onclick="setDistrito('todos')" id="distrito-todos" class="px-2 py-1 rounded-lg font-semibold bg-slate-800 text-white text-[11px] transition whitespace-nowrap">Todos</button>
+            <button onclick="setDistrito(1)" id="distrito-1" class="px-2 py-1 rounded-lg font-medium bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 text-[11px] transition whitespace-nowrap">1º</button>
+            <button onclick="setDistrito(2)" id="distrito-2" class="px-2 py-1 rounded-lg font-medium bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 text-[11px] transition whitespace-nowrap">2º</button>
+            <button onclick="setDistrito(3)" id="distrito-3" class="px-2 py-1 rounded-lg font-medium bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 text-[11px] transition whitespace-nowrap">3º</button>
+            <button onclick="setDistrito(4)" id="distrito-4" class="px-2 py-1 rounded-lg font-medium bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 text-[11px] transition whitespace-nowrap">4º</button>
+            <button onclick="setDistrito(5)" id="distrito-5" class="px-2 py-1 rounded-lg font-medium bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 text-[11px] transition whitespace-nowrap">5º</button>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -225,7 +251,7 @@
           <i class="ph ph-map-pin-line text-2xl"></i>
         </div>
         <h3 class="font-bold text-slate-800">Nenhum bairro encontrado</h3>
-        <p class="text-xs text-slate-500 mt-1 max-w-xs mx-auto">Tente alterar os termos de busca ou os filtros de distrito/status selecionados.</p>
+        <p class="text-xs text-slate-500 mt-1 max-w-xs mx-auto">Tente ajustar os filtros de status da rede, presença de pastor ou distrito.</p>
       </div>
     </div>
 
@@ -235,12 +261,12 @@
         <div id="mapa-container" class="w-full h-[540px] sm:h-[620px] rounded-xl z-10"></div>
         
         <!-- Legenda Flutuante do Mapa -->
-        <div class="absolute bottom-6 left-6 z-20 bg-white/95 backdrop-blur-sm p-3.5 rounded-xl border border-slate-200 shadow-lg text-xs space-y-2 max-w-[250px]">
-          <h4 class="font-bold text-slate-900 text-[11px] uppercase tracking-wider">Legenda do Mapa</h4>
+        <div class="absolute bottom-6 left-6 z-20 bg-white/95 backdrop-blur-sm p-3.5 rounded-xl border border-slate-200 shadow-lg text-xs space-y-2 max-w-[260px]">
+          <h4 class="font-bold text-slate-900 text-[11px] uppercase tracking-wider">Status da Rede de Igrejas</h4>
           <div class="space-y-1.5 text-[11px]">
             <div class="flex items-center gap-2">
               <span class="w-3 h-3 rounded-full bg-emerald-500 border border-white shadow-sm flex-shrink-0"></span>
-              <span class="text-slate-700 font-medium">Bairro com Igreja Ativa</span>
+              <span class="text-slate-700 font-medium">Ativo na rede</span>
             </div>
             <div class="flex items-center gap-2">
               <span class="w-3 h-3 rounded-full bg-blue-500 border border-white shadow-sm flex-shrink-0"></span>
@@ -251,11 +277,19 @@
               <span class="text-slate-700 font-medium">Pendente de aceite</span>
             </div>
             <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-rose-500 border border-white shadow-sm flex-shrink-0"></span>
+              <span class="text-slate-700 font-medium">Convite não aceito</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-slate-400 border border-white shadow-sm flex-shrink-0"></span>
+              <span class="text-slate-700 font-medium">Sem convite</span>
+            </div>
+            <div class="flex items-center gap-2">
               <span class="w-3 h-3 rounded-full bg-amber-400 border border-white shadow-sm flex-shrink-0"></span>
               <span class="text-slate-700 font-medium">Sem Igreja Cadastrada</span>
             </div>
           </div>
-          <p class="text-[10px] text-slate-400 pt-1 border-t border-slate-100">Coordenadas geocodificadas reais dos 91 bairros.</p>
+          <p class="text-[10px] text-slate-400 pt-1 border-t border-slate-100">Clique nos marcadores para ver as congregações e gerenciar.</p>
         </div>
       </div>
     </div>
@@ -264,7 +298,7 @@
 
   <!-- Rodapé -->
   <footer class="mt-auto border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-500">
-    Mapeamento Cooperativo Oficial • São Gonçalo/RJ • 91 Bairros em 5 Distritos
+    Status da Rede de Igrejas • Mapeamento Cooperativo São Gonçalo/RJ
   </footer>
 
   <!-- Modal de Edição de Bairro e Múltiplas Igrejas -->
@@ -278,7 +312,7 @@
           </div>
           <div>
             <h3 id="modal-titulo" class="font-bold text-slate-900 text-sm">Gerenciar Igrejas do Bairro</h3>
-            <p id="modal-subtitulo" class="text-[11px] text-slate-500">Cadastre uma ou mais congregações para este local</p>
+            <p id="modal-subtitulo" class="text-[11px] text-slate-500">Status da Rede de Igrejas e pastores responsáveis</p>
           </div>
         </div>
         <button onclick="fecharModalEdicao()" class="text-slate-400 hover:text-slate-600 rounded-lg p-1.5 text-lg transition">
@@ -380,7 +414,6 @@
   </div>
 
   <script>
-    // Dicionário de distritos de São Gonçalo
     const NOMES_DISTRITOS = {
       1: "1º Distrito (Centro / Alcântara)",
       2: "2º Distrito (Ipiíba / Arsenal)",
@@ -389,7 +422,6 @@
       5: "5º Distrito (Sete Pontes / Covanca)"
     };
 
-    // Dados base oficiais dos 91 bairros com Distritos (1 a 5)
     const DADOS_BAIRROS_BASE = [
   {
     "distrito": 1,
@@ -1029,8 +1061,6 @@
     "status": "OK"
   }
 ];
-
-    // Dicionário completo de Coordenadas Geocodificadas Reais
     const COORDENADAS_SG = {
   "Palmeira": [
     -22.7702,
@@ -1414,8 +1444,9 @@
             {
               id: "ig-mutondo-1",
               nome: "Igreja Batista da Manhã",
+              tem_pastor: true,
               pastor: "Pastor Hugo Campos",
-              status: "ativo",
+              status: "ativo_na_rede",
               obs: "Informado na lista oficial"
             }
           ]
@@ -1431,6 +1462,7 @@
 
     let bairros = [];
     let filtroAtual = 'todos';
+    let filtroPastor = 'todos'; // 'todos', 'com_pastor', 'sem_pastor'
     let distritoAtual = 'todos';
     let visaoAtual = 'lista';
     let leafletMap = null;
@@ -1439,23 +1471,101 @@
     // Determina o status geral do bairro com base nas suas igrejas
     function getStatusBairro(item) {
       if (!item.igrejas || item.igrejas.length === 0) {
-        return 'pendente';
+        return 'sem_igreja';
       }
-      const statuses = item.igrejas.map(i => i.status || 'pendente');
-      if (statuses.includes('ativo')) return 'ativo';
+      const statuses = item.igrejas.map(i => i.status || 'sem_convite');
+      if (statuses.includes('ativo_na_rede') || statuses.includes('ativo')) return 'ativo_na_rede';
       if (statuses.includes('pendente_aceite')) return 'pendente_aceite';
       if (statuses.includes('pendente_convite')) return 'pendente_convite';
-      return 'pendente';
+      if (statuses.includes('convite_recusado') || statuses.includes('inativo')) return 'convite_recusado';
+      if (statuses.includes('sem_convite')) return 'sem_convite';
+      return 'sem_convite';
+    }
+
+    // Configuração visual dos status
+    function getStatusConfig(status) {
+      switch (status) {
+        case 'ativo_na_rede':
+        case 'ativo':
+          return {
+            label: 'Ativo na rede',
+            badgeBg: 'bg-emerald-100/90 text-emerald-800 border border-emerald-200',
+            cardBorder: 'border-emerald-300 bg-emerald-50/15',
+            icon: 'ph-check-circle',
+            colorHex: '#10b981',
+            pinClass: 'bg-emerald-600'
+          };
+        case 'pendente_convite':
+          return {
+            label: 'Pendente de convite',
+            sublabel: 'para ingressar na rede',
+            badgeBg: 'bg-blue-100/90 text-blue-800 border border-blue-200',
+            cardBorder: 'border-blue-300 bg-blue-50/15',
+            icon: 'ph-paper-plane-tilt',
+            colorHex: '#3b82f6',
+            pinClass: 'bg-blue-600'
+          };
+        case 'pendente_aceite':
+          return {
+            label: 'Pendente de aceite',
+            sublabel: 'falta aceitar o convite',
+            badgeBg: 'bg-purple-100/90 text-purple-800 border border-purple-200',
+            cardBorder: 'border-purple-300 bg-purple-50/15',
+            icon: 'ph-hourglass-high',
+            colorHex: '#a855f7',
+            pinClass: 'bg-purple-600'
+          };
+        case 'convite_recusado':
+        case 'inativo':
+          return {
+            label: 'Convite não aceito',
+            badgeBg: 'bg-rose-100/90 text-rose-800 border border-rose-200',
+            cardBorder: 'border-rose-300 bg-rose-50/15',
+            icon: 'ph-x-circle',
+            colorHex: '#f43f5e',
+            pinClass: 'bg-rose-600'
+          };
+        case 'sem_convite':
+          return {
+            label: 'Sem convite',
+            badgeBg: 'bg-slate-100 text-slate-700 border border-slate-200',
+            cardBorder: 'border-slate-300 bg-slate-50/30',
+            icon: 'ph-minus-circle',
+            colorHex: '#64748b',
+            pinClass: 'bg-slate-500'
+          };
+        case 'sem_igreja':
+        case 'pendente':
+        default:
+          return {
+            label: 'Sem Igreja',
+            badgeBg: 'bg-amber-100/90 text-amber-800 border border-amber-200',
+            cardBorder: 'border-slate-200 bg-white',
+            icon: 'ph-warning-circle',
+            colorHex: '#f59e0b',
+            pinClass: 'bg-amber-500'
+          };
+      }
+    }
+
+    function normalizarStatus(statusAntigo) {
+      if (!statusAntigo) return 'sem_convite';
+      if (statusAntigo === 'ativo') return 'ativo_na_rede';
+      if (statusAntigo === 'inativo') return 'convite_recusado';
+      if (statusAntigo === 'pendente') return 'sem_convite';
+      return statusAntigo;
     }
 
     function carregarDadosIniciais() {
-      const salvoV4 = localStorage.getItem('sg_mapeamento_bairros_91_v4');
-      const salvoV3 = localStorage.getItem('sg_mapeamento_bairros_91_v3');
-      const salvoV2 = localStorage.getItem('sg_mapeamento_bairros_91_v2') || localStorage.getItem('sg_mapeamento_bairros_91');
+      const salvoV6 = localStorage.getItem('sg_mapeamento_bairros_91_v6');
+      const salvoAntigo = localStorage.getItem('sg_mapeamento_bairros_91_v5') || 
+                          localStorage.getItem('sg_mapeamento_bairros_91_v4') || 
+                          localStorage.getItem('sg_mapeamento_bairros_91_v3') || 
+                          localStorage.getItem('sg_mapeamento_bairros_91');
 
-      if (salvoV4) {
+      if (salvoV6) {
         try {
-          const dados = JSON.parse(salvoV4);
+          const dados = JSON.parse(salvoV6);
           if (Array.isArray(dados) && dados.length > 0) {
             bairros = dados;
           } else {
@@ -1464,13 +1574,12 @@
         } catch (e) {
           bairros = [...BAIRROS_PADRAO];
         }
-      } else if (salvoV3 || salvoV2) {
+      } else if (salvoAntigo) {
         try {
-          const dadosAnteriores = JSON.parse(salvoV3 || salvoV2);
-          if (Array.isArray(dadosAnteriores)) {
-            // Mapeia preservando congregações cadastradas e inserindo o distrito oficial
+          const dadosAnt = JSON.parse(salvoAntigo);
+          if (Array.isArray(dadosAnt)) {
             bairros = BAIRROS_PADRAO.map(bBase => {
-              const correspondente = dadosAnteriores.find(d => 
+              const correspondente = dadosAnt.find(d => 
                 (d.bairro && d.bairro.toLowerCase() === bBase.bairro.toLowerCase()) || 
                 (d.id === bBase.id)
               );
@@ -1480,10 +1589,17 @@
                   igrejas = [{
                     id: "ig-" + Math.random().toString(36).substr(2, 9),
                     nome: correspondente.igreja.trim(),
+                    tem_pastor: (correspondente.pastor && correspondente.pastor.trim() !== ""),
                     pastor: correspondente.pastor ? correspondente.pastor.trim() : "",
-                    status: correspondente.status || "ativo",
+                    status: normalizarStatus(correspondente.status),
                     obs: correspondente.obs ? correspondente.obs.trim() : ""
                   }];
+                } else if (Array.isArray(igrejas)) {
+                  igrejas = igrejas.map(ig => ({
+                    ...ig,
+                    status: normalizarStatus(ig.status),
+                    tem_pastor: ig.tem_pastor !== undefined ? ig.tem_pastor : (ig.pastor && ig.pastor.trim() !== "")
+                  }));
                 }
                 return {
                   ...bBase,
@@ -1509,76 +1625,40 @@
     }
 
     function salvarNoStorage() {
-      localStorage.setItem('sg_mapeamento_bairros_91_v4', JSON.stringify(bairros));
-    }
-
-    function getStatusConfig(status) {
-      switch (status) {
-        case 'ativo':
-          return {
-            label: 'Ativo',
-            badgeBg: 'bg-emerald-100/90 text-emerald-800 border border-emerald-200',
-            cardBorder: 'border-emerald-300 bg-emerald-50/15',
-            icon: 'ph-check-circle',
-            colorHex: '#10b981',
-            pinClass: 'bg-emerald-600'
-          };
-        case 'pendente_convite':
-          return {
-            label: 'Pendente de convite',
-            badgeBg: 'bg-blue-100/90 text-blue-800 border border-blue-200',
-            cardBorder: 'border-blue-300 bg-blue-50/15',
-            icon: 'ph-paper-plane-tilt',
-            colorHex: '#3b82f6',
-            pinClass: 'bg-blue-600'
-          };
-        case 'pendente_aceite':
-          return {
-            label: 'Pendente de aceite',
-            badgeBg: 'bg-purple-100/90 text-purple-800 border border-purple-200',
-            cardBorder: 'border-purple-300 bg-purple-50/15',
-            icon: 'ph-hourglass-high',
-            colorHex: '#a855f7',
-            pinClass: 'bg-purple-600'
-          };
-        case 'pendente':
-        default:
-          return {
-            label: 'Sem Igreja',
-            badgeBg: 'bg-amber-100/90 text-amber-800 border border-amber-200',
-            cardBorder: 'border-slate-200 bg-white',
-            icon: 'ph-clock',
-            colorHex: '#f59e0b',
-            pinClass: 'bg-amber-500'
-          };
-      }
+      localStorage.setItem('sg_mapeamento_bairros_91_v6', JSON.stringify(bairros));
     }
 
     function atualizarEstatisticas() {
       const totalBairros = bairros.length;
       let totalIgrejas = 0;
-      let ativos = 0;
+      let ativoNaRede = 0;
       let pendConvite = 0;
       let pendAceite = 0;
-      let pendentes = 0;
+      let conviteRecusado = 0;
+      let semConvite = 0;
+      let semIgreja = 0;
 
       bairros.forEach(b => {
         totalIgrejas += (b.igrejas ? b.igrejas.length : 0);
         const st = getStatusBairro(b);
-        if (st === 'ativo') ativos++;
+        if (st === 'ativo_na_rede') ativoNaRede++;
         else if (st === 'pendente_convite') pendConvite++;
         else if (st === 'pendente_aceite') pendAceite++;
-        else pendentes++;
+        else if (st === 'convite_recusado') conviteRecusado++;
+        else if (st === 'sem_convite') semConvite++;
+        else semIgreja++;
       });
       
-      const pct = totalBairros > 0 ? Math.round((ativos / totalBairros) * 100) : 0;
+      const pct = totalBairros > 0 ? Math.round((ativoNaRede / totalBairros) * 100) : 0;
 
       document.getElementById('stat-total').innerText = totalBairros;
       document.getElementById('stat-total-igrejas').innerText = totalIgrejas;
-      document.getElementById('stat-ativos').innerText = ativos;
-      document.getElementById('stat-pendente-convite').innerText = pendConvite;
-      document.getElementById('stat-pendente-aceite').innerText = pendAceite;
-      document.getElementById('stat-pendentes').innerText = pendentes;
+      document.getElementById('stat-ativo-rede').innerText = ativoNaRede;
+      document.getElementById('stat-pend-convite').innerText = pendConvite;
+      document.getElementById('stat-pend-aceite').innerText = pendAceite;
+      document.getElementById('stat-nao-aceito').innerText = conviteRecusado;
+      document.getElementById('stat-sem-convite').innerText = semConvite;
+      document.getElementById('stat-sem-igreja').innerText = semIgreja;
       document.getElementById('stat-porcentagem').innerText = pct + '%';
       document.getElementById('progresso-fill').style.width = pct + '%';
     }
@@ -1611,9 +1691,9 @@
         const el = document.getElementById('distrito-' + d);
         if (el) {
           if (d == dist) {
-            el.className = "px-2.5 py-1 rounded-lg font-semibold bg-slate-900 text-white shadow-2xs transition whitespace-nowrap";
+            el.className = "px-2 py-1 rounded-lg font-semibold bg-slate-900 text-white text-[11px] transition whitespace-nowrap shadow-2xs";
           } else {
-            el.className = "px-2.5 py-1 rounded-lg font-medium bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 transition whitespace-nowrap";
+            el.className = "px-2 py-1 rounded-lg font-medium bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 text-[11px] transition whitespace-nowrap";
           }
         }
       });
@@ -1623,7 +1703,7 @@
     function setFiltro(tipo) {
       filtroAtual = tipo;
       
-      const filtros = ['todos', 'ativo', 'pendente_convite', 'pendente_aceite', 'pendente'];
+      const filtros = ['todos', 'ativo_na_rede', 'pendente_convite', 'pendente_aceite', 'convite_recusado', 'sem_convite', 'sem_igreja'];
       filtros.forEach(f => {
         const el = document.getElementById('filtro-' + f);
         if (el) {
@@ -1631,15 +1711,37 @@
             el.className = "px-2.5 py-1 rounded-lg font-semibold bg-slate-800 text-white shadow-2xs transition whitespace-nowrap";
           } else {
             let corClasses = "text-slate-600 border-slate-200 hover:bg-slate-100";
-            if (f === 'ativo') corClasses = "text-emerald-700 border-emerald-200 hover:bg-emerald-50";
+            if (f === 'ativo_na_rede') corClasses = "text-emerald-700 border-emerald-200 hover:bg-emerald-50";
             if (f === 'pendente_convite') corClasses = "text-blue-700 border-blue-200 hover:bg-blue-50";
             if (f === 'pendente_aceite') corClasses = "text-purple-700 border-purple-200 hover:bg-purple-50";
-            if (f === 'pendente') corClasses = "text-amber-700 border-amber-200 hover:bg-amber-50";
+            if (f === 'convite_recusado') corClasses = "text-rose-700 border-rose-200 hover:bg-rose-50";
+            if (f === 'sem_convite') corClasses = "text-slate-700 border-slate-200 hover:bg-slate-100";
+            if (f === 'sem_igreja') corClasses = "text-amber-700 border-amber-200 hover:bg-amber-50";
             el.className = `px-2.5 py-1 rounded-lg font-medium bg-white border ${corClasses} transition whitespace-nowrap`;
           }
         }
       });
 
+      filtrarDados();
+    }
+
+    function setFiltroPastor(tipo) {
+      filtroPastor = tipo;
+      const tipos = ['todos', 'com_pastor', 'sem_pastor'];
+      tipos.forEach(t => {
+        const id = t === 'todos' ? 'pastor-todos' : (t === 'com_pastor' ? 'pastor-com' : 'pastor-sem');
+        const el = document.getElementById(id);
+        if (el) {
+          if (t === tipo) {
+            el.className = "px-2.5 py-1 rounded-lg font-semibold bg-slate-900 text-white shadow-2xs transition whitespace-nowrap flex items-center gap-1";
+          } else {
+            let cor = "text-slate-700 border-slate-200 hover:bg-slate-100";
+            if (t === 'com_pastor') cor = "text-emerald-700 border-emerald-200 hover:bg-emerald-50";
+            if (t === 'sem_pastor') cor = "text-amber-700 border-amber-200 hover:bg-amber-50";
+            el.className = `px-2.5 py-1 rounded-lg font-medium bg-white border ${cor} transition whitespace-nowrap flex items-center gap-1`;
+          }
+        }
+      });
       filtrarDados();
     }
 
@@ -1653,13 +1755,27 @@
         }
 
         // Filtro de Status
-        let atendeFiltro = false;
+        let atendeFiltroStatus = false;
         if (filtroAtual === 'todos') {
-          atendeFiltro = true;
-        } else if (filtroAtual === 'pendente') {
-          atendeFiltro = (!item.igrejas || item.igrejas.length === 0);
+          atendeFiltroStatus = true;
+        } else if (filtroAtual === 'sem_igreja') {
+          atendeFiltroStatus = (!item.igrejas || item.igrejas.length === 0);
         } else {
-          atendeFiltro = item.igrejas && item.igrejas.some(i => i.status === filtroAtual);
+          atendeFiltroStatus = item.igrejas && item.igrejas.some(i => i.status === filtroAtual);
+        }
+
+        if (!atendeFiltroStatus) return false;
+
+        // Filtro Pastor (Com pastor / Sem pastor)
+        if (filtroPastor !== 'todos') {
+          if (!item.igrejas || item.igrejas.length === 0) {
+            if (filtroPastor === 'com_pastor') return false;
+          } else {
+            const hasComPastor = item.igrejas.some(i => i.tem_pastor || (i.pastor && i.pastor.trim() !== ''));
+            const hasSemPastor = item.igrejas.some(i => !i.tem_pastor && (!i.pastor || i.pastor.trim() === ''));
+            if (filtroPastor === 'com_pastor' && !hasComPastor) return false;
+            if (filtroPastor === 'sem_pastor' && !hasSemPastor) return false;
+          }
         }
 
         // Busca textual
@@ -1678,7 +1794,7 @@
                             `${item.distrito} distrito`.includes(busca) ||
                             matchIgrejas;
 
-        return atendeFiltro && atendeBusca;
+        return atendeBusca;
       });
     }
 
@@ -1717,22 +1833,33 @@
           corpoIgrejas = `
             <div class="space-y-2 my-3 max-h-48 overflow-y-auto pr-1">
               ${item.igrejas.map((ig) => {
-                const igConf = getStatusConfig(ig.status || 'ativo');
+                const igConf = getStatusConfig(ig.status || 'sem_convite');
+                const temPastor = ig.tem_pastor || (ig.pastor && ig.pastor.trim() !== '');
                 return `
-                  <div class="p-2.5 rounded-xl bg-slate-50/80 border border-slate-200/80 text-xs space-y-1">
+                  <div class="p-2.5 rounded-xl bg-slate-50/90 border border-slate-200/90 text-xs space-y-1.5">
                     <div class="flex items-center justify-between gap-1.5">
                       <strong class="text-slate-900 truncate font-semibold">${escapeHtml(ig.nome || 'Igreja Sem Nome')}</strong>
                       <span class="text-[10px] font-semibold ${igConf.badgeBg} px-2 py-0.5 rounded-full whitespace-nowrap">
                         ${igConf.label}
                       </span>
                     </div>
-                    ${ig.pastor ? `
-                      <p class="text-slate-600 text-[11px] flex items-center gap-1.5 truncate">
-                        <i class="ph ph-user text-slate-400"></i> ${escapeHtml(ig.pastor)}
-                      </p>
-                    ` : ''}
+                    
+                    <div class="flex items-center justify-between gap-1.5 text-[11px]">
+                      ${temPastor ? `
+                        <span class="text-slate-700 flex items-center gap-1 truncate">
+                          <i class="ph ph-user text-emerald-600"></i> ${escapeHtml(ig.pastor || 'Pastor titular')}
+                        </span>
+                        <span class="text-[9px] bg-emerald-50 text-emerald-700 font-semibold px-1.5 py-0.5 rounded border border-emerald-200">Com pastor</span>
+                      ` : `
+                        <span class="text-slate-400 italic flex items-center gap-1">
+                          <i class="ph ph-user-minus text-slate-400"></i> Sem pastor
+                        </span>
+                        <span class="text-[9px] bg-amber-50 text-amber-700 font-semibold px-1.5 py-0.5 rounded border border-amber-200">Sem pastor</span>
+                      `}
+                    </div>
+
                     ${ig.obs ? `
-                      <p class="text-slate-500 text-[10px] line-clamp-1 italic">
+                      <p class="text-slate-500 text-[10px] line-clamp-1 italic pt-0.5">
                         "${escapeHtml(ig.obs)}"
                       </p>
                     ` : ''}
@@ -1820,14 +1947,17 @@
           igrejasHtml = `
             <div class="space-y-1.5 max-h-40 overflow-y-auto pr-1">
               ${item.igrejas.map(ig => {
-                const igConf = getStatusConfig(ig.status || 'ativo');
+                const igConf = getStatusConfig(ig.status || 'sem_convite');
+                const temPastor = ig.tem_pastor || (ig.pastor && ig.pastor.trim() !== '');
                 return `
                   <div class="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs">
                     <div class="flex items-center justify-between gap-1">
                       <span class="font-bold text-slate-800 truncate">${escapeHtml(ig.nome)}</span>
                       <span class="text-[9px] font-semibold ${igConf.badgeBg} px-1.5 py-0.2 rounded">${igConf.label}</span>
                     </div>
-                    ${ig.pastor ? `<p class="text-slate-600 text-[10px]">Pr. ${escapeHtml(ig.pastor)}</p>` : ''}
+                    <div class="flex items-center justify-between text-[10px] text-slate-600 mt-0.5">
+                      ${temPastor ? `<span>Pr. ${escapeHtml(ig.pastor || 'Informado')}</span>` : `<span class="text-slate-400 italic">Sem pastor</span>`}
+                    </div>
                     ${ig.obs ? `<p class="text-slate-400 text-[9px] italic truncate">${escapeHtml(ig.obs)}</p>` : ''}
                   </div>
                 `;
@@ -1859,7 +1989,6 @@
       });
     }
 
-    // Modal de Edição com Formulário de Múltiplas Igrejas
     let formIgrejasArray = [];
 
     function abrirModalEdicao(id) {
@@ -1876,7 +2005,10 @@
         document.getElementById('edit-bairro').value = item.bairro;
         document.getElementById('edit-distrito').value = item.distrito || 1;
         
-        formIgrejasArray = (item.igrejas || []).map(ig => ({ ...ig }));
+        formIgrejasArray = (item.igrejas || []).map(ig => ({ 
+          ...ig,
+          tem_pastor: ig.tem_pastor !== undefined ? ig.tem_pastor : (ig.pastor && ig.pastor.trim() !== '')
+        }));
       } else {
         titulo.innerText = "Adicionar Novo Bairro";
         subtitulo.innerText = "Cadastre um novo bairro e suas congregações";
@@ -1898,8 +2030,9 @@
       formIgrejasArray.push({
         id: "ig-" + Math.random().toString(36).substr(2, 9),
         nome: "",
+        tem_pastor: true,
         pastor: "",
-        status: "ativo",
+        status: "ativo_na_rede",
         obs: ""
       });
       renderizarFormIgrejas();
@@ -1922,6 +2055,13 @@
       }
     }
 
+    function toggleTemPastorForm(index, checked) {
+      if (formIgrejasArray[index]) {
+        formIgrejasArray[index].tem_pastor = checked;
+        renderizarFormIgrejas();
+      }
+    }
+
     function renderizarFormIgrejas() {
       const container = document.getElementById('lista-igrejas-form');
       const empty = document.getElementById('empty-igrejas-form');
@@ -1934,6 +2074,7 @@
 
       empty.classList.add('hidden');
       container.innerHTML = formIgrejasArray.map((ig, idx) => {
+        const temPastor = ig.tem_pastor !== false;
         return `
           <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 relative space-y-2.5">
             <div class="flex items-center justify-between gap-2 border-b border-slate-200/80 pb-2">
@@ -1954,38 +2095,60 @@
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <div class="sm:col-span-2">
-                <label class="block text-[11px] font-semibold text-slate-600 mb-1">Status da Congregação</label>
+                <label class="block text-[11px] font-semibold text-slate-600 mb-1">Status da Rede de Igrejas</label>
                 <select 
                   onchange="atualizarCampoIgrejaForm(${idx}, 'status', this.value)"
                   class="w-full text-xs border border-slate-300 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
                 >
-                  <option value="ativo" ${ig.status === 'ativo' ? 'selected' : ''}>🟢 Ativo (Confirmado)</option>
-                  <option value="pendente_convite" ${ig.status === 'pendente_convite' ? 'selected' : ''}>🔵 Pendente de convite (Aguardando envio)</option>
-                  <option value="pendente_aceite" ${ig.status === 'pendente_aceite' ? 'selected' : ''}>🟣 Pendente de aceite (Convite enviado)</option>
-                  <option value="pendente" ${ig.status === 'pendente' ? 'selected' : ''}>🟡 Pendente</option>
+                  <option value="ativo_na_rede" ${ig.status === 'ativo_na_rede' ? 'selected' : ''}>🟢 Ativo na rede</option>
+                  <option value="pendente_convite" ${ig.status === 'pendente_convite' ? 'selected' : ''}>🔵 Pendente de convite (para ingressar na rede)</option>
+                  <option value="pendente_aceite" ${ig.status === 'pendente_aceite' ? 'selected' : ''}>🟣 Pendente de aceite (falta aceitar o convite)</option>
+                  <option value="convite_recusado" ${ig.status === 'convite_recusado' ? 'selected' : ''}>🔴 Convite não aceito</option>
+                  <option value="sem_convite" ${ig.status === 'sem_convite' ? 'selected' : ''}>⚪ Sem convite</option>
                 </select>
               </div>
 
-              <div>
+              <div class="sm:col-span-2">
                 <label class="block text-[11px] font-semibold text-slate-600 mb-1">Nome da Igreja / Denominação</label>
                 <input 
                   type="text" 
                   value="${escapeHtml(ig.nome || '')}" 
                   oninput="atualizarCampoIgrejaForm(${idx}, 'nome', this.value)"
-                  placeholder="Ex: Primeira Igreja Batista, ADVEC..." 
+                  placeholder="Ex: Primeira Igreja Batista, ADVEC, Presbiteriana..." 
                   class="input-nome-igreja w-full text-xs border border-slate-300 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
                 >
               </div>
 
-              <div>
-                <label class="block text-[11px] font-semibold text-slate-600 mb-1">Pastor / Líder Responsável</label>
-                <input 
-                  type="text" 
-                  value="${escapeHtml(ig.pastor || '')}" 
-                  oninput="atualizarCampoIgrejaForm(${idx}, 'pastor', this.value)"
-                  placeholder="Ex: Pr. Davi Barreto..." 
-                  class="w-full text-xs border border-slate-300 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
-                >
+              <!-- Checkbox Com Pastor / Sem Pastor e Input -->
+              <div class="sm:col-span-2 bg-white p-2.5 rounded-xl border border-slate-200/80 space-y-2">
+                <div class="flex items-center justify-between">
+                  <label class="flex items-center gap-2 cursor-pointer select-none text-xs font-semibold text-slate-700">
+                    <input 
+                      type="checkbox" 
+                      ${temPastor ? 'checked' : ''} 
+                      onchange="toggleTemPastorForm(${idx}, this.checked)"
+                      class="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300"
+                    >
+                    <span>Possui Pastor / Líder Responsável</span>
+                  </label>
+                  <span class="text-[10px] font-semibold ${temPastor ? 'text-emerald-700 bg-emerald-50' : 'text-amber-700 bg-amber-50'} px-2 py-0.5 rounded border ${temPastor ? 'border-emerald-200' : 'border-amber-200'}">
+                    ${temPastor ? 'Com pastor' : 'Sem pastor'}
+                  </span>
+                </div>
+
+                ${temPastor ? `
+                  <div>
+                    <input 
+                      type="text" 
+                      value="${escapeHtml(ig.pastor || '')}" 
+                      oninput="atualizarCampoIgrejaForm(${idx}, 'pastor', this.value)"
+                      placeholder="Nome do Pastor (Ex: Pr. Davi Barreto...)" 
+                      class="w-full text-xs border border-slate-300 rounded-xl px-3 py-2 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+                    >
+                  </div>
+                ` : `
+                  <p class="text-[11px] text-slate-400 italic">Igreja marcada como sem pastor responsável no momento.</p>
+                `}
               </div>
 
               <div class="sm:col-span-2">
@@ -1994,7 +2157,7 @@
                   type="text" 
                   value="${escapeHtml(ig.obs || '')}" 
                   oninput="atualizarCampoIgrejaForm(${idx}, 'obs', this.value)"
-                  placeholder="Endereço, dia de culto, telefone..." 
+                  placeholder="Endereço, dia de culto, telefone de contato..." 
                   class="w-full text-xs border border-slate-300 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
                 >
               </div>
@@ -2014,13 +2177,17 @@
 
       const igrejasValidas = formIgrejasArray.filter(ig => {
         return (ig.nome && ig.nome.trim() !== "") || (ig.pastor && ig.pastor.trim() !== "") || (ig.obs && ig.obs.trim() !== "");
-      }).map(ig => ({
-        id: ig.id || ("ig-" + Math.random().toString(36).substr(2, 9)),
-        nome: (ig.nome || "").trim(),
-        pastor: (ig.pastor || "").trim(),
-        status: ig.status || "ativo",
-        obs: (ig.obs || "").trim()
-      }));
+      }).map(ig => {
+        const temPastor = ig.tem_pastor !== false;
+        return {
+          id: ig.id || ("ig-" + Math.random().toString(36).substr(2, 9)),
+          nome: (ig.nome || "").trim(),
+          tem_pastor: temPastor,
+          pastor: temPastor ? (ig.pastor || "").trim() : "",
+          status: ig.status || "ativo_na_rede",
+          obs: (ig.obs || "").trim()
+        };
+      });
 
       if (idVal) {
         const index = bairros.findIndex(b => b.id === parseInt(idVal, 10));
@@ -2048,21 +2215,22 @@
 
     function exportarCSV() {
       const linhas = [];
-      linhas.push("id,distrito,bairro,status_geral,qtd_igrejas,igrejas_nomes,pastores");
+      linhas.push("id,distrito,bairro,status_geral,qtd_igrejas,igrejas_nomes,pastores,tem_pastor");
       
       bairros.forEach(b => {
         const st = getStatusBairro(b);
         const qtd = b.igrejas ? b.igrejas.length : 0;
         const nomes = b.igrejas ? b.igrejas.map(i => i.nome).join(' | ') : '';
-        const pastores = b.igrejas ? b.igrejas.map(i => i.pastor).join(' | ') : '';
-        linhas.push(`${b.id},${b.distrito},"${b.bairro}",${st},${qtd},"${nomes}","${pastores}"`);
+        const pastores = b.igrejas ? b.igrejas.map(i => (i.tem_pastor ? i.pastor : 'Sem pastor')).join(' | ') : '';
+        const temPastorStr = b.igrejas ? b.igrejas.map(i => (i.tem_pastor ? 'Sim' : 'Não')).join(' | ') : '';
+        linhas.push(`${b.id},${b.distrito},"${b.bairro}",${st},${qtd},"${nomes}","${pastores}","${temPastorStr}"`);
       });
 
       const blob = new Blob([linhas.join('\n')], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'mapeamento_igrejas_sg.csv';
+      a.download = 'status_rede_de_igrejas_sg.csv';
       a.click();
       URL.revokeObjectURL(url);
     }
