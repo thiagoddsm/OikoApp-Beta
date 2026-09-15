@@ -1,0 +1,1007 @@
+{
+  "resultados": [
+    {
+      "distrito": 1,
+      "bairro": "Palmeira",
+      "latitude": -22.7702,
+      "longitude": -43.0177,
+      "status": "OK"
+    },
+    {
+      "distrito": 1,
+      "bairro": "Itaoca",
+      "latitude": -22.7835,
+      "longitude": -43.0648,
+      "status": "OK"
+    },
+    {
+      "distrito": 1,
+      "bairro": "Fazenda dos Mineiros",
+      "latitude": -22.7827,
+      "longitude": -43.0335,
+      "status": "OK"
+    },
+    {
+      "distrito": 1,
+      "bairro": "Porto do Rosa",
+      "latitude": -22.7971,
+      "longitude": -43.0435,
+      "status": "OK"
+    },
+    {
+      "distrito": 1,
+      "bairro": "Boaçu",
+      "latitude": -22.8098,
+      "longitude": -43.0505,
+      "status": "OK"
+    },
+    {
+      "distrito": 1,
+      "bairro": "Zé Garoto",
+      "latitude": -22.8286118,
+      "longitude": -43.0546614,
+      "status": "OK"
+    },
+    {
+      "distrito": 1,
+      "bairro": "Brasilândia",
+      "latitude": -22.8216778,
+      "longitude": -43.0568403,
+      "status": "OK"
+    },
+    {
+      "distrito": 1,
+      "bairro": "Rosane",
+      "latitude": -22.8191,
+      "longitude": -43.0559,
+      "status": "OK"
+    },
+    {
+      "distrito": 1,
+      "bairro": "Vila Lara",
+      "latitude": -22.825,
+      "longitude": -43.051,
+      "status": "OK"
+    },
+    {
+      "distrito": 1,
+      "bairro": "Centro",
+      "latitude": -22.8234,
+      "longitude": -43.0473,
+      "status": "OK"
+    },
+    {
+      "distrito": 1,
+      "bairro": "Rocha",
+      "latitude": -22.8331,
+      "longitude": -43.0415,
+      "status": "OK"
+    },
+    {
+      "distrito": 1,
+      "bairro": "Lindo Parque",
+      "latitude": -22.8367,
+      "longitude": -43.0532,
+      "status": "OK"
+    },
+    {
+      "distrito": 1,
+      "bairro": "Tribobó",
+      "latitude": -22.8582096,
+      "longitude": -43.0289571,
+      "status": "OK"
+    },
+    {
+      "distrito": 1,
+      "bairro": "Colubandê",
+      "latitude": -22.8411,
+      "longitude": -43.0138,
+      "status": "OK"
+    },
+    {
+      "distrito": 1,
+      "bairro": "Mutondo",
+      "latitude": -22.8238,
+      "longitude": -43.0183,
+      "status": "OK"
+    },
+    {
+      "distrito": 1,
+      "bairro": "Galo Branco",
+      "latitude": -22.8265,
+      "longitude": -43.0327,
+      "status": "OK"
+    },
+    {
+      "distrito": 1,
+      "bairro": "Estrela do Norte",
+      "latitude": -22.8204,
+      "longitude": -43.0382,
+      "status": "OK"
+    },
+    {
+      "distrito": 1,
+      "bairro": "São Miguel",
+      "latitude": -22.8158,
+      "longitude": -43.0343,
+      "status": "OK"
+    },
+    {
+      "distrito": 1,
+      "bairro": "Mutuá",
+      "latitude": -22.8121,
+      "longitude": -43.041,
+      "status": "OK"
+    },
+    {
+      "distrito": 1,
+      "bairro": "Mutuaguaçu",
+      "latitude": -22.8064,
+      "longitude": -43.0412,
+      "status": "OK"
+    },
+    {
+      "distrito": 1,
+      "bairro": "Mutuapira",
+      "latitude": -22.803,
+      "longitude": -43.032,
+      "status": "OK"
+    },
+    {
+      "distrito": 1,
+      "bairro": "Cruzeiro do Sul",
+      "latitude": -22.8089,
+      "longitude": -43.0293,
+      "status": "OK"
+    },
+    {
+      "distrito": 1,
+      "bairro": "Antonina",
+      "latitude": -22.8161,
+      "longitude": -43.0277,
+      "status": "OK"
+    },
+    {
+      "distrito": 1,
+      "bairro": "Nova Cidade",
+      "latitude": -22.8083,
+      "longitude": -43.024,
+      "status": "OK"
+    },
+    {
+      "distrito": 1,
+      "bairro": "Trindade",
+      "latitude": -22.8065,
+      "longitude": -43.0149,
+      "status": "OK"
+    },
+    {
+      "distrito": 1,
+      "bairro": "Luiz Caçador",
+      "latitude": -22.7942,
+      "longitude": -43.0197,
+      "status": "OK"
+    },
+    {
+      "distrito": 1,
+      "bairro": "Recanto das Acácias",
+      "latitude": -22.7903,
+      "longitude": -43.0201,
+      "status": "OK"
+    },
+    {
+      "distrito": 1,
+      "bairro": "Itaúna",
+      "latitude": -22.7917,
+      "longitude": -43.0312,
+      "status": "OK"
+    },
+    {
+      "distrito": 1,
+      "bairro": "Salgueiro",
+      "latitude": -22.7816,
+      "longitude": -43.0222,
+      "status": "OK"
+    },
+    {
+      "distrito": 1,
+      "bairro": "Alcântara",
+      "latitude": -22.8188396,
+      "longitude": -43.0039672,
+      "status": "OK"
+    },
+    {
+      "distrito": 2,
+      "bairro": "Almerinda",
+      "latitude": -22.8387,
+      "longitude": -43.0031,
+      "status": "OK"
+    },
+    {
+      "distrito": 2,
+      "bairro": "Jardim Nova República",
+      "latitude": -22.8486792,
+      "longitude": -43.0047959,
+      "status": "OK"
+    },
+    {
+      "distrito": 2,
+      "bairro": "Arsenal",
+      "latitude": -22.867,
+      "longitude": -43.0048,
+      "status": "OK"
+    },
+    {
+      "distrito": 2,
+      "bairro": "Maria Paula",
+      "latitude": -22.8731,
+      "longitude": -43.0194,
+      "status": "OK"
+    },
+    {
+      "distrito": 2,
+      "bairro": "Arrastão",
+      "latitude": -22.8769,
+      "longitude": -43.0011,
+      "status": "OK"
+    },
+    {
+      "distrito": 2,
+      "bairro": "Anaia Pequeno",
+      "latitude": -22.8661,
+      "longitude": -42.9898,
+      "status": "OK"
+    },
+    {
+      "distrito": 2,
+      "bairro": "Jóquei",
+      "latitude": -22.8474469,
+      "longitude": -42.9977417,
+      "status": "OK"
+    },
+    {
+      "distrito": 2,
+      "bairro": "Coelho",
+      "latitude": -22.8366,
+      "longitude": -42.9923,
+      "status": "OK"
+    },
+    {
+      "distrito": 2,
+      "bairro": "Amendoeira",
+      "latitude": -22.8322,
+      "longitude": -42.9836,
+      "status": "OK"
+    },
+    {
+      "distrito": 2,
+      "bairro": "Jardim Amendoeira",
+      "latitude": -22.8344,
+      "longitude": -42.9784,
+      "status": "OK"
+    },
+    {
+      "distrito": 2,
+      "bairro": "Vila Candoza",
+      "latitude": -22.836,
+      "longitude": -42.975,
+      "status": "OK"
+    },
+    {
+      "distrito": 2,
+      "bairro": "Anaia Grande",
+      "latitude": -22.8525,
+      "longitude": -42.9706,
+      "status": "OK"
+    },
+    {
+      "distrito": 2,
+      "bairro": "Ipiíba",
+      "latitude": -22.8606,
+      "longitude": -42.9417,
+      "status": "OK"
+    },
+    {
+      "distrito": 2,
+      "bairro": "Engenho do Roçado",
+      "latitude": -22.8825142,
+      "longitude": -42.9827897,
+      "status": "OK"
+    },
+    {
+      "distrito": 2,
+      "bairro": "Rio do Ouro",
+      "latitude": -22.8861201,
+      "longitude": -42.9920149,
+      "status": "OK"
+    },
+    {
+      "distrito": 2,
+      "bairro": "Várzea das Moças",
+      "latitude": -22.9051,
+      "longitude": -42.9756,
+      "status": "OK"
+    },
+    {
+      "distrito": 2,
+      "bairro": "Santa Isabel",
+      "latitude": -22.8567,
+      "longitude": -42.9448,
+      "status": "OK"
+    },
+    {
+      "distrito": 2,
+      "bairro": "Eliane",
+      "latitude": -22.8465,
+      "longitude": -42.959,
+      "status": "OK"
+    },
+    {
+      "distrito": 2,
+      "bairro": "Ieda",
+      "latitude": -22.8462,
+      "longitude": -42.9498,
+      "status": "OK"
+    },
+    {
+      "distrito": 2,
+      "bairro": "Sacramento",
+      "latitude": -22.8355,
+      "longitude": -42.9608,
+      "status": "OK"
+    },
+    {
+      "distrito": 3,
+      "bairro": "Jardim Catarina",
+      "latitude": -22.7934,
+      "longitude": -42.9978,
+      "status": "OK"
+    },
+    {
+      "distrito": 3,
+      "bairro": "Raul Veiga",
+      "latitude": -22.8264,
+      "longitude": -42.997,
+      "status": "OK"
+    },
+    {
+      "distrito": 3,
+      "bairro": "Vila Três",
+      "latitude": -22.8199,
+      "longitude": -42.9981,
+      "status": "OK"
+    },
+    {
+      "distrito": 3,
+      "bairro": "Laranjal",
+      "latitude": -22.8114,
+      "longitude": -42.985,
+      "status": "OK"
+    },
+    {
+      "distrito": 3,
+      "bairro": "Santa Luzia",
+      "latitude": -22.7958,
+      "longitude": -42.9792,
+      "status": "OK"
+    },
+    {
+      "distrito": 3,
+      "bairro": "Bom Retiro",
+      "latitude": -22.8046,
+      "longitude": -42.968,
+      "status": "OK"
+    },
+    {
+      "distrito": 3,
+      "bairro": "Gebara",
+      "latitude": -22.7697,
+      "longitude": -42.9554,
+      "status": "OK"
+    },
+    {
+      "distrito": 3,
+      "bairro": "Vista Alegre",
+      "latitude": -22.8103,
+      "longitude": -42.9664,
+      "status": "OK"
+    },
+    {
+      "distrito": 3,
+      "bairro": "Lagoinha",
+      "latitude": -22.8229,
+      "longitude": -42.978,
+      "status": "OK"
+    },
+    {
+      "distrito": 3,
+      "bairro": "Miriambi",
+      "latitude": -22.8219,
+      "longitude": -42.9871,
+      "status": "OK"
+    },
+    {
+      "distrito": 3,
+      "bairro": "Tiradentes",
+      "latitude": -22.8286,
+      "longitude": -42.9747,
+      "status": "OK"
+    },
+    {
+      "distrito": 3,
+      "bairro": "Pacheco",
+      "latitude": -22.8334209,
+      "longitude": -43.0787314,
+      "status": "OK"
+    },
+    {
+      "distrito": 3,
+      "bairro": "Barracão",
+      "latitude": -22.8247,
+      "longitude": -42.9624,
+      "status": "OK"
+    },
+    {
+      "distrito": 3,
+      "bairro": "Guarani",
+      "latitude": -22.8172,
+      "longitude": -42.9565,
+      "status": "OK"
+    },
+    {
+      "distrito": 3,
+      "bairro": "Monjolo",
+      "latitude": -22.796,
+      "longitude": -42.925,
+      "status": "OK"
+    },
+    {
+      "distrito": 3,
+      "bairro": "Marambaia",
+      "latitude": -22.7878,
+      "longitude": -42.9455,
+      "status": "OK"
+    },
+    {
+      "distrito": 3,
+      "bairro": "Largo da Idéia",
+      "latitude": -22.8237518,
+      "longitude": -42.9163747,
+      "status": "OK"
+    },
+    {
+      "distrito": 3,
+      "bairro": "Guaxindiba",
+      "latitude": -22.7752,
+      "longitude": -42.9662,
+      "status": "OK"
+    },
+    {
+      "distrito": 4,
+      "bairro": "Boa Vista",
+      "latitude": -22.8133023,
+      "longitude": -43.063722,
+      "status": "OK"
+    },
+    {
+      "distrito": 4,
+      "bairro": "Porto da Pedra",
+      "latitude": -22.8209,
+      "longitude": -43.0651,
+      "status": "OK"
+    },
+    {
+      "distrito": 4,
+      "bairro": "Porto Novo",
+      "latitude": -22.8231,
+      "longitude": -43.0747,
+      "status": "OK"
+    },
+    {
+      "distrito": 4,
+      "bairro": "Gradim",
+      "latitude": -22.827,
+      "longitude": -43.091,
+      "status": "OK"
+    },
+    {
+      "distrito": 4,
+      "bairro": "Porto Velho",
+      "latitude": -22.8366,
+      "longitude": -43.0914,
+      "status": "OK"
+    },
+    {
+      "distrito": 4,
+      "bairro": "Neves",
+      "latitude": -22.829752,
+      "longitude": -43.087079,
+      "status": "OK"
+    },
+    {
+      "distrito": 4,
+      "bairro": "Vila Lage",
+      "latitude": -22.8473,
+      "longitude": -43.0863,
+      "status": "OK"
+    },
+    {
+      "distrito": 4,
+      "bairro": "Porto da Madama",
+      "latitude": -22.8345634,
+      "longitude": -43.0840159,
+      "status": "OK"
+    },
+    {
+      "distrito": 4,
+      "bairro": "Paraíso",
+      "latitude": -22.8333,
+      "longitude": -43.0793,
+      "status": "OK"
+    },
+    {
+      "distrito": 4,
+      "bairro": "Patronato",
+      "latitude": -22.8315,
+      "longitude": -43.0753,
+      "status": "OK"
+    },
+    {
+      "distrito": 4,
+      "bairro": "Mangueira",
+      "latitude": -22.8308,
+      "longitude": -43.07,
+      "status": "OK"
+    },
+    {
+      "distrito": 4,
+      "bairro": "Parada 40",
+      "latitude": -22.8297739,
+      "longitude": -43.0678295,
+      "status": "OK"
+    },
+    {
+      "distrito": 4,
+      "bairro": "Camarão",
+      "latitude": -22.8271,
+      "longitude": -43.0633,
+      "status": "OK"
+    },
+    {
+      "distrito": 5,
+      "bairro": "Venda da Cruz",
+      "latitude": -22.8610355,
+      "longitude": -43.0898814,
+      "status": "OK"
+    },
+    {
+      "distrito": 5,
+      "bairro": "Convanca",
+      "latitude": -22.8537245,
+      "longitude": -43.0879403,
+      "status": "OK"
+    },
+    {
+      "distrito": 5,
+      "bairro": "Santa Catarina",
+      "latitude": -22.8371,
+      "longitude": -43.0667,
+      "status": "OK"
+    },
+    {
+      "distrito": 5,
+      "bairro": "Barro Vermelho",
+      "latitude": -22.8427072,
+      "longitude": -43.0742699,
+      "status": "OK"
+    },
+    {
+      "distrito": 5,
+      "bairro": "Pita",
+      "latitude": -22.8502,
+      "longitude": -43.0735,
+      "status": "OK"
+    },
+    {
+      "distrito": 5,
+      "bairro": "Zumbi",
+      "latitude": -22.8506,
+      "longitude": -43.0595,
+      "status": "OK"
+    },
+    {
+      "distrito": 5,
+      "bairro": "Tenente Jardim",
+      "latitude": -22.8637856,
+      "longitude": -43.0821066,
+      "status": "OK"
+    },
+    {
+      "distrito": 5,
+      "bairro": "Morro do Castro",
+      "latitude": -22.8652886,
+      "longitude": -43.0687037,
+      "status": "OK"
+    },
+    {
+      "distrito": 5,
+      "bairro": "Engenho Pequeno",
+      "latitude": -22.8510003,
+      "longitude": -43.0491273,
+      "status": "OK"
+    },
+    {
+      "distrito": 5,
+      "bairro": "Novo México",
+      "latitude": -22.8688729,
+      "longitude": -43.046722,
+      "status": "OK"
+    }
+  ],
+  "coordDict": {
+    "Palmeira": [
+      -22.7702,
+      -43.0177
+    ],
+    "Itaoca": [
+      -22.7835,
+      -43.0648
+    ],
+    "Fazenda dos Mineiros": [
+      -22.7827,
+      -43.0335
+    ],
+    "Porto do Rosa": [
+      -22.7971,
+      -43.0435
+    ],
+    "Boaçu": [
+      -22.8098,
+      -43.0505
+    ],
+    "Zé Garoto": [
+      -22.8286118,
+      -43.0546614
+    ],
+    "Brasilândia": [
+      -22.8216778,
+      -43.0568403
+    ],
+    "Rosane": [
+      -22.8191,
+      -43.0559
+    ],
+    "Vila Lara": [
+      -22.825,
+      -43.051
+    ],
+    "Centro": [
+      -22.8234,
+      -43.0473
+    ],
+    "Rocha": [
+      -22.8331,
+      -43.0415
+    ],
+    "Lindo Parque": [
+      -22.8367,
+      -43.0532
+    ],
+    "Tribobó": [
+      -22.8582096,
+      -43.0289571
+    ],
+    "Colubandê": [
+      -22.8411,
+      -43.0138
+    ],
+    "Mutondo": [
+      -22.8238,
+      -43.0183
+    ],
+    "Galo Branco": [
+      -22.8265,
+      -43.0327
+    ],
+    "Estrela do Norte": [
+      -22.8204,
+      -43.0382
+    ],
+    "São Miguel": [
+      -22.8158,
+      -43.0343
+    ],
+    "Mutuá": [
+      -22.8121,
+      -43.041
+    ],
+    "Mutuaguaçu": [
+      -22.8064,
+      -43.0412
+    ],
+    "Mutuapira": [
+      -22.803,
+      -43.032
+    ],
+    "Cruzeiro do Sul": [
+      -22.8089,
+      -43.0293
+    ],
+    "Antonina": [
+      -22.8161,
+      -43.0277
+    ],
+    "Nova Cidade": [
+      -22.8083,
+      -43.024
+    ],
+    "Trindade": [
+      -22.8065,
+      -43.0149
+    ],
+    "Luiz Caçador": [
+      -22.7942,
+      -43.0197
+    ],
+    "Recanto das Acácias": [
+      -22.7903,
+      -43.0201
+    ],
+    "Itaúna": [
+      -22.7917,
+      -43.0312
+    ],
+    "Salgueiro": [
+      -22.7816,
+      -43.0222
+    ],
+    "Alcântara": [
+      -22.8188396,
+      -43.0039672
+    ],
+    "Almerinda": [
+      -22.8387,
+      -43.0031
+    ],
+    "Jardim Nova República": [
+      -22.8486792,
+      -43.0047959
+    ],
+    "Arsenal": [
+      -22.867,
+      -43.0048
+    ],
+    "Maria Paula": [
+      -22.8731,
+      -43.0194
+    ],
+    "Arrastão": [
+      -22.8769,
+      -43.0011
+    ],
+    "Anaia Pequeno": [
+      -22.8661,
+      -42.9898
+    ],
+    "Jóquei": [
+      -22.8474469,
+      -42.9977417
+    ],
+    "Coelho": [
+      -22.8366,
+      -42.9923
+    ],
+    "Amendoeira": [
+      -22.8322,
+      -42.9836
+    ],
+    "Jardim Amendoeira": [
+      -22.8344,
+      -42.9784
+    ],
+    "Vila Candoza": [
+      -22.836,
+      -42.975
+    ],
+    "Anaia Grande": [
+      -22.8525,
+      -42.9706
+    ],
+    "Ipiíba": [
+      -22.8606,
+      -42.9417
+    ],
+    "Engenho do Roçado": [
+      -22.8825142,
+      -42.9827897
+    ],
+    "Rio do Ouro": [
+      -22.8861201,
+      -42.9920149
+    ],
+    "Várzea das Moças": [
+      -22.9051,
+      -42.9756
+    ],
+    "Santa Isabel": [
+      -22.8567,
+      -42.9448
+    ],
+    "Eliane": [
+      -22.8465,
+      -42.959
+    ],
+    "Ieda": [
+      -22.8462,
+      -42.9498
+    ],
+    "Sacramento": [
+      -22.8355,
+      -42.9608
+    ],
+    "Jardim Catarina": [
+      -22.7934,
+      -42.9978
+    ],
+    "Raul Veiga": [
+      -22.8264,
+      -42.997
+    ],
+    "Vila Três": [
+      -22.8199,
+      -42.9981
+    ],
+    "Laranjal": [
+      -22.8114,
+      -42.985
+    ],
+    "Santa Luzia": [
+      -22.7958,
+      -42.9792
+    ],
+    "Bom Retiro": [
+      -22.8046,
+      -42.968
+    ],
+    "Gebara": [
+      -22.7697,
+      -42.9554
+    ],
+    "Vista Alegre": [
+      -22.8103,
+      -42.9664
+    ],
+    "Lagoinha": [
+      -22.8229,
+      -42.978
+    ],
+    "Miriambi": [
+      -22.8219,
+      -42.9871
+    ],
+    "Tiradentes": [
+      -22.8286,
+      -42.9747
+    ],
+    "Pacheco": [
+      -22.8334209,
+      -43.0787314
+    ],
+    "Barracão": [
+      -22.8247,
+      -42.9624
+    ],
+    "Guarani": [
+      -22.8172,
+      -42.9565
+    ],
+    "Monjolo": [
+      -22.796,
+      -42.925
+    ],
+    "Marambaia": [
+      -22.7878,
+      -42.9455
+    ],
+    "Largo da Idéia": [
+      -22.8237518,
+      -42.9163747
+    ],
+    "Guaxindiba": [
+      -22.7752,
+      -42.9662
+    ],
+    "Boa Vista": [
+      -22.8133023,
+      -43.063722
+    ],
+    "Porto da Pedra": [
+      -22.8209,
+      -43.0651
+    ],
+    "Porto Novo": [
+      -22.8231,
+      -43.0747
+    ],
+    "Gradim": [
+      -22.827,
+      -43.091
+    ],
+    "Porto Velho": [
+      -22.8366,
+      -43.0914
+    ],
+    "Neves": [
+      -22.829752,
+      -43.087079
+    ],
+    "Vila Lage": [
+      -22.8473,
+      -43.0863
+    ],
+    "Porto da Madama": [
+      -22.8345634,
+      -43.0840159
+    ],
+    "Paraíso": [
+      -22.8333,
+      -43.0793
+    ],
+    "Patronato": [
+      -22.8315,
+      -43.0753
+    ],
+    "Mangueira": [
+      -22.8308,
+      -43.07
+    ],
+    "Parada 40": [
+      -22.8297739,
+      -43.0678295
+    ],
+    "Camarão": [
+      -22.8271,
+      -43.0633
+    ],
+    "Venda da Cruz": [
+      -22.8610355,
+      -43.0898814
+    ],
+    "Convanca": [
+      -22.8537245,
+      -43.0879403
+    ],
+    "Santa Catarina": [
+      -22.8371,
+      -43.0667
+    ],
+    "Barro Vermelho": [
+      -22.8427072,
+      -43.0742699
+    ],
+    "Pita": [
+      -22.8502,
+      -43.0735
+    ],
+    "Zumbi": [
+      -22.8506,
+      -43.0595
+    ],
+    "Tenente Jardim": [
+      -22.8637856,
+      -43.0821066
+    ],
+    "Morro do Castro": [
+      -22.8652886,
+      -43.0687037
+    ],
+    "Engenho Pequeno": [
+      -22.8510003,
+      -43.0491273
+    ],
+    "Novo México": [
+      -22.8688729,
+      -43.046722
+    ]
+  }
+}

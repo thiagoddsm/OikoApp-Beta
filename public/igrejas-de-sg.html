@@ -8,6 +8,9 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Phosphor Icons CDN -->
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <!-- Leaflet CSS & JS para o Mapa Interativo -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script>
     tailwind.config = {
       theme: {
@@ -42,13 +45,40 @@
     ::-webkit-scrollbar-thumb:hover {
       background: #94a3b8;
     }
+    .leaflet-popup-content-wrapper {
+      border-radius: 1rem;
+      padding: 0.25rem;
+      box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+      font-family: inherit;
+    }
+    .leaflet-popup-content {
+      margin: 0.75rem 1rem;
+      line-height: 1.4;
+      max-height: 380px;
+      overflow-y: auto;
+    }
+    .custom-map-pin {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 9999px;
+      color: white;
+      font-weight: bold;
+      box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.25);
+      border: 2px solid white;
+      transition: transform 0.2s;
+    }
+    .custom-map-pin:hover {
+      transform: scale(1.2);
+      z-index: 1000 !important;
+    }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans antialiased">
   
   <!-- Topbar / Navbar -->
   <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-3">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-500/20">
           <i class="ph ph-cross text-2xl font-bold"></i>
@@ -56,10 +86,16 @@
         <div>
           <div class="flex items-center gap-2">
             <h1 class="font-bold text-lg text-slate-900 leading-tight">Mapeamento São Gonçalo</h1>
-            <span class="text-xs bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-full">SG • RJ</span>
+            <span class="text-xs bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-full">SG • RJ (5 Distritos)</span>
           </div>
-          <p class="text-xs text-slate-500">Alcançando todos os bairros pouco a pouco</p>
+          <p class="text-xs text-slate-500">Mapeamento oficial de 91 bairros e congregações parceiras</p>
         </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="exportarCSV()" class="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition flex items-center gap-1.5">
+          <i class="ph ph-download-simple text-sm"></i>
+          <span>Exportar Dados</span>
+        </button>
       </div>
     </div>
   </header>
@@ -70,14 +106,14 @@
     <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm">
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
         <div>
-          <span class="text-xs font-bold tracking-wider text-emerald-700 uppercase">Meta da Região</span>
-          <h2 class="text-xl font-bold text-slate-900">Cobertura de Bairros</h2>
-          <p class="text-xs text-slate-500">Acompanhamento dos locais já assistidos com igreja e pastor referenciados.</p>
+          <span class="text-xs font-bold tracking-wider text-emerald-700 uppercase">Meta Regional</span>
+          <h2 class="text-xl font-bold text-slate-900">Cobertura de Bairros & Igrejas</h2>
+          <p class="text-xs text-slate-500">Acompanhamento das 91 regiões oficiais distribuídas nos 5 distritos da cidade.</p>
         </div>
         <div class="flex items-center gap-4">
           <div class="text-right">
             <span id="stat-porcentagem" class="text-3xl font-extrabold text-emerald-600">0%</span>
-            <p class="text-xs text-slate-400">concluído</p>
+            <p class="text-xs text-slate-400">bairros com congregação ativa</p>
           </div>
         </div>
       </div>
@@ -87,291 +123,253 @@
         <div id="progresso-fill" class="bg-gradient-to-r from-emerald-500 to-teal-500 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
       </div>
 
-      <!-- Indicadores numéricos -->
-      <div class="grid grid-cols-3 gap-2 sm:gap-4 mt-5 pt-4 border-t border-slate-100 text-center">
-        <div class="bg-slate-50 rounded-xl p-3">
-          <span id="stat-total" class="text-lg sm:text-2xl font-bold text-slate-800">0</span>
-          <p class="text-[11px] sm:text-xs text-slate-500 font-medium">Total de Bairros</p>
+      <!-- Indicadores numéricos com 4 Status e Total de Igrejas -->
+      <div class="grid grid-cols-2 sm:grid-cols-6 gap-2 sm:gap-3 mt-5 pt-4 border-t border-slate-100 text-center">
+        <div class="bg-slate-50 rounded-xl p-3 border border-slate-100">
+          <span id="stat-total" class="text-lg sm:text-2xl font-bold text-slate-800">91</span>
+          <p class="text-[11px] sm:text-xs text-slate-500 font-medium">Total Bairros</p>
+        </div>
+        <div class="bg-slate-50 rounded-xl p-3 border border-slate-200">
+          <span id="stat-total-igrejas" class="text-lg sm:text-2xl font-bold text-emerald-800">0</span>
+          <p class="text-[11px] sm:text-xs text-slate-600 font-medium">Igrejas Cadastradas</p>
         </div>
         <div class="bg-emerald-50/70 border border-emerald-100 rounded-xl p-3">
-          <span id="stat-mapeados" class="text-lg sm:text-2xl font-bold text-emerald-700">0</span>
-          <p class="text-[11px] sm:text-xs text-emerald-700 font-medium">Mapeados (Com Igreja)</p>
+          <span id="stat-ativos" class="text-lg sm:text-2xl font-bold text-emerald-700">0</span>
+          <p class="text-[11px] sm:text-xs text-emerald-700 font-medium">Ativos</p>
+        </div>
+        <div class="bg-blue-50/70 border border-blue-100 rounded-xl p-3">
+          <span id="stat-pendente-convite" class="text-lg sm:text-2xl font-bold text-blue-700">0</span>
+          <p class="text-[11px] sm:text-xs text-blue-700 font-medium">Pend. Convite</p>
+        </div>
+        <div class="bg-purple-50/70 border border-purple-100 rounded-xl p-3">
+          <span id="stat-pendente-aceite" class="text-lg sm:text-2xl font-bold text-purple-700">0</span>
+          <p class="text-[11px] sm:text-xs text-purple-700 font-medium">Pend. Aceite</p>
         </div>
         <div class="bg-amber-50/70 border border-amber-100 rounded-xl p-3">
           <span id="stat-pendentes" class="text-lg sm:text-2xl font-bold text-amber-700">0</span>
-          <p class="text-[11px] sm:text-xs text-amber-700 font-medium">Pendentes</p>
+          <p class="text-[11px] sm:text-xs text-amber-700 font-medium">Sem Igreja</p>
         </div>
       </div>
     </div>
 
-    <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-      <!-- Input de Pesquisa -->
-      <div class="relative flex-1">
-        <i class="ph ph-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-base"></i>
-        <input 
-          type="text" 
-          id="input-busca" 
-          oninput="filtrarLista()"
-          placeholder="Buscar bairro, igreja ou pastor..." 
-          class="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition shadow-sm"
-        />
+    <!-- Barra de Controle: Busca, Alternador de Visão (Lista / Mapa), Filtros de Status, Distrito e Botão Novo -->
+    <div class="space-y-3">
+      <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <!-- Input de Pesquisa -->
+        <div class="relative flex-1">
+          <i class="ph ph-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-base"></i>
+          <input 
+            type="text" 
+            id="input-busca" 
+            oninput="filtrarDados()"
+            placeholder="Buscar por bairro, distrito, igreja ou pastor..." 
+            class="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition shadow-sm"
+          />
+        </div>
+
+        <div class="flex items-center gap-2">
+          <!-- Toggle de Abas: Lista / Mapa -->
+          <div class="inline-flex bg-slate-200/80 p-1 rounded-xl text-xs font-semibold shadow-inner">
+            <button onclick="setVisao('lista')" id="tab-lista" class="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white text-slate-900 shadow-sm transition">
+              <i class="ph ph-list-dashes text-sm"></i>
+              <span>Lista</span>
+            </button>
+            <button onclick="setVisao('mapa')" id="tab-mapa" class="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-slate-600 hover:text-slate-900 transition">
+              <i class="ph ph-map-trifold text-sm"></i>
+              <span>Mapa</span>
+            </button>
+          </div>
+
+          <!-- Botão Adicionar Bairro -->
+          <button onclick="abrirModalEdicao(null)" class="whitespace-nowrap px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold transition flex items-center gap-1.5 shadow-sm">
+            <i class="ph ph-plus-circle text-base"></i>
+            <span>Adicionar Bairro</span>
+          </button>
+        </div>
       </div>
 
-      <!-- Filtros de Status e Botão Novo -->
-      <div class="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
-        <div class="inline-flex bg-slate-200/70 p-1 rounded-xl text-xs font-semibold">
-          <button onclick="setFiltro('todos')" id="filtro-todos" class="px-3 py-1.5 rounded-lg bg-white text-slate-900 shadow-sm transition">Todos</button>
-          <button onclick="setFiltro('mapeados')" id="filtro-mapeados" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition">Mapeados</button>
-          <button onclick="setFiltro('pendentes')" id="filtro-pendentes" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition">Pendentes</button>
+      <!-- Filtros Duplos: Por Distrito e Por Status -->
+      <div class="space-y-2 bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs">
+        <!-- Filtro por Distrito -->
+        <div class="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+          <span class="text-slate-400 font-semibold text-[11px] mr-1 flex-shrink-0">Distrito:</span>
+          <button onclick="setDistrito('todos')" id="distrito-todos" class="px-2.5 py-1 rounded-lg font-semibold bg-slate-900 text-white shadow-2xs transition whitespace-nowrap">Todos Distritos</button>
+          <button onclick="setDistrito(1)" id="distrito-1" class="px-2.5 py-1 rounded-lg font-medium bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 transition whitespace-nowrap">1º Dist. (Centro)</button>
+          <button onclick="setDistrito(2)" id="distrito-2" class="px-2.5 py-1 rounded-lg font-medium bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 transition whitespace-nowrap">2º Dist. (Ipiíba)</button>
+          <button onclick="setDistrito(3)" id="distrito-3" class="px-2.5 py-1 rounded-lg font-medium bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 transition whitespace-nowrap">3º Dist. (Monjolo)</button>
+          <button onclick="setDistrito(4)" id="distrito-4" class="px-2.5 py-1 rounded-lg font-medium bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 transition whitespace-nowrap">4º Dist. (Neves)</button>
+          <button onclick="setDistrito(5)" id="distrito-5" class="px-2.5 py-1 rounded-lg font-medium bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 transition whitespace-nowrap">5º Dist. (Sete Pontes)</button>
         </div>
+
+        <!-- Filtro por Status -->
+        <div class="flex items-center gap-1.5 overflow-x-auto text-xs pt-1 border-t border-slate-100">
+          <span class="text-slate-400 font-semibold text-[11px] mr-1 flex-shrink-0">Status:</span>
+          <button onclick="setFiltro('todos')" id="filtro-todos" class="px-2.5 py-1 rounded-lg font-semibold bg-slate-800 text-white shadow-2xs transition whitespace-nowrap">Todos</button>
+          <button onclick="setFiltro('ativo')" id="filtro-ativo" class="px-2.5 py-1 rounded-lg font-medium bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-50 transition whitespace-nowrap">🟢 Ativo</button>
+          <button onclick="setFiltro('pendente_convite')" id="filtro-pendente_convite" class="px-2.5 py-1 rounded-lg font-medium bg-white text-blue-700 border border-blue-200 hover:bg-blue-50 transition whitespace-nowrap">🔵 Pendente de convite</button>
+          <button onclick="setFiltro('pendente_aceite')" id="filtro-pendente_aceite" class="px-2.5 py-1 rounded-lg font-medium bg-white text-purple-700 border border-purple-200 hover:bg-purple-50 transition whitespace-nowrap">🟣 Pendente de aceite</button>
+          <button onclick="setFiltro('pendente')" id="filtro-pendente" class="px-2.5 py-1 rounded-lg font-medium bg-white text-amber-700 border border-amber-200 hover:bg-amber-50 transition whitespace-nowrap">🟡 Sem Igreja</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== VISÃO 1: LISTA (CARDS) ==================== -->
+    <div id="view-lista" class="space-y-4">
+      <div id="container-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+        <!-- Cards renderizados via JavaScript -->
+      </div>
+
+      <!-- Estado Vazio -->
+      <div id="empty-state" class="hidden text-center py-12 bg-white rounded-2xl border border-dashed border-slate-300 p-8">
+        <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400 mb-3">
+          <i class="ph ph-map-pin-line text-2xl"></i>
+        </div>
+        <h3 class="font-bold text-slate-800">Nenhum bairro encontrado</h3>
+        <p class="text-xs text-slate-500 mt-1 max-w-xs mx-auto">Tente alterar os termos de busca ou os filtros de distrito/status selecionados.</p>
+      </div>
+    </div>
+
+    <!-- ==================== VISÃO 2: MAPA INTERATIVO ==================== -->
+    <div id="view-mapa" class="hidden space-y-3">
+      <div class="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden p-2 sm:p-3 relative">
+        <div id="mapa-container" class="w-full h-[540px] sm:h-[620px] rounded-xl z-10"></div>
         
-        <button onclick="abrirModalEdicao(null)" class="whitespace-nowrap px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold transition flex items-center gap-1.5 shadow-sm">
-          <i class="ph ph-plus-circle text-base"></i>
-          <span>Adicionar Bairro</span>
-        </button>
+        <!-- Legenda Flutuante do Mapa -->
+        <div class="absolute bottom-6 left-6 z-20 bg-white/95 backdrop-blur-sm p-3.5 rounded-xl border border-slate-200 shadow-lg text-xs space-y-2 max-w-[250px]">
+          <h4 class="font-bold text-slate-900 text-[11px] uppercase tracking-wider">Legenda do Mapa</h4>
+          <div class="space-y-1.5 text-[11px]">
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-emerald-500 border border-white shadow-sm flex-shrink-0"></span>
+              <span class="text-slate-700 font-medium">Bairro com Igreja Ativa</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-blue-500 border border-white shadow-sm flex-shrink-0"></span>
+              <span class="text-slate-700 font-medium">Pendente de convite</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-purple-500 border border-white shadow-sm flex-shrink-0"></span>
+              <span class="text-slate-700 font-medium">Pendente de aceite</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-amber-400 border border-white shadow-sm flex-shrink-0"></span>
+              <span class="text-slate-700 font-medium">Sem Igreja Cadastrada</span>
+            </div>
+          </div>
+          <p class="text-[10px] text-slate-400 pt-1 border-t border-slate-100">Coordenadas geocodificadas reais dos 91 bairros.</p>
+        </div>
       </div>
-    </div>
-
-    <div id="container-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-      <!-- Cards renderizados via JavaScript -->
-    </div>
-
-    <!-- Estado Vazio -->
-    <div id="empty-state" class="hidden text-center py-12 bg-white rounded-2xl border border-dashed border-slate-300 p-8">
-      <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400 mb-3">
-        <i class="ph ph-map-pin-line text-2xl"></i>
-      </div>
-      <h3 class="font-bold text-slate-800">Nenhum bairro encontrado</h3>
-      <p class="text-xs text-slate-500 mt-1 max-w-xs mx-auto">Tente alterar o termo digitado ou o filtro selecionado acima.</p>
     </div>
 
   </main>
 
   <!-- Rodapé -->
   <footer class="mt-auto border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-500">
-    Mapeamento Cooperativo • São Gonçalo/RJ • Dados salvos no seu navegador
+    Mapeamento Cooperativo Oficial • São Gonçalo/RJ • 91 Bairros em 5 Distritos
   </footer>
 
-  <div id="modal-edicao" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-slate-100 overflow-hidden transform transition-all">
-      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <div class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
-            <i class="ph ph-pencil-simple text-sm font-bold"></i>
+  <!-- Modal de Edição de Bairro e Múltiplas Igrejas -->
+  <div id="modal-edicao" class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-2xl w-full max-w-xl max-h-[92vh] shadow-2xl border border-slate-100 flex flex-col overflow-hidden">
+      <!-- Header do Modal -->
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between flex-shrink-0 bg-slate-50/50">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+            <i class="ph ph-church text-base font-bold"></i>
           </div>
-          <h3 id="modal-titulo" class="font-bold text-slate-900 text-sm">Editar Bairro</h3>
+          <div>
+            <h3 id="modal-titulo" class="font-bold text-slate-900 text-sm">Gerenciar Igrejas do Bairro</h3>
+            <p id="modal-subtitulo" class="text-[11px] text-slate-500">Cadastre uma ou mais congregações para este local</p>
+          </div>
         </div>
-        <button onclick="fecharModalEdicao()" class="text-slate-400 hover:text-slate-600 rounded-lg p-1 text-lg">
+        <button onclick="fecharModalEdicao()" class="text-slate-400 hover:text-slate-600 rounded-lg p-1.5 text-lg transition">
           <i class="ph ph-x"></i>
         </button>
       </div>
 
-      <form id="form-bairro" onsubmit="salvarBairro(event)" class="p-5 space-y-4">
+      <!-- Conteúdo com Scroll -->
+      <form id="form-bairro" onsubmit="salvarBairro(event)" class="flex-1 overflow-y-auto p-5 space-y-4">
         <input type="hidden" id="edit-id">
 
-        <div>
-          <label class="block text-xs font-semibold text-slate-700 mb-1">Nome do Bairro</label>
-          <input 
-            type="text" 
-            id="edit-bairro" 
-            required 
-            placeholder="Ex: Neves, Alcântara, etc." 
-            class="w-full text-sm border border-slate-300 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Nome do Bairro</label>
+            <input 
+              type="text" 
+              id="edit-bairro" 
+              required 
+              placeholder="Ex: Boaçu, Alcântara, Neves..." 
+              class="w-full text-sm border border-slate-300 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+            >
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Distrito</label>
+            <select 
+              id="edit-distrito" 
+              class="w-full text-sm border border-slate-300 rounded-xl px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+            >
+              <option value="1">1º Distrito</option>
+              <option value="2">2º Distrito</option>
+              <option value="3">3º Distrito</option>
+              <option value="4">4º Distrito</option>
+              <option value="5">5º Distrito</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Seção Dinâmica de Igrejas Cadastradas -->
+        <div class="pt-2">
+          <div class="flex items-center justify-between mb-2">
+            <label class="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
+              <i class="ph ph-buildings text-emerald-600 text-sm"></i>
+              <span>Igrejas Cadastradas no Bairro</span>
+            </label>
+            <button 
+              type="button" 
+              onclick="adicionarNovaIgrejaForm()" 
+              class="px-2.5 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition flex items-center gap-1 shadow-2xs"
+            >
+              <i class="ph ph-plus-circle text-xs"></i>
+              <span>+ Adicionar Outra Igreja</span>
+            </button>
+          </div>
+
+          <!-- Container dinâmico das igrejas -->
+          <div id="lista-igrejas-form" class="space-y-3">
+            <!-- Gerado via JavaScript -->
+          </div>
+
+          <!-- Estado quando não há igrejas no form -->
+          <div id="empty-igrejas-form" class="hidden text-center py-6 bg-slate-50 rounded-xl border border-dashed border-slate-200 p-4">
+            <p class="text-xs text-slate-500">Nenhuma congregação associada ainda a este bairro.</p>
+            <button 
+              type="button" 
+              onclick="adicionarNovaIgrejaForm()" 
+              class="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-emerald-800"
+            >
+              <i class="ph ph-plus-circle"></i> Clique aqui para adicionar uma congregação
+            </button>
+          </div>
+        </div>
+
+        <!-- Rodapé do Modal com Botões de Ação -->
+        <div class="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+          <button 
+            type="button" 
+            onclick="adicionarNovaIgrejaForm()" 
+            class="text-xs text-slate-600 hover:text-slate-900 font-medium flex items-center gap-1"
           >
-        </div>
-
-        <div>
-          <label class="block text-xs font-semibold text-slate-700 mb-1">Igreja / Congregação</label>
-          <input 
-            type="text" 
-            id="edit-igreja" 
-            placeholder="Ex: Primeira Igreja Batista, ADVEC, Presbiteriana..." 
-            class="w-full text-sm border border-slate-300 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
-          >
-          <span class="text-[10px] text-slate-400 mt-1 block">Deixe em branco se ainda estiver pendente.</span>
-        </div>
-
-        <div>
-          <label class="block text-xs font-semibold text-slate-700 mb-1">Pastor / Líder Responsável</label>
-          <input 
-            type="text" 
-            id="edit-pastor" 
-            placeholder="Ex: Pr. Carlos Eduardo, Pra. Maria..." 
-            class="w-full text-sm border border-slate-300 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
-          >
-        </div>
-
-        <div>
-          <label class="block text-xs font-semibold text-slate-700 mb-1">Observações (Opcional)</label>
-          <textarea 
-            id="edit-obs" 
-            rows="2" 
-            placeholder="Endereço, dias de culto, contato ou anotações..." 
-            class="w-full text-sm border border-slate-300 rounded-xl px-3.5 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition resize-none"
-          ></textarea>
-        </div>
-
-        <div class="pt-2 flex items-center justify-end gap-2">
-          <button type="button" onclick="fecharModalEdicao()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">
-            Cancelar
+            <i class="ph ph-plus text-xs"></i> Mais uma congregação
           </button>
-          <button type="submit" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition shadow-sm shadow-emerald-600/20">
-            Salvar Registro
-          </button>
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="fecharModalEdicao()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">
+              Cancelar
+            </button>
+            <button type="submit" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition shadow-sm shadow-emerald-600/20">
+              Salvar Registro
+            </button>
+          </div>
         </div>
       </form>
-    </div>
-  </div>
-
-  <div id="modal-whatsapp" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[85vh]">
-      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <div class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
-            <i class="ph ph-whatsapp-logo text-base"></i>
-          </div>
-          <div>
-            <h3 class="font-bold text-slate-900 text-sm">Texto para o Grupo do WhatsApp</h3>
-            <p class="text-[11px] text-slate-500">Pronto para colar na conversa com os irmãos</p>
-          </div>
-        </div>
-        <button onclick="fecharModalWhatsApp()" class="text-slate-400 hover:text-slate-600 rounded-lg p-1 text-lg">
-          <i class="ph ph-x"></i>
-        </button>
-      </div>
-
-      <div class="p-5 flex-1 overflow-y-auto space-y-3">
-        <textarea 
-          id="texto-whatsapp" 
-          readonly 
-          class="w-full h-64 p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono leading-relaxed text-slate-800 focus:outline-none resize-none"
-        ></textarea>
-        <p class="text-[11px] text-slate-500">
-          Dica: Copie o texto e cole direto na mensagem para o Diego, Pr. Hugo e o grupo.
-        </p>
-      </div>
-
-      <div class="px-5 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
-        <span id="toast-copiado-wa" class="text-xs font-medium text-emerald-600 opacity-0 transition">Texto copiado!</span>
-        <div class="flex items-center gap-2">
-          <button onclick="fecharModalWhatsApp()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200 rounded-xl transition">
-            Fechar
-          </button>
-          <button onclick="copiarTextoWhatsApp()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition flex items-center gap-1.5 shadow-sm">
-            <i class="ph ph-copy text-sm"></i>
-            <span>Copiar Mensagem</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div id="modal-appsscript" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl w-full max-w-2xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[85vh]">
-      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <div class="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center">
-            <i class="ph ph-code text-sm font-bold"></i>
-          </div>
-          <div>
-            <h3 class="font-bold text-slate-900 text-sm">Código Google Apps Script</h3>
-            <p class="text-[11px] text-slate-500">Para vincular diretamente à planilha do Google Sheets</p>
-          </div>
-        </div>
-        <button onclick="fecharModalAppsScript()" class="text-slate-400 hover:text-slate-600 rounded-lg p-1 text-lg">
-          <i class="ph ph-x"></i>
-        </button>
-      </div>
-
-      <div class="p-5 flex-1 overflow-y-auto space-y-4">
-        <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-3.5 text-xs text-indigo-900">
-          <strong>Passo a passo simples:</strong>
-          <ol class="list-decimal list-inside mt-1 space-y-1 text-[11px]">
-            <li>Abra sua planilha no Google Sheets.</li>
-            <li>Vá em <strong>Extensões > Apps Script</strong>.</li>
-            <li>Substitua o código padrão pelo script abaixo e clique em <strong>Salvar</strong>.</li>
-            <li>Selecione a função <code>criarPlanilhaInicial</code> e clique em <strong>Executar</strong> para montar as colunas e os bairros automaticamente.</li>
-          </ol>
-        </div>
-
-        <div class="relative">
-          <textarea 
-            id="codigo-script" 
-            readonly 
-            class="w-full h-56 p-3.5 bg-slate-900 text-emerald-400 font-mono text-xs rounded-xl focus:outline-none resize-none"
-          >/**
- * MAPEAR BAIRROS - SÃO GONÇALO / RJ (91 Bairros)
- * Executar 'criarPlanilhaInicial' para montar a planilha.
- */
-const NOME_ABA = "Mapeamento SG";
-
-const BAIRROS_91 = [
-  "Palmeira", "Itaoca", "Fazenda dos Mineiros", "Porto do Rosa", "Boaçu",
-  "Boa Vista", "Porto da Pedra", "Porto Novo", "Gradim", "Porto Velho",
-  "Neves", "Venda da Cruz", "Covanca", "Vila Lage", "Porto da Madama",
-  "Paraíso", "Patronato", "Mangueira", "Parada 40", "Camarão",
-  "Zé Garoto", "Brasilândia", "Rosane", "Vila Lara", "Centro (Rodo de São Gonçalo)",
-  "Rocha", "Lindo Parque", "Santa Catarina", "Barro Vermelho", "Pita",
-  "Zumbi", "Tenente Jardim", "Morro do Castro", "Engenho Pequeno", "Novo México",
-  "Tribobó", "Colubandê", "Mutondo", "Galo Branco", "Estrela do Norte",
-  "São Miguel", "Mutuá", "Mutuaguaçu", "Mutuapira", "Cruzeiro do Sul",
-  "Antonina", "Nova Cidade", "Trindade", "Luiz Caçador", "Recanto das Acácias",
-  "Itaúna", "Salgueiro", "Jardim Catarina", "Alcântara", "Almerinda",
-  "Jardim Nova República", "Arsenal", "Maria Paula", "Arrastão", "Anaia Pequeno",
-  "Joquei", "Coelho", "Raul Veiga", "Vila Três", "Laranjal",
-  "Santa Luzia", "Bom Retiro", "Gebara", "Vista Alegre", "Lagoinha",
-  "Miriambi", "Amendoeira", "Tiradentes", "Jardim Amendoeira", "Vila Candoza",
-  "Anaia Grande", "Ipiíba", "Engenho do Roçado", "Rio do Ouro", "Várzea das Moças",
-  "Santa Isabel", "Eliane", "Ieda", "Sacramento", "Pacheco",
-  "Barracão", "Guarani", "Monjolo", "Marambaia", "Largo da Ideia", "Guaxindiba"
-];
-
-function criarPlanilhaInicial() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sheet = ss.getSheetByName(NOME_ABA);
-  if (!sheet) sheet = ss.insertSheet(NOME_ABA);
-  
-  sheet.clear();
-  sheet.getRange(1, 1, 1, 4).setValues([["Nº", "Bairro", "Igreja", "Pastor Responsável"]]);
-  sheet.getRange(1, 1, 1, 4).setFontWeight("bold").setBackground("#107C41").setFontColor("#FFFFFF");
-  
-  const linhas = BAIRROS_91.map((b, i) => {
-    if (b === "Mutondo") {
-      return [i + 1, b, "Igreja Batista da Manhã", "Pastor Hugo Campos"];
-    }
-    return [i + 1, b, "", ""];
-  });
-  sheet.getRange(2, 1, linhas.length, 4).setValues(linhas);
-  sheet.autoResizeColumns(1, 4);
-}
-
-function salvarDados(bairro, igreja, pastor) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(NOME_ABA);
-  const dados = sheet.getDataRange().getValues();
-  for (let i = 1; i < dados.length; i++) {
-    if (dados[i][1] === bairro) {
-      sheet.getRange(i + 1, 3, 1, 2).setValues([[igreja, pastor]]);
-      return true;
-    }
-  }
-  sheet.appendRow([dados.length, bairro, igreja, pastor]);
-  return true;
-}</textarea>
-        </div>
-      </div>
-
-      <div class="px-5 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
-        <span id="toast-copiado-script" class="text-xs font-medium text-indigo-600 opacity-0 transition">Código copiado!</span>
-        <div class="flex items-center gap-2">
-          <button onclick="fecharModalAppsScript()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200 rounded-xl transition">
-            Fechar
-          </button>
-          <button onclick="copiarCodigoScript()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl transition flex items-center gap-1.5 shadow-sm">
-            <i class="ph ph-copy text-sm"></i>
-            <span>Copiar Script</span>
-          </button>
-        </div>
-      </div>
     </div>
   </div>
 
@@ -382,62 +380,1122 @@ function salvarDados(bairro, igreja, pastor) {
   </div>
 
   <script>
-    // Relação completa dos 91 bairros com Mutondo já mapeado
-    const NOMES_BAIRROS_91 = [
-      "Palmeira", "Itaoca", "Fazenda dos Mineiros", "Porto do Rosa", "Boaçu",
-      "Boa Vista", "Porto da Pedra", "Porto Novo", "Gradim", "Porto Velho",
-      "Neves", "Venda da Cruz", "Covanca", "Vila Lage", "Porto da Madama",
-      "Paraíso", "Patronato", "Mangueira", "Parada 40", "Camarão",
-      "Zé Garoto", "Brasilândia", "Rosane", "Vila Lara", "Centro (Rodo de São Gonçalo)",
-      "Rocha", "Lindo Parque", "Santa Catarina", "Barro Vermelho", "Pita",
-      "Zumbi", "Tenente Jardim", "Morro do Castro", "Engenho Pequeno", "Novo México",
-      "Tribobó", "Colubandê", "Mutondo", "Galo Branco", "Estrela do Norte",
-      "São Miguel", "Mutuá", "Mutuaguaçu", "Mutuapira", "Cruzeiro do Sul",
-      "Antonina", "Nova Cidade", "Trindade", "Luiz Caçador", "Recanto das Acácias",
-      "Itaúna", "Salgueiro", "Jardim Catarina", "Alcântara", "Almerinda",
-      "Jardim Nova República", "Arsenal", "Maria Paula", "Arrastão", "Anaia Pequeno",
-      "Joquei", "Coelho", "Raul Veiga", "Vila Três", "Laranjal",
-      "Santa Luzia", "Bom Retiro", "Gebara", "Vista Alegre", "Lagoinha",
-      "Miriambi", "Amendoeira", "Tiradentes", "Jardim Amendoeira", "Vila Candoza",
-      "Anaia Grande", "Ipiíba", "Engenho do Roçado", "Rio do Ouro", "Várzea das Moças",
-      "Santa Isabel", "Eliane", "Ieda", "Sacramento", "Pacheco",
-      "Barracão", "Guarani", "Monjolo", "Marambaia", "Largo da Ideia", "Guaxindiba"
-    ];
+    // Dicionário de distritos de São Gonçalo
+    const NOMES_DISTRITOS = {
+      1: "1º Distrito (Centro / Alcântara)",
+      2: "2º Distrito (Ipiíba / Arsenal)",
+      3: "3º Distrito (Monjolo / Santa Luzia)",
+      4: "4º Distrito (Neves / Porto Novo)",
+      5: "5º Distrito (Sete Pontes / Covanca)"
+    };
 
-    const BAIRROS_PADRAO = NOMES_BAIRROS_91.map((nome, index) => {
+    // Dados base oficiais dos 91 bairros com Distritos (1 a 5)
+    const DADOS_BAIRROS_BASE = [
+  {
+    "distrito": 1,
+    "bairro": "Palmeira",
+    "latitude": -22.7702,
+    "longitude": -43.0177,
+    "status": "OK"
+  },
+  {
+    "distrito": 1,
+    "bairro": "Itaoca",
+    "latitude": -22.7835,
+    "longitude": -43.0648,
+    "status": "OK"
+  },
+  {
+    "distrito": 1,
+    "bairro": "Fazenda dos Mineiros",
+    "latitude": -22.7827,
+    "longitude": -43.0335,
+    "status": "OK"
+  },
+  {
+    "distrito": 1,
+    "bairro": "Porto do Rosa",
+    "latitude": -22.7971,
+    "longitude": -43.0435,
+    "status": "OK"
+  },
+  {
+    "distrito": 1,
+    "bairro": "Boaçu",
+    "latitude": -22.8098,
+    "longitude": -43.0505,
+    "status": "OK"
+  },
+  {
+    "distrito": 1,
+    "bairro": "Zé Garoto",
+    "latitude": -22.8286118,
+    "longitude": -43.0546614,
+    "status": "OK"
+  },
+  {
+    "distrito": 1,
+    "bairro": "Brasilândia",
+    "latitude": -22.8216778,
+    "longitude": -43.0568403,
+    "status": "OK"
+  },
+  {
+    "distrito": 1,
+    "bairro": "Rosane",
+    "latitude": -22.8191,
+    "longitude": -43.0559,
+    "status": "OK"
+  },
+  {
+    "distrito": 1,
+    "bairro": "Vila Lara",
+    "latitude": -22.825,
+    "longitude": -43.051,
+    "status": "OK"
+  },
+  {
+    "distrito": 1,
+    "bairro": "Centro",
+    "latitude": -22.8234,
+    "longitude": -43.0473,
+    "status": "OK"
+  },
+  {
+    "distrito": 1,
+    "bairro": "Rocha",
+    "latitude": -22.8331,
+    "longitude": -43.0415,
+    "status": "OK"
+  },
+  {
+    "distrito": 1,
+    "bairro": "Lindo Parque",
+    "latitude": -22.8367,
+    "longitude": -43.0532,
+    "status": "OK"
+  },
+  {
+    "distrito": 1,
+    "bairro": "Tribobó",
+    "latitude": -22.8582096,
+    "longitude": -43.0289571,
+    "status": "OK"
+  },
+  {
+    "distrito": 1,
+    "bairro": "Colubandê",
+    "latitude": -22.8411,
+    "longitude": -43.0138,
+    "status": "OK"
+  },
+  {
+    "distrito": 1,
+    "bairro": "Mutondo",
+    "latitude": -22.8238,
+    "longitude": -43.0183,
+    "status": "OK"
+  },
+  {
+    "distrito": 1,
+    "bairro": "Galo Branco",
+    "latitude": -22.8265,
+    "longitude": -43.0327,
+    "status": "OK"
+  },
+  {
+    "distrito": 1,
+    "bairro": "Estrela do Norte",
+    "latitude": -22.8204,
+    "longitude": -43.0382,
+    "status": "OK"
+  },
+  {
+    "distrito": 1,
+    "bairro": "São Miguel",
+    "latitude": -22.8158,
+    "longitude": -43.0343,
+    "status": "OK"
+  },
+  {
+    "distrito": 1,
+    "bairro": "Mutuá",
+    "latitude": -22.8121,
+    "longitude": -43.041,
+    "status": "OK"
+  },
+  {
+    "distrito": 1,
+    "bairro": "Mutuaguaçu",
+    "latitude": -22.8064,
+    "longitude": -43.0412,
+    "status": "OK"
+  },
+  {
+    "distrito": 1,
+    "bairro": "Mutuapira",
+    "latitude": -22.803,
+    "longitude": -43.032,
+    "status": "OK"
+  },
+  {
+    "distrito": 1,
+    "bairro": "Cruzeiro do Sul",
+    "latitude": -22.8089,
+    "longitude": -43.0293,
+    "status": "OK"
+  },
+  {
+    "distrito": 1,
+    "bairro": "Antonina",
+    "latitude": -22.8161,
+    "longitude": -43.0277,
+    "status": "OK"
+  },
+  {
+    "distrito": 1,
+    "bairro": "Nova Cidade",
+    "latitude": -22.8083,
+    "longitude": -43.024,
+    "status": "OK"
+  },
+  {
+    "distrito": 1,
+    "bairro": "Trindade",
+    "latitude": -22.8065,
+    "longitude": -43.0149,
+    "status": "OK"
+  },
+  {
+    "distrito": 1,
+    "bairro": "Luiz Caçador",
+    "latitude": -22.7942,
+    "longitude": -43.0197,
+    "status": "OK"
+  },
+  {
+    "distrito": 1,
+    "bairro": "Recanto das Acácias",
+    "latitude": -22.7903,
+    "longitude": -43.0201,
+    "status": "OK"
+  },
+  {
+    "distrito": 1,
+    "bairro": "Itaúna",
+    "latitude": -22.7917,
+    "longitude": -43.0312,
+    "status": "OK"
+  },
+  {
+    "distrito": 1,
+    "bairro": "Salgueiro",
+    "latitude": -22.7816,
+    "longitude": -43.0222,
+    "status": "OK"
+  },
+  {
+    "distrito": 1,
+    "bairro": "Alcântara",
+    "latitude": -22.8188396,
+    "longitude": -43.0039672,
+    "status": "OK"
+  },
+  {
+    "distrito": 2,
+    "bairro": "Almerinda",
+    "latitude": -22.8387,
+    "longitude": -43.0031,
+    "status": "OK"
+  },
+  {
+    "distrito": 2,
+    "bairro": "Jardim Nova República",
+    "latitude": -22.8486792,
+    "longitude": -43.0047959,
+    "status": "OK"
+  },
+  {
+    "distrito": 2,
+    "bairro": "Arsenal",
+    "latitude": -22.867,
+    "longitude": -43.0048,
+    "status": "OK"
+  },
+  {
+    "distrito": 2,
+    "bairro": "Maria Paula",
+    "latitude": -22.8731,
+    "longitude": -43.0194,
+    "status": "OK"
+  },
+  {
+    "distrito": 2,
+    "bairro": "Arrastão",
+    "latitude": -22.8769,
+    "longitude": -43.0011,
+    "status": "OK"
+  },
+  {
+    "distrito": 2,
+    "bairro": "Anaia Pequeno",
+    "latitude": -22.8661,
+    "longitude": -42.9898,
+    "status": "OK"
+  },
+  {
+    "distrito": 2,
+    "bairro": "Jóquei",
+    "latitude": -22.8474469,
+    "longitude": -42.9977417,
+    "status": "OK"
+  },
+  {
+    "distrito": 2,
+    "bairro": "Coelho",
+    "latitude": -22.8366,
+    "longitude": -42.9923,
+    "status": "OK"
+  },
+  {
+    "distrito": 2,
+    "bairro": "Amendoeira",
+    "latitude": -22.8322,
+    "longitude": -42.9836,
+    "status": "OK"
+  },
+  {
+    "distrito": 2,
+    "bairro": "Jardim Amendoeira",
+    "latitude": -22.8344,
+    "longitude": -42.9784,
+    "status": "OK"
+  },
+  {
+    "distrito": 2,
+    "bairro": "Vila Candoza",
+    "latitude": -22.836,
+    "longitude": -42.975,
+    "status": "OK"
+  },
+  {
+    "distrito": 2,
+    "bairro": "Anaia Grande",
+    "latitude": -22.8525,
+    "longitude": -42.9706,
+    "status": "OK"
+  },
+  {
+    "distrito": 2,
+    "bairro": "Ipiíba",
+    "latitude": -22.8606,
+    "longitude": -42.9417,
+    "status": "OK"
+  },
+  {
+    "distrito": 2,
+    "bairro": "Engenho do Roçado",
+    "latitude": -22.8825142,
+    "longitude": -42.9827897,
+    "status": "OK"
+  },
+  {
+    "distrito": 2,
+    "bairro": "Rio do Ouro",
+    "latitude": -22.8861201,
+    "longitude": -42.9920149,
+    "status": "OK"
+  },
+  {
+    "distrito": 2,
+    "bairro": "Várzea das Moças",
+    "latitude": -22.9051,
+    "longitude": -42.9756,
+    "status": "OK"
+  },
+  {
+    "distrito": 2,
+    "bairro": "Santa Isabel",
+    "latitude": -22.8567,
+    "longitude": -42.9448,
+    "status": "OK"
+  },
+  {
+    "distrito": 2,
+    "bairro": "Eliane",
+    "latitude": -22.8465,
+    "longitude": -42.959,
+    "status": "OK"
+  },
+  {
+    "distrito": 2,
+    "bairro": "Ieda",
+    "latitude": -22.8462,
+    "longitude": -42.9498,
+    "status": "OK"
+  },
+  {
+    "distrito": 2,
+    "bairro": "Sacramento",
+    "latitude": -22.8355,
+    "longitude": -42.9608,
+    "status": "OK"
+  },
+  {
+    "distrito": 3,
+    "bairro": "Jardim Catarina",
+    "latitude": -22.7934,
+    "longitude": -42.9978,
+    "status": "OK"
+  },
+  {
+    "distrito": 3,
+    "bairro": "Raul Veiga",
+    "latitude": -22.8264,
+    "longitude": -42.997,
+    "status": "OK"
+  },
+  {
+    "distrito": 3,
+    "bairro": "Vila Três",
+    "latitude": -22.8199,
+    "longitude": -42.9981,
+    "status": "OK"
+  },
+  {
+    "distrito": 3,
+    "bairro": "Laranjal",
+    "latitude": -22.8114,
+    "longitude": -42.985,
+    "status": "OK"
+  },
+  {
+    "distrito": 3,
+    "bairro": "Santa Luzia",
+    "latitude": -22.7958,
+    "longitude": -42.9792,
+    "status": "OK"
+  },
+  {
+    "distrito": 3,
+    "bairro": "Bom Retiro",
+    "latitude": -22.8046,
+    "longitude": -42.968,
+    "status": "OK"
+  },
+  {
+    "distrito": 3,
+    "bairro": "Gebara",
+    "latitude": -22.7697,
+    "longitude": -42.9554,
+    "status": "OK"
+  },
+  {
+    "distrito": 3,
+    "bairro": "Vista Alegre",
+    "latitude": -22.8103,
+    "longitude": -42.9664,
+    "status": "OK"
+  },
+  {
+    "distrito": 3,
+    "bairro": "Lagoinha",
+    "latitude": -22.8229,
+    "longitude": -42.978,
+    "status": "OK"
+  },
+  {
+    "distrito": 3,
+    "bairro": "Miriambi",
+    "latitude": -22.8219,
+    "longitude": -42.9871,
+    "status": "OK"
+  },
+  {
+    "distrito": 3,
+    "bairro": "Tiradentes",
+    "latitude": -22.8286,
+    "longitude": -42.9747,
+    "status": "OK"
+  },
+  {
+    "distrito": 3,
+    "bairro": "Pacheco",
+    "latitude": -22.8334209,
+    "longitude": -43.0787314,
+    "status": "OK"
+  },
+  {
+    "distrito": 3,
+    "bairro": "Barracão",
+    "latitude": -22.8247,
+    "longitude": -42.9624,
+    "status": "OK"
+  },
+  {
+    "distrito": 3,
+    "bairro": "Guarani",
+    "latitude": -22.8172,
+    "longitude": -42.9565,
+    "status": "OK"
+  },
+  {
+    "distrito": 3,
+    "bairro": "Monjolo",
+    "latitude": -22.796,
+    "longitude": -42.925,
+    "status": "OK"
+  },
+  {
+    "distrito": 3,
+    "bairro": "Marambaia",
+    "latitude": -22.7878,
+    "longitude": -42.9455,
+    "status": "OK"
+  },
+  {
+    "distrito": 3,
+    "bairro": "Largo da Idéia",
+    "latitude": -22.8237518,
+    "longitude": -42.9163747,
+    "status": "OK"
+  },
+  {
+    "distrito": 3,
+    "bairro": "Guaxindiba",
+    "latitude": -22.7752,
+    "longitude": -42.9662,
+    "status": "OK"
+  },
+  {
+    "distrito": 4,
+    "bairro": "Boa Vista",
+    "latitude": -22.8133023,
+    "longitude": -43.063722,
+    "status": "OK"
+  },
+  {
+    "distrito": 4,
+    "bairro": "Porto da Pedra",
+    "latitude": -22.8209,
+    "longitude": -43.0651,
+    "status": "OK"
+  },
+  {
+    "distrito": 4,
+    "bairro": "Porto Novo",
+    "latitude": -22.8231,
+    "longitude": -43.0747,
+    "status": "OK"
+  },
+  {
+    "distrito": 4,
+    "bairro": "Gradim",
+    "latitude": -22.827,
+    "longitude": -43.091,
+    "status": "OK"
+  },
+  {
+    "distrito": 4,
+    "bairro": "Porto Velho",
+    "latitude": -22.8366,
+    "longitude": -43.0914,
+    "status": "OK"
+  },
+  {
+    "distrito": 4,
+    "bairro": "Neves",
+    "latitude": -22.829752,
+    "longitude": -43.087079,
+    "status": "OK"
+  },
+  {
+    "distrito": 4,
+    "bairro": "Vila Lage",
+    "latitude": -22.8473,
+    "longitude": -43.0863,
+    "status": "OK"
+  },
+  {
+    "distrito": 4,
+    "bairro": "Porto da Madama",
+    "latitude": -22.8345634,
+    "longitude": -43.0840159,
+    "status": "OK"
+  },
+  {
+    "distrito": 4,
+    "bairro": "Paraíso",
+    "latitude": -22.8333,
+    "longitude": -43.0793,
+    "status": "OK"
+  },
+  {
+    "distrito": 4,
+    "bairro": "Patronato",
+    "latitude": -22.8315,
+    "longitude": -43.0753,
+    "status": "OK"
+  },
+  {
+    "distrito": 4,
+    "bairro": "Mangueira",
+    "latitude": -22.8308,
+    "longitude": -43.07,
+    "status": "OK"
+  },
+  {
+    "distrito": 4,
+    "bairro": "Parada 40",
+    "latitude": -22.8297739,
+    "longitude": -43.0678295,
+    "status": "OK"
+  },
+  {
+    "distrito": 4,
+    "bairro": "Camarão",
+    "latitude": -22.8271,
+    "longitude": -43.0633,
+    "status": "OK"
+  },
+  {
+    "distrito": 5,
+    "bairro": "Venda da Cruz",
+    "latitude": -22.8610355,
+    "longitude": -43.0898814,
+    "status": "OK"
+  },
+  {
+    "distrito": 5,
+    "bairro": "Convanca",
+    "latitude": -22.8537245,
+    "longitude": -43.0879403,
+    "status": "OK"
+  },
+  {
+    "distrito": 5,
+    "bairro": "Santa Catarina",
+    "latitude": -22.8371,
+    "longitude": -43.0667,
+    "status": "OK"
+  },
+  {
+    "distrito": 5,
+    "bairro": "Barro Vermelho",
+    "latitude": -22.8427072,
+    "longitude": -43.0742699,
+    "status": "OK"
+  },
+  {
+    "distrito": 5,
+    "bairro": "Pita",
+    "latitude": -22.8502,
+    "longitude": -43.0735,
+    "status": "OK"
+  },
+  {
+    "distrito": 5,
+    "bairro": "Zumbi",
+    "latitude": -22.8506,
+    "longitude": -43.0595,
+    "status": "OK"
+  },
+  {
+    "distrito": 5,
+    "bairro": "Tenente Jardim",
+    "latitude": -22.8637856,
+    "longitude": -43.0821066,
+    "status": "OK"
+  },
+  {
+    "distrito": 5,
+    "bairro": "Morro do Castro",
+    "latitude": -22.8652886,
+    "longitude": -43.0687037,
+    "status": "OK"
+  },
+  {
+    "distrito": 5,
+    "bairro": "Engenho Pequeno",
+    "latitude": -22.8510003,
+    "longitude": -43.0491273,
+    "status": "OK"
+  },
+  {
+    "distrito": 5,
+    "bairro": "Novo México",
+    "latitude": -22.8688729,
+    "longitude": -43.046722,
+    "status": "OK"
+  }
+];
+
+    // Dicionário completo de Coordenadas Geocodificadas Reais
+    const COORDENADAS_SG = {
+  "Palmeira": [
+    -22.7702,
+    -43.0177
+  ],
+  "Itaoca": [
+    -22.7835,
+    -43.0648
+  ],
+  "Fazenda dos Mineiros": [
+    -22.7827,
+    -43.0335
+  ],
+  "Porto do Rosa": [
+    -22.7971,
+    -43.0435
+  ],
+  "Boaçu": [
+    -22.8098,
+    -43.0505
+  ],
+  "Zé Garoto": [
+    -22.8286118,
+    -43.0546614
+  ],
+  "Brasilândia": [
+    -22.8216778,
+    -43.0568403
+  ],
+  "Rosane": [
+    -22.8191,
+    -43.0559
+  ],
+  "Vila Lara": [
+    -22.825,
+    -43.051
+  ],
+  "Centro": [
+    -22.8234,
+    -43.0473
+  ],
+  "Rocha": [
+    -22.8331,
+    -43.0415
+  ],
+  "Lindo Parque": [
+    -22.8367,
+    -43.0532
+  ],
+  "Tribobó": [
+    -22.8582096,
+    -43.0289571
+  ],
+  "Colubandê": [
+    -22.8411,
+    -43.0138
+  ],
+  "Mutondo": [
+    -22.8238,
+    -43.0183
+  ],
+  "Galo Branco": [
+    -22.8265,
+    -43.0327
+  ],
+  "Estrela do Norte": [
+    -22.8204,
+    -43.0382
+  ],
+  "São Miguel": [
+    -22.8158,
+    -43.0343
+  ],
+  "Mutuá": [
+    -22.8121,
+    -43.041
+  ],
+  "Mutuaguaçu": [
+    -22.8064,
+    -43.0412
+  ],
+  "Mutuapira": [
+    -22.803,
+    -43.032
+  ],
+  "Cruzeiro do Sul": [
+    -22.8089,
+    -43.0293
+  ],
+  "Antonina": [
+    -22.8161,
+    -43.0277
+  ],
+  "Nova Cidade": [
+    -22.8083,
+    -43.024
+  ],
+  "Trindade": [
+    -22.8065,
+    -43.0149
+  ],
+  "Luiz Caçador": [
+    -22.7942,
+    -43.0197
+  ],
+  "Recanto das Acácias": [
+    -22.7903,
+    -43.0201
+  ],
+  "Itaúna": [
+    -22.7917,
+    -43.0312
+  ],
+  "Salgueiro": [
+    -22.7816,
+    -43.0222
+  ],
+  "Alcântara": [
+    -22.8188396,
+    -43.0039672
+  ],
+  "Almerinda": [
+    -22.8387,
+    -43.0031
+  ],
+  "Jardim Nova República": [
+    -22.8486792,
+    -43.0047959
+  ],
+  "Arsenal": [
+    -22.867,
+    -43.0048
+  ],
+  "Maria Paula": [
+    -22.8731,
+    -43.0194
+  ],
+  "Arrastão": [
+    -22.8769,
+    -43.0011
+  ],
+  "Anaia Pequeno": [
+    -22.8661,
+    -42.9898
+  ],
+  "Jóquei": [
+    -22.8474469,
+    -42.9977417
+  ],
+  "Coelho": [
+    -22.8366,
+    -42.9923
+  ],
+  "Amendoeira": [
+    -22.8322,
+    -42.9836
+  ],
+  "Jardim Amendoeira": [
+    -22.8344,
+    -42.9784
+  ],
+  "Vila Candoza": [
+    -22.836,
+    -42.975
+  ],
+  "Anaia Grande": [
+    -22.8525,
+    -42.9706
+  ],
+  "Ipiíba": [
+    -22.8606,
+    -42.9417
+  ],
+  "Engenho do Roçado": [
+    -22.8825142,
+    -42.9827897
+  ],
+  "Rio do Ouro": [
+    -22.8861201,
+    -42.9920149
+  ],
+  "Várzea das Moças": [
+    -22.9051,
+    -42.9756
+  ],
+  "Santa Isabel": [
+    -22.8567,
+    -42.9448
+  ],
+  "Eliane": [
+    -22.8465,
+    -42.959
+  ],
+  "Ieda": [
+    -22.8462,
+    -42.9498
+  ],
+  "Sacramento": [
+    -22.8355,
+    -42.9608
+  ],
+  "Jardim Catarina": [
+    -22.7934,
+    -42.9978
+  ],
+  "Raul Veiga": [
+    -22.8264,
+    -42.997
+  ],
+  "Vila Três": [
+    -22.8199,
+    -42.9981
+  ],
+  "Laranjal": [
+    -22.8114,
+    -42.985
+  ],
+  "Santa Luzia": [
+    -22.7958,
+    -42.9792
+  ],
+  "Bom Retiro": [
+    -22.8046,
+    -42.968
+  ],
+  "Gebara": [
+    -22.7697,
+    -42.9554
+  ],
+  "Vista Alegre": [
+    -22.8103,
+    -42.9664
+  ],
+  "Lagoinha": [
+    -22.8229,
+    -42.978
+  ],
+  "Miriambi": [
+    -22.8219,
+    -42.9871
+  ],
+  "Tiradentes": [
+    -22.8286,
+    -42.9747
+  ],
+  "Pacheco": [
+    -22.8334209,
+    -43.0787314
+  ],
+  "Barracão": [
+    -22.8247,
+    -42.9624
+  ],
+  "Guarani": [
+    -22.8172,
+    -42.9565
+  ],
+  "Monjolo": [
+    -22.796,
+    -42.925
+  ],
+  "Marambaia": [
+    -22.7878,
+    -42.9455
+  ],
+  "Largo da Idéia": [
+    -22.8237518,
+    -42.9163747
+  ],
+  "Guaxindiba": [
+    -22.7752,
+    -42.9662
+  ],
+  "Boa Vista": [
+    -22.8133023,
+    -43.063722
+  ],
+  "Porto da Pedra": [
+    -22.8209,
+    -43.0651
+  ],
+  "Porto Novo": [
+    -22.8231,
+    -43.0747
+  ],
+  "Gradim": [
+    -22.827,
+    -43.091
+  ],
+  "Porto Velho": [
+    -22.8366,
+    -43.0914
+  ],
+  "Neves": [
+    -22.829752,
+    -43.087079
+  ],
+  "Vila Lage": [
+    -22.8473,
+    -43.0863
+  ],
+  "Porto da Madama": [
+    -22.8345634,
+    -43.0840159
+  ],
+  "Paraíso": [
+    -22.8333,
+    -43.0793
+  ],
+  "Patronato": [
+    -22.8315,
+    -43.0753
+  ],
+  "Mangueira": [
+    -22.8308,
+    -43.07
+  ],
+  "Parada 40": [
+    -22.8297739,
+    -43.0678295
+  ],
+  "Camarão": [
+    -22.8271,
+    -43.0633
+  ],
+  "Venda da Cruz": [
+    -22.8610355,
+    -43.0898814
+  ],
+  "Convanca": [
+    -22.8537245,
+    -43.0879403
+  ],
+  "Santa Catarina": [
+    -22.8371,
+    -43.0667
+  ],
+  "Barro Vermelho": [
+    -22.8427072,
+    -43.0742699
+  ],
+  "Pita": [
+    -22.8502,
+    -43.0735
+  ],
+  "Zumbi": [
+    -22.8506,
+    -43.0595
+  ],
+  "Tenente Jardim": [
+    -22.8637856,
+    -43.0821066
+  ],
+  "Morro do Castro": [
+    -22.8652886,
+    -43.0687037
+  ],
+  "Engenho Pequeno": [
+    -22.8510003,
+    -43.0491273
+  ],
+  "Novo México": [
+    -22.8688729,
+    -43.046722
+  ]
+};
+
+    function getCoordenadaBairro(nome) {
+      if (COORDENADAS_SG[nome]) return COORDENADAS_SG[nome];
+      return [-22.8270, -43.0300];
+    }
+
+    const BAIRROS_PADRAO = DADOS_BAIRROS_BASE.map((item, index) => {
       const id = index + 1;
-      if (nome === "Mutondo") {
+      if (item.bairro === "Mutondo") {
         return {
           id: id,
-          bairro: nome,
-          igreja: "Igreja Batista da Manhã",
-          pastor: "Pastor Hugo Campos",
-          obs: "Informado na lista oficial"
+          bairro: item.bairro,
+          distrito: item.distrito,
+          igrejas: [
+            {
+              id: "ig-mutondo-1",
+              nome: "Igreja Batista da Manhã",
+              pastor: "Pastor Hugo Campos",
+              status: "ativo",
+              obs: "Informado na lista oficial"
+            }
+          ]
         };
       }
       return {
         id: id,
-        bairro: nome,
-        igreja: "",
-        pastor: "",
-        obs: ""
+        bairro: item.bairro,
+        distrito: item.distrito,
+        igrejas: []
       };
     });
 
     let bairros = [];
     let filtroAtual = 'todos';
+    let distritoAtual = 'todos';
+    let visaoAtual = 'lista';
+    let leafletMap = null;
+    let markersLayer = null;
+
+    // Determina o status geral do bairro com base nas suas igrejas
+    function getStatusBairro(item) {
+      if (!item.igrejas || item.igrejas.length === 0) {
+        return 'pendente';
+      }
+      const statuses = item.igrejas.map(i => i.status || 'pendente');
+      if (statuses.includes('ativo')) return 'ativo';
+      if (statuses.includes('pendente_aceite')) return 'pendente_aceite';
+      if (statuses.includes('pendente_convite')) return 'pendente_convite';
+      return 'pendente';
+    }
 
     function carregarDadosIniciais() {
-      const salvo = localStorage.getItem('sg_mapeamento_bairros_91');
-      if (salvo) {
+      const salvoV4 = localStorage.getItem('sg_mapeamento_bairros_91_v4');
+      const salvoV3 = localStorage.getItem('sg_mapeamento_bairros_91_v3');
+      const salvoV2 = localStorage.getItem('sg_mapeamento_bairros_91_v2') || localStorage.getItem('sg_mapeamento_bairros_91');
+
+      if (salvoV4) {
         try {
-          const dadosSalvos = JSON.parse(salvo);
-          if (Array.isArray(dadosSalvos) && dadosSalvos.length === 91) {
-            bairros = dadosSalvos;
+          const dados = JSON.parse(salvoV4);
+          if (Array.isArray(dados) && dados.length > 0) {
+            bairros = dados;
           } else {
             bairros = [...BAIRROS_PADRAO];
-            salvarNoStorage();
           }
+        } catch (e) {
+          bairros = [...BAIRROS_PADRAO];
+        }
+      } else if (salvoV3 || salvoV2) {
+        try {
+          const dadosAnteriores = JSON.parse(salvoV3 || salvoV2);
+          if (Array.isArray(dadosAnteriores)) {
+            // Mapeia preservando congregações cadastradas e inserindo o distrito oficial
+            bairros = BAIRROS_PADRAO.map(bBase => {
+              const correspondente = dadosAnteriores.find(d => 
+                (d.bairro && d.bairro.toLowerCase() === bBase.bairro.toLowerCase()) || 
+                (d.id === bBase.id)
+              );
+              if (correspondente) {
+                let igrejas = correspondente.igrejas;
+                if (!igrejas && correspondente.igreja && correspondente.igreja.trim() !== '') {
+                  igrejas = [{
+                    id: "ig-" + Math.random().toString(36).substr(2, 9),
+                    nome: correspondente.igreja.trim(),
+                    pastor: correspondente.pastor ? correspondente.pastor.trim() : "",
+                    status: correspondente.status || "ativo",
+                    obs: correspondente.obs ? correspondente.obs.trim() : ""
+                  }];
+                }
+                return {
+                  ...bBase,
+                  igrejas: igrejas || bBase.igrejas
+                };
+              }
+              return bBase;
+            });
+          } else {
+            bairros = [...BAIRROS_PADRAO];
+          }
+          salvarNoStorage();
         } catch (e) {
           bairros = [...BAIRROS_PADRAO];
           salvarNoStorage();
@@ -446,62 +1504,190 @@ function salvarDados(bairro, igreja, pastor) {
         bairros = [...BAIRROS_PADRAO];
         salvarNoStorage();
       }
+
       atualizarInterface();
     }
 
     function salvarNoStorage() {
-      localStorage.setItem('sg_mapeamento_bairros_91', JSON.stringify(bairros));
+      localStorage.setItem('sg_mapeamento_bairros_91_v4', JSON.stringify(bairros));
+    }
+
+    function getStatusConfig(status) {
+      switch (status) {
+        case 'ativo':
+          return {
+            label: 'Ativo',
+            badgeBg: 'bg-emerald-100/90 text-emerald-800 border border-emerald-200',
+            cardBorder: 'border-emerald-300 bg-emerald-50/15',
+            icon: 'ph-check-circle',
+            colorHex: '#10b981',
+            pinClass: 'bg-emerald-600'
+          };
+        case 'pendente_convite':
+          return {
+            label: 'Pendente de convite',
+            badgeBg: 'bg-blue-100/90 text-blue-800 border border-blue-200',
+            cardBorder: 'border-blue-300 bg-blue-50/15',
+            icon: 'ph-paper-plane-tilt',
+            colorHex: '#3b82f6',
+            pinClass: 'bg-blue-600'
+          };
+        case 'pendente_aceite':
+          return {
+            label: 'Pendente de aceite',
+            badgeBg: 'bg-purple-100/90 text-purple-800 border border-purple-200',
+            cardBorder: 'border-purple-300 bg-purple-50/15',
+            icon: 'ph-hourglass-high',
+            colorHex: '#a855f7',
+            pinClass: 'bg-purple-600'
+          };
+        case 'pendente':
+        default:
+          return {
+            label: 'Sem Igreja',
+            badgeBg: 'bg-amber-100/90 text-amber-800 border border-amber-200',
+            cardBorder: 'border-slate-200 bg-white',
+            icon: 'ph-clock',
+            colorHex: '#f59e0b',
+            pinClass: 'bg-amber-500'
+          };
+      }
     }
 
     function atualizarEstatisticas() {
-      const total = bairros.length;
-      const mapeados = bairros.filter(b => b.igreja && b.igreja.trim() !== "").length;
-      const pendentes = total - mapeados;
-      const pct = total > 0 ? Math.round((mapeados / total) * 100) : 0;
+      const totalBairros = bairros.length;
+      let totalIgrejas = 0;
+      let ativos = 0;
+      let pendConvite = 0;
+      let pendAceite = 0;
+      let pendentes = 0;
 
-      document.getElementById('stat-total').innerText = total;
-      document.getElementById('stat-mapeados').innerText = mapeados;
+      bairros.forEach(b => {
+        totalIgrejas += (b.igrejas ? b.igrejas.length : 0);
+        const st = getStatusBairro(b);
+        if (st === 'ativo') ativos++;
+        else if (st === 'pendente_convite') pendConvite++;
+        else if (st === 'pendente_aceite') pendAceite++;
+        else pendentes++;
+      });
+      
+      const pct = totalBairros > 0 ? Math.round((ativos / totalBairros) * 100) : 0;
+
+      document.getElementById('stat-total').innerText = totalBairros;
+      document.getElementById('stat-total-igrejas').innerText = totalIgrejas;
+      document.getElementById('stat-ativos').innerText = ativos;
+      document.getElementById('stat-pendente-convite').innerText = pendConvite;
+      document.getElementById('stat-pendente-aceite').innerText = pendAceite;
       document.getElementById('stat-pendentes').innerText = pendentes;
       document.getElementById('stat-porcentagem').innerText = pct + '%';
       document.getElementById('progresso-fill').style.width = pct + '%';
     }
 
+    function setVisao(visao) {
+      visaoAtual = visao;
+      const tabLista = document.getElementById('tab-lista');
+      const tabMapa = document.getElementById('tab-mapa');
+      const viewLista = document.getElementById('view-lista');
+      const viewMapa = document.getElementById('view-mapa');
+
+      if (visao === 'lista') {
+        tabLista.className = "flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white text-slate-900 shadow-sm transition";
+        tabMapa.className = "flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-slate-600 hover:text-slate-900 transition";
+        viewLista.classList.remove('hidden');
+        viewMapa.classList.add('hidden');
+      } else {
+        tabMapa.className = "flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white text-slate-900 shadow-sm transition";
+        tabLista.className = "flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-slate-600 hover:text-slate-900 transition";
+        viewLista.classList.add('hidden');
+        viewMapa.classList.remove('hidden');
+        renderizarMapa();
+      }
+    }
+
+    function setDistrito(dist) {
+      distritoAtual = dist;
+      const distritos = ['todos', 1, 2, 3, 4, 5];
+      distritos.forEach(d => {
+        const el = document.getElementById('distrito-' + d);
+        if (el) {
+          if (d == dist) {
+            el.className = "px-2.5 py-1 rounded-lg font-semibold bg-slate-900 text-white shadow-2xs transition whitespace-nowrap";
+          } else {
+            el.className = "px-2.5 py-1 rounded-lg font-medium bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 transition whitespace-nowrap";
+          }
+        }
+      });
+      filtrarDados();
+    }
+
     function setFiltro(tipo) {
       filtroAtual = tipo;
       
-      const btnTodos = document.getElementById('filtro-todos');
-      const btnMap = document.getElementById('filtro-mapeados');
-      const btnPend = document.getElementById('filtro-pendentes');
-
-      [btnTodos, btnMap, btnPend].forEach(btn => {
-        btn.className = "px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition";
+      const filtros = ['todos', 'ativo', 'pendente_convite', 'pendente_aceite', 'pendente'];
+      filtros.forEach(f => {
+        const el = document.getElementById('filtro-' + f);
+        if (el) {
+          if (f === tipo) {
+            el.className = "px-2.5 py-1 rounded-lg font-semibold bg-slate-800 text-white shadow-2xs transition whitespace-nowrap";
+          } else {
+            let corClasses = "text-slate-600 border-slate-200 hover:bg-slate-100";
+            if (f === 'ativo') corClasses = "text-emerald-700 border-emerald-200 hover:bg-emerald-50";
+            if (f === 'pendente_convite') corClasses = "text-blue-700 border-blue-200 hover:bg-blue-50";
+            if (f === 'pendente_aceite') corClasses = "text-purple-700 border-purple-200 hover:bg-purple-50";
+            if (f === 'pendente') corClasses = "text-amber-700 border-amber-200 hover:bg-amber-50";
+            el.className = `px-2.5 py-1 rounded-lg font-medium bg-white border ${corClasses} transition whitespace-nowrap`;
+          }
+        }
       });
 
-      if (tipo === 'todos') btnTodos.className = "px-3 py-1.5 rounded-lg bg-white text-slate-900 shadow-sm transition";
-      if (tipo === 'mapeados') btnMap.className = "px-3 py-1.5 rounded-lg bg-white text-slate-900 shadow-sm transition";
-      if (tipo === 'pendentes') btnPend.className = "px-3 py-1.5 rounded-lg bg-white text-slate-900 shadow-sm transition";
-
-      filtrarLista();
+      filtrarDados();
     }
 
-    function filtrarLista() {
+    function getDadosFiltrados() {
       const busca = document.getElementById('input-busca').value.toLowerCase().trim();
       
-      const filtrados = bairros.filter(item => {
-        const atendeFiltro = 
-          filtroAtual === 'todos' ||
-          (filtroAtual === 'mapeados' && item.igreja && item.igreja.trim() !== "") ||
-          (filtroAtual === 'pendentes' && (!item.igreja || item.igreja.trim() === ""));
+      return bairros.filter(item => {
+        // Filtro de Distrito
+        if (distritoAtual !== 'todos' && item.distrito !== parseInt(distritoAtual, 10)) {
+          return false;
+        }
 
-        const atendeBusca = 
-          item.bairro.toLowerCase().includes(busca) ||
-          (item.igreja && item.igreja.toLowerCase().includes(busca)) ||
-          (item.pastor && item.pastor.toLowerCase().includes(busca));
+        // Filtro de Status
+        let atendeFiltro = false;
+        if (filtroAtual === 'todos') {
+          atendeFiltro = true;
+        } else if (filtroAtual === 'pendente') {
+          atendeFiltro = (!item.igrejas || item.igrejas.length === 0);
+        } else {
+          atendeFiltro = item.igrejas && item.igrejas.some(i => i.status === filtroAtual);
+        }
+
+        // Busca textual
+        let matchIgrejas = false;
+        if (item.igrejas && item.igrejas.length > 0) {
+          matchIgrejas = item.igrejas.some(ig => 
+            (ig.nome && ig.nome.toLowerCase().includes(busca)) ||
+            (ig.pastor && ig.pastor.toLowerCase().includes(busca)) ||
+            (ig.obs && ig.obs.toLowerCase().includes(busca))
+          );
+        }
+
+        const nomeDistrito = NOMES_DISTRITOS[item.distrito] || "";
+        const atendeBusca = item.bairro.toLowerCase().includes(busca) || 
+                            nomeDistrito.toLowerCase().includes(busca) ||
+                            `${item.distrito} distrito`.includes(busca) ||
+                            matchIgrejas;
 
         return atendeFiltro && atendeBusca;
       });
+    }
 
+    function filtrarDados() {
+      const filtrados = getDadosFiltrados();
       renderizarCards(filtrados);
+      if (visaoAtual === 'mapa') {
+        renderizarMapa(filtrados);
+      }
     }
 
     function renderizarCards(lista) {
@@ -515,65 +1701,79 @@ function salvarDados(bairro, igreja, pastor) {
       }
 
       empty.classList.add('hidden');
-      container.innerHTML = lista.map((item, index) => {
-        const estaMapeado = item.igreja && item.igreja.trim() !== "";
+      container.innerHTML = lista.map((item) => {
+        const stGeral = getStatusBairro(item);
+        const stConf = getStatusConfig(stGeral);
+        const qtdIgrejas = item.igrejas ? item.igrejas.length : 0;
+
+        let corpoIgrejas = '';
+        if (qtdIgrejas === 0) {
+          corpoIgrejas = `
+            <div class="p-3 rounded-xl bg-slate-50 border border-slate-100 text-center my-3">
+              <span class="text-xs text-slate-400 italic">Nenhuma congregação associada</span>
+            </div>
+          `;
+        } else {
+          corpoIgrejas = `
+            <div class="space-y-2 my-3 max-h-48 overflow-y-auto pr-1">
+              ${item.igrejas.map((ig) => {
+                const igConf = getStatusConfig(ig.status || 'ativo');
+                return `
+                  <div class="p-2.5 rounded-xl bg-slate-50/80 border border-slate-200/80 text-xs space-y-1">
+                    <div class="flex items-center justify-between gap-1.5">
+                      <strong class="text-slate-900 truncate font-semibold">${escapeHtml(ig.nome || 'Igreja Sem Nome')}</strong>
+                      <span class="text-[10px] font-semibold ${igConf.badgeBg} px-2 py-0.5 rounded-full whitespace-nowrap">
+                        ${igConf.label}
+                      </span>
+                    </div>
+                    ${ig.pastor ? `
+                      <p class="text-slate-600 text-[11px] flex items-center gap-1.5 truncate">
+                        <i class="ph ph-user text-slate-400"></i> ${escapeHtml(ig.pastor)}
+                      </p>
+                    ` : ''}
+                    ${ig.obs ? `
+                      <p class="text-slate-500 text-[10px] line-clamp-1 italic">
+                        "${escapeHtml(ig.obs)}"
+                      </p>
+                    ` : ''}
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          `;
+        }
+
         return `
-          <div class="bg-white rounded-2xl p-4 border ${estaMapeado ? 'border-emerald-200/80 bg-emerald-50/20' : 'border-slate-200'} shadow-sm hover:shadow-md transition-all flex flex-col justify-between group">
+          <div class="rounded-2xl p-4 border ${stConf.cardBorder} shadow-sm hover:shadow-md transition-all flex flex-col justify-between group bg-white">
             <div>
-              <div class="flex items-start justify-between gap-2 mb-2.5">
+              <div class="flex items-start justify-between gap-2 mb-1.5">
                 <div class="flex items-center gap-2">
-                  <span class="w-6 h-6 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[11px] font-bold">
+                  <span class="w-6 h-6 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-[11px] font-bold">
                     ${item.id}
                   </span>
-                  <h3 class="font-bold text-slate-900 text-sm group-hover:text-emerald-700 transition">
-                    ${escapeHtml(item.bairro)}
-                  </h3>
-                </div>
-                ${estaMapeado 
-                  ? `<span class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full">
-                      <i class="ph-bold ph-check text-[10px]"></i> Mapeado
-                    </span>`
-                  : `<span class="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-100/60 px-2 py-0.5 rounded-full">
-                      <i class="ph-bold ph-clock text-[10px]"></i> Pendente
-                    </span>`
-                }
-              </div>
-
-              <div class="space-y-1.5 text-xs text-slate-600 my-3">
-                <div class="flex items-center gap-2">
-                  <i class="ph ph-church text-slate-400 text-sm flex-shrink-0"></i>
-                  <span class="truncate">
-                    ${estaMapeado 
-                      ? `<strong class="text-slate-800">${escapeHtml(item.igreja)}</strong>` 
-                      : `<span class="text-slate-400 italic">Igreja não informada</span>`
-                    }
-                  </span>
-                </div>
-
-                <div class="flex items-center gap-2">
-                  <i class="ph ph-user text-slate-400 text-sm flex-shrink-0"></i>
-                  <span class="truncate">
-                    ${item.pastor && item.pastor.trim() !== "" 
-                      ? `<span class="text-slate-700 font-medium">${escapeHtml(item.pastor)}</span>` 
-                      : `<span class="text-slate-400 italic">Pastor não informado</span>`
-                    }
-                  </span>
-                </div>
-
-                ${item.obs ? `
-                  <div class="flex items-start gap-2 pt-1">
-                    <i class="ph ph-chat-text text-slate-400 text-sm flex-shrink-0 mt-0.5"></i>
-                    <p class="text-[11px] text-slate-500 line-clamp-2">${escapeHtml(item.obs)}</p>
+                  <div>
+                    <h3 class="font-bold text-slate-900 text-sm group-hover:text-emerald-700 transition">
+                      ${escapeHtml(item.bairro)}
+                    </h3>
+                    <span class="text-[10px] font-semibold text-slate-400">
+                      ${item.distrito}º Distrito
+                    </span>
                   </div>
-                ` : ''}
+                </div>
+                <span class="inline-flex items-center gap-1 text-[11px] font-semibold ${stConf.badgeBg} px-2.5 py-0.5 rounded-full whitespace-nowrap">
+                  <i class="ph-bold ${stConf.icon} text-[11px]"></i> ${qtdIgrejas > 1 ? `${qtdIgrejas} Igrejas` : stConf.label}
+                </span>
               </div>
+
+              ${corpoIgrejas}
             </div>
 
-            <!-- Botões de Ação do Card -->
-            <div class="pt-3 mt-2 border-t border-slate-100 flex items-center justify-end gap-1.5">
+            <!-- Botão de Ação do Card -->
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-between gap-1.5 text-xs text-slate-500">
+              <span class="text-[11px] font-medium">${qtdIgrejas} ${qtdIgrejas === 1 ? 'congregação' : 'congregações'}</span>
               <button onclick="abrirModalEdicao(${item.id})" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition flex items-center gap-1">
                 <i class="ph ph-pencil-simple text-sm"></i>
-                <span>Editar</span>
+                <span>Gerenciar</span>
               </button>
             </div>
           </div>
@@ -581,28 +1781,112 @@ function salvarDados(bairro, igreja, pastor) {
       }).join('');
     }
 
+    function renderizarMapa(listaCustom) {
+      const lista = listaCustom || getDadosFiltrados();
+      
+      if (!leafletMap) {
+        leafletMap = L.map('mapa-container').setView([-22.8270, -43.0300], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '© OpenStreetMap contributors'
+        }).addTo(leafletMap);
+        markersLayer = L.layerGroup().addTo(leafletMap);
+      } else {
+        markersLayer.clearLayers();
+        setTimeout(() => leafletMap.invalidateSize(), 200);
+      }
+
+      lista.forEach((item) => {
+        const coords = getCoordenadaBairro(item.bairro);
+        const stGeral = getStatusBairro(item);
+        const stConf = getStatusConfig(stGeral);
+        const qtdIgrejas = item.igrejas ? item.igrejas.length : 0;
+
+        const customIcon = L.divIcon({
+          className: 'custom-pin-wrapper',
+          html: `
+            <div class="custom-map-pin ${stConf.pinClass}" style="width: 28px; height: 28px; font-size: 11px;">
+              ${item.id}
+            </div>
+          `,
+          iconSize: [28, 28],
+          iconAnchor: [14, 14]
+        });
+
+        let igrejasHtml = '';
+        if (qtdIgrejas === 0) {
+          igrejasHtml = `<p class="text-slate-400 italic text-xs">Nenhuma igreja cadastrada</p>`;
+        } else {
+          igrejasHtml = `
+            <div class="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+              ${item.igrejas.map(ig => {
+                const igConf = getStatusConfig(ig.status || 'ativo');
+                return `
+                  <div class="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs">
+                    <div class="flex items-center justify-between gap-1">
+                      <span class="font-bold text-slate-800 truncate">${escapeHtml(ig.nome)}</span>
+                      <span class="text-[9px] font-semibold ${igConf.badgeBg} px-1.5 py-0.2 rounded">${igConf.label}</span>
+                    </div>
+                    ${ig.pastor ? `<p class="text-slate-600 text-[10px]">Pr. ${escapeHtml(ig.pastor)}</p>` : ''}
+                    ${ig.obs ? `<p class="text-slate-400 text-[9px] italic truncate">${escapeHtml(ig.obs)}</p>` : ''}
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          `;
+        }
+
+        const popupContent = `
+          <div class="space-y-2 text-xs min-w-[210px]">
+            <div class="flex items-center justify-between gap-2 border-b border-slate-100 pb-1.5">
+              <div>
+                <h4 class="font-bold text-slate-900 text-sm">${item.id}. ${escapeHtml(item.bairro)}</h4>
+                <p class="text-[10px] text-slate-400 font-medium">${item.distrito}º Distrito</p>
+              </div>
+              <span class="text-[10px] font-semibold ${stConf.badgeBg} px-2 py-0.5 rounded-full">${qtdIgrejas} ${qtdIgrejas === 1 ? 'Igreja' : 'Igrejas'}</span>
+            </div>
+            ${igrejasHtml}
+            <div class="pt-2 flex justify-end">
+              <button onclick="abrirModalEdicao(${item.id})" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1 shadow-sm">
+                <i class="ph ph-pencil-simple"></i> Gerenciar Igrejas
+              </button>
+            </div>
+          </div>
+        `;
+
+        const marker = L.marker(coords, { icon: customIcon }).bindPopup(popupContent);
+        markersLayer.addLayer(marker);
+      });
+    }
+
+    // Modal de Edição com Formulário de Múltiplas Igrejas
+    let formIgrejasArray = [];
+
     function abrirModalEdicao(id) {
       const modal = document.getElementById('modal-edicao');
       const titulo = document.getElementById('modal-titulo');
+      const subtitulo = document.getElementById('modal-subtitulo');
       
       if (id !== null) {
         const item = bairros.find(b => b.id === id);
         if (!item) return;
-        titulo.innerText = "Editar Bairro: " + item.bairro;
+        titulo.innerText = "Gerenciar Bairro: " + item.bairro;
+        subtitulo.innerText = `Pertencente ao ${item.distrito}º Distrito de São Gonçalo`;
         document.getElementById('edit-id').value = item.id;
         document.getElementById('edit-bairro').value = item.bairro;
-        document.getElementById('edit-igreja').value = item.igreja || '';
-        document.getElementById('edit-pastor').value = item.pastor || '';
-        document.getElementById('edit-obs').value = item.obs || '';
+        document.getElementById('edit-distrito').value = item.distrito || 1;
+        
+        formIgrejasArray = (item.igrejas || []).map(ig => ({ ...ig }));
       } else {
         titulo.innerText = "Adicionar Novo Bairro";
+        subtitulo.innerText = "Cadastre um novo bairro e suas congregações";
         document.getElementById('edit-id').value = "";
         document.getElementById('edit-bairro').value = "";
-        document.getElementById('edit-igreja').value = "";
-        document.getElementById('edit-pastor').value = "";
-        document.getElementById('edit-obs').value = "";
+        document.getElementById('edit-distrito').value = 1;
+        formIgrejasArray = [];
       }
 
+      renderizarFormIgrejas();
       modal.classList.remove('hidden');
     }
 
@@ -610,35 +1894,149 @@ function salvarDados(bairro, igreja, pastor) {
       document.getElementById('modal-edicao').classList.add('hidden');
     }
 
+    function adicionarNovaIgrejaForm() {
+      formIgrejasArray.push({
+        id: "ig-" + Math.random().toString(36).substr(2, 9),
+        nome: "",
+        pastor: "",
+        status: "ativo",
+        obs: ""
+      });
+      renderizarFormIgrejas();
+      setTimeout(() => {
+        const inputs = document.querySelectorAll('.input-nome-igreja');
+        if (inputs.length > 0) {
+          inputs[inputs.length - 1].focus();
+        }
+      }, 50);
+    }
+
+    function removerIgrejaForm(index) {
+      formIgrejasArray.splice(index, 1);
+      renderizarFormIgrejas();
+    }
+
+    function atualizarCampoIgrejaForm(index, campo, valor) {
+      if (formIgrejasArray[index]) {
+        formIgrejasArray[index][campo] = valor;
+      }
+    }
+
+    function renderizarFormIgrejas() {
+      const container = document.getElementById('lista-igrejas-form');
+      const empty = document.getElementById('empty-igrejas-form');
+
+      if (formIgrejasArray.length === 0) {
+        container.innerHTML = '';
+        empty.classList.remove('hidden');
+        return;
+      }
+
+      empty.classList.add('hidden');
+      container.innerHTML = formIgrejasArray.map((ig, idx) => {
+        return `
+          <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 relative space-y-2.5">
+            <div class="flex items-center justify-between gap-2 border-b border-slate-200/80 pb-2">
+              <span class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <span class="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px]">${idx + 1}</span>
+                <span>Congregação #${idx + 1}</span>
+              </span>
+              <button 
+                type="button" 
+                onclick="removerIgrejaForm(${idx})" 
+                class="text-rose-500 hover:text-rose-700 hover:bg-rose-50 p-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition"
+                title="Remover congregação"
+              >
+                <i class="ph ph-trash text-sm"></i>
+                <span>Remover</span>
+              </button>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div class="sm:col-span-2">
+                <label class="block text-[11px] font-semibold text-slate-600 mb-1">Status da Congregação</label>
+                <select 
+                  onchange="atualizarCampoIgrejaForm(${idx}, 'status', this.value)"
+                  class="w-full text-xs border border-slate-300 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+                >
+                  <option value="ativo" ${ig.status === 'ativo' ? 'selected' : ''}>🟢 Ativo (Confirmado)</option>
+                  <option value="pendente_convite" ${ig.status === 'pendente_convite' ? 'selected' : ''}>🔵 Pendente de convite (Aguardando envio)</option>
+                  <option value="pendente_aceite" ${ig.status === 'pendente_aceite' ? 'selected' : ''}>🟣 Pendente de aceite (Convite enviado)</option>
+                  <option value="pendente" ${ig.status === 'pendente' ? 'selected' : ''}>🟡 Pendente</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-600 mb-1">Nome da Igreja / Denominação</label>
+                <input 
+                  type="text" 
+                  value="${escapeHtml(ig.nome || '')}" 
+                  oninput="atualizarCampoIgrejaForm(${idx}, 'nome', this.value)"
+                  placeholder="Ex: Primeira Igreja Batista, ADVEC..." 
+                  class="input-nome-igreja w-full text-xs border border-slate-300 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+                >
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-600 mb-1">Pastor / Líder Responsável</label>
+                <input 
+                  type="text" 
+                  value="${escapeHtml(ig.pastor || '')}" 
+                  oninput="atualizarCampoIgrejaForm(${idx}, 'pastor', this.value)"
+                  placeholder="Ex: Pr. Davi Barreto..." 
+                  class="w-full text-xs border border-slate-300 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+                >
+              </div>
+
+              <div class="sm:col-span-2">
+                <label class="block text-[11px] font-semibold text-slate-600 mb-1">Observações ou Contato (Opcional)</label>
+                <input 
+                  type="text" 
+                  value="${escapeHtml(ig.obs || '')}" 
+                  oninput="atualizarCampoIgrejaForm(${idx}, 'obs', this.value)"
+                  placeholder="Endereço, dia de culto, telefone..." 
+                  class="w-full text-xs border border-slate-300 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+                >
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
     function salvarBairro(e) {
       e.preventDefault();
       const idVal = document.getElementById('edit-id').value;
       const bairroVal = document.getElementById('edit-bairro').value.trim();
-      const igrejaVal = document.getElementById('edit-igreja').value.trim();
-      const pastorVal = document.getElementById('edit-pastor').value.trim();
-      const obsVal = document.getElementById('edit-obs').value.trim();
+      const distritoVal = parseInt(document.getElementById('edit-distrito').value, 10) || 1;
 
       if (!bairroVal) return;
 
+      const igrejasValidas = formIgrejasArray.filter(ig => {
+        return (ig.nome && ig.nome.trim() !== "") || (ig.pastor && ig.pastor.trim() !== "") || (ig.obs && ig.obs.trim() !== "");
+      }).map(ig => ({
+        id: ig.id || ("ig-" + Math.random().toString(36).substr(2, 9)),
+        nome: (ig.nome || "").trim(),
+        pastor: (ig.pastor || "").trim(),
+        status: ig.status || "ativo",
+        obs: (ig.obs || "").trim()
+      }));
+
       if (idVal) {
-        // Edição existente
         const index = bairros.findIndex(b => b.id === parseInt(idVal, 10));
         if (index !== -1) {
           bairros[index].bairro = bairroVal;
-          bairros[index].igreja = igrejaVal;
-          bairros[index].pastor = pastorVal;
-          bairros[index].obs = obsVal;
-          mostrarToast("Bairro '" + bairroVal + "' atualizado!");
+          bairros[index].distrito = distritoVal;
+          bairros[index].igrejas = igrejasValidas;
+          mostrarToast("Bairro '" + bairroVal + "' atualizado (" + igrejasValidas.length + " congregações)!");
         }
       } else {
-        // Novo bairro
         const novoId = bairros.length > 0 ? Math.max(...bairros.map(b => b.id)) + 1 : 1;
         bairros.push({
           id: novoId,
           bairro: bairroVal,
-          igreja: igrejaVal,
-          pastor: pastorVal,
-          obs: obsVal
+          distrito: distritoVal,
+          igrejas: igrejasValidas
         });
         mostrarToast("Bairro adicionado com sucesso!");
       }
@@ -648,66 +2046,25 @@ function salvarDados(bairro, igreja, pastor) {
       atualizarInterface();
     }
 
-    function gerarTextoWhatsApp() {
-      const total = bairros.length;
-      const mapeados = bairros.filter(b => b.igreja && b.igreja.trim() !== "").length;
-      const pct = total > 0 ? Math.round((mapeados / total) * 100) : 0;
-
-      let msg = `*Relação dos bairros de São Gonçalo*\n`;
-      msg += `Bora trabalhar nessa meta de alcançar todos os bairros!? (Pouco a pouco chegamos lá)\n\n`;
-      msg += `📊 *Progresso:* ${mapeados}/${total} bairros (${pct}% concluído)\n\n`;
-
-      bairros.forEach((item, idx) => {
-        const num = idx + 1;
-        if (item.igreja && item.igreja.trim() !== "") {
-          const pastorInfo = item.pastor ? ` - ${item.pastor}` : "";
-          msg += `${num}. *${item.bairro}*: _${item.igreja}${pastorInfo}_\n`;
-        } else {
-          msg += `${num}. ${item.bairro}: _Igreja X Pastor Y_\n`;
-        }
+    function exportarCSV() {
+      const linhas = [];
+      linhas.push("id,distrito,bairro,status_geral,qtd_igrejas,igrejas_nomes,pastores");
+      
+      bairros.forEach(b => {
+        const st = getStatusBairro(b);
+        const qtd = b.igrejas ? b.igrejas.length : 0;
+        const nomes = b.igrejas ? b.igrejas.map(i => i.nome).join(' | ') : '';
+        const pastores = b.igrejas ? b.igrejas.map(i => i.pastor).join(' | ') : '';
+        linhas.push(`${b.id},${b.distrito},"${b.bairro}",${st},${qtd},"${nomes}","${pastores}"`);
       });
 
-      msg += `\n_Mapeamento Cooperativo SG_`;
-      return msg;
-    }
-
-    function abrirModalWhatsApp() {
-      document.getElementById('texto-whatsapp').value = gerarTextoWhatsApp();
-      document.getElementById('modal-whatsapp').classList.remove('hidden');
-    }
-
-    function fecharModalWhatsApp() {
-      document.getElementById('modal-whatsapp').classList.add('hidden');
-    }
-
-    function copiarTextoWhatsApp() {
-      const textarea = document.getElementById('texto-whatsapp');
-      textarea.select();
-      document.execCommand('copy');
-      
-      const toastWa = document.getElementById('toast-copiado-wa');
-      toastWa.classList.remove('opacity-0');
-      setTimeout(() => toastWa.classList.add('opacity-0'), 2500);
-      mostrarToast("Texto copiado para a área de transferência!");
-    }
-
-    function abrirModalAppsScript() {
-      document.getElementById('modal-appsscript').classList.remove('hidden');
-    }
-
-    function fecharModalAppsScript() {
-      document.getElementById('modal-appsscript').classList.add('hidden');
-    }
-
-    function copiarCodigoScript() {
-      const textarea = document.getElementById('codigo-script');
-      textarea.select();
-      document.execCommand('copy');
-
-      const toastScript = document.getElementById('toast-copiado-script');
-      toastScript.classList.remove('opacity-0');
-      setTimeout(() => toastScript.classList.add('opacity-0'), 2500);
-      mostrarToast("Código Apps Script copiado!");
+      const blob = new Blob([linhas.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'mapeamento_igrejas_sg.csv';
+      a.click();
+      URL.revokeObjectURL(url);
     }
 
     function mostrarToast(mensagem) {
@@ -732,7 +2089,7 @@ function salvarDados(bairro, igreja, pastor) {
 
     function atualizarInterface() {
       atualizarEstatisticas();
-      filtrarLista();
+      filtrarDados();
     }
 
     window.addEventListener('DOMContentLoaded', () => {
