@@ -87,13 +87,13 @@
             <h1 class="font-bold text-lg text-slate-900 leading-tight">Status da Rede de Igrejas</h1>
             <span class="text-xs bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-full">SG • RJ</span>
           </div>
-          <p class="text-xs text-slate-500">Mapeamento e gestão dos 91 bairros e congregações</p>
+          <p class="text-xs text-slate-500">Mapeamento demográfico & ministerial • 91 bairros em 5 distritos</p>
         </div>
       </div>
       <div class="flex items-center gap-2">
         <button onclick="exportarCSV()" class="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition flex items-center gap-1.5">
           <i class="ph ph-download-simple text-sm"></i>
-          <span>Exportar Dados</span>
+          <span>Exportar Dados (CSV)</span>
         </button>
       </div>
     </div>
@@ -101,18 +101,25 @@
 
   <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
     
-    <!-- Meta e Barra de Progresso Geral -->
-    <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm">
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+    <!-- Meta e Barra de Progresso Geral com Demografia -->
+    <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm space-y-4">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <span class="text-xs font-bold tracking-wider text-emerald-700 uppercase">Rede Ministerial</span>
-          <h2 class="text-xl font-bold text-slate-900">Status da Rede de Igrejas</h2>
-          <p class="text-xs text-slate-500">Acompanhamento dos 91 bairros nos 5 distritos e status de adesão de cada igreja.</p>
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-xs font-bold tracking-wider text-emerald-700 uppercase">Diagnóstico da Cidade</span>
+            <span class="text-[11px] bg-slate-100 text-slate-600 font-medium px-2 py-0.5 rounded-full">Área Total: ~249 km² (24.900 ha)</span>
+          </div>
+          <h2 class="text-xl font-bold text-slate-900">População & Cobertura da Rede de Igrejas</h2>
+          <p class="text-xs text-slate-500">Mapeamento de São Gonçalo (~960 mil habitantes) e presença da rede por bairro.</p>
         </div>
-        <div class="flex items-center gap-4">
+        <div class="flex items-center gap-5">
           <div class="text-right">
             <span id="stat-porcentagem" class="text-3xl font-extrabold text-emerald-600">0%</span>
-            <p class="text-xs text-slate-400">bairros com igreja ativa na rede</p>
+            <p class="text-xs text-slate-400">bairros com igreja ativa</p>
+          </div>
+          <div class="text-right border-l border-slate-100 pl-4">
+            <span id="stat-pop-alcancada-pct" class="text-3xl font-extrabold text-blue-600">0%</span>
+            <p class="text-xs text-slate-400">da população em área ativa</p>
           </div>
         </div>
       </div>
@@ -122,8 +129,41 @@
         <div id="progresso-fill" class="bg-gradient-to-r from-emerald-500 to-teal-500 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
       </div>
 
+      <!-- Destaques Demográficos: População Alcançada vs População sem Cobertura -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-slate-200 text-slate-700 flex items-center justify-center flex-shrink-0">
+            <i class="ph ph-users-three text-xl"></i>
+          </div>
+          <div>
+            <span class="text-xs text-slate-500 font-medium">População Total SG</span>
+            <p class="text-base font-bold text-slate-900">~960.000 hab.</p>
+          </div>
+        </div>
+        
+        <div class="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200/80 flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-emerald-600 text-white flex items-center justify-center flex-shrink-0">
+            <i class="ph ph-shield-check text-xl"></i>
+          </div>
+          <div>
+            <span class="text-xs text-emerald-800 font-medium">População em Bairros Ativos</span>
+            <p id="stat-pop-alcancada-total" class="text-base font-bold text-emerald-800">0 hab.</p>
+          </div>
+        </div>
+
+        <div class="p-3 rounded-xl bg-amber-50/70 border border-amber-200/80 flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-amber-500 text-white flex items-center justify-center flex-shrink-0">
+            <i class="ph ph-target text-xl"></i>
+          </div>
+          <div>
+            <span class="text-xs text-amber-800 font-medium">População p/ Alcançar / Em Contato</span>
+            <p id="stat-pop-nao-alcancada-total" class="text-base font-bold text-amber-900">~960.000 hab.</p>
+          </div>
+        </div>
+      </div>
+
       <!-- Indicadores numéricos dos 5 Status da Rede + Pastores + Bairros -->
-      <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 mt-5 pt-4 border-t border-slate-100 text-center">
+      <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 pt-2 border-t border-slate-100 text-center">
         <div class="bg-slate-50 rounded-xl p-2.5 border border-slate-100">
           <span id="stat-total" class="text-lg font-bold text-slate-800">91</span>
           <p class="text-[10px] sm:text-[11px] text-slate-500 font-medium">Bairros</p>
@@ -159,7 +199,7 @@
       </div>
     </div>
 
-    <!-- Barra de Controle: Busca, Alternador de Visão (Lista / Mapa), Filtros -->
+    <!-- Barra de Controle: Busca, Alternador de Visão (Lista / Mapa), Filtros e Ordenação -->
     <div class="space-y-3">
       <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <!-- Input de Pesquisa -->
@@ -169,12 +209,26 @@
             type="text" 
             id="input-busca" 
             oninput="filtrarDados()"
-            placeholder="Buscar por bairro, distrito, igreja ou pastor..." 
+            placeholder="Buscar por bairro, distrito, pastor, igreja..." 
             class="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition shadow-sm"
           />
         </div>
 
         <div class="flex items-center gap-2">
+          <!-- Ordenação -->
+          <div class="flex items-center gap-1.5 bg-white border border-slate-200 px-2.5 py-1.5 rounded-xl shadow-2xs text-xs">
+            <i class="ph ph-arrows-down-up text-slate-400"></i>
+            <span class="text-slate-400 font-medium hidden sm:inline">Ordenar:</span>
+            <select id="select-ordem" onchange="setOrdenacao(this.value)" class="bg-transparent font-semibold text-slate-800 focus:outline-none text-xs cursor-pointer">
+              <option value="padrao">Padrão (ID)</option>
+              <option value="pop_desc">👥 Maior População</option>
+              <option value="pop_asc">👥 Menor População</option>
+              <option value="nome_asc">🔤 Nome (A-Z)</option>
+              <option value="igrejas_desc">🏛️ Mais Igrejas</option>
+              <option value="igrejas_asc">🏛️ Menos Igrejas</option>
+            </select>
+          </div>
+
           <!-- Toggle de Abas: Lista / Mapa -->
           <div class="inline-flex bg-slate-200/80 p-1 rounded-xl text-xs font-semibold shadow-inner">
             <button onclick="setVisao('lista')" id="tab-lista" class="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white text-slate-900 shadow-sm transition">
@@ -195,7 +249,7 @@
         </div>
       </div>
 
-      <!-- Caixa de Filtros Integrados: Status da Rede, Presença de Pastor, Distrito -->
+      <!-- Caixa de Filtros Integrados: Status da Rede, Presença de Pastor, Distrito com Áreas -->
       <div class="space-y-2.5 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
         
         <!-- Linha 1: Filtro de Status da Rede de Igrejas -->
@@ -210,7 +264,7 @@
           <button onclick="setFiltro('sem_igreja')" id="filtro-sem_igreja" class="px-2.5 py-1 rounded-lg font-medium bg-white text-amber-700 border border-amber-200 hover:bg-amber-50 transition whitespace-nowrap">🟡 Sem Igreja</button>
         </div>
 
-        <!-- Linha 2: Checkbox Pastor + Filtro por Distrito -->
+        <!-- Linha 2: Checkbox Pastor + Filtro por Distrito com Área -->
         <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
           <!-- Checkbox / Filtro Pastor -->
           <div class="flex items-center gap-2">
@@ -224,15 +278,15 @@
             </button>
           </div>
 
-          <!-- Filtro por Distrito -->
+          <!-- Filtro por Distrito com Área em Hectares -->
           <div class="flex items-center gap-1 overflow-x-auto">
             <span class="text-slate-500 font-bold text-[11px] mr-1 flex-shrink-0">Distrito:</span>
-            <button onclick="setDistrito('todos')" id="distrito-todos" class="px-2 py-1 rounded-lg font-semibold bg-slate-800 text-white text-[11px] transition whitespace-nowrap">Todos</button>
-            <button onclick="setDistrito(1)" id="distrito-1" class="px-2 py-1 rounded-lg font-medium bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 text-[11px] transition whitespace-nowrap">1º</button>
-            <button onclick="setDistrito(2)" id="distrito-2" class="px-2 py-1 rounded-lg font-medium bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 text-[11px] transition whitespace-nowrap">2º</button>
-            <button onclick="setDistrito(3)" id="distrito-3" class="px-2 py-1 rounded-lg font-medium bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 text-[11px] transition whitespace-nowrap">3º</button>
-            <button onclick="setDistrito(4)" id="distrito-4" class="px-2 py-1 rounded-lg font-medium bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 text-[11px] transition whitespace-nowrap">4º</button>
-            <button onclick="setDistrito(5)" id="distrito-5" class="px-2 py-1 rounded-lg font-medium bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 text-[11px] transition whitespace-nowrap">5º</button>
+            <button onclick="setDistrito('todos')" id="distrito-todos" class="px-2 py-1 rounded-lg font-semibold bg-slate-800 text-white text-[11px] transition whitespace-nowrap">Todos Distritos</button>
+            <button onclick="setDistrito(1)" id="distrito-1" class="px-2 py-1 rounded-lg font-medium bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 text-[11px] transition whitespace-nowrap" title="Área: 6.800 ha (68 km²)">1º (6.800 ha)</button>
+            <button onclick="setDistrito(2)" id="distrito-2" class="px-2 py-1 rounded-lg font-medium bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 text-[11px] transition whitespace-nowrap" title="Área: 7.200 ha (72 km²)">2º (7.200 ha)</button>
+            <button onclick="setDistrito(3)" id="distrito-3" class="px-2 py-1 rounded-lg font-medium bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 text-[11px] transition whitespace-nowrap" title="Área: 5.100 ha (51 km²)">3º (5.100 ha)</button>
+            <button onclick="setDistrito(4)" id="distrito-4" class="px-2 py-1 rounded-lg font-medium bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 text-[11px] transition whitespace-nowrap" title="Área: 1.200 ha (12 km²)">4º (1.200 ha)</button>
+            <button onclick="setDistrito(5)" id="distrito-5" class="px-2 py-1 rounded-lg font-medium bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 text-[11px] transition whitespace-nowrap" title="Área: 2.400 ha (24 km²)">5º (2.400 ha)</button>
           </div>
         </div>
 
@@ -251,7 +305,7 @@
           <i class="ph ph-map-pin-line text-2xl"></i>
         </div>
         <h3 class="font-bold text-slate-800">Nenhum bairro encontrado</h3>
-        <p class="text-xs text-slate-500 mt-1 max-w-xs mx-auto">Tente ajustar os filtros de status da rede, presença de pastor ou distrito.</p>
+        <p class="text-xs text-slate-500 mt-1 max-w-xs mx-auto">Tente ajustar os filtros de status da rede, presença de pastor, distrito ou busca.</p>
       </div>
     </div>
 
@@ -289,7 +343,7 @@
               <span class="text-slate-700 font-medium">Sem Igreja Cadastrada</span>
             </div>
           </div>
-          <p class="text-[10px] text-slate-400 pt-1 border-t border-slate-100">Clique nos marcadores para ver as congregações e gerenciar.</p>
+          <p class="text-[10px] text-slate-400 pt-1 border-t border-slate-100">Exibe população estimada e densidade de congregações no popup.</p>
         </div>
       </div>
     </div>
@@ -298,7 +352,7 @@
 
   <!-- Rodapé -->
   <footer class="mt-auto border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-500">
-    Status da Rede de Igrejas • Mapeamento Cooperativo São Gonçalo/RJ
+    Status da Rede de Igrejas • Mapeamento Demográfico & Regional de São Gonçalo/RJ
   </footer>
 
   <!-- Modal de Edição de Bairro e Múltiplas Igrejas -->
@@ -341,12 +395,33 @@
               id="edit-distrito" 
               class="w-full text-sm border border-slate-300 rounded-xl px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
             >
-              <option value="1">1º Distrito</option>
-              <option value="2">2º Distrito</option>
-              <option value="3">3º Distrito</option>
-              <option value="4">4º Distrito</option>
-              <option value="5">5º Distrito</option>
+              <option value="1">1º Distrito (6.800 ha)</option>
+              <option value="2">2º Distrito (7.200 ha)</option>
+              <option value="3">3º Distrito (5.100 ha)</option>
+              <option value="4">4º Distrito (1.200 ha)</option>
+              <option value="5">5º Distrito (2.400 ha)</option>
             </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-600 mb-1">População Estimada (Habitantes)</label>
+            <input 
+              type="number" 
+              id="edit-populacao" 
+              placeholder="Ex: 11750" 
+              class="w-full text-xs border border-slate-300 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+            >
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-600 mb-1">Qtd de CEPs / Logradouros</label>
+            <input 
+              type="number" 
+              id="edit-ceps" 
+              placeholder="Ex: 81" 
+              class="w-full text-xs border border-slate-300 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+            >
           </div>
         </div>
 
@@ -422,643 +497,1288 @@
       5: "5º Distrito (Sete Pontes / Covanca)"
     };
 
+    const AREAS_DISTRITOS = {
+      1: { ha: 6800, km2: 68 },
+      2: { ha: 7200, km2: 72 },
+      3: { ha: 5100, km2: 51 },
+      4: { ha: 1200, km2: 12 },
+      5: { ha: 2400, km2: 24 }
+    };
+
     const DADOS_BAIRROS_BASE = [
   {
     "distrito": 1,
     "bairro": "Palmeira",
     "latitude": -22.7702,
     "longitude": -43.0177,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 46,
+    "populacaoEstimada": 6673,
+    "distritoInfo": {
+      "nome": "1º Distrito (Centro / Alcântara)",
+      "areaHa": 6800,
+      "areaKm2": 68
+    }
   },
   {
     "distrito": 1,
     "bairro": "Itaoca",
     "latitude": -22.7835,
     "longitude": -43.0648,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 179,
+    "populacaoEstimada": 25967,
+    "distritoInfo": {
+      "nome": "1º Distrito (Centro / Alcântara)",
+      "areaHa": 6800,
+      "areaKm2": 68
+    }
   },
   {
     "distrito": 1,
     "bairro": "Fazenda dos Mineiros",
     "latitude": -22.7827,
     "longitude": -43.0335,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 8,
+    "populacaoEstimada": 1161,
+    "distritoInfo": {
+      "nome": "1º Distrito (Centro / Alcântara)",
+      "areaHa": 6800,
+      "areaKm2": 68
+    }
   },
   {
     "distrito": 1,
     "bairro": "Porto do Rosa",
     "latitude": -22.7971,
     "longitude": -43.0435,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 124,
+    "populacaoEstimada": 17988,
+    "distritoInfo": {
+      "nome": "1º Distrito (Centro / Alcântara)",
+      "areaHa": 6800,
+      "areaKm2": 68
+    }
   },
   {
     "distrito": 1,
     "bairro": "Boaçu",
     "latitude": -22.8098,
     "longitude": -43.0505,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 116,
+    "populacaoEstimada": 16827,
+    "distritoInfo": {
+      "nome": "1º Distrito (Centro / Alcântara)",
+      "areaHa": 6800,
+      "areaKm2": 68
+    }
   },
   {
     "distrito": 1,
     "bairro": "Zé Garoto",
     "latitude": -22.8286118,
     "longitude": -43.0546614,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 55,
+    "populacaoEstimada": 7979,
+    "distritoInfo": {
+      "nome": "1º Distrito (Centro / Alcântara)",
+      "areaHa": 6800,
+      "areaKm2": 68
+    }
   },
   {
     "distrito": 1,
     "bairro": "Brasilândia",
     "latitude": -22.8216778,
     "longitude": -43.0568403,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 54,
+    "populacaoEstimada": 7834,
+    "distritoInfo": {
+      "nome": "1º Distrito (Centro / Alcântara)",
+      "areaHa": 6800,
+      "areaKm2": 68
+    }
   },
   {
     "distrito": 1,
     "bairro": "Rosane",
     "latitude": -22.8191,
     "longitude": -43.0559,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": null,
+    "populacaoEstimada": null,
+    "distritoInfo": {
+      "nome": "1º Distrito (Centro / Alcântara)",
+      "areaHa": 6800,
+      "areaKm2": 68
+    }
   },
   {
     "distrito": 1,
     "bairro": "Vila Lara",
     "latitude": -22.825,
     "longitude": -43.051,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 12,
+    "populacaoEstimada": 1741,
+    "distritoInfo": {
+      "nome": "1º Distrito (Centro / Alcântara)",
+      "areaHa": 6800,
+      "areaKm2": 68
+    }
   },
   {
     "distrito": 1,
     "bairro": "Centro",
     "latitude": -22.8234,
     "longitude": -43.0473,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 70,
+    "populacaoEstimada": 10155,
+    "distritoInfo": {
+      "nome": "1º Distrito (Centro / Alcântara)",
+      "areaHa": 6800,
+      "areaKm2": 68
+    }
   },
   {
     "distrito": 1,
     "bairro": "Rocha",
     "latitude": -22.8331,
     "longitude": -43.0415,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 128,
+    "populacaoEstimada": 18568,
+    "distritoInfo": {
+      "nome": "1º Distrito (Centro / Alcântara)",
+      "areaHa": 6800,
+      "areaKm2": 68
+    }
   },
   {
     "distrito": 1,
     "bairro": "Lindo Parque",
     "latitude": -22.8367,
     "longitude": -43.0532,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 25,
+    "populacaoEstimada": 3627,
+    "distritoInfo": {
+      "nome": "1º Distrito (Centro / Alcântara)",
+      "areaHa": 6800,
+      "areaKm2": 68
+    }
   },
   {
     "distrito": 1,
     "bairro": "Tribobó",
     "latitude": -22.8582096,
     "longitude": -43.0289571,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 174,
+    "populacaoEstimada": 25241,
+    "distritoInfo": {
+      "nome": "1º Distrito (Centro / Alcântara)",
+      "areaHa": 6800,
+      "areaKm2": 68
+    }
   },
   {
     "distrito": 1,
     "bairro": "Colubandê",
     "latitude": -22.8411,
     "longitude": -43.0138,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 203,
+    "populacaoEstimada": 29448,
+    "distritoInfo": {
+      "nome": "1º Distrito (Centro / Alcântara)",
+      "areaHa": 6800,
+      "areaKm2": 68
+    }
   },
   {
     "distrito": 1,
     "bairro": "Mutondo",
     "latitude": -22.8238,
     "longitude": -43.0183,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 81,
+    "populacaoEstimada": 11750,
+    "distritoInfo": {
+      "nome": "1º Distrito (Centro / Alcântara)",
+      "areaHa": 6800,
+      "areaKm2": 68
+    }
   },
   {
     "distrito": 1,
     "bairro": "Galo Branco",
     "latitude": -22.8265,
     "longitude": -43.0327,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 88,
+    "populacaoEstimada": 12766,
+    "distritoInfo": {
+      "nome": "1º Distrito (Centro / Alcântara)",
+      "areaHa": 6800,
+      "areaKm2": 68
+    }
   },
   {
     "distrito": 1,
     "bairro": "Estrela do Norte",
     "latitude": -22.8204,
     "longitude": -43.0382,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 25,
+    "populacaoEstimada": 3627,
+    "distritoInfo": {
+      "nome": "1º Distrito (Centro / Alcântara)",
+      "areaHa": 6800,
+      "areaKm2": 68
+    }
   },
   {
     "distrito": 1,
     "bairro": "São Miguel",
     "latitude": -22.8158,
     "longitude": -43.0343,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 34,
+    "populacaoEstimada": 4932,
+    "distritoInfo": {
+      "nome": "1º Distrito (Centro / Alcântara)",
+      "areaHa": 6800,
+      "areaKm2": 68
+    }
   },
   {
     "distrito": 1,
     "bairro": "Mutuá",
     "latitude": -22.8121,
     "longitude": -43.041,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 98,
+    "populacaoEstimada": 14216,
+    "distritoInfo": {
+      "nome": "1º Distrito (Centro / Alcântara)",
+      "areaHa": 6800,
+      "areaKm2": 68
+    }
   },
   {
     "distrito": 1,
     "bairro": "Mutuaguaçu",
     "latitude": -22.8064,
     "longitude": -43.0412,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 17,
+    "populacaoEstimada": 2466,
+    "distritoInfo": {
+      "nome": "1º Distrito (Centro / Alcântara)",
+      "areaHa": 6800,
+      "areaKm2": 68
+    }
   },
   {
     "distrito": 1,
     "bairro": "Mutuapira",
     "latitude": -22.803,
     "longitude": -43.032,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 40,
+    "populacaoEstimada": 5803,
+    "distritoInfo": {
+      "nome": "1º Distrito (Centro / Alcântara)",
+      "areaHa": 6800,
+      "areaKm2": 68
+    }
   },
   {
     "distrito": 1,
     "bairro": "Cruzeiro do Sul",
     "latitude": -22.8089,
     "longitude": -43.0293,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": null,
+    "populacaoEstimada": null,
+    "distritoInfo": {
+      "nome": "1º Distrito (Centro / Alcântara)",
+      "areaHa": 6800,
+      "areaKm2": 68
+    }
   },
   {
     "distrito": 1,
     "bairro": "Antonina",
     "latitude": -22.8161,
     "longitude": -43.0277,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 45,
+    "populacaoEstimada": 6529,
+    "distritoInfo": {
+      "nome": "1º Distrito (Centro / Alcântara)",
+      "areaHa": 6800,
+      "areaKm2": 68
+    }
   },
   {
     "distrito": 1,
     "bairro": "Nova Cidade",
     "latitude": -22.8083,
     "longitude": -43.024,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 88,
+    "populacaoEstimada": 12766,
+    "distritoInfo": {
+      "nome": "1º Distrito (Centro / Alcântara)",
+      "areaHa": 6800,
+      "areaKm2": 68
+    }
   },
   {
     "distrito": 1,
     "bairro": "Trindade",
     "latitude": -22.8065,
     "longitude": -43.0149,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 170,
+    "populacaoEstimada": 24661,
+    "distritoInfo": {
+      "nome": "1º Distrito (Centro / Alcântara)",
+      "areaHa": 6800,
+      "areaKm2": 68
+    }
   },
   {
     "distrito": 1,
     "bairro": "Luiz Caçador",
     "latitude": -22.7942,
     "longitude": -43.0197,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 9,
+    "populacaoEstimada": 1306,
+    "distritoInfo": {
+      "nome": "1º Distrito (Centro / Alcântara)",
+      "areaHa": 6800,
+      "areaKm2": 68
+    }
   },
   {
     "distrito": 1,
     "bairro": "Recanto das Acácias",
     "latitude": -22.7903,
     "longitude": -43.0201,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": null,
+    "populacaoEstimada": null,
+    "distritoInfo": {
+      "nome": "1º Distrito (Centro / Alcântara)",
+      "areaHa": 6800,
+      "areaKm2": 68
+    }
   },
   {
     "distrito": 1,
     "bairro": "Itaúna",
     "latitude": -22.7917,
     "longitude": -43.0312,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 323,
+    "populacaoEstimada": 46866,
+    "distritoInfo": {
+      "nome": "1º Distrito (Centro / Alcântara)",
+      "areaHa": 6800,
+      "areaKm2": 68
+    }
   },
   {
     "distrito": 1,
     "bairro": "Salgueiro",
     "latitude": -22.7816,
     "longitude": -43.0222,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 35,
+    "populacaoEstimada": 5077,
+    "distritoInfo": {
+      "nome": "1º Distrito (Centro / Alcântara)",
+      "areaHa": 6800,
+      "areaKm2": 68
+    }
   },
   {
     "distrito": 1,
     "bairro": "Alcântara",
     "latitude": -22.8188396,
     "longitude": -43.0039672,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 64,
+    "populacaoEstimada": 9284,
+    "distritoInfo": {
+      "nome": "1º Distrito (Centro / Alcântara)",
+      "areaHa": 6800,
+      "areaKm2": 68
+    }
   },
   {
     "distrito": 2,
     "bairro": "Almerinda",
     "latitude": -22.8387,
     "longitude": -43.0031,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 58,
+    "populacaoEstimada": 8414,
+    "distritoInfo": {
+      "nome": "2º Distrito (Ipiíba / Arsenal)",
+      "areaHa": 7200,
+      "areaKm2": 72
+    }
   },
   {
     "distrito": 2,
     "bairro": "Jardim Nova República",
     "latitude": -22.8486792,
     "longitude": -43.0047959,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 7,
+    "populacaoEstimada": 1015,
+    "distritoInfo": {
+      "nome": "2º Distrito (Ipiíba / Arsenal)",
+      "areaHa": 7200,
+      "areaKm2": 72
+    }
   },
   {
     "distrito": 2,
     "bairro": "Arsenal",
     "latitude": -22.867,
     "longitude": -43.0048,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 81,
+    "populacaoEstimada": 11750,
+    "distritoInfo": {
+      "nome": "2º Distrito (Ipiíba / Arsenal)",
+      "areaHa": 7200,
+      "areaKm2": 72
+    }
   },
   {
     "distrito": 2,
     "bairro": "Maria Paula",
     "latitude": -22.8731,
     "longitude": -43.0194,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 91,
+    "populacaoEstimada": 13201,
+    "distritoInfo": {
+      "nome": "2º Distrito (Ipiíba / Arsenal)",
+      "areaHa": 7200,
+      "areaKm2": 72
+    }
   },
   {
     "distrito": 2,
     "bairro": "Arrastão",
     "latitude": -22.8769,
     "longitude": -43.0011,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 8,
+    "populacaoEstimada": 1161,
+    "distritoInfo": {
+      "nome": "2º Distrito (Ipiíba / Arsenal)",
+      "areaHa": 7200,
+      "areaKm2": 72
+    }
   },
   {
     "distrito": 2,
     "bairro": "Anaia Pequeno",
     "latitude": -22.8661,
     "longitude": -42.9898,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 30,
+    "populacaoEstimada": 4352,
+    "distritoInfo": {
+      "nome": "2º Distrito (Ipiíba / Arsenal)",
+      "areaHa": 7200,
+      "areaKm2": 72
+    }
   },
   {
     "distrito": 2,
     "bairro": "Jóquei",
     "latitude": -22.8474469,
     "longitude": -42.9977417,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 129,
+    "populacaoEstimada": 18713,
+    "distritoInfo": {
+      "nome": "2º Distrito (Ipiíba / Arsenal)",
+      "areaHa": 7200,
+      "areaKm2": 72
+    }
   },
   {
     "distrito": 2,
     "bairro": "Coelho",
     "latitude": -22.8366,
     "longitude": -42.9923,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 176,
+    "populacaoEstimada": 25531,
+    "distritoInfo": {
+      "nome": "2º Distrito (Ipiíba / Arsenal)",
+      "areaHa": 7200,
+      "areaKm2": 72
+    }
   },
   {
     "distrito": 2,
     "bairro": "Amendoeira",
     "latitude": -22.8322,
     "longitude": -42.9836,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 111,
+    "populacaoEstimada": 16102,
+    "distritoInfo": {
+      "nome": "2º Distrito (Ipiíba / Arsenal)",
+      "areaHa": 7200,
+      "areaKm2": 72
+    }
   },
   {
     "distrito": 2,
     "bairro": "Jardim Amendoeira",
     "latitude": -22.8344,
     "longitude": -42.9784,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": null,
+    "populacaoEstimada": null,
+    "distritoInfo": {
+      "nome": "2º Distrito (Ipiíba / Arsenal)",
+      "areaHa": 7200,
+      "areaKm2": 72
+    }
   },
   {
     "distrito": 2,
     "bairro": "Vila Candoza",
     "latitude": -22.836,
     "longitude": -42.975,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 2,
+    "populacaoEstimada": 290,
+    "distritoInfo": {
+      "nome": "2º Distrito (Ipiíba / Arsenal)",
+      "areaHa": 7200,
+      "areaKm2": 72
+    }
   },
   {
     "distrito": 2,
     "bairro": "Anaia Grande",
     "latitude": -22.8525,
     "longitude": -42.9706,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": null,
+    "populacaoEstimada": null,
+    "distritoInfo": {
+      "nome": "2º Distrito (Ipiíba / Arsenal)",
+      "areaHa": 7200,
+      "areaKm2": 72
+    }
   },
   {
     "distrito": 2,
     "bairro": "Ipiíba",
     "latitude": -22.8606,
     "longitude": -42.9417,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 65,
+    "populacaoEstimada": 9429,
+    "distritoInfo": {
+      "nome": "2º Distrito (Ipiíba / Arsenal)",
+      "areaHa": 7200,
+      "areaKm2": 72
+    }
   },
   {
     "distrito": 2,
     "bairro": "Engenho do Roçado",
     "latitude": -22.8825142,
     "longitude": -42.9827897,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 21,
+    "populacaoEstimada": 3046,
+    "distritoInfo": {
+      "nome": "2º Distrito (Ipiíba / Arsenal)",
+      "areaHa": 7200,
+      "areaKm2": 72
+    }
   },
   {
     "distrito": 2,
     "bairro": "Rio do Ouro",
     "latitude": -22.8861201,
     "longitude": -42.9920149,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 139,
+    "populacaoEstimada": 20169,
+    "distritoInfo": {
+      "nome": "2º Distrito (Ipiíba / Arsenal)",
+      "areaHa": 7200,
+      "areaKm2": 72
+    }
   },
   {
     "distrito": 2,
     "bairro": "Várzea das Moças",
     "latitude": -22.9051,
     "longitude": -42.9756,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 8,
+    "populacaoEstimada": 1161,
+    "distritoInfo": {
+      "nome": "2º Distrito (Ipiíba / Arsenal)",
+      "areaHa": 7200,
+      "areaKm2": 72
+    }
   },
   {
     "distrito": 2,
     "bairro": "Santa Isabel",
     "latitude": -22.8567,
     "longitude": -42.9448,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 355,
+    "populacaoEstimada": 51498,
+    "distritoInfo": {
+      "nome": "2º Distrito (Ipiíba / Arsenal)",
+      "areaHa": 7200,
+      "areaKm2": 72
+    }
   },
   {
     "distrito": 2,
     "bairro": "Eliane",
     "latitude": -22.8465,
     "longitude": -42.959,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": null,
+    "populacaoEstimada": null,
+    "distritoInfo": {
+      "nome": "2º Distrito (Ipiíba / Arsenal)",
+      "areaHa": 7200,
+      "areaKm2": 72
+    }
   },
   {
     "distrito": 2,
     "bairro": "Ieda",
     "latitude": -22.8462,
     "longitude": -42.9498,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 5,
+    "populacaoEstimada": 725,
+    "distritoInfo": {
+      "nome": "2º Distrito (Ipiíba / Arsenal)",
+      "areaHa": 7200,
+      "areaKm2": 72
+    }
   },
   {
     "distrito": 2,
     "bairro": "Sacramento",
     "latitude": -22.8355,
     "longitude": -42.9608,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 123,
+    "populacaoEstimada": 17843,
+    "distritoInfo": {
+      "nome": "2º Distrito (Ipiíba / Arsenal)",
+      "areaHa": 7200,
+      "areaKm2": 72
+    }
   },
   {
     "distrito": 3,
     "bairro": "Jardim Catarina",
     "latitude": -22.7934,
     "longitude": -42.9978,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 295,
+    "populacaoEstimada": 42794,
+    "distritoInfo": {
+      "nome": "3º Distrito (Monjolo / Santa Luzia)",
+      "areaHa": 5100,
+      "areaKm2": 51
+    }
   },
   {
     "distrito": 3,
     "bairro": "Raul Veiga",
     "latitude": -22.8264,
     "longitude": -42.997,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 45,
+    "populacaoEstimada": 6529,
+    "distritoInfo": {
+      "nome": "3º Distrito (Monjolo / Santa Luzia)",
+      "areaHa": 5100,
+      "areaKm2": 51
+    }
   },
   {
     "distrito": 3,
     "bairro": "Vila Três",
     "latitude": -22.8199,
     "longitude": -42.9981,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 8,
+    "populacaoEstimada": 1161,
+    "distritoInfo": {
+      "nome": "3º Distrito (Monjolo / Santa Luzia)",
+      "areaHa": 5100,
+      "areaKm2": 51
+    }
   },
   {
     "distrito": 3,
     "bairro": "Laranjal",
     "latitude": -22.8114,
     "longitude": -42.985,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 89,
+    "populacaoEstimada": 12911,
+    "distritoInfo": {
+      "nome": "3º Distrito (Monjolo / Santa Luzia)",
+      "areaHa": 5100,
+      "areaKm2": 51
+    }
   },
   {
     "distrito": 3,
     "bairro": "Santa Luzia",
     "latitude": -22.7958,
     "longitude": -42.9792,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 81,
+    "populacaoEstimada": 11750,
+    "distritoInfo": {
+      "nome": "3º Distrito (Monjolo / Santa Luzia)",
+      "areaHa": 5100,
+      "areaKm2": 51
+    }
   },
   {
     "distrito": 3,
     "bairro": "Bom Retiro",
     "latitude": -22.8046,
     "longitude": -42.968,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 55,
+    "populacaoEstimada": 7979,
+    "distritoInfo": {
+      "nome": "3º Distrito (Monjolo / Santa Luzia)",
+      "areaHa": 5100,
+      "areaKm2": 51
+    }
   },
   {
     "distrito": 3,
     "bairro": "Gebara",
     "latitude": -22.7697,
     "longitude": -42.9554,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": null,
+    "populacaoEstimada": null,
+    "distritoInfo": {
+      "nome": "3º Distrito (Monjolo / Santa Luzia)",
+      "areaHa": 5100,
+      "areaKm2": 51
+    }
   },
   {
     "distrito": 3,
     "bairro": "Vista Alegre",
     "latitude": -22.8103,
     "longitude": -42.9664,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 129,
+    "populacaoEstimada": 18713,
+    "distritoInfo": {
+      "nome": "3º Distrito (Monjolo / Santa Luzia)",
+      "areaHa": 5100,
+      "areaKm2": 51
+    }
   },
   {
     "distrito": 3,
     "bairro": "Lagoinha",
     "latitude": -22.8229,
     "longitude": -42.978,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 15,
+    "populacaoEstimada": 2176,
+    "distritoInfo": {
+      "nome": "3º Distrito (Monjolo / Santa Luzia)",
+      "areaHa": 5100,
+      "areaKm2": 51
+    }
   },
   {
     "distrito": 3,
     "bairro": "Miriambi",
     "latitude": -22.8219,
     "longitude": -42.9871,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 27,
+    "populacaoEstimada": 3917,
+    "distritoInfo": {
+      "nome": "3º Distrito (Monjolo / Santa Luzia)",
+      "areaHa": 5100,
+      "areaKm2": 51
+    }
   },
   {
     "distrito": 3,
     "bairro": "Tiradentes",
     "latitude": -22.8286,
     "longitude": -42.9747,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 3,
+    "populacaoEstimada": 435,
+    "distritoInfo": {
+      "nome": "3º Distrito (Monjolo / Santa Luzia)",
+      "areaHa": 5100,
+      "areaKm2": 51
+    }
   },
   {
     "distrito": 3,
     "bairro": "Pacheco",
     "latitude": -22.8334209,
     "longitude": -43.0787314,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 183,
+    "populacaoEstimada": 26547,
+    "distritoInfo": {
+      "nome": "3º Distrito (Monjolo / Santa Luzia)",
+      "areaHa": 5100,
+      "areaKm2": 51
+    }
   },
   {
     "distrito": 3,
     "bairro": "Barracão",
     "latitude": -22.8247,
     "longitude": -42.9624,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 36,
+    "populacaoEstimada": 5222,
+    "distritoInfo": {
+      "nome": "3º Distrito (Monjolo / Santa Luzia)",
+      "areaHa": 5100,
+      "areaKm2": 51
+    }
   },
   {
     "distrito": 3,
     "bairro": "Guarani",
     "latitude": -22.8172,
     "longitude": -42.9565,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": null,
+    "populacaoEstimada": null,
+    "distritoInfo": {
+      "nome": "3º Distrito (Monjolo / Santa Luzia)",
+      "areaHa": 5100,
+      "areaKm2": 51
+    }
   },
   {
     "distrito": 3,
     "bairro": "Monjolo",
     "latitude": -22.796,
     "longitude": -42.925,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 112,
+    "populacaoEstimada": 16247,
+    "distritoInfo": {
+      "nome": "3º Distrito (Monjolo / Santa Luzia)",
+      "areaHa": 5100,
+      "areaKm2": 51
+    }
   },
   {
     "distrito": 3,
     "bairro": "Marambaia",
     "latitude": -22.7878,
     "longitude": -42.9455,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 80,
+    "populacaoEstimada": 11605,
+    "distritoInfo": {
+      "nome": "3º Distrito (Monjolo / Santa Luzia)",
+      "areaHa": 5100,
+      "areaKm2": 51
+    }
   },
   {
     "distrito": 3,
     "bairro": "Largo da Idéia",
     "latitude": -22.8237518,
     "longitude": -42.9163747,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 3,
+    "populacaoEstimada": 435,
+    "distritoInfo": {
+      "nome": "3º Distrito (Monjolo / Santa Luzia)",
+      "areaHa": 5100,
+      "areaKm2": 51
+    }
   },
   {
     "distrito": 3,
     "bairro": "Guaxindiba",
     "latitude": -22.7752,
     "longitude": -42.9662,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 109,
+    "populacaoEstimada": 15812,
+    "distritoInfo": {
+      "nome": "3º Distrito (Monjolo / Santa Luzia)",
+      "areaHa": 5100,
+      "areaKm2": 51
+    }
   },
   {
     "distrito": 4,
     "bairro": "Boa Vista",
     "latitude": -22.8133023,
     "longitude": -43.063722,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 83,
+    "populacaoEstimada": 12040,
+    "distritoInfo": {
+      "nome": "4º Distrito (Neves / Porto Novo)",
+      "areaHa": 1200,
+      "areaKm2": 12
+    }
   },
   {
     "distrito": 4,
     "bairro": "Porto da Pedra",
     "latitude": -22.8209,
     "longitude": -43.0651,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 69,
+    "populacaoEstimada": 10009,
+    "distritoInfo": {
+      "nome": "4º Distrito (Neves / Porto Novo)",
+      "areaHa": 1200,
+      "areaKm2": 12
+    }
   },
   {
     "distrito": 4,
     "bairro": "Porto Novo",
     "latitude": -22.8231,
     "longitude": -43.0747,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 115,
+    "populacaoEstimada": 16682,
+    "distritoInfo": {
+      "nome": "4º Distrito (Neves / Porto Novo)",
+      "areaHa": 1200,
+      "areaKm2": 12
+    }
   },
   {
     "distrito": 4,
     "bairro": "Gradim",
     "latitude": -22.827,
     "longitude": -43.091,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 95,
+    "populacaoEstimada": 13781,
+    "distritoInfo": {
+      "nome": "4º Distrito (Neves / Porto Novo)",
+      "areaHa": 1200,
+      "areaKm2": 12
+    }
   },
   {
     "distrito": 4,
     "bairro": "Porto Velho",
     "latitude": -22.8366,
     "longitude": -43.0914,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 87,
+    "populacaoEstimada": 12621,
+    "distritoInfo": {
+      "nome": "4º Distrito (Neves / Porto Novo)",
+      "areaHa": 1200,
+      "areaKm2": 12
+    }
   },
   {
     "distrito": 4,
     "bairro": "Neves",
     "latitude": -22.829752,
     "longitude": -43.087079,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 110,
+    "populacaoEstimada": 15957,
+    "distritoInfo": {
+      "nome": "4º Distrito (Neves / Porto Novo)",
+      "areaHa": 1200,
+      "areaKm2": 12
+    }
   },
   {
     "distrito": 4,
     "bairro": "Vila Lage",
     "latitude": -22.8473,
     "longitude": -43.0863,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 23,
+    "populacaoEstimada": 3336,
+    "distritoInfo": {
+      "nome": "4º Distrito (Neves / Porto Novo)",
+      "areaHa": 1200,
+      "areaKm2": 12
+    }
   },
   {
     "distrito": 4,
     "bairro": "Porto da Madama",
     "latitude": -22.8345634,
     "longitude": -43.0840159,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 39,
+    "populacaoEstimada": 5658,
+    "distritoInfo": {
+      "nome": "4º Distrito (Neves / Porto Novo)",
+      "areaHa": 1200,
+      "areaKm2": 12
+    }
   },
   {
     "distrito": 4,
     "bairro": "Paraíso",
     "latitude": -22.8333,
     "longitude": -43.0793,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 55,
+    "populacaoEstimada": 7979,
+    "distritoInfo": {
+      "nome": "4º Distrito (Neves / Porto Novo)",
+      "areaHa": 1200,
+      "areaKm2": 12
+    }
   },
   {
     "distrito": 4,
     "bairro": "Patronato",
     "latitude": -22.8315,
     "longitude": -43.0753,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 25,
+    "populacaoEstimada": 3627,
+    "distritoInfo": {
+      "nome": "4º Distrito (Neves / Porto Novo)",
+      "areaHa": 1200,
+      "areaKm2": 12
+    }
   },
   {
     "distrito": 4,
     "bairro": "Mangueira",
     "latitude": -22.8308,
     "longitude": -43.07,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 19,
+    "populacaoEstimada": 2756,
+    "distritoInfo": {
+      "nome": "4º Distrito (Neves / Porto Novo)",
+      "areaHa": 1200,
+      "areaKm2": 12
+    }
   },
   {
     "distrito": 4,
     "bairro": "Parada 40",
     "latitude": -22.8297739,
     "longitude": -43.0678295,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 12,
+    "populacaoEstimada": 1741,
+    "distritoInfo": {
+      "nome": "4º Distrito (Neves / Porto Novo)",
+      "areaHa": 1200,
+      "areaKm2": 12
+    }
   },
   {
     "distrito": 4,
     "bairro": "Camarão",
     "latitude": -22.8271,
     "longitude": -43.0633,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 18,
+    "populacaoEstimada": 2611,
+    "distritoInfo": {
+      "nome": "4º Distrito (Neves / Porto Novo)",
+      "areaHa": 1200,
+      "areaKm2": 12
+    }
   },
   {
     "distrito": 5,
     "bairro": "Venda da Cruz",
     "latitude": -22.8610355,
     "longitude": -43.0898814,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 36,
+    "populacaoEstimada": 5222,
+    "distritoInfo": {
+      "nome": "5º Distrito (Sete Pontes / Covanca)",
+      "areaHa": 2400,
+      "areaKm2": 24
+    }
   },
   {
     "distrito": 5,
     "bairro": "Convanca",
     "latitude": -22.8537245,
     "longitude": -43.0879403,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 39,
+    "populacaoEstimada": 5658,
+    "distritoInfo": {
+      "nome": "5º Distrito (Sete Pontes / Covanca)",
+      "areaHa": 2400,
+      "areaKm2": 24
+    }
   },
   {
     "distrito": 5,
     "bairro": "Santa Catarina",
     "latitude": -22.8371,
     "longitude": -43.0667,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 30,
+    "populacaoEstimada": 4352,
+    "distritoInfo": {
+      "nome": "5º Distrito (Sete Pontes / Covanca)",
+      "areaHa": 2400,
+      "areaKm2": 24
+    }
   },
   {
     "distrito": 5,
     "bairro": "Barro Vermelho",
     "latitude": -22.8427072,
     "longitude": -43.0742699,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 121,
+    "populacaoEstimada": 17553,
+    "distritoInfo": {
+      "nome": "5º Distrito (Sete Pontes / Covanca)",
+      "areaHa": 2400,
+      "areaKm2": 24
+    }
   },
   {
     "distrito": 5,
     "bairro": "Pita",
     "latitude": -22.8502,
     "longitude": -43.0735,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 49,
+    "populacaoEstimada": 7108,
+    "distritoInfo": {
+      "nome": "5º Distrito (Sete Pontes / Covanca)",
+      "areaHa": 2400,
+      "areaKm2": 24
+    }
   },
   {
     "distrito": 5,
     "bairro": "Zumbi",
     "latitude": -22.8506,
     "longitude": -43.0595,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 18,
+    "populacaoEstimada": 2611,
+    "distritoInfo": {
+      "nome": "5º Distrito (Sete Pontes / Covanca)",
+      "areaHa": 2400,
+      "areaKm2": 24
+    }
   },
   {
     "distrito": 5,
     "bairro": "Tenente Jardim",
     "latitude": -22.8637856,
     "longitude": -43.0821066,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 31,
+    "populacaoEstimada": 4497,
+    "distritoInfo": {
+      "nome": "5º Distrito (Sete Pontes / Covanca)",
+      "areaHa": 2400,
+      "areaKm2": 24
+    }
   },
   {
     "distrito": 5,
     "bairro": "Morro do Castro",
     "latitude": -22.8652886,
     "longitude": -43.0687037,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 12,
+    "populacaoEstimada": 1741,
+    "distritoInfo": {
+      "nome": "5º Distrito (Sete Pontes / Covanca)",
+      "areaHa": 2400,
+      "areaKm2": 24
+    }
   },
   {
     "distrito": 5,
     "bairro": "Engenho Pequeno",
     "latitude": -22.8510003,
     "longitude": -43.0491273,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 82,
+    "populacaoEstimada": 11895,
+    "distritoInfo": {
+      "nome": "5º Distrito (Sete Pontes / Covanca)",
+      "areaHa": 2400,
+      "areaKm2": 24
+    }
   },
   {
     "distrito": 5,
     "bairro": "Novo México",
     "latitude": -22.8688729,
     "longitude": -43.046722,
-    "status": "OK"
+    "status": "OK",
+    "qtdCeps": 23,
+    "populacaoEstimada": 3336,
+    "distritoInfo": {
+      "nome": "5º Distrito (Sete Pontes / Covanca)",
+      "areaHa": 2400,
+      "areaKm2": 24
+    }
   }
 ];
     const COORDENADAS_SG = {
@@ -1440,6 +2160,8 @@
           id: id,
           bairro: item.bairro,
           distrito: item.distrito,
+          populacaoEstimada: item.populacaoEstimada || 11750,
+          qtdCeps: item.qtdCeps || 81,
           igrejas: [
             {
               id: "ig-mutondo-1",
@@ -1456,19 +2178,21 @@
         id: id,
         bairro: item.bairro,
         distrito: item.distrito,
+        populacaoEstimada: item.populacaoEstimada || null,
+        qtdCeps: item.qtdCeps || null,
         igrejas: []
       };
     });
 
     let bairros = [];
     let filtroAtual = 'todos';
-    let filtroPastor = 'todos'; // 'todos', 'com_pastor', 'sem_pastor'
+    let filtroPastor = 'todos';
     let distritoAtual = 'todos';
+    let ordenacaoAtual = 'padrao';
     let visaoAtual = 'lista';
     let leafletMap = null;
     let markersLayer = null;
 
-    // Determina o status geral do bairro com base nas suas igrejas
     function getStatusBairro(item) {
       if (!item.igrejas || item.igrejas.length === 0) {
         return 'sem_igreja';
@@ -1482,7 +2206,6 @@
       return 'sem_convite';
     }
 
-    // Configuração visual dos status
     function getStatusConfig(status) {
       switch (status) {
         case 'ativo_na_rede':
@@ -1557,15 +2280,16 @@
     }
 
     function carregarDadosIniciais() {
-      const salvoV6 = localStorage.getItem('sg_mapeamento_bairros_91_v6');
-      const salvoAntigo = localStorage.getItem('sg_mapeamento_bairros_91_v5') || 
+      const salvoV7 = localStorage.getItem('sg_mapeamento_bairros_91_v7');
+      const salvoAntigo = localStorage.getItem('sg_mapeamento_bairros_91_v6') || 
+                          localStorage.getItem('sg_mapeamento_bairros_91_v5') || 
                           localStorage.getItem('sg_mapeamento_bairros_91_v4') || 
                           localStorage.getItem('sg_mapeamento_bairros_91_v3') || 
                           localStorage.getItem('sg_mapeamento_bairros_91');
 
-      if (salvoV6) {
+      if (salvoV7) {
         try {
-          const dados = JSON.parse(salvoV6);
+          const dados = JSON.parse(salvoV7);
           if (Array.isArray(dados) && dados.length > 0) {
             bairros = dados;
           } else {
@@ -1603,6 +2327,8 @@
                 }
                 return {
                   ...bBase,
+                  populacaoEstimada: bBase.populacaoEstimada !== null ? bBase.populacaoEstimada : correspondente.populacaoEstimada,
+                  qtdCeps: bBase.qtdCeps !== null ? bBase.qtdCeps : correspondente.qtdCeps,
                   igrejas: igrejas || bBase.igrejas
                 };
               }
@@ -1625,7 +2351,7 @@
     }
 
     function salvarNoStorage() {
-      localStorage.setItem('sg_mapeamento_bairros_91_v6', JSON.stringify(bairros));
+      localStorage.setItem('sg_mapeamento_bairros_91_v7', JSON.stringify(bairros));
     }
 
     function atualizarEstatisticas() {
@@ -1638,18 +2364,33 @@
       let semConvite = 0;
       let semIgreja = 0;
 
+      let popAlcancada = 0;
+      const POP_TOTAL_SG = 960000;
+
       bairros.forEach(b => {
         totalIgrejas += (b.igrejas ? b.igrejas.length : 0);
         const st = getStatusBairro(b);
-        if (st === 'ativo_na_rede') ativoNaRede++;
-        else if (st === 'pendente_convite') pendConvite++;
-        else if (st === 'pendente_aceite') pendAceite++;
-        else if (st === 'convite_recusado') conviteRecusado++;
-        else if (st === 'sem_convite') semConvite++;
-        else semIgreja++;
+        const popBairro = b.populacaoEstimada || 0;
+
+        if (st === 'ativo_na_rede') {
+          ativoNaRede++;
+          popAlcancada += popBairro;
+        } else if (st === 'pendente_convite') {
+          pendConvite++;
+        } else if (st === 'pendente_aceite') {
+          pendAceite++;
+        } else if (st === 'convite_recusado') {
+          conviteRecusado++;
+        } else if (st === 'sem_convite') {
+          semConvite++;
+        } else {
+          semIgreja++;
+        }
       });
       
-      const pct = totalBairros > 0 ? Math.round((ativoNaRede / totalBairros) * 100) : 0;
+      const pctBairros = totalBairros > 0 ? Math.round((ativoNaRede / totalBairros) * 100) : 0;
+      const pctPop = Math.min(100, Math.round((popAlcancada / POP_TOTAL_SG) * 100));
+      const popNaoAlcancada = Math.max(0, POP_TOTAL_SG - popAlcancada);
 
       document.getElementById('stat-total').innerText = totalBairros;
       document.getElementById('stat-total-igrejas').innerText = totalIgrejas;
@@ -1659,8 +2400,12 @@
       document.getElementById('stat-nao-aceito').innerText = conviteRecusado;
       document.getElementById('stat-sem-convite').innerText = semConvite;
       document.getElementById('stat-sem-igreja').innerText = semIgreja;
-      document.getElementById('stat-porcentagem').innerText = pct + '%';
-      document.getElementById('progresso-fill').style.width = pct + '%';
+      
+      document.getElementById('stat-porcentagem').innerText = pctBairros + '%';
+      document.getElementById('stat-pop-alcancada-pct').innerText = pctPop + '%';
+      document.getElementById('stat-pop-alcancada-total').innerText = popAlcancada.toLocaleString('pt-BR') + ' hab.';
+      document.getElementById('stat-pop-nao-alcancada-total').innerText = popNaoAlcancada.toLocaleString('pt-BR') + ' hab.';
+      document.getElementById('progresso-fill').style.width = pctBairros + '%';
     }
 
     function setVisao(visao) {
@@ -1745,10 +2490,15 @@
       filtrarDados();
     }
 
+    function setOrdenacao(ordem) {
+      ordenacaoAtual = ordem;
+      filtrarDados();
+    }
+
     function getDadosFiltrados() {
       const busca = document.getElementById('input-busca').value.toLowerCase().trim();
       
-      return bairros.filter(item => {
+      let resultado = bairros.filter(item => {
         // Filtro de Distrito
         if (distritoAtual !== 'todos' && item.distrito !== parseInt(distritoAtual, 10)) {
           return false;
@@ -1796,6 +2546,23 @@
 
         return atendeBusca;
       });
+
+      // Aplica Ordenação
+      if (ordenacaoAtual === 'pop_desc') {
+        resultado.sort((a, b) => (b.populacaoEstimada || 0) - (a.populacaoEstimada || 0));
+      } else if (ordenacaoAtual === 'pop_asc') {
+        resultado.sort((a, b) => (a.populacaoEstimada || 0) - (b.populacaoEstimada || 0));
+      } else if (ordenacaoAtual === 'nome_asc') {
+        resultado.sort((a, b) => a.bairro.localeCompare(b.bairro));
+      } else if (ordenacaoAtual === 'igrejas_desc') {
+        resultado.sort((a, b) => (b.igrejas ? b.igrejas.length : 0) - (a.igrejas ? a.igrejas.length : 0));
+      } else if (ordenacaoAtual === 'igrejas_asc') {
+        resultado.sort((a, b) => (a.igrejas ? a.igrejas.length : 0) - (b.igrejas ? b.igrejas.length : 0));
+      } else {
+        resultado.sort((a, b) => a.id - b.id);
+      }
+
+      return resultado;
     }
 
     function filtrarDados() {
@@ -1821,17 +2588,20 @@
         const stGeral = getStatusBairro(item);
         const stConf = getStatusConfig(stGeral);
         const qtdIgrejas = item.igrejas ? item.igrejas.length : 0;
+        const pop = item.populacaoEstimada;
+        const ceps = item.qtdCeps;
+        const distArea = AREAS_DISTRITOS[item.distrito] || { ha: 0, km2: 0 };
 
         let corpoIgrejas = '';
         if (qtdIgrejas === 0) {
           corpoIgrejas = `
-            <div class="p-3 rounded-xl bg-slate-50 border border-slate-100 text-center my-3">
+            <div class="p-3 rounded-xl bg-slate-50 border border-slate-100 text-center my-2.5">
               <span class="text-xs text-slate-400 italic">Nenhuma congregação associada</span>
             </div>
           `;
         } else {
           corpoIgrejas = `
-            <div class="space-y-2 my-3 max-h-48 overflow-y-auto pr-1">
+            <div class="space-y-2 my-2.5 max-h-48 overflow-y-auto pr-1">
               ${item.igrejas.map((ig) => {
                 const igConf = getStatusConfig(ig.status || 'sem_convite');
                 const temPastor = ig.tem_pastor || (ig.pastor && ig.pastor.trim() !== '');
@@ -1873,7 +2643,8 @@
         return `
           <div class="rounded-2xl p-4 border ${stConf.cardBorder} shadow-sm hover:shadow-md transition-all flex flex-col justify-between group bg-white">
             <div>
-              <div class="flex items-start justify-between gap-2 mb-1.5">
+              <!-- Header do Card -->
+              <div class="flex items-start justify-between gap-2 mb-2">
                 <div class="flex items-center gap-2">
                   <span class="w-6 h-6 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-[11px] font-bold">
                     ${item.id}
@@ -1883,7 +2654,7 @@
                       ${escapeHtml(item.bairro)}
                     </h3>
                     <span class="text-[10px] font-semibold text-slate-400">
-                      ${item.distrito}º Distrito
+                      ${item.distrito}º Distrito • ${distArea.ha.toLocaleString('pt-BR')} ha
                     </span>
                   </div>
                 </div>
@@ -1892,11 +2663,22 @@
                 </span>
               </div>
 
+              <!-- Faixa Demográfica (População & Logradouros) -->
+              <div class="bg-slate-50/80 p-2 rounded-xl border border-slate-100 text-xs flex items-center justify-between gap-2 my-1">
+                <div class="flex items-center gap-1.5 text-slate-700">
+                  <i class="ph ph-users text-emerald-600 text-sm"></i>
+                  <span>${pop ? `<strong>~${pop.toLocaleString('pt-BR')}</strong> hab.` : '<span class="text-slate-400 italic">Pop. a estimar</span>'}</span>
+                </div>
+                <div class="text-[11px] text-slate-500">
+                  ${ceps ? `<span>${ceps} CEPs/vias</span>` : ''}
+                </div>
+              </div>
+
               ${corpoIgrejas}
             </div>
 
             <!-- Botão de Ação do Card -->
-            <div class="pt-3 border-t border-slate-100 flex items-center justify-between gap-1.5 text-xs text-slate-500">
+            <div class="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-1.5 text-xs text-slate-500">
               <span class="text-[11px] font-medium">${qtdIgrejas} ${qtdIgrejas === 1 ? 'congregação' : 'congregações'}</span>
               <button onclick="abrirModalEdicao(${item.id})" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition flex items-center gap-1">
                 <i class="ph ph-pencil-simple text-sm"></i>
@@ -1928,6 +2710,8 @@
         const stGeral = getStatusBairro(item);
         const stConf = getStatusConfig(stGeral);
         const qtdIgrejas = item.igrejas ? item.igrejas.length : 0;
+        const pop = item.populacaoEstimada;
+        const distArea = AREAS_DISTRITOS[item.distrito] || { ha: 0, km2: 0 };
 
         const customIcon = L.divIcon({
           className: 'custom-pin-wrapper',
@@ -1942,10 +2726,10 @@
 
         let igrejasHtml = '';
         if (qtdIgrejas === 0) {
-          igrejasHtml = `<p class="text-slate-400 italic text-xs">Nenhuma igreja cadastrada</p>`;
+          igrejasHtml = `<p class="text-slate-400 italic text-xs py-1">Nenhuma igreja cadastrada</p>`;
         } else {
           igrejasHtml = `
-            <div class="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+            <div class="space-y-1.5 max-h-36 overflow-y-auto pr-1">
               ${item.igrejas.map(ig => {
                 const igConf = getStatusConfig(ig.status || 'sem_convite');
                 const temPastor = ig.tem_pastor || (ig.pastor && ig.pastor.trim() !== '');
@@ -1967,18 +2751,25 @@
         }
 
         const popupContent = `
-          <div class="space-y-2 text-xs min-w-[210px]">
+          <div class="space-y-2 text-xs min-w-[220px]">
             <div class="flex items-center justify-between gap-2 border-b border-slate-100 pb-1.5">
               <div>
                 <h4 class="font-bold text-slate-900 text-sm">${item.id}. ${escapeHtml(item.bairro)}</h4>
-                <p class="text-[10px] text-slate-400 font-medium">${item.distrito}º Distrito</p>
+                <p class="text-[10px] text-slate-400 font-medium">${item.distrito}º Distrito • ${distArea.ha.toLocaleString('pt-BR')} ha</p>
               </div>
               <span class="text-[10px] font-semibold ${stConf.badgeBg} px-2 py-0.5 rounded-full">${qtdIgrejas} ${qtdIgrejas === 1 ? 'Igreja' : 'Igrejas'}</span>
             </div>
+
+            <!-- Dados População -->
+            <div class="bg-slate-50 p-1.5 rounded-lg text-[11px] text-slate-700 flex items-center justify-between">
+              <span>👥 ${pop ? `<strong>~${pop.toLocaleString('pt-BR')}</strong> hab.` : '<span class="text-slate-400 italic">Pop. a estimar</span>'}</span>
+              ${item.qtdCeps ? `<span class="text-[10px] text-slate-400">${item.qtdCeps} CEPs</span>` : ''}
+            </div>
+
             ${igrejasHtml}
-            <div class="pt-2 flex justify-end">
+            <div class="pt-1.5 flex justify-end">
               <button onclick="abrirModalEdicao(${item.id})" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1 shadow-sm">
-                <i class="ph ph-pencil-simple"></i> Gerenciar Igrejas
+                <i class="ph ph-pencil-simple"></i> Gerenciar Bairro
               </button>
             </div>
           </div>
@@ -1999,11 +2790,14 @@
       if (id !== null) {
         const item = bairros.find(b => b.id === id);
         if (!item) return;
+        const distArea = AREAS_DISTRITOS[item.distrito] || { ha: 0, km2: 0 };
         titulo.innerText = "Gerenciar Bairro: " + item.bairro;
-        subtitulo.innerText = `Pertencente ao ${item.distrito}º Distrito de São Gonçalo`;
+        subtitulo.innerText = `${item.distrito}º Distrito de São Gonçalo (${distArea.ha.toLocaleString('pt-BR')} ha / ${distArea.km2} km²)`;
         document.getElementById('edit-id').value = item.id;
         document.getElementById('edit-bairro').value = item.bairro;
         document.getElementById('edit-distrito').value = item.distrito || 1;
+        document.getElementById('edit-populacao').value = item.populacaoEstimada || '';
+        document.getElementById('edit-ceps').value = item.qtdCeps || '';
         
         formIgrejasArray = (item.igrejas || []).map(ig => ({ 
           ...ig,
@@ -2015,6 +2809,8 @@
         document.getElementById('edit-id').value = "";
         document.getElementById('edit-bairro').value = "";
         document.getElementById('edit-distrito').value = 1;
+        document.getElementById('edit-populacao').value = "";
+        document.getElementById('edit-ceps').value = "";
         formIgrejasArray = [];
       }
 
@@ -2172,6 +2968,8 @@
       const idVal = document.getElementById('edit-id').value;
       const bairroVal = document.getElementById('edit-bairro').value.trim();
       const distritoVal = parseInt(document.getElementById('edit-distrito').value, 10) || 1;
+      const popVal = parseInt(document.getElementById('edit-populacao').value, 10) || null;
+      const cepsVal = parseInt(document.getElementById('edit-ceps').value, 10) || null;
 
       if (!bairroVal) return;
 
@@ -2194,8 +2992,10 @@
         if (index !== -1) {
           bairros[index].bairro = bairroVal;
           bairros[index].distrito = distritoVal;
+          bairros[index].populacaoEstimada = popVal;
+          bairros[index].qtdCeps = cepsVal;
           bairros[index].igrejas = igrejasValidas;
-          mostrarToast("Bairro '" + bairroVal + "' atualizado (" + igrejasValidas.length + " congregações)!");
+          mostrarToast("Bairro '" + bairroVal + "' atualizado!");
         }
       } else {
         const novoId = bairros.length > 0 ? Math.max(...bairros.map(b => b.id)) + 1 : 1;
@@ -2203,6 +3003,8 @@
           id: novoId,
           bairro: bairroVal,
           distrito: distritoVal,
+          populacaoEstimada: popVal,
+          qtdCeps: cepsVal,
           igrejas: igrejasValidas
         });
         mostrarToast("Bairro adicionado com sucesso!");
@@ -2215,7 +3017,7 @@
 
     function exportarCSV() {
       const linhas = [];
-      linhas.push("id,distrito,bairro,status_geral,qtd_igrejas,igrejas_nomes,pastores,tem_pastor");
+      linhas.push("id,distrito,area_distrito_ha,bairro,populacao_estimada,qtd_ceps,status_geral,qtd_igrejas,igrejas_nomes,pastores,tem_pastor");
       
       bairros.forEach(b => {
         const st = getStatusBairro(b);
@@ -2223,14 +3025,16 @@
         const nomes = b.igrejas ? b.igrejas.map(i => i.nome).join(' | ') : '';
         const pastores = b.igrejas ? b.igrejas.map(i => (i.tem_pastor ? i.pastor : 'Sem pastor')).join(' | ') : '';
         const temPastorStr = b.igrejas ? b.igrejas.map(i => (i.tem_pastor ? 'Sim' : 'Não')).join(' | ') : '';
-        linhas.push(`${b.id},${b.distrito},"${b.bairro}",${st},${qtd},"${nomes}","${pastores}","${temPastorStr}"`);
+        const distArea = AREAS_DISTRITOS[b.distrito] || { ha: 0, km2: 0 };
+
+        linhas.push(`${b.id},${b.distrito},${distArea.ha},"${b.bairro}",${b.populacaoEstimada || ''},${b.qtdCeps || ''},${st},${qtd},"${nomes}","${pastores}","${temPastorStr}"`);
       });
 
       const blob = new Blob([linhas.join('\n')], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'status_rede_de_igrejas_sg.csv';
+      a.download = 'status_rede_de_igrejas_sg_demografico.csv';
       a.click();
       URL.revokeObjectURL(url);
     }
