@@ -354,6 +354,12 @@ export default function DirectRegistrationPage() {
     setTimeout(() => setUrlCopied(false), 3000);
   };
 
+  const shareOnWhatsApp = () => {
+    const eventTitle = item?.eventName || item?.name || 'Evento';
+    const text = encodeURIComponent(`Olá! Acabei de garantir minha inscrição no evento *${eventTitle}*. Faça sua inscrição também pelo link: ${window.location.href}`);
+    window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-4">
@@ -366,18 +372,18 @@ export default function DirectRegistrationPage() {
   if (!data || !item) {
     return (
       <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-6">
-        <Card className="max-w-md w-full bg-slate-900 border-slate-800 text-slate-100 text-center p-6 rounded-3xl shadow-2xl">
+        <div className="max-w-md w-full bg-slate-900 border border-slate-800 text-slate-100 text-center p-8 rounded-3xl shadow-2xl">
           <AlertCircle className="size-12 text-amber-500 mx-auto mb-4" />
-          <CardTitle className="text-xl font-bold mb-2">Página não encontrada</CardTitle>
-          <CardDescription className="text-slate-400 mb-6">
+          <h2 className="text-xl font-bold text-white mb-2">Página não encontrada</h2>
+          <p className="text-slate-400 text-sm mb-6">
             O evento ou curso especificado não foi localizado ou não está mais com inscrições abertas.
-          </CardDescription>
+          </p>
           <Link href="/public/enrollment">
-            <Button className="w-full h-12 rounded-xl font-bold">
+            <Button className="w-full h-12 rounded-xl font-bold bg-primary hover:bg-primary/90 text-white">
               Ver Catálogo Completo de Cursos & Eventos
             </Button>
           </Link>
-        </Card>
+        </div>
       </div>
     );
   }
@@ -385,10 +391,10 @@ export default function DirectRegistrationPage() {
   // TELA DE SUCESSO / CHECKOUT PIX
   if (result) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white flex items-center justify-center p-4 sm:p-6">
-        <Card className="max-w-xl w-full bg-slate-900/90 backdrop-blur border-slate-800 rounded-[2.5rem] shadow-2xl overflow-hidden p-6 sm:p-8">
+      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-4 sm:p-6 selection:bg-emerald-500 selection:text-white">
+        <div className="max-w-lg w-full bg-slate-900/95 border border-slate-800 rounded-[2.5rem] shadow-2xl overflow-hidden p-6 sm:p-8 text-white relative">
           <div className="text-center mb-6">
-            <div className={`size-16 rounded-full flex items-center justify-center mx-auto mb-4 border ${
+            <div className={`size-16 rounded-2xl flex items-center justify-center mx-auto mb-4 border ${
               result.isPaid && result.paymentMethod === 'CREDIT_CARD'
                 ? 'bg-blue-500/10 text-blue-400 border-blue-500/30'
                 : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
@@ -399,21 +405,30 @@ export default function DirectRegistrationPage() {
                 <CheckCircle2 className="size-9" />
               )}
             </div>
-            <Badge className={`mb-2 ${
+
+            <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold mb-3 border ${
               result.isPaid && result.paymentMethod === 'CREDIT_CARD'
-                ? 'bg-blue-500/20 text-blue-300 border-blue-500/30'
-                : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                ? 'bg-blue-500/15 text-blue-300 border-blue-500/30'
+                : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
             }`}>
+              <span className={`size-1.5 rounded-full ${result.isPaid ? 'bg-blue-400' : 'bg-emerald-400'} animate-pulse`} />
               {result.isPaid 
                 ? (result.paymentMethod === 'CREDIT_CARD' ? 'Aguardando Pagamento no Cartão' : 'Aguardando Pagamento PIX') 
-                : 'Inscrição Confirmada'}
-            </Badge>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight">{item.eventName || item.name}</h1>
-            <p className="text-xs text-slate-400 mt-1">Participante: <strong className="text-slate-200">{result.name}</strong></p>
+                : 'Inscrição Confirmada com Sucesso'}
+            </div>
+
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight">
+              {item.eventName || item.name}
+            </h1>
+            
+            <div className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-950/80 border border-slate-800 text-xs text-slate-300">
+              <span>Participante:</span>
+              <strong className="text-white font-semibold">{result.name}</strong>
+            </div>
           </div>
 
           {result.isPaid && (result.paymentMethod === 'PIX' || result.pixData) ? (
-            <div className="bg-slate-950/70 border border-slate-800 rounded-3xl p-6 text-center space-y-4 mb-6">
+            <div className="bg-slate-950/80 border border-slate-800 rounded-3xl p-6 text-center space-y-4 mb-6">
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Escaneie o QR Code PIX no seu app</p>
               
               {result.pixData?.encodedImage && (
@@ -433,13 +448,14 @@ export default function DirectRegistrationPage() {
 
               {result.pixData?.payload && (
                 <div className="pt-2 space-y-2">
-                  <Button 
+                  <button 
+                    type="button"
                     onClick={copyPixCode} 
-                    className="w-full h-12 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-sm gap-2 shadow-lg shadow-emerald-600/20"
+                    className="w-full h-12 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-sm text-white flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition cursor-pointer"
                   >
-                    {pixCopied ? <Check className="size-4" /> : <Copy className="size-4" />}
-                    {pixCopied ? 'Código PIX Copiado!' : 'Copiar Chave PIX Copia-e-Cola'}
-                  </Button>
+                    {pixCopied ? <Check className="size-4 text-white" /> : <Copy className="size-4 text-white" />}
+                    <span>{pixCopied ? 'Código PIX Copiado!' : 'Copiar Chave PIX Copia-e-Cola'}</span>
+                  </button>
                 </div>
               )}
 
@@ -457,13 +473,16 @@ export default function DirectRegistrationPage() {
               )}
 
               {result.registrationId && (
-                <div className="pt-2 text-[10px] font-mono text-slate-500">
-                  Protocolo: #{result.registrationId.slice(0, 10).toUpperCase()}
+                <div className="pt-2 flex items-center justify-center gap-2 text-[11px] font-mono text-slate-400">
+                  <span>Protocolo:</span>
+                  <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300 font-bold">
+                    #{result.registrationId.slice(0, 10).toUpperCase()}
+                  </span>
                 </div>
               )}
             </div>
           ) : result.isPaid && result.paymentMethod === 'CREDIT_CARD' ? (
-            <div className="bg-slate-950/70 border border-slate-800 rounded-3xl p-6 text-center space-y-4 mb-6">
+            <div className="bg-slate-950/80 border border-slate-800 rounded-3xl p-6 text-center space-y-4 mb-6">
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Pagamento com Cartão de Crédito</p>
               <p className="text-xs text-slate-300 max-w-sm mx-auto leading-relaxed">
                 Para sua segurança, os dados do cartão são preenchidos diretamente no ambiente protegido do Asaas.
@@ -481,52 +500,77 @@ export default function DirectRegistrationPage() {
                   rel="noopener noreferrer"
                   className="inline-block w-full pt-2"
                 >
-                  <Button className="w-full h-14 rounded-xl bg-blue-600 hover:bg-blue-500 font-bold text-sm gap-2 shadow-lg shadow-blue-600/20">
+                  <button 
+                    type="button"
+                    className="w-full h-14 rounded-xl bg-blue-600 hover:bg-blue-500 font-bold text-sm text-white flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 transition cursor-pointer"
+                  >
                     <CreditCard className="size-4" /> Pagar com Cartão no Asaas <ExternalLink className="size-4" />
-                  </Button>
+                  </button>
                 </a>
               ) : (
                 <p className="text-xs text-amber-400">A fatura foi gerada. Verifique seu e-mail para concluir o pagamento.</p>
               )}
 
               {result.registrationId && (
-                <div className="pt-2 text-[10px] font-mono text-slate-500">
-                  Protocolo: #{result.registrationId.slice(0, 10).toUpperCase()}
+                <div className="pt-2 flex items-center justify-center gap-2 text-[11px] font-mono text-slate-400">
+                  <span>Protocolo:</span>
+                  <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300 font-bold">
+                    #{result.registrationId.slice(0, 10).toUpperCase()}
+                  </span>
                 </div>
               )}
             </div>
           ) : (
-            <div className="bg-slate-950/50 border border-slate-800 rounded-3xl p-6 text-center space-y-3 mb-6">
-              <Sparkles className="size-8 text-blue-400 mx-auto" />
-              <p className="text-base font-bold text-white">Sua vaga está garantida!</p>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Você receberá informações adicionais da organização e avisos importantes no seu e-mail ou WhatsApp cadastrado.
-              </p>
+            <div className="bg-slate-950/80 border border-slate-800 rounded-3xl p-6 text-center space-y-3 mb-6 shadow-inner">
+              <div className="size-10 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center mx-auto border border-emerald-500/20">
+                <Sparkles className="size-5" />
+              </div>
+              <div>
+                <p className="text-lg font-bold text-white">Sua vaga está garantida!</p>
+                <p className="text-xs text-slate-300 mt-1 leading-relaxed max-w-sm mx-auto">
+                  Você receberá informações adicionais da organização e avisos importantes no seu WhatsApp ou e-mail cadastrado.
+                </p>
+              </div>
               {result.registrationId && (
-                <div className="pt-2 text-xs font-mono text-slate-500">
-                  Protocolo: #{result.registrationId.slice(0, 10).toUpperCase()}
+                <div className="pt-2 border-t border-slate-800/80 flex items-center justify-center gap-2 text-[11px] font-mono text-slate-400">
+                  <span>Protocolo:</span>
+                  <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300 font-bold">
+                    #{result.registrationId.slice(0, 10).toUpperCase()}
+                  </span>
                 </div>
               )}
             </div>
           )}
 
           <div className="space-y-3">
-            <Button
-              variant="outline"
-              onClick={copyShareLink}
-              className="w-full h-12 rounded-xl font-bold border-slate-800 text-slate-200 hover:bg-slate-800 gap-2"
+            <button
+              type="button"
+              onClick={shareOnWhatsApp}
+              className="w-full h-12 rounded-xl font-bold bg-[#25D366] hover:bg-[#20bd5a] text-white flex items-center justify-center gap-2.5 transition shadow-lg shadow-emerald-950/40 cursor-pointer text-sm"
             >
-              {urlCopied ? <Check className="size-4 text-emerald-400" /> : <Share2 className="size-4" />}
-              {urlCopied ? 'Link Copiado!' : 'Convidar Amigos no WhatsApp'}
-            </Button>
+              <Share2 className="size-4 text-white" />
+              <span>Convidar Amigos no WhatsApp</span>
+            </button>
 
-            <Link href="/" className="block">
-              <Button variant="ghost" className="w-full text-xs text-slate-400 hover:text-white">
+            <button
+              type="button"
+              onClick={copyShareLink}
+              className="w-full h-11 rounded-xl font-medium bg-slate-800/90 hover:bg-slate-800 text-slate-200 hover:text-white border border-slate-700/80 flex items-center justify-center gap-2 transition cursor-pointer text-xs"
+            >
+              {urlCopied ? <Check className="size-4 text-emerald-400" /> : <Copy className="size-4 text-slate-400" />}
+              <span>{urlCopied ? 'Link Copiado!' : 'Copiar Link do Evento'}</span>
+            </button>
+
+            <Link href="/" className="block pt-1">
+              <button
+                type="button"
+                className="w-full text-xs text-slate-400 hover:text-white transition py-2 text-center cursor-pointer"
+              >
                 Voltar à Página Inicial
-              </Button>
+              </button>
             </Link>
           </div>
-        </Card>
+        </div>
       </div>
     );
   }
@@ -664,7 +708,7 @@ export default function DirectRegistrationPage() {
 
           {/* COLUNA DIREITA: FORMULÁRIO DE INSCRIÇÃO DIRETA */}
           <div className="lg:col-span-5">
-            <Card className="bg-slate-900/90 border-slate-800 rounded-[2.5rem] shadow-2xl overflow-hidden sticky top-20">
+            <Card className="bg-slate-900/90 border-slate-800 text-slate-100 rounded-[2.5rem] shadow-2xl overflow-hidden sticky top-20">
               <CardHeader className="bg-slate-950/60 border-b border-slate-800/80 p-6 sm:p-7">
                 <CardTitle className="text-lg sm:text-xl font-black uppercase tracking-tight text-white flex items-center gap-2">
                   <Sparkles className="size-5 text-primary" /> Formulário de Inscrição
