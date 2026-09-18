@@ -287,16 +287,32 @@ export function TriggerGcBotDialog({
 
           {/* Resultado do Envio */}
           {result && (
-            <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl space-y-2 text-xs">
+            <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl space-y-2.5 text-xs">
               <div className="flex items-center gap-2 font-black text-emerald-600 dark:text-emerald-400">
                 <CheckCircle2 className="size-4 shrink-0" />
-                <span>Disparo Concluído!</span>
+                <span>Fila de Disparo Iniciada com Sucesso!</span>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-                <div>✅ Enviados: <strong>{result.triggeredCount}</strong></div>
-                <div>⏳ Em andamento: <strong>{result.alreadyRunningCount}</strong></div>
-                <div>👤 Sem líder: <strong>{result.noLeaderCount}</strong></div>
-                <div>📱 Sem WhatsApp: <strong>{result.noPhoneCount}</strong></div>
+              <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                {result.message || `${result.totalEnqueued || result.triggeredCount} disparos foram colocados na fila.`}
+              </p>
+              <div className="p-2.5 bg-white/80 dark:bg-slate-950/80 rounded-lg border border-emerald-200 dark:border-emerald-900 text-[11px] space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total enfileirado:</span>
+                  <strong className="text-emerald-600 font-bold">{result.totalEnqueued || result.triggeredCount} destinatários</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Cadência de envio:</span>
+                  <strong>1 mensagem por minuto (60s)</strong>
+                </div>
+                {result.estimatedMinutes && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Tempo estimado:</span>
+                    <strong>~{result.estimatedMinutes} minutos</strong>
+                  </div>
+                )}
+                <p className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium pt-1 border-t border-slate-100 dark:border-slate-800">
+                  ✨ O servidor continuará enviando automaticamente em segundo plano. Você pode fechar esta tela ou navegar pelo sistema.
+                </p>
               </div>
             </div>
           )}

@@ -288,20 +288,26 @@ export async function startGcReportSession(
     };
 
     await sessionRef.set(newSession);
-    console.log('[GC Bot] Sessão criada com sucesso (step: CHOOSE_CHANNEL) para', recipientPhone);
 
     // 5. Enviar mensagem de boas-vindas com escolha de canal (WhatsApp simplificado vs Link completo)
-    await sendButton(
-      recipientPhone,
-      greetingText,
-      [
-        { id: 'channel_whatsapp', text: '💬 No WhatsApp' },
-        { id: 'channel_link', text: '🔗 Pelo Link' }
-      ],
-      editingLogId ? 'Edição de Relatório' : 'Relatório Semanal de GC'
-    );
-
-    return true;
+    try {
+      await sendButton(
+        recipientPhone,
+        greetingText,
+        [
+          { id: 'channel_whatsapp', text: '💬 No WhatsApp' },
+          { id: 'channel_link', text: '🔗 Pelo Link' }
+        ],
+        editingLogId ? 'Edição de Relatório' : 'Relatório Semanal de GC'
+      );
+      console.log(`[GC Bot] Mensagem inicial enviada com sucesso para ${recipientPhone} (célula: ${cellData.nome})`);
+      return true;
+    } catch (sendErr: any) {
+      console.error(`[GC Bot] Falha ao enviar mensagem WhatsApp para ${recipientPhone}:`, sendErr.message || sendErr);
+      // Limpar sessão para não ficar travada se o envio do WhatsApp falhou
+      await sessionRef.delete().catch(() => {});
+      throw sendErr;
+    }
   } catch (error) {
     console.error('[GC Bot] Erro ao iniciar sessão:', error);
     return false;

@@ -366,8 +366,11 @@ export async function triggerGcReportForCell(cellId: string) {
     }
 }
 
+import { enqueueGcReportsBatch } from '@/lib/gc-dispatch-queue';
+
 /**
  * Triggers GC report sessions via WhatsApp in batch for specified scope (all, rede, area, cell).
+ * Enqueues items in background queue with 60s delay per person so user can close page safely.
  */
 export async function triggerGcReportsBatch(options: {
     scope: 'all' | 'rede' | 'area' | 'cell';
@@ -375,122 +378,29 @@ export async function triggerGcReportsBatch(options: {
     areaId?: string;
     cellId?: string;
     force?: boolean;
+    delaySeconds?: number;
 }) {
     try {
-        const db = getAdminDb();
-        const { scope, redeId, areaId, cellId } = options;
+        const queueRes = await enqueueGcReportsBatch({
+            scope: options.scope,
+            redeId: options.redeId,
+            areaId: options.areaId,
+            cellId: options.cellId,
+            force: options.force,
+            delaySeconds: options.delaySeconds || 60 // 1 pessoa por minuto
+        });
 
-        let cellsRef: any = db.collection('cells');
-        let cellsSnap: any;
-
-        if (scope === 'cell' && cellId) {
-            const singleDoc = await db.collection('cells').doc(cellId).get();
-            if (!singleDoc.exists) {
-                return { success: false, error: 'Célula não encontrada.' };
-            }
-            cellsSnap = { docs: [singleDoc] };
-        } else if (scope === 'area' && areaId) {
-            cellsSnap = await cellsRef.where('areaId', '==', areaId).get();
-        } else if (scope === 'rede' && redeId) {
-            cellsSnap = await cellsRef.where('redeId', '==', redeId).get();
-        } else {
-            cellsSnap = await cellsRef.get();
-        }
-
-        if (!cellsSnap || cellsSnap.empty) {
-            return {
-                success: true,
-                message: 'Nenhum GC cadastrado encontrado no escopo selecionado.',
-                totalCells: 0,
-                triggeredCount: 0,
-                alreadyRunningCount: 0,
-                noLeaderCount: 0,
-                noPhoneCount: 0
-            };
-        }
-
-        let totalCells = 0;
-        let triggeredCount = 0;
-        let alreadyRunningCount = 0;
-        let noLeaderCount = 0;
-        let noPhoneCount = 0;
-        const details: { cellId: string; cellName: string; status: 'triggered' | 'already_running' | 'no_leader' | 'no_phone' | 'error'; recipientRole?: string; error?: string }[] = [];
-
-        for (const cDoc of cellsSnap.docs) {
-            const cData = cDoc.data();
-            const cStatus = cData?.status || 'active';
-            const cellName = cData?.nome || cData?.name || `GC ${cDoc.id}`;
-
-            // Apenas células ativas ou em crescimento
-            if (cStatus !== 'active' && cStatus !== 'growing') continue;
-
-            totalCells++;
-
-            const { recipient, error } = await resolveGcReportRecipient(cData, db);
-            if (!recipient) {
-                noPhoneCount++;
-                details.push({ cellId: cDoc.id, cellName, status: 'no_phone', error: error || 'Sem responsável com telefone' });
-                continue;
-            }
-
-            // Não dispara se a célula já tiver relatório, cancelamento ou reagendamento nesta semana (a menos que force === true)
-            if (!options.force) {
-                const now = new Date();
-                const weekStart = new Date(now);
-                weekStart.setDate(now.getDate() - now.getDay());
-                const weekStartStr = weekStart.toISOString().split('T')[0];
-
-                const existingSnap = await db.collection('reuniao_logs')
-                    .where('cellId', '==', cDoc.id)
-                    .get();
-
-                const recentDoc = existingSnap.docs.find(doc => {
-                    const d = doc.data();
-                    const logDate = d.date || (d.createdAt?.toDate?.() ? d.createdAt.toDate().toISOString().split('T')[0] : '');
-                    return logDate >= weekStartStr;
-                });
-
-                if (recentDoc) {
-                    const existingData = recentDoc.data();
-                    const st = existingData.statusReuniao || 'realizado';
-                    alreadyRunningCount++;
-                    details.push({ 
-                        cellId: cDoc.id, 
-                        cellName, 
-                        status: 'already_running', 
-                        error: st === 'cancelled' ? 'Reunião cancelada nesta semana' : st === 'postponed' ? 'Reunião adiada/remarcada' : 'Relatório já preenchido esta semana' 
-                    });
-                    continue;
-                }
-            }
-
-            try {
-                const success = await startGcReportSession(cDoc.id, recipient.phone, false, {
-                    userId: recipient.userId,
-                    name: recipient.name,
-                    role: recipient.role
-                });
-
-                if (success) {
-                    triggeredCount++;
-                    details.push({ cellId: cDoc.id, cellName, status: 'triggered', recipientRole: recipient.role });
-                } else {
-                    alreadyRunningCount++;
-                    details.push({ cellId: cDoc.id, cellName, status: 'already_running', error: 'Sessão já em andamento' });
-                }
-            } catch (err: any) {
-                details.push({ cellId: cDoc.id, cellName, status: 'error', error: err.message });
-            }
+        if (!queueRes.success) {
+            return { success: false, error: queueRes.error || 'Erro ao enfileirar disparos.' };
         }
 
         return {
             success: true,
-            totalCells,
-            triggeredCount,
-            alreadyRunningCount,
-            noLeaderCount,
-            noPhoneCount,
-            details
+            jobId: queueRes.jobId,
+            totalEnqueued: queueRes.totalEnqueued,
+            triggeredCount: queueRes.totalEnqueued,
+            estimatedMinutes: queueRes.estimatedMinutes,
+            message: queueRes.message
         };
     } catch (e: any) {
         console.error('GC Batch Trigger Error:', e);

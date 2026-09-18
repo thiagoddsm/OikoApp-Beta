@@ -19,7 +19,7 @@ import { Loader2, Users, TrendingUp, AlertTriangle, MessageSquare, HeartHandshak
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { triggerGcReportForCell } from '@/app/actions/whatsapp-actions';
+import { triggerGcReportForCell, triggerGcReportsBatch } from '@/app/actions/whatsapp-actions';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, CartesianGrid } from 'recharts';
 
 type PresencaDoc = {
@@ -551,31 +551,31 @@ export default function SupervisorPage() {
       return;
     }
 
-    if (!window.confirm(`Deseja disparar o bot de cobrança do relatório via WhatsApp para os ${pendingCells.length} líder(es) de GC que ainda não responderam?`)) {
+    if (!window.confirm(`Deseja iniciar a fila de disparo em segundo plano para os ${pendingCells.length} líder(es) de GC pendentes? O envio ocorrerá a cada 1 minuto de forma segura e você pode fechar a tela.`)) {
       return;
     }
 
     setIsSendingBatch(true);
-    let successCount = 0;
-    let failCount = 0;
 
     try {
-      for (const cell of pendingCells) {
-        try {
-          const res = await triggerGcReportForCell(cell.id);
-          if (res.success) {
-            successCount++;
-          } else {
-            failCount++;
-          }
-        } catch {
-          failCount++;
-        }
+      const res = await triggerGcReportsBatch({ scope: 'all', force: false, delaySeconds: 60 });
+      if (res.success) {
+        toast({
+          title: 'Fila de Disparo Iniciada! 🚀',
+          description: res.message || `${res.totalEnqueued} mensagens enfileiradas. O envio ocorrerá em segundo plano a cada 1 minuto.`,
+        });
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Erro ao iniciar fila',
+          description: res.error || 'Não foi possível enfileirar os disparos.',
+        });
       }
-
+    } catch (err: any) {
       toast({
-        title: 'Disparo em Lote Concluído! 🚀',
-        description: `${successCount} bot(s) enviado(s) aos líderes no WhatsApp. ${failCount > 0 ? `(${failCount} falha(s))` : ''}`,
+        variant: 'destructive',
+        title: 'Erro no disparo',
+        description: err.message || 'Erro de conexão.',
       });
     } finally {
       setIsSendingBatch(false);
