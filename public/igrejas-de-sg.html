@@ -90,11 +90,45 @@
           <p class="text-xs text-slate-500">Mapeamento demográfico & ministerial • 91 bairros em 5 distritos</p>
         </div>
       </div>
-      <div class="flex items-center gap-2">
-        <button onclick="exportarCSV()" class="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition flex items-center gap-1.5">
-          <i class="ph ph-download-simple text-sm"></i>
-          <span>Exportar Dados (CSV)</span>
+      <div class="flex items-center flex-wrap gap-2">
+        <button 
+          onclick="baixarModeloJSON()" 
+          title="Baixar arquivo JSON modelo de exemplo para preenchimento e importação"
+          class="px-3 py-1.5 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
+        >
+          <i class="ph ph-file-arrow-down text-sm text-emerald-600"></i>
+          <span>Modelo JSON</span>
         </button>
+
+        <button 
+          onclick="abrirModalImportacao()" 
+          title="Importar congregações, pastores e bairros via arquivo ou texto JSON"
+          class="px-3 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition flex items-center gap-1.5 shadow-sm shadow-emerald-600/20 cursor-pointer"
+        >
+          <i class="ph ph-upload-simple text-sm"></i>
+          <span>Importar JSON</span>
+        </button>
+
+        <div class="relative inline-block text-left" id="dropdown-exportar-container">
+          <button 
+            onclick="toggleDropdownExportar()" 
+            class="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl transition flex items-center gap-1.5 cursor-pointer"
+          >
+            <i class="ph ph-download-simple text-sm text-slate-600"></i>
+            <span>Exportar</span>
+            <i class="ph ph-caret-down text-[10px] text-slate-500"></i>
+          </button>
+          <div id="dropdown-exportar-menu" class="hidden absolute right-0 mt-1.5 w-48 rounded-xl bg-white shadow-xl border border-slate-200 z-50 py-1.5 text-xs">
+            <button onclick="exportarJSON(); toggleDropdownExportar();" class="w-full text-left px-3 py-2 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 flex items-center gap-2 transition cursor-pointer">
+              <i class="ph ph-file-code text-emerald-600 text-sm"></i>
+              <span>Exportar Dados (JSON)</span>
+            </button>
+            <button onclick="exportarCSV(); toggleDropdownExportar();" class="w-full text-left px-3 py-2 hover:bg-blue-50 text-slate-700 hover:text-blue-800 flex items-center gap-2 transition cursor-pointer">
+              <i class="ph ph-file-csv text-blue-600 text-sm"></i>
+              <span>Exportar Dados (CSV)</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </header>
@@ -479,6 +513,145 @@
           </div>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Modal de Importação de Dados via JSON -->
+  <div id="modal-importacao" class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-2xl w-full max-w-xl max-h-[92vh] shadow-2xl border border-slate-100 flex flex-col overflow-hidden">
+      <!-- Header do Modal -->
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between flex-shrink-0 bg-slate-50/50">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+            <i class="ph ph-upload-simple text-base font-bold"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-900 text-sm">Importar Dados via JSON</h3>
+            <p class="text-[11px] text-slate-500">Atualize congregações, pastores, status e demografia em lote</p>
+          </div>
+        </div>
+        <button onclick="fecharModalImportacao()" class="text-slate-400 hover:text-slate-600 rounded-lg p-1.5 text-lg transition">
+          <i class="ph ph-x"></i>
+        </button>
+      </div>
+
+      <!-- Corpo do Modal com Scroll -->
+      <div class="flex-1 overflow-y-auto p-5 space-y-4">
+        
+        <!-- Dropzone de Arquivo -->
+        <div 
+          id="dropzone-json"
+          onclick="document.getElementById('input-arquivo-json').click()"
+          ondragover="handleDragOver(event)"
+          ondragleave="handleDragLeave(event)"
+          ondrop="handleDrop(event)"
+          class="border-2 border-dashed border-slate-200 hover:border-emerald-500 bg-slate-50/70 hover:bg-emerald-50/30 rounded-2xl p-5 text-center cursor-pointer transition flex flex-col items-center justify-center gap-2 group"
+        >
+          <input type="file" id="input-arquivo-json" accept=".json,application/json" class="hidden" onchange="processarArquivoJson(event)">
+          <div class="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center group-hover:scale-110 transition">
+            <i class="ph ph-file-arrow-up text-xl"></i>
+          </div>
+          <div>
+            <p class="text-xs font-bold text-slate-800">Clique para carregar o arquivo .json</p>
+            <p class="text-[11px] text-slate-400">ou arraste e solte o arquivo aqui</p>
+          </div>
+          <span id="nome-arquivo-selecionado" class="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full hidden"></span>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <div class="h-px bg-slate-200 flex-1"></div>
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">OU cole o texto JSON</span>
+          <div class="h-px bg-slate-200 flex-1"></div>
+        </div>
+
+        <!-- Textarea JSON -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-xs font-semibold text-slate-700">Conteúdo JSON</label>
+            <button type="button" onclick="carregarExemploNoTextarea()" class="text-[11px] font-medium text-emerald-600 hover:text-emerald-800 hover:underline">
+              Preencher exemplo
+            </button>
+          </div>
+          <textarea 
+            id="textarea-json-import"
+            rows="6"
+            placeholder='[
+  {
+    "id": 1,
+    "bairro": "Centro",
+    "igrejas": [
+      {
+        "nome": "Primeira Igreja Batista",
+        "tem_pastor": true,
+        "pastor": "Pr. Nome",
+        "status": "ativo_na_rede",
+        "obs": "Endereço ou contato"
+      }
+    ]
+  }
+]'
+            class="w-full text-xs font-mono border border-slate-300 rounded-xl p-3 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+          ></textarea>
+        </div>
+
+        <!-- Modo de Importação -->
+        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2.5">
+          <span class="block text-[11px] font-bold text-slate-700 uppercase tracking-wider">Modo de Importação</span>
+          
+          <label class="flex items-start gap-2.5 cursor-pointer select-none">
+            <input type="radio" name="modo-importacao" value="mesclar" checked class="mt-0.5 text-emerald-600 focus:ring-emerald-500">
+            <div>
+              <span class="text-xs font-semibold text-slate-800">Mesclar / Atualizar (Recomendado)</span>
+              <p class="text-[11px] text-slate-500">Mantém os 91 bairros existentes e atualiza/adiciona as congregações informadas no JSON.</p>
+            </div>
+          </label>
+
+          <label class="flex items-start gap-2.5 cursor-pointer select-none pt-1 border-t border-slate-200/80">
+            <input type="radio" name="modo-importacao" value="substituir" class="mt-0.5 text-emerald-600 focus:ring-emerald-500">
+            <div>
+              <span class="text-xs font-semibold text-slate-800">Substituir Todos os Dados</span>
+              <p class="text-[11px] text-slate-500">Substitui a base atual de igrejas pelos dados informados no JSON.</p>
+            </div>
+          </label>
+        </div>
+
+        <!-- Instruções e Status Suportados -->
+        <div class="p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl text-[11px] text-emerald-950 space-y-1.5">
+          <div class="flex items-center justify-between font-bold">
+            <span>Status da Rede aceitos no JSON:</span>
+            <button type="button" onclick="baixarModeloJSON()" class="text-emerald-700 underline hover:text-emerald-900 text-xs">
+              Baixar Modelo JSON (.json)
+            </button>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-1 text-[10px] pt-1 text-slate-700">
+            <div>• <code class="bg-emerald-100 text-emerald-800 px-1 rounded font-semibold">"ativo_na_rede"</code> (Ativo na rede)</div>
+            <div>• <code class="bg-blue-100 text-blue-800 px-1 rounded font-semibold">"pendente_convite"</code> (Pendente convite)</div>
+            <div>• <code class="bg-purple-100 text-purple-800 px-1 rounded font-semibold">"pendente_aceite"</code> (Pendente aceite)</div>
+            <div>• <code class="bg-rose-100 text-rose-800 px-1 rounded font-semibold">"convite_recusado"</code> (Convite não aceito)</div>
+            <div>• <code class="bg-slate-200 text-slate-800 px-1 rounded font-semibold">"sem_convite"</code> (Sem convite)</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Footer com Botões -->
+      <div class="px-5 py-3.5 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between gap-3 flex-shrink-0">
+        <button 
+          type="button" 
+          onclick="fecharModalImportacao()" 
+          class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200 transition"
+        >
+          Cancelar
+        </button>
+        <button 
+          type="button" 
+          onclick="executarImportacaoJSON()" 
+          class="px-5 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/20 transition flex items-center gap-1.5 cursor-pointer"
+        >
+          <i class="ph ph-check-bold text-sm"></i>
+          <span>Processar & Importar</span>
+        </button>
+      </div>
     </div>
   </div>
 
@@ -3013,6 +3186,291 @@
       salvarNoStorage();
       fecharModalEdicao();
       atualizarInterface();
+    }
+
+    function toggleDropdownExportar() {
+      const menu = document.getElementById('dropdown-exportar-menu');
+      if (menu) {
+        menu.classList.toggle('hidden');
+      }
+    }
+
+    document.addEventListener('click', (e) => {
+      const container = document.getElementById('dropdown-exportar-container');
+      const menu = document.getElementById('dropdown-exportar-menu');
+      if (container && menu && !container.contains(e.target)) {
+        menu.classList.add('hidden');
+      }
+    });
+
+    function abrirModalImportacao() {
+      document.getElementById('modal-importacao').classList.remove('hidden');
+    }
+
+    function fecharModalImportacao() {
+      document.getElementById('modal-importacao').classList.add('hidden');
+      const input = document.getElementById('input-arquivo-json');
+      if (input) input.value = '';
+      const nomeTag = document.getElementById('nome-arquivo-selecionado');
+      if (nomeTag) nomeTag.classList.add('hidden');
+    }
+
+    function carregarExemploNoTextarea() {
+      const exemplo = [
+        {
+          "id": 1,
+          "bairro": "Centro",
+          "distrito": 1,
+          "populacaoEstimada": 19500,
+          "qtdCeps": 140,
+          "igrejas": [
+            {
+              "nome": "Primeira Igreja Batista em São Gonçalo",
+              "tem_pastor": true,
+              "pastor": "Pr. Nome do Pastor",
+              "status": "ativo_na_rede",
+              "obs": "Rua Coronel Moreira César, 00"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "bairro": "Alcântara",
+          "distrito": 2,
+          "populacaoEstimada": 28000,
+          "qtdCeps": 160,
+          "igrejas": [
+            {
+              "nome": "Segunda Igreja Batista de Alcântara",
+              "tem_pastor": true,
+              "pastor": "Pr. Carlos",
+              "status": "pendente_convite",
+              "obs": "Contato telefônico pendente"
+            },
+            {
+              "nome": "Congregação Exemplo",
+              "tem_pastor": false,
+              "pastor": "",
+              "status": "sem_convite",
+              "obs": "Aguardando visita ministerial"
+            }
+          ]
+        }
+      ];
+      document.getElementById('textarea-json-import').value = JSON.stringify(exemplo, null, 2);
+    }
+
+    function processarArquivoJson(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      lerArquivoJson(file);
+    }
+
+    function handleDragOver(event) {
+      event.preventDefault();
+      event.stopPropagation();
+      const dropzone = document.getElementById('dropzone-json');
+      if (dropzone) dropzone.classList.add('border-emerald-500', 'bg-emerald-50/50');
+    }
+
+    function handleDragLeave(event) {
+      event.preventDefault();
+      event.stopPropagation();
+      const dropzone = document.getElementById('dropzone-json');
+      if (dropzone) dropzone.classList.remove('border-emerald-500', 'bg-emerald-50/50');
+    }
+
+    function handleDrop(event) {
+      event.preventDefault();
+      event.stopPropagation();
+      const dropzone = document.getElementById('dropzone-json');
+      if (dropzone) dropzone.classList.remove('border-emerald-500', 'bg-emerald-50/50');
+      
+      const files = event.dataTransfer && event.dataTransfer.files;
+      if (files && files.length > 0) {
+        lerArquivoJson(files[0]);
+      }
+    }
+
+    function lerArquivoJson(file) {
+      if (!file.name.toLowerCase().endsWith('.json') && file.type !== 'application/json') {
+        alert('Por favor, selecione um arquivo válido com extensão .json');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const conteudo = e.target.result;
+        document.getElementById('textarea-json-import').value = conteudo;
+        const nomeTag = document.getElementById('nome-arquivo-selecionado');
+        if (nomeTag) {
+          nomeTag.innerText = '📄 ' + file.name + ' (' + Math.round(file.size / 1024) + ' KB)';
+          nomeTag.classList.remove('hidden');
+        }
+        mostrarToast('Arquivo "' + file.name + '" carregado no editor!');
+      };
+      reader.onerror = function() {
+        alert('Erro ao ler o arquivo selecionado.');
+      };
+      reader.readAsText(file, 'UTF-8');
+    }
+
+    function baixarModeloJSON() {
+      const modelo = bairros.map(b => {
+        return {
+          id: b.id,
+          bairro: b.bairro,
+          distrito: b.distrito,
+          populacaoEstimada: b.populacaoEstimada || null,
+          qtdCeps: b.qtdCeps || null,
+          igrejas: (b.igrejas && b.igrejas.length > 0) 
+            ? b.igrejas.map(ig => ({
+                nome: ig.nome || "",
+                tem_pastor: ig.tem_pastor !== false,
+                pastor: ig.pastor || "",
+                status: ig.status || "sem_convite",
+                obs: ig.obs || ""
+              }))
+            : [
+                {
+                  nome: "",
+                  tem_pastor: true,
+                  pastor: "",
+                  status: "sem_convite",
+                  obs: ""
+                }
+              ]
+        };
+      });
+
+      const blob = new Blob([JSON.stringify(modelo, null, 2)], { type: 'application/json;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'modelo_importacao_igrejas_sg.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      mostrarToast('Modelo JSON baixado com sucesso!');
+    }
+
+    function exportarJSON() {
+      const blob = new Blob([JSON.stringify(bairros, null, 2)], { type: 'application/json;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'status_rede_de_igrejas_sg_backup.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      mostrarToast('Backup JSON exportado com sucesso!');
+    }
+
+    function executarImportacaoJSON() {
+      const textarea = document.getElementById('textarea-json-import');
+      const texto = textarea.value.trim();
+      if (!texto) {
+        alert('Por favor, selecione um arquivo JSON ou cole o conteúdo no editor antes de importar.');
+        return;
+      }
+
+      let dadosImportados;
+      try {
+        dadosImportados = JSON.parse(texto);
+      } catch (err) {
+        alert('Erro de sintaxe no JSON:\n' + err.message + '\n\nVerifique se o texto está no formato JSON válido.');
+        return;
+      }
+
+      if (!Array.isArray(dadosImportados)) {
+        if (dadosImportados && Array.isArray(dadosImportados.bairros)) {
+          dadosImportados = dadosImportados.bairros;
+        } else if (dadosImportados && Array.isArray(dadosImportados.data)) {
+          dadosImportados = dadosImportados.data;
+        } else {
+          alert('Estrutura inválida. O JSON deve conter um array de bairros (ex: [{ "bairro": "Centro", ... }])');
+          return;
+        }
+      }
+
+      const modoEl = document.querySelector('input[name="modo-importacao"]:checked');
+      const modo = modoEl ? modoEl.value : 'mesclar';
+
+      let totalIgrejas = 0;
+      let bairrosAlterados = 0;
+
+      function tratarIgrejas(igrejasRaw) {
+        if (!Array.isArray(igrejasRaw)) return [];
+        return igrejasRaw.filter(ig => ig && (ig.nome || ig.pastor || ig.obs)).map(ig => {
+          let temPastor = true;
+          if (ig.tem_pastor !== undefined) {
+            temPastor = Boolean(ig.tem_pastor);
+          } else if (ig.temPastor !== undefined) {
+            temPastor = Boolean(ig.temPastor);
+          } else if (!ig.pastor || String(ig.pastor).trim() === '') {
+            temPastor = false;
+          }
+
+          let st = normalizarStatus(ig.status);
+
+          return {
+            id: ig.id || ("ig-" + Math.random().toString(36).substr(2, 9)),
+            nome: String(ig.nome || ig.nome_igreja || ig.igreja || "").trim(),
+            tem_pastor: temPastor,
+            pastor: temPastor ? String(ig.pastor || "").trim() : "",
+            status: st,
+            obs: String(ig.obs || ig.observacao || "").trim()
+          };
+        });
+      }
+
+      if (modo === 'substituir') {
+        bairros = BAIRROS_PADRAO.map(bBase => {
+          const match = dadosImportados.find(d => 
+            (d.bairro && String(d.bairro).toLowerCase().trim() === bBase.bairro.toLowerCase().trim()) ||
+            (d.id && !d.bairro && Number(d.id) === bBase.id)
+          );
+          if (match) {
+            bairrosAlterados++;
+            const igs = tratarIgrejas(match.igrejas);
+            totalIgrejas += igs.length;
+            return {
+              ...bBase,
+              populacaoEstimada: match.populacaoEstimada !== undefined ? match.populacaoEstimada : (match.populacao || bBase.populacaoEstimada),
+              qtdCeps: match.qtdCeps !== undefined ? match.qtdCeps : (match.ceps || bBase.qtdCeps),
+              igrejas: igs
+            };
+          }
+          return bBase;
+        });
+      } else {
+        dadosImportados.forEach(itemImp => {
+          if (!itemImp || (!itemImp.bairro && !itemImp.id)) return;
+
+          const index = bairros.findIndex(b => 
+            (itemImp.bairro && String(b.bairro).toLowerCase().trim() === String(itemImp.bairro).toLowerCase().trim()) ||
+            (itemImp.id && !itemImp.bairro && Number(b.id) === Number(itemImp.id))
+          );
+
+          if (index !== -1) {
+            bairrosAlterados++;
+            if (itemImp.populacaoEstimada !== undefined) bairros[index].populacaoEstimada = itemImp.populacaoEstimada;
+            if (itemImp.populacao !== undefined) bairros[index].populacaoEstimada = itemImp.populacao;
+            if (itemImp.qtdCeps !== undefined) bairros[index].qtdCeps = itemImp.qtdCeps;
+            if (itemImp.ceps !== undefined) bairros[index].qtdCeps = itemImp.ceps;
+            if (itemImp.distrito !== undefined) bairros[index].distrito = itemImp.distrito;
+
+            if (Array.isArray(itemImp.igrejas)) {
+              const igs = tratarIgrejas(itemImp.igrejas);
+              bairros[index].igrejas = igs;
+              totalIgrejas += igs.length;
+            }
+          }
+        });
+      }
+
+      salvarNoStorage();
+      fecharModalImportacao();
+      atualizarInterface();
+      mostrarToast(`Importação concluída! ${bairrosAlterados} bairros e ${totalIgrejas} congregações processados.`);
     }
 
     function exportarCSV() {

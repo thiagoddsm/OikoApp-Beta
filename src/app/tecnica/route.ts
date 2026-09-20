@@ -5,8 +5,8 @@ import path from 'path';
 export const runtime = 'nodejs';
 
 export async function GET() {
-    // Try to serve from public/tecnica/index.html
-    const filePath = path.join(process.cwd(), 'public', 'tecnica', 'index.html');
+    // Try to serve from src/app/tecnica/index.html
+    const filePath = path.join(process.cwd(), 'src', 'app', 'tecnica', 'index.html');
     
     if (fs.existsSync(filePath)) {
         const html = fs.readFileSync(filePath, 'utf-8');

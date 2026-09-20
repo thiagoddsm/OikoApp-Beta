@@ -32,13 +32,12 @@
         import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, getDocs, addDoc, deleteDoc, serverTimestamp, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
         const firebaseConfig = {
-          apiKey: "AIzaSyCYaOPtQdD1hU29awdgeN-rEGaoLGBGYBM",
-          authDomain: "gestao-de-culto.firebaseapp.com",
-          projectId: "gestao-de-culto",
-          storageBucket: "gestao-de-culto.appspot.com",
-          messagingSenderId: "843566675046",
-          appId: "1:843566675046:web:cc1e54a813827f4502a9a7",
-          measurementId: "G-LH68N60385"
+            apiKey: "AIzaSyAOSAJ0WPPXAxbSMtiq7UZxkjzE6vizVq8",
+            authDomain: "studio-1424813022-71754.firebaseapp.com",
+            projectId: "studio-1424813022-71754",
+            storageBucket: "studio-1424813022-71754.firebasestorage.app",
+            messagingSenderId: "989586605112",
+            appId: "1:989586605112:web:66250f4d31e88166a212cd"
         };
 
         const appId = 'gestao-de-culto';
@@ -466,6 +465,46 @@
                 });
             };
 
+            const handleExportJSON = () => {
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({
+                    cultInfo: state.cultInfo,
+                    items: state.items
+                }, null, 2));
+                const downloadAnchorNode = document.createElement('a');
+                downloadAnchorNode.setAttribute("href", dataStr);
+                downloadAnchorNode.setAttribute("download", `ordem_culto_${state.cultInfo.date?.replace(/\//g, '-') || 'modelo'}.json`);
+                document.body.appendChild(downloadAnchorNode);
+                downloadAnchorNode.click();
+                downloadAnchorNode.remove();
+            };
+
+            const handleImportJSON = (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const json = JSON.parse(e.target.result);
+                            if (json.items || json.cultInfo) {
+                                handleStateUpdate(prevState => ({
+                                    ...prevState,
+                                    items: json.items || prevState.items,
+                                    cultInfo: { ...prevState.cultInfo, ...(json.cultInfo || {}) }
+                                }));
+                                alert("JSON importado com sucesso!");
+                            } else {
+                                alert("Formato de JSON inválido.");
+                            }
+                        } catch (error) {
+                            alert("Erro ao ler arquivo JSON.");
+                            console.error(error);
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+                event.target.value = null;
+            };
+
             const handleDownloadExcelTemplate = () => {
                 const data = [{ title: "Música de Abertura", duration: 10, type: "música", responsible: "Ministério de Louvor", description: "Usar playback e projeção com letra." }];
                 const worksheet = XLSX.utils.json_to_sheet(data);
@@ -498,11 +537,73 @@
                                 };
                                 reader.readAsArrayBuffer(file);
                                 event.target.value = null;
-                                hideModal();
-                            }} className="px-4 py-2 bg-green-600 text-white rounded-md">Importar</button>
+                                event.target.value = null;
+                            }} className="px-4 py-2 bg-blue-600 text-white rounded-md">Importar</button>
                         </>
                     });
                 }
+            };
+
+            const handleImportIA = () => {
+                showModal({
+                    title: "Importar Ordem de Culto com IA",
+                    children: (
+                        <div>
+                            <p className="text-sm text-gray-600 mb-3">Cole abaixo a ordem de culto que você recebeu pelo WhatsApp ou outro aplicativo de texto.</p>
+                            <textarea id="ia-import-text" className="w-full h-48 border border-gray-300 rounded p-2 text-sm" placeholder="*CELEBRAÇÃO TARDE/NOITE*\n\nCoordenador de Culto: Marcos Alexandre\n..."></textarea>
+                            <div id="ia-import-status" className="mt-2 text-sm font-semibold text-purple-600"></div>
+                        </div>
+                    ),
+                    footer: (
+                        <>
+                            <button onClick={hideModal} className="px-4 py-2 bg-gray-200 rounded-md">Cancelar</button>
+                            <button onClick={async () => {
+                                const textArea = document.getElementById('ia-import-text');
+                                const statusDiv = document.getElementById('ia-import-status');
+                                const text = textArea.value;
+                                
+                                if (!text.trim()) {
+                                    alert("Por favor, cole o texto da ordem de culto.");
+                                    return;
+                                }
+                                
+                                statusDiv.innerText = "Analisando com IA (isso pode levar uns 10-15 segundos)...";
+                                
+                                try {
+                                    const res = await fetch('/api/culto-ai', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ text })
+                                    });
+                                    
+                                    if (!res.ok) {
+                                        const errorData = await res.json();
+                                        throw new Error(errorData.error || "Erro desconhecido ao processar.");
+                                    }
+                                    
+                                    const json = await res.json();
+                                    
+                                    if (json && json.items && Array.isArray(json.items)) {
+                                        handleStateUpdate(prevState => ({
+                                            ...prevState,
+                                            items: json.items,
+                                            cultInfo: { ...prevState.cultInfo, ...json.cultInfo }
+                                        }));
+                                        hideModal();
+                                        alert("Ordem de Culto importada com sucesso pela IA!");
+                                    } else {
+                                        throw new Error("Formato inválido retornado pela IA.");
+                                    }
+                                } catch (err) {
+                                    console.error(err);
+                                    statusDiv.innerText = "Erro: " + err.message;
+                                }
+                            }} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md flex items-center gap-2">
+                                <icons.UploadCloud size={16} /> Analisar e Importar
+                            </button>
+                        </>
+                    )
+                });
             };
 
             const handleExportPDF = () => {
@@ -567,11 +668,12 @@
                                 </div>
                             </div>
                             {mode === 'planning' ? (
-                                <PlanningView {...state} onCultInfoChange={handleCultInfoChange} showTechnical={showTechnical} onAddItem={addItem} onUpdateItem={updateItem} onDeleteItem={deleteItem} onMoveItem={moveItem} onSavePreset={handleSavePreset} onUpdatePreset={handleUpdatePreset} onLoadPreset={handleLoadPreset} onDeletePreset={handleDeletePreset} onDownloadTemplate={handleDownloadExcelTemplate} onImportClick={() => fileInputRef.current.click()} onExportPDF={handleExportPDF} presets={presets} selectedPresetId={selectedPresetId} setSelectedPresetId={setSelectedPresetId} />
+                                <PlanningView {...state} onCultInfoChange={handleCultInfoChange} showTechnical={showTechnical} onAddItem={addItem} onUpdateItem={updateItem} onDeleteItem={deleteItem} onMoveItem={moveItem} onSavePreset={handleSavePreset} onUpdatePreset={handleUpdatePreset} onLoadPreset={handleLoadPreset} onDeletePreset={handleDeletePreset} onDownloadTemplate={handleDownloadExcelTemplate} onImportClick={() => fileInputRef.current.click()} onImportJSONClick={() => document.getElementById('jsonFileInput').click()} onImportIA={handleImportIA} onExportJSON={handleExportJSON} onExportPDF={handleExportPDF} presets={presets} selectedPresetId={selectedPresetId} setSelectedPresetId={setSelectedPresetId} />
                             ) : (
                                 <PresentationView state={state} onStateUpdate={handleStateUpdate} isReadOnly={false} onSwitchToPlanning={() => setMode('planning')} onExportPDF={handleExportPDF} />
                             )}
                             <input type="file" accept=".xlsx, .xls" ref={fileInputRef} className="hidden-file-input" onChange={handleImportExcel} />
+                            <input type="file" accept=".json" id="jsonFileInput" className="hidden-file-input hidden" onChange={handleImportJSON} />
                         </div>
                     </div>
                 </>
@@ -600,8 +702,8 @@
         
         const InfoInput = ({ label, ...props }) => ( <div> <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label> <input {...props} className="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" /> </div> );
 
-        const PlanningView = ({ items, cultInfo, onCultInfoChange, showTechnical, onAddItem, onUpdateItem, onDeleteItem, onMoveItem, onSavePreset, onUpdatePreset, onLoadPreset, onDeletePreset, onDownloadTemplate, onImportClick, onExportPDF, presets, selectedPresetId, setSelectedPresetId }) => {
-            return ( <> <div className="bg-white rounded-lg p-6 mb-6 shadow-sm"> <h2 className="text-xl font-semibold mb-4">Informações do Culto</h2> <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"> <InfoInput label="Data" type="text" value={cultInfo.date} onChange={e => onCultInfoChange('date', e.target.value)} /> <InfoInput label="Coordenador Técnico" value={cultInfo.coordenadorTecnico} onChange={e => onCultInfoChange('coordenadorTecnico', e.target.value)} /> <InfoInput label="Staff" value={cultInfo.staff} onChange={e => onCultInfoChange('staff', e.target.value)} /> <InfoInput label="Lead" value={cultInfo.lead} onChange={e => onCultInfoChange('lead', e.target.value)} /> <InfoInput label="Som" value={cultInfo.som} onChange={e => onCultInfoChange('som', e.target.value)} /> <InfoInput label="Projeção" value={cultInfo.projecao} onChange={e => onCultInfoChange('projecao', e.target.value)} /> <InfoInput label="Iluminação" value={cultInfo.iluminacao} onChange={e => onCultInfoChange('iluminacao', e.target.value)} /> <InfoInput label="Transmissão" value={cultInfo.transmissao} onChange={e => onCultInfoChange('transmissao', e.target.value)} /> <InfoInput label="Pregador" value={cultInfo.pregador} onChange={e => onCultInfoChange('pregador', e.target.value)} /> <InfoInput label="Início do Culto" type="time" value={cultInfo.startTime} onChange={e => onCultInfoChange('startTime', e.target.value)} /> </div> </div> <div className="bg-white rounded-lg shadow-sm"> <div className="p-4 border-b flex flex-wrap justify-between items-center gap-3"> <h2 className="text-xl font-semibold">Ordem de Culto</h2> <div className="flex flex-wrap items-center gap-2"> <button onClick={onImportClick} className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md flex items-center gap-2 text-sm"><icons.UploadCloud size={16}/> Importar</button> <button onClick={onDownloadTemplate} className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded-md flex items-center gap-2 text-sm"><icons.DownloadCloud size={16}/> Modelo</button> <button onClick={onExportPDF} className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md flex items-center gap-2 text-sm"><icons.FileText size={16}/> Exportar Relatório</button> <button onClick={selectedPresetId ? onUpdatePreset : onSavePreset} className="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1 rounded-md flex items-center gap-2 text-sm"><icons.Save size={16}/> {selectedPresetId ? 'Atualizar Preset' : 'Salvar Preset'}</button> <div className="flex items-center border border-gray-300 rounded-md"> <select onChange={(e) => onLoadPreset(e.target.value)} value={selectedPresetId} className="border-0 rounded-l-md bg-gray-50 text-sm focus:ring-0"> <option value="">Carregar um Preset...</option> {presets.map(p => <option key={p.id} value={p.id}>{p.name}</option>)} </select> <button onClick={onDeletePreset} disabled={!selectedPresetId} className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-r-md flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"><icons.Trash2 size={16}/></button> </div> <button onClick={onAddItem} className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-md flex items-center gap-2 text-sm"><icons.Plus size={16}/> Adicionar Item</button> </div> </div> <div className="divide-y divide-gray-200"> {items && items.map((item, index) => ( <PlanningItem key={item.id} item={item} index={index} isFirst={index === 0} isLast={index === items.length - 1} showTechnical={showTechnical} onUpdate={onUpdateItem} onDelete={onDeleteItem} onMove={onMoveItem} /> ))} {(!items || items.length === 0) && <p className="p-4 text-gray-500">Nenhum item na ordem de culto. Adicione um para começar ou importe um arquivo.</p>} </div> </div> </> );
+        const PlanningView = ({ items, cultInfo, onCultInfoChange, showTechnical, onAddItem, onUpdateItem, onDeleteItem, onMoveItem, onSavePreset, onUpdatePreset, onLoadPreset, onDeletePreset, onDownloadTemplate, onImportClick, onImportJSONClick, onImportIA, onExportJSON, onExportPDF, presets, selectedPresetId, setSelectedPresetId }) => {
+            return (<> <div className="bg-white rounded-lg p-6 mb-6 shadow-sm"> <h2 className="text-xl font-semibold mb-4">Informações do Culto</h2> <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"> <InfoInput label="Data" type="text" value={cultInfo.date} onChange={e => onCultInfoChange('date', e.target.value)} /> <InfoInput label="Coordenador Técnico" value={cultInfo.coordenadorTecnico} onChange={e => onCultInfoChange('coordenadorTecnico', e.target.value)} /> <InfoInput label="Staff" value={cultInfo.staff} onChange={e => onCultInfoChange('staff', e.target.value)} /> <InfoInput label="Lead" value={cultInfo.lead} onChange={e => onCultInfoChange('lead', e.target.value)} /> <InfoInput label="Som" value={cultInfo.som} onChange={e => onCultInfoChange('som', e.target.value)} /> <InfoInput label="Projeção" value={cultInfo.projecao} onChange={e => onCultInfoChange('projecao', e.target.value)} /> <InfoInput label="Iluminação" value={cultInfo.iluminacao} onChange={e => onCultInfoChange('iluminacao', e.target.value)} /> <InfoInput label="Transmissão" value={cultInfo.transmissao} onChange={e => onCultInfoChange('transmissao', e.target.value)} /> <InfoInput label="Pregador" value={cultInfo.pregador} onChange={e => onCultInfoChange('pregador', e.target.value)} /> <InfoInput label="Início do Culto" type="time" value={cultInfo.startTime} onChange={e => onCultInfoChange('startTime', e.target.value)} /> </div> </div> <div className="bg-white rounded-lg shadow-sm"> <div className="p-4 border-b flex flex-wrap justify-between items-center gap-3"> <h2 className="text-xl font-semibold">Ordem de Culto</h2> <div className="flex flex-wrap items-center gap-2"> <button onClick={onImportClick} className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md flex items-center gap-2 text-sm"><icons.UploadCloud size={16} /> Importar (Excel)</button> <button onClick={onImportJSONClick} className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-md flex items-center gap-2 text-sm"><icons.UploadCloud size={16} /> Importar (JSON)</button> <button onClick={onImportIA} className="bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded-md flex items-center gap-2 text-sm"><icons.UploadCloud size={16} /> Importar (IA)</button> <button onClick={onExportJSON} className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded-md flex items-center gap-2 text-sm"><icons.DownloadCloud size={16} /> Exportar JSON Modelo</button> <button onClick={onExportPDF} className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md flex items-center gap-2 text-sm"><icons.FileText size={16} /> Exportar Relatório</button> <button onClick={selectedPresetId ? onUpdatePreset : onSavePreset} className="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1 rounded-md flex items-center gap-2 text-sm"><icons.Save size={16} /> {selectedPresetId ? 'Atualizar Preset' : 'Salvar Preset'}</button> <div className="flex items-center border border-gray-300 rounded-md"> <select onChange={(e) => onLoadPreset(e.target.value)} value={selectedPresetId} className="border-0 rounded-l-md bg-gray-50 text-sm focus:ring-0"> <option value="">Carregar um Preset...</option> {presets.map(p => <option key={p.id} value={p.id}>{p.name}</option>)} </select> <button onClick={onDeletePreset} disabled={!selectedPresetId} className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-r-md flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"><icons.Trash2 size={16} /></button> </div> <button onClick={onAddItem} className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-md flex items-center gap-2 text-sm"><icons.Plus size={16} /> Adicionar Item</button> </div> </div> <div className="divide-y divide-gray-200"> {items && items.map((item, index) => (<PlanningItem key={item.id} item={item} index={index} isFirst={index === 0} isLast={index === items.length - 1} showTechnical={showTechnical} onUpdate={onUpdateItem} onDelete={onDeleteItem} onMove={onMoveItem} />))} {(!items || items.length === 0) && <p className="p-4 text-gray-500">Nenhum item na ordem de culto. Adicione um para começar ou importe um arquivo.</p>} </div> </div> </>);
         };
 
         const PlanningItem = ({ item, index, isFirst, isLast, showTechnical, onUpdate, onDelete, onMove }) => {
