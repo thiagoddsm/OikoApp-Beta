@@ -99,6 +99,11 @@ function PlanEditorInner({ planId }: { planId: string }) {
   const [templateName, setTemplateName] = useState('');
   const [showApplyDialog, setShowApplyDialog] = useState(false);
 
+  // IA Import State
+  const [showIADialog, setShowIADialog] = useState(false);
+  const [iaText, setIaText] = useState('');
+  const [isIAImporting, setIsIAImporting] = useState(false);
+
   // Central AV Webhook State
   const [isTransmittingAv, setIsTransmittingAv] = useState(false);
   const [showAvPreviewDialog, setShowAvPreviewDialog] = useState(false);
@@ -156,6 +161,54 @@ function PlanEditorInner({ planId }: { planId: string }) {
     setLocalItems(prev => [...prev, newItem]);
     setIsDirty(true);
   }, [localItems.length]);
+
+  const handleIAImportConfirm = async () => {
+    if (!iaText.trim()) {
+      toast({ title: 'Texto vazio', description: 'Cole o texto do culto para a IA processar.', variant: 'destructive' });
+      return;
+    }
+    setIsIAImporting(true);
+    try {
+      const res = await fetch('/api/culto-ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: iaText })
+      });
+      if (!res.ok) throw new Error('Erro ao processar');
+      const json = await res.json();
+      if (json && json.items && Array.isArray(json.items)) {
+        const mappedItems: WorshipItem[] = json.items.map((it: any, idx: number) => ({
+          id: generateItemId(),
+          type: it.type === 'música' ? 'song' : 'item',
+          order: localItems.length + idx,
+          title: it.title || 'Item',
+          durationSeconds: (it.duration || 5) * 60,
+          notes: it.description || '',
+          color: 'none',
+        }));
+        setLocalItems(prev => [...prev, ...mappedItems]);
+        
+        if (json.cultInfo) {
+          setLocalMeta(prev => ({
+            ...prev,
+            date: json.cultInfo.date || prev.date,
+            startTime: json.cultInfo.startTime || prev.startTime,
+            notes: (prev.notes ? prev.notes + ' \n' : '') + `Equipe: ${json.cultInfo.coordenadorTecnico || ''} ${json.cultInfo.staff || ''} ${json.cultInfo.lead || ''}`
+          }));
+        }
+        setIsDirty(true);
+        toast({ title: 'Importado com IA', description: 'A ordem foi atualizada com sucesso!' });
+        setShowIADialog(false);
+        setIaText('');
+      } else {
+        throw new Error('Formato inválido retornado');
+      }
+    } catch (err) {
+      toast({ title: 'Erro na importação', description: 'A IA não conseguiu estruturar o texto. Verifique o formato.', variant: 'destructive' });
+    } finally {
+      setIsIAImporting(false);
+    }
+  };
 
   useKeyboardShortcuts(addItem);
 
@@ -944,6 +997,7 @@ function PlanEditorInner({ planId }: { planId: string }) {
               items={localItems}
               startTime={localMeta.startTime || '09:00'}
               onItemsChange={handleItemsChange}
+              onImportIA={() => setShowIADialog(true)}
             />
           </TabsContent>
 
@@ -1397,6 +1451,158 @@ function PlanEditorInner({ planId }: { planId: string }) {
               size="sm"
               onClick={handleConfirmTransmitAv}
               disabled={isTransmittingAv}
+          <DialogHeader>
+            <DialogTitle>Salvar como Template</DialogTitle>
+            <DialogDescription>Este plano será salvo como um template reutilizável para futuros cultos.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label>Nome do template *</Label>
+            <Input value={templateName} onChange={e => setTemplateName(e.target.value)} autoFocus />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowTemplateDialog(false)}>Cancelar</Button>
+            <Button onClick={handleSaveAsTemplate} disabled={!templateName.trim()}>Salvar Template</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Apply template dialog */}
+      <Dialog open={showApplyDialog} onOpenChange={setShowApplyDialog}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Importar Template</DialogTitle>
+            <DialogDescription>
+              Escolha um template para preencher a ordem de culto. Os itens atuais serão substituídos.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 max-h-64 overflow-auto py-2">
+            {templates.length === 0 ? (
+              <p className="text-sm text-slate-500 text-center py-4">Nenhum template disponível.</p>
+            ) : (
+              templates.map(t => (
+                <div
+                  key={t.id}
+                  className="flex items-center justify-between p-3 rounded-lg border border-slate-200 hover:border-primary/40 hover:bg-primary/5 transition-colors cursor-pointer"
+                  onClick={() => handleApplyTemplate(t.id)}
+                >
+                  <div>
+                    <p className="font-medium text-sm">{t.name}</p>
+                    {t.description && <p className="text-xs text-slate-400">{t.description}</p>}
+                    <p className="text-xs text-slate-500 mt-0.5">{t.items.length} itens · {(t.neededPositions || []).length} funções</p>
+                  </div>
+                  <Button size="sm" variant="outline" className="h-7 text-xs">Usar</Button>
+                </div>
+              ))
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowApplyDialog(false)}>Cancelar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Central AV Webhook Transmission Dialog */}
+      <Dialog open={showAvPreviewDialog} onOpenChange={setShowAvPreviewDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center gap-2.5">
+              <div className="size-10 rounded-2xl bg-amber-50 text-amber-700 border border-amber-200 flex items-center justify-center">
+                <Zap className="size-5 text-amber-600 fill-amber-400" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-black tracking-tight">Transmitir para a Central AV</DialogTitle>
+                <DialogDescription className="text-xs">
+                  Sincronização de Liturgia, BPMs e Cenas de Iluminação com o Lumikit SHOW e Mesa Behringer X32.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {avPayloadPreview && (
+            <div className="space-y-4 py-2 text-xs">
+              {/* Card Resumo do Culto */}
+              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-black text-sm text-slate-800">{avPayloadPreview.planoTitulo}</span>
+                  <Badge variant="outline" className="font-bold text-[11px] bg-white text-slate-700">
+                    {avPayloadPreview.data} às {avPayloadPreview.startTime}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-4 text-slate-500 text-[11px]">
+                  <span>Total de Itens: <strong className="text-slate-700 font-bold">{avPayloadPreview.items.length}</strong></span>
+                  <span>·</span>
+                  <span>Músicas: <strong className="text-purple-700 font-bold">{avPayloadPreview.items.filter((i: any) => i.type === 'song').length}</strong></span>
+                  <span>·</span>
+                  <span>Cenas DMX: <strong className="text-amber-700 font-bold">{avPayloadPreview.items.filter((i: any) => i.scene).length}</strong></span>
+                </div>
+              </div>
+
+              {/* Tabela de Itens */}
+              <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <div className="bg-slate-100/80 px-3 py-2 font-bold text-[11px] text-slate-700 uppercase tracking-wider flex items-center justify-between">
+                  <span>Itens que serão sincronizados ({avPayloadPreview.items.length})</span>
+                  <span className="text-[10px] text-slate-400 font-normal lowercase">BPM · Tom · Cena</span>
+                </div>
+                <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto">
+                  {avPayloadPreview.items.map((item: any, idx: number) => (
+                    <div key={item.id || idx} className="p-2.5 flex items-center justify-between hover:bg-slate-50/50 gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-slate-800 truncate">{item.title}</span>
+                          <Badge variant="secondary" className="text-[9px] px-1 py-0 uppercase">
+                            {item.type === 'song' ? 'Música' : 'Item'}
+                          </Badge>
+                        </div>
+                        {item.artist && (
+                          <span className="text-[10px] text-slate-400 block truncate">{item.artist}</span>
+                        )}
+                        {item.notes && (
+                          <span className="text-[10px] text-slate-500 italic block truncate">"{item.notes}"</span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {item.bpm && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                            {item.bpm} BPM
+                          </span>
+                        )}
+                        {item.key && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            Tom {item.key}
+                          </span>
+                        )}
+                        {item.scene ? (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-black bg-amber-50 text-amber-800 border border-amber-300 flex items-center gap-0.5">
+                            <Zap className="size-2 text-amber-500 fill-amber-400" /> {item.scene}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-300 italic px-1">Sem cena</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Endpoint de Envio */}
+              <div className="p-2.5 bg-amber-50/40 border border-amber-200/60 rounded-lg flex items-center justify-between text-[11px]">
+                <span className="text-amber-800 font-semibold">Destino do Webhook:</span>
+                <span className="font-mono text-amber-900 font-bold truncate max-w-[320px]">
+                  {DEFAULT_AV_WEBHOOK_URL}
+                </span>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0 pt-2 border-t">
+            <Button variant="outline" size="sm" onClick={() => setShowAvPreviewDialog(false)} disabled={isTransmittingAv}>
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleConfirmTransmitAv}
+              disabled={isTransmittingAv}
               className="bg-amber-600 hover:bg-amber-700 text-white font-bold gap-1.5 shadow-sm"
             >
               {isTransmittingAv ? (
@@ -1405,6 +1611,45 @@ function PlanEditorInner({ planId }: { planId: string }) {
                 <Zap className="size-4 fill-amber-300" />
               )}
               {isTransmittingAv ? 'Transmitindo para a Central AV...' : 'Confirmar e Transmitir'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* IA Import Dialog */}
+      <Dialog open={showIADialog} onOpenChange={setShowIADialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-fuchsia-600" />
+              Importar Ordem via IA
+            </DialogTitle>
+            <DialogDescription>
+              Cole o texto do culto (WhatsApp, etc.) para o Gemini estruturar a ordem automaticamente.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-2">
+            <Textarea
+              className="h-[200px] text-sm font-mono text-slate-700 bg-slate-50 placeholder:text-slate-400"
+              placeholder="*CELEBRAÇÃO TARDE/NOITE*\n\nCoordenador de Culto: Marcos Alexandre\n17h30min Abertura\nMúsicas: ..."
+              value={iaText}
+              onChange={e => setIaText(e.target.value)}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setShowIADialog(false)} disabled={isIAImporting}>
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleIAImportConfirm}
+              disabled={isIAImporting || !iaText.trim()}
+              className="bg-fuchsia-600 hover:bg-fuchsia-700 text-white gap-2"
+            >
+              {isIAImporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {isIAImporting ? 'Analisando...' : 'Analisar e Importar'}
             </Button>
           </DialogFooter>
         </DialogContent>

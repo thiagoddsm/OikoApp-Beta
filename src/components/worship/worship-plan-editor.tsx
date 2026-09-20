@@ -40,9 +40,10 @@ import {
   Clock,
   Plus,
   Search,
-  Zap,
-  Lightbulb,
-  Sliders,
+  Volume2,
+  ListVideo,
+  Mic2,
+  Sparkles,
 } from 'lucide-react';
 import {
   Tooltip,
@@ -573,9 +574,10 @@ interface WorshipPlanEditorProps {
   startTime: string;
   onItemsChange: (items: WorshipItem[]) => void;
   readOnly?: boolean;
+  onImportIA?: () => void;
 }
 
-export function WorshipPlanEditor({ items, startTime, onItemsChange, readOnly = false }: WorshipPlanEditorProps) {
+export function WorshipPlanEditor({ items, startTime, onItemsChange, readOnly = false, onImportIA }: WorshipPlanEditorProps) {
   const { librarySongs } = useWorship();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -661,7 +663,7 @@ export function WorshipPlanEditor({ items, startTime, onItemsChange, readOnly = 
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-8 gap-1.5 text-xs border-violet-200 text-violet-750 hover:bg-violet-55"
+                  className="h-8 gap-1.5 text-xs border-violet-200 text-violet-750 hover:bg-violet-50"
                 >
                   <Music className="h-3.5 w-3.5" />
                   Música
@@ -707,6 +709,19 @@ export function WorshipPlanEditor({ items, startTime, onItemsChange, readOnly = 
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
+
+            {onImportIA && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1.5 text-xs border-fuchsia-200 text-fuchsia-700 hover:bg-fuchsia-50 bg-fuchsia-50/50 shadow-sm ml-2"
+                onClick={onImportIA}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Importar com IA</span>
+                <span className="sm:hidden">IA</span>
+              </Button>
+            )}
 
             <div className="ml-auto flex items-center gap-2 text-xs text-slate-500">
               <Clock className="h-3.5 w-3.5" />
