@@ -2,61 +2,32 @@
 
 import React, { useState, useEffect } from 'react';
 import { MapPin, Clock, ArrowRight, X, Baby, Search, CheckCircle2 } from 'lucide-react';
-
-const SQUADS = [
-  { 
-    id: 1, 
-    name: "Anton N.", 
-    type: "Homens", 
-    day: "Terça", 
-    time: "20:00",
-    neighborhood: "Alcântara", 
-    image: "https://images.unsplash.com/photo-1537511446984-935f663eb1f4?w=500&auto=format&fit=crop&q=80", 
-    hasKids: false, 
-    bio: "Tempo exclusivo para homens forjarem caráter e compartilharem a vida. Sem máscaras, com muita Palavra." 
-  },
-  { 
-    id: 2, 
-    name: "Lucas & Ana", 
-    type: "Casais", 
-    day: "Quarta", 
-    time: "19:30",
-    neighborhood: "Boaçu", 
-    image: "https://images.unsplash.com/photo-1522529599102-193c0d76b5b6?w=500&auto=format&fit=crop&q=80", 
-    hasKids: true, 
-    bio: "Casados há 5 anos, amamos receber pessoas com um bom café, bolo e conselhos reais sobre casamento." 
-  },
-  { 
-    id: 3, 
-    name: "Sarah & Gabi", 
-    type: "Jovens", 
-    day: "Sábado", 
-    time: "18:00",
-    neighborhood: "Trindade", 
-    image: "https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?w=500&auto=format&fit=crop&q=80", 
-    hasKids: false, 
-    bio: "Uma galera autêntica. Muita risada, pizza pós-encontro e papo profundo sobre quem Jesus é na nossa geração." 
-  },
-  { 
-    id: 4, 
-    name: "Pr. Marcos", 
-    type: "Misto", 
-    day: "Quinta", 
-    time: "20:00",
-    neighborhood: "Colubandê", 
-    image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=500&auto=format&fit=crop&q=80", 
-    hasKids: true, 
-    bio: "Um lugar de ensino sólido, oração intensa e cuidado familiar. Todos são bem-vindos." 
-  },
-];
+import { getPublicGCs } from '@/app/public/enrollment/actions';
 
 const FILTERS_TYPE = ["Todos", "Homens", "Mulheres", "Jovens", "Casais", "Misto"];
 
 export function GCFinder() {
   const [selectedType, setSelectedType] = useState("Todos");
-  const [selectedSquad, setSelectedSquad] = useState<typeof SQUADS[0] | null>(null);
+  const [squads, setSquads] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedSquad, setSelectedSquad] = useState<any | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [formSent, setFormSent] = useState(false);
+
+  useEffect(() => {
+    async function loadGCs() {
+      setIsLoading(true);
+      try {
+        const realGCs = await getPublicGCs();
+        setSquads(realGCs);
+      } catch (error) {
+        console.error("Erro ao buscar GCs:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadGCs();
+  }, []);
 
   useEffect(() => {
     if (isDrawerOpen) {
@@ -66,16 +37,24 @@ export function GCFinder() {
     }
   }, [isDrawerOpen]);
 
-  const handleOpenDrawer = (squad: typeof SQUADS[0]) => {
+  const handleOpenDrawer = (squad: any) => {
     setSelectedSquad(squad);
     setFormSent(false);
     setIsDrawerOpen(true);
   };
 
-  const filteredSquads = SQUADS.filter(s => {
+  const filteredSquads = squads.filter(s => {
     if (selectedType !== "Todos" && s.type !== selectedType) return false;
     return true;
   });
+
+  if (isLoading) {
+    return (
+      <div className="w-full flex items-center justify-center py-24">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full">
@@ -194,7 +173,17 @@ export function GCFinder() {
                     </p>
                   </div>
 
-                  <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); setFormSent(true); }}>
+                  <form className="space-y-5" onSubmit={(e) => { 
+                    e.preventDefault(); 
+                    setFormSent(true);
+                    if (selectedSquad?.whatsapp) {
+                      const phone = selectedSquad.whatsapp.replace(/\D/g, '');
+                      if (phone) {
+                        const url = `https://wa.me/55${phone}?text=${encodeURIComponent(`Olá ${selectedSquad.name}! Encontrei o seu GC no site da igreja e gostaria de fazer uma visita!`)}`;
+                        window.open(url, '_blank');
+                      }
+                    }
+                  }}>
                     <div className="space-y-2">
                       <label className="text-sm font-bold text-on-surface">Seu Nome *</label>
                       <input 
@@ -204,25 +193,16 @@ export function GCFinder() {
                         placeholder="Como gostaria de ser chamado?"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-on-surface">WhatsApp *</label>
-                      <input 
-                        type="tel" 
-                        required
-                        className="w-full px-4 py-3 bg-white border border-outline-variant/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-on-surface"
-                        placeholder="(21) 99999-9999"
-                      />
-                    </div>
 
                     <div className="pt-4">
                       <button 
                         type="submit"
                         className="w-full bg-primary hover:opacity-90 text-white font-black font-display py-4 rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98] flex justify-center items-center gap-2"
                       >
-                        Enviar Solicitação
+                        Chamar no WhatsApp
                       </button>
                       <p className="text-center text-xs text-on-surface-variant/70 mt-4 font-medium font-body">
-                        O líder receberá seu contato e te chamará no WhatsApp com o endereço exato.
+                        Você será redirecionado para o WhatsApp do líder para combinar o endereço exato.
                       </p>
                     </div>
                   </form>
@@ -232,9 +212,9 @@ export function GCFinder() {
                   <div className="w-20 h-20 bg-[#6bfe9c]/20 rounded-full flex items-center justify-center text-[#006d37] mb-4">
                     <CheckCircle2 className="w-10 h-10" />
                   </div>
-                  <h3 className="text-2xl font-black text-on-surface font-display tracking-tight">Solicitação Enviada!</h3>
+                  <h3 className="text-2xl font-black text-on-surface font-display tracking-tight">Redirecionando!</h3>
                   <p className="text-on-surface-variant max-w-[280px] font-body">
-                    Incrível! O líder do GC foi notificado e entrará em contato pelo seu WhatsApp muito em breve.
+                    Incrível! Continue a conversa no seu WhatsApp e agende a sua primeira visita.
                   </p>
                   <button 
                     onClick={() => setIsDrawerOpen(false)}

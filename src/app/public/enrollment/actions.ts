@@ -328,3 +328,85 @@ export async function getPublicItemBySlug(slugOrId: string) {
     }
 }
 
+/**
+ * Busca a lista pública de GCs (Células) ativas, 
+ * junto com os nomes e fotos de perfil dos líderes.
+ */
+export async function getPublicGCs() {
+    try {
+        const db = getAdminDb();
+        
+        // Buscar apenas células ativas
+        const cellsSnap = await db.collection('cells').where('status', '==', 'active').get();
+        if (cellsSnap.empty) return [];
+        
+        const cells = cellsSnap.docs.map(doc => ({ id: doc.id, ...sanitizeFirestoreData(doc.data()) }));
+        
+        // Precisamos resolver os nomes/fotos dos líderes
+        // Para otimizar, vamos pegar todos os líderes únicos
+        const liderIds = new Set<string>();
+        cells.forEach((cell: any) => {
+            if (cell.liderId) liderIds.add(cell.liderId);
+            if (cell.liderCasalId) liderIds.add(cell.liderCasalId);
+        });
+        
+        const usersData: Record<string, any> = {};
+        if (liderIds.size > 0) {
+            // Firestore 'in' query has a limit of 30, so we chunk it
+            const idsArray = Array.from(liderIds);
+            for (let i = 0; i < idsArray.length; i += 30) {
+                const chunk = idsArray.slice(i, i + 30);
+                const usersSnap = await db.collection('users').where('__name__', 'in', chunk).get();
+                usersSnap.docs.forEach(doc => {
+                    usersData[doc.id] = sanitizeFirestoreData(doc.data());
+                });
+            }
+        }
+        
+        // Mapear GCs com os dados dos líderes integrados
+        const publicGCs = cells.map((cell: any) => {
+            const lider1 = usersData[cell.liderId];
+            const lider2 = cell.liderCasalId ? usersData[cell.liderCasalId] : null;
+            
+            let leaderName = lider1 ? lider1.name : 'Líder';
+            if (lider2) {
+                // Pega só os primeiros nomes
+                leaderName = `${leaderName.split(' ')[0]} & ${lider2.name.split(' ')[0]}`;
+            }
+            
+            // Definir foto padrão caso não tenha
+            let image = lider1?.photoURL || lider2?.photoURL || 'https://images.unsplash.com/photo-1522529599102-193c0d76b5b6?w=500&auto=format&fit=crop&q=80';
+            
+            // Resolver Tipo/Público-Alvo
+            // Se targetAudience for 'Misto', 'Homens', 'Mulheres', 'Casais', 'Jovens', etc.
+            let type = cell.targetAudience || 'Misto';
+            if (type.toLowerCase().includes('homem')) type = 'Homens';
+            else if (type.toLowerCase().includes('mulher')) type = 'Mulheres';
+            else if (type.toLowerCase().includes('casal') || type.toLowerCase().includes('casais')) type = 'Casais';
+            else if (type.toLowerCase().includes('jovem') || type.toLowerCase().includes('jovens')) type = 'Jovens';
+            else type = 'Misto';
+            
+            // Check kids
+            const hasKids = !!cell.tags?.some((t: string) => t.toLowerCase().includes('kids') || t.toLowerCase().includes('criança'));
+            
+            return {
+                id: cell.id,
+                name: leaderName,
+                type,
+                day: cell.meetingDay || 'Sábado',
+                time: cell.meetingTime || '19:00',
+                neighborhood: cell.address?.street?.split(',')[0] || cell.address?.city || 'São Gonçalo',
+                image,
+                hasKids,
+                bio: cell.targetAudience ? `Público: ${cell.targetAudience}. Venha fazer parte do nosso GC!` : 'Um lugar de ensino sólido, oração intensa e cuidado familiar. Todos são bem-vindos.',
+                whatsapp: lider1?.phone || lider2?.phone || ''
+            };
+        });
+        
+        return publicGCs;
+    } catch (e) {
+        console.error("Error fetching public GCs:", e);
+        return [];
+    }
+}
+
