@@ -403,6 +403,11 @@ export async function getPublicGCs() {
             };
         });
         
+        console.log(`[getPublicGCs] Fetched ${publicGCs.length} active cells`);
+        if (publicGCs.length > 0) {
+            console.log(`[getPublicGCs] Sample GC:`, publicGCs[0]);
+        }
+        
         return publicGCs;
     } catch (e) {
         console.error("Error fetching public GCs:", e);

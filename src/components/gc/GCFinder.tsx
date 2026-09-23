@@ -19,9 +19,11 @@ export function GCFinder() {
       setIsLoading(true);
       try {
         const realGCs = await getPublicGCs();
-        setSquads(realGCs);
+        console.log("realGCs returned from action:", realGCs);
+        setSquads(Array.isArray(realGCs) ? realGCs : []);
       } catch (error) {
-        console.error("Erro ao buscar GCs:", error);
+        console.error("Erro ao buscar GCs na action:", error);
+        setSquads([]);
       } finally {
         setIsLoading(false);
       }
@@ -49,6 +51,7 @@ export function GCFinder() {
   });
 
   if (isLoading) {
+    console.log("GCFinder rendering Loading state");
     return (
       <div className="w-full flex items-center justify-center py-24">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
@@ -56,6 +59,7 @@ export function GCFinder() {
     );
   }
 
+  console.log("GCFinder rendering Grid, squads length:", filteredSquads.length);
   return (
     <div className="w-full">
       {/* Filtros */}

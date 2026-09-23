@@ -357,7 +357,7 @@ export default function GCPage() {
         </div>
 
         {/* Integração do novo componente de busca de GC */}
-        <div className="reveal-on-scroll">
+        <div className="w-full">
           <GCFinder />
         </div>
       </section>
