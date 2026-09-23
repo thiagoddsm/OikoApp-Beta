@@ -300,6 +300,9 @@ function EnrollmentForm() {
         return strategicEvents.filter(evt => {
             const isApprovedPublic = evt.status === 'aprovado' && evt.isPublicForRegistration === true;
             if (!isApprovedPublic) return false;
+            
+            // Oculta eventos privados do grid geral
+            if (evt.isUnlisted) return false;
 
             if (searchTerm.trim()) {
                 const term = searchTerm.toLowerCase();

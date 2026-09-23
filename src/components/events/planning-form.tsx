@@ -92,6 +92,7 @@ export interface PlanningEvent {
     recurringLimitMonth?: string;
     passFeesToAttendee?: boolean;
     isPublicForRegistration?: boolean;
+    isUnlisted?: boolean;
     requiresBaptism?: boolean;
     requiresActiveService?: boolean;
     requiredCourseId?: string;
@@ -247,6 +248,7 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
     allowCompanions: false,
     maxCompanions: 1,
     customQuestions: [] as { id: string; label: string; type: 'text' | 'select'; options?: string[]; isRequired: boolean }[],
+    isUnlisted: false,
   });
 
   // Load existing event data & map technical fields to simplified fields
@@ -333,6 +335,7 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
         allowCompanions: existingEvent.allowCompanions || false,
         maxCompanions: existingEvent.maxCompanions || 1,
         customQuestions: existingEvent.customQuestions || [],
+        isUnlisted: existingEvent.isUnlisted || false,
       });
     }
   }, [existingEvent]);
@@ -530,6 +533,7 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
       allowCompanions: formData.allowCompanions,
       maxCompanions: formData.maxCompanions,
       customQuestions: formData.customQuestions || [],
+      isUnlisted: formData.isUnlisted,
     };
 
     try {
@@ -1556,6 +1560,21 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
                 <div className="space-y-3 text-sm">
                   <div className="flex items-center space-x-2">
                     <Checkbox
+                      id="isUnlisted"
+                      checked={formData.isUnlisted}
+                      onCheckedChange={(checked) => setFormData(p => ({ ...p, isUnlisted: !!checked }))}
+                      className="border-slate-700 data-[state=checked]:bg-amber-500"
+                    />
+                    <Label htmlFor="isUnlisted" className="font-bold cursor-pointer text-amber-500">
+                      Ocultar do painel público (Link Direto Apenas)
+                    </Label>
+                  </div>
+                  <p className="text-[11px] text-slate-400 ml-6 -mt-1 mb-2">
+                    Ative para que este evento só possa ser acessado por quem tiver o link direto. Ele não aparecerá no catálogo geral.
+                  </p>
+
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
                       id="requiresBaptism"
                       checked={formData.requiresBaptism}
                       onCheckedChange={(checked) => setFormData(p => ({ ...p, requiresBaptism: !!checked }))}
@@ -1589,6 +1608,117 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                {/* Bloco de Perguntas Personalizadas */}
+                <div className="space-y-4 pt-4 border-t border-slate-800">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs text-slate-300 font-bold uppercase tracking-wider block">
+                      Perguntas Personalizadas no Formulário
+                    </Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setFormData(p => ({
+                        ...p,
+                        customQuestions: [
+                          ...p.customQuestions,
+                          { id: Date.now().toString(), label: '', type: 'text', isRequired: false }
+                        ]
+                      }))}
+                      className="border-slate-800 text-xs font-bold gap-1.5 h-8 bg-slate-900 text-slate-300 hover:text-white"
+                    >
+                      <Plus className="size-3.5" /> Adicionar Pergunta
+                    </Button>
+                  </div>
+
+                  {formData.customQuestions.length > 0 && (
+                    <div className="space-y-3">
+                      {formData.customQuestions.map((q, idx) => (
+                        <div key={q.id} className="p-4 bg-slate-900 rounded-xl border border-slate-800 space-y-3 relative">
+                          <button
+                            type="button"
+                            onClick={() => setFormData(p => ({
+                              ...p, customQuestions: p.customQuestions.filter(x => x.id !== q.id)
+                            }))}
+                            className="absolute top-3 right-3 text-red-400 hover:text-red-300"
+                          >
+                            <Trash2 className="size-4" />
+                          </button>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pr-8">
+                            <div className="space-y-1">
+                              <Label className="text-xs text-slate-400">Título da Pergunta (ex: Você é Pastor?)</Label>
+                              <Input
+                                value={q.label}
+                                onChange={(e) => setFormData(p => {
+                                  const next = [...p.customQuestions];
+                                  next[idx].label = e.target.value;
+                                  return { ...p, customQuestions: next };
+                                })}
+                                className="bg-slate-950 border-slate-800 text-sm h-9"
+                                placeholder="Título da Pergunta"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs text-slate-400">Tipo de Resposta</Label>
+                              <Select
+                                value={q.type}
+                                onValueChange={(val: 'text' | 'select') => setFormData(p => {
+                                  const next = [...p.customQuestions];
+                                  next[idx].type = val;
+                                  if (val === 'select' && !next[idx].options) next[idx].options = ['Opção 1', 'Opção 2'];
+                                  return { ...p, customQuestions: next };
+                                })}
+                              >
+                                <SelectTrigger className="bg-slate-950 border-slate-800 text-sm h-9">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-slate-900 border-slate-800 text-white">
+                                  <SelectItem value="text">Texto Livre (Discursiva)</SelectItem>
+                                  <SelectItem value="select">Múltipla Escolha</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+
+                          {q.type === 'select' && (
+                            <div className="space-y-1">
+                              <Label className="text-xs text-slate-400">Opções (separadas por vírgula)</Label>
+                              <Input
+                                value={q.options?.join(', ') || ''}
+                                onChange={(e) => setFormData(p => {
+                                  const next = [...p.customQuestions];
+                                  next[idx].options = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                                  return { ...p, customQuestions: next };
+                                })}
+                                className="bg-slate-950 border-slate-800 text-sm h-9"
+                                placeholder="Sim, Não, Talvez"
+                              />
+                              <p className="text-[10px] text-slate-500">Ex: Sim, Não, Não Sei</p>
+                            </div>
+                          )}
+
+                          <div className="flex items-center space-x-2 pt-1">
+                            <Checkbox
+                              id={`req-${q.id}`}
+                              checked={q.isRequired}
+                              onCheckedChange={(checked) => setFormData(p => {
+                                const next = [...p.customQuestions];
+                                next[idx].isRequired = !!checked;
+                                return { ...p, customQuestions: next };
+                              })}
+                            />
+                            <Label htmlFor={`req-${q.id}`} className="text-xs cursor-pointer text-slate-300">Resposta Obrigatória</Label>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {formData.customQuestions.length === 0 && (
+                    <p className="text-[11px] text-slate-500">Nenhuma pergunta personalizada. O participante preencherá apenas Nome e Telefone/E-mail.</p>
+                  )}
                 </div>
 
                 {/* Link Direto e Slug Personalizado */}
