@@ -4,12 +4,15 @@ import React, { useState, useEffect } from 'react';
 import { MapPin, Clock, ArrowRight, X, Baby, Search, CheckCircle2 } from 'lucide-react';
 import { getPublicGCs } from '@/app/public/enrollment/actions';
 
-const FILTERS_TYPE = ["Todos", "Homens", "Mulheres", "Jovens", "Casais", "Misto"];
-
 export function GCFinder() {
-  const [selectedType, setSelectedType] = useState("Todos");
   const [squads, setSquads] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // States for new filters
+  const [selectedCategory, setSelectedCategory] = useState("Todos");
+  const [selectedNeighborhood, setSelectedNeighborhood] = useState("Todos");
+  const [selectedDay, setSelectedDay] = useState("Todos");
+
   const [selectedSquad, setSelectedSquad] = useState<any | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [formSent, setFormSent] = useState(false);
@@ -19,7 +22,6 @@ export function GCFinder() {
       setIsLoading(true);
       try {
         const realGCs = await getPublicGCs();
-        console.log("realGCs returned from action:", realGCs);
         setSquads(Array.isArray(realGCs) ? realGCs : []);
       } catch (error) {
         console.error("Erro ao buscar GCs na action:", error);
@@ -45,13 +47,33 @@ export function GCFinder() {
     setIsDrawerOpen(true);
   };
 
+  // Derived filter options
+  const neighborhoods = Array.from(new Set(squads.map(s => s.neighborhood))).filter(Boolean).sort();
+  const days = Array.from(new Set(squads.map(s => s.day))).filter(Boolean).sort();
+  
+  const categoriesSet = new Set<string>();
+  squads.forEach(s => {
+    if (s.targetAudience) categoriesSet.add(s.targetAudience);
+    if (s.tags && Array.isArray(s.tags)) {
+      s.tags.forEach((t: string) => categoriesSet.add(t));
+    }
+  });
+  const categories = Array.from(categoriesSet).sort();
+
   const filteredSquads = squads.filter(s => {
-    if (selectedType !== "Todos" && s.type !== selectedType) return false;
+    if (selectedNeighborhood !== "Todos" && s.neighborhood !== selectedNeighborhood) return false;
+    if (selectedDay !== "Todos" && s.day !== selectedDay) return false;
+    
+    if (selectedCategory !== "Todos") {
+      const matchTarget = s.targetAudience === selectedCategory;
+      const matchTag = s.tags && Array.isArray(s.tags) && s.tags.includes(selectedCategory);
+      if (!matchTarget && !matchTag) return false;
+    }
+    
     return true;
   });
 
   if (isLoading) {
-    console.log("GCFinder rendering Loading state");
     return (
       <div className="w-full flex items-center justify-center py-24">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
@@ -59,26 +81,62 @@ export function GCFinder() {
     );
   }
 
-  console.log("GCFinder rendering Grid, squads length:", filteredSquads.length);
   return (
     <div className="w-full">
       {/* Filtros */}
-      <div className="flex justify-center mb-10">
-        <div className="flex gap-2 overflow-x-auto w-full max-w-2xl pb-2 sm:pb-0 hide-scrollbar px-4 sm:px-0">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-400 self-center mr-2">Filtro:</span>
-          {FILTERS_TYPE.map(t => (
+      <div className="flex flex-col items-center gap-4 mb-10 max-w-4xl mx-auto px-4">
+        
+        {/* Pills for Category (Public/Tags) */}
+        <div className="flex gap-2 overflow-x-auto w-full pb-2 sm:pb-0 hide-scrollbar justify-start md:justify-center">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-400 self-center mr-2 shrink-0">Público:</span>
+          <button 
+            onClick={() => setSelectedCategory("Todos")}
+            className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-semibold transition-all shadow-sm ${
+              selectedCategory === "Todos" 
+                ? 'bg-primary text-white border-primary' 
+                : 'bg-white border border-outline-variant/40 text-on-surface-variant hover:border-primary/50'
+            }`}
+          >
+            Todos
+          </button>
+          {categories.map(c => (
             <button 
-              key={t}
-              onClick={() => setSelectedType(t)}
+              key={c}
+              onClick={() => setSelectedCategory(c)}
               className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-semibold transition-all shadow-sm ${
-                selectedType === t 
+                selectedCategory === c 
                   ? 'bg-primary text-white border-primary' 
                   : 'bg-white border border-outline-variant/40 text-on-surface-variant hover:border-primary/50'
               }`}
             >
-              {t}
+              {c}
             </button>
           ))}
+        </div>
+
+        {/* Dropdowns for Location and Day */}
+        <div className="flex flex-col sm:flex-row w-full gap-4 justify-center mt-2">
+           <select 
+             value={selectedNeighborhood} 
+             onChange={e => setSelectedNeighborhood(e.target.value)}
+             className="bg-white border border-outline-variant/40 text-on-surface-variant text-sm rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary shadow-sm w-full sm:w-auto min-w-[200px]"
+           >
+             <option value="Todos">Todos os Bairros</option>
+             {neighborhoods.map(n => (
+               <option key={n as string} value={n as string}>{n as string}</option>
+             ))}
+           </select>
+
+           <select 
+             value={selectedDay} 
+             onChange={e => setSelectedDay(e.target.value)}
+             className="bg-white border border-outline-variant/40 text-on-surface-variant text-sm rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary shadow-sm w-full sm:w-auto min-w-[200px]"
+           >
+             <option value="Todos">Qualquer Dia</option>
+             {days.map(d => (
+               <option key={d as string} value={d as string}>{d as string}</option>
+             ))}
+           </select>
         </div>
       </div>
 
@@ -98,7 +156,7 @@ export function GCFinder() {
                   <img src={squad.image} alt={squad.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                   <div className="absolute top-4 left-4 flex flex-col gap-2">
                     <span className="bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider text-on-surface shadow-sm">
-                      {squad.type}
+                      {squad.targetAudience || 'Geral'}
                     </span>
                     {squad.hasKids && (
                       <span className="bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold text-on-surface-variant shadow-sm flex items-center gap-1.5 w-fit">

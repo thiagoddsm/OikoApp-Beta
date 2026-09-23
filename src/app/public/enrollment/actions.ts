@@ -377,14 +377,9 @@ export async function getPublicGCs() {
             // Definir foto padrão caso não tenha
             let image = lider1?.photoURL || lider2?.photoURL || 'https://images.unsplash.com/photo-1522529599102-193c0d76b5b6?w=500&auto=format&fit=crop&q=80';
             
-            // Resolver Tipo/Público-Alvo
-            // Se targetAudience for 'Misto', 'Homens', 'Mulheres', 'Casais', 'Jovens', etc.
-            let type = cell.targetAudience || 'Misto';
-            if (type.toLowerCase().includes('homem')) type = 'Homens';
-            else if (type.toLowerCase().includes('mulher')) type = 'Mulheres';
-            else if (type.toLowerCase().includes('casal') || type.toLowerCase().includes('casais')) type = 'Casais';
-            else if (type.toLowerCase().includes('jovem') || type.toLowerCase().includes('jovens')) type = 'Jovens';
-            else type = 'Misto';
+            // Usar o público-alvo exato e as tags que vêm do banco
+            const targetAudience = cell.targetAudience || 'Geral';
+            const tags = cell.tags || [];
             
             // Check kids
             const hasKids = !!cell.tags?.some((t: string) => t.toLowerCase().includes('kids') || t.toLowerCase().includes('criança'));
@@ -392,7 +387,8 @@ export async function getPublicGCs() {
             return {
                 id: cell.id,
                 name: leaderName,
-                type,
+                targetAudience,
+                tags,
                 day: cell.meetingDay || 'Sábado',
                 time: cell.meetingTime || '19:00',
                 neighborhood: cell.address?.street?.split(',')[0] || cell.address?.city || 'São Gonçalo',
