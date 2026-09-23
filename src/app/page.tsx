@@ -249,12 +249,12 @@ export default function LandingPage() {
               <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-orange-100 rounded-full text-orange-700">
                 <span className="font-bold text-xs uppercase tracking-widest">DISCIPULADO QUE TRANSFORMA</span>
               </div>
-              <h1 className="text-6xl sm:text-7xl lg:text-8xl font-black tracking-tight text-slate-900 leading-[1.05] max-w-xl">
-                Confrontando a cultura. <br />
-                <span className="text-orange-600">Amando pessoas.</span>
+              <h1 className="text-5xl sm:text-7xl lg:text-8xl font-black tracking-tight text-slate-900 leading-[1.05] max-w-xl">
+                Mudar a cidade através do <br />
+                <span className="text-orange-600 italic">discipulado.</span>
               </h1>
               <p className="text-lg text-slate-500 max-w-lg leading-relaxed font-medium">
-                Somos uma igreja viva durante a semana. Relacionamentos reais que transformam corações e a cidade de São Gonçalo.
+                Somos uma igreja EM células, vivendo relacionamentos que transformam pessoas e cidades. Uma estrutura de ordem para o florescimento da vida.
               </p>
               <div className="flex flex-wrap gap-4 pt-4">
                 <a href="#visita" className="bg-orange-600 text-white px-8 py-4 rounded-full font-bold text-base hover:bg-orange-700 transition-all active:scale-95 flex items-center justify-center shadow-lg shadow-orange-600/20">
@@ -269,9 +269,9 @@ export default function LandingPage() {
             <div className="relative h-full hidden lg:flex justify-end reveal-on-scroll" style={{ transitionDelay: '200ms' }}>
               <div className="relative w-full max-w-[550px] aspect-[4/5] rounded-[2.5rem] overflow-hidden shadow-2xl bg-slate-100 border-8 border-white rotate-2 hover:rotate-0 transition-transform duration-500">
                 <img 
-                  alt="Igreja Batista da Manhã Adoração" 
+                  alt="Comunidade Adorando" 
                   className="w-full h-full object-cover" 
-                  src="https://live.staticflickr.com/65535/55103975739_f1e1c478f7_b.jpg"
+                  src="https://images.pexels.com/photos/2774556/pexels-photo-2774556.jpeg?auto=compress&cs=tinysrgb&w=800"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end p-10">
                   <p className="text-white font-bold text-xl italic leading-relaxed">
