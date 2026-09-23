@@ -1006,8 +1006,26 @@ function EnrollmentForm() {
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 {filteredEvents.map(evt => {
-                                    const isPaid = evt.isPaid === 'pago';
+                                    let displayPriceText = '';
+                                    let isPaidVisual = evt.isPaid === 'pago';
+                                    
+                                    const activeTickets = evt.tickets?.filter((t: any) => t.isActive) || [];
+                                    if (activeTickets.length > 0) {
+                                        const minPrice = Math.min(...activeTickets.map((t: any) => t.price || 0));
+                                        // Se houver múltiplos ingressos, mostra "A partir de"
+                                        if (activeTickets.length > 1) {
+                                            displayPriceText = `A partir de R$ ${minPrice.toFixed(2).replace('.', ',')}`;
+                                        } else {
+                                            displayPriceText = minPrice > 0 ? `R$ ${minPrice.toFixed(2).replace('.', ',')}` : 'Gratuito';
+                                        }
+                                        // A cor amarela aparece se pelo menos um ingresso for pago
+                                        isPaidVisual = activeTickets.some((t: any) => (t.price || 0) > 0);
+                                    } else {
+                                        displayPriceText = isPaidVisual ? `R$ ${(evt.ticketPrice || 0).toFixed(2).replace('.', ',')}` : 'Gratuito';
+                                    }
+
                                     const coverUrl = evt.coverImageUrl || evt.imageUrl || evt.coverImage || evt.bannerUrl || `https://picsum.photos/seed/${evt.id}/600/300`;
+                                    
                                     return (
                                                 <Card
                                                     key={evt.id}
@@ -1027,8 +1045,8 @@ function EnrollmentForm() {
                                                         />
                                                         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent z-10" />
                                                         <div className="absolute top-4 right-4 z-20 flex gap-1.5">
-                                                    <Badge className={cn("border-none text-[9px] font-bold uppercase", isPaid ? "bg-amber-500 text-slate-900" : "bg-emerald-500 text-white")}>
-                                                        {isPaid ? `R$ ${evt.ticketPrice?.toFixed(2)}` : 'Gratuito'}
+                                                    <Badge className={cn("border-none text-[9px] font-bold uppercase", isPaidVisual ? "bg-amber-500 text-slate-900" : "bg-emerald-500 text-white")}>
+                                                        {displayPriceText}
                                                     </Badge>
                                                 </div>
                                                 <div className="absolute bottom-4 left-5 z-20 pr-4">
