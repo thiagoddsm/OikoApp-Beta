@@ -271,7 +271,7 @@ export default function LandingPage() {
                 <img 
                   alt="Igreja Batista da Manhã Adoração" 
                   className="w-full h-full object-cover" 
-                  src="https://images.unsplash.com/photo-1511246981156-f4460c386689?auto=format&fit=crop&q=80&w=800"
+                  src="https://live.staticflickr.com/65535/55103975739_f1e1c478f7_b.jpg"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end p-10">
                   <p className="text-white font-bold text-xl italic leading-relaxed">
