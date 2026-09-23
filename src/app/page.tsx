@@ -217,29 +217,22 @@ export default function LandingPage() {
         }}
       />
 
-      {/* TopNavBar */}
-      <nav className="fixed top-0 w-full z-50 bg-surface/70 backdrop-blur-xl border-b border-outline-variant/20 shadow-[0_4px_30px_rgb(0,0,0,0.03)]">
-        <div className="flex justify-between items-center max-w-[1440px] mx-auto px-container-margin h-20">
+      {/* TopNavBar Minimalista */}
+      <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md border-b border-slate-100 shadow-sm">
+        <div className="flex justify-between items-center max-w-[1440px] mx-auto px-6 h-20">
           <div className="flex items-center">
-            <img 
-              src="https://firebasestorage.googleapis.com/v0/b/studio-1424813022-71754.firebasestorage.app/o/C%C3%B3pia%20de%20LOGO%20IBM%20BRANCO.PNG?alt=media&token=85d35afe-f7f6-40d6-a9cd-c138c6a326fa" 
-              alt="Logo IBM" 
-              className="h-10 w-auto object-contain brightness-0"
-            />
+            <Link href="/" className="font-display-lg text-2xl font-black tracking-tight text-slate-900 flex items-center gap-1">
+              IB<span className="text-primary">MANHÃ</span>
+            </Link>
           </div>
           <div className="hidden md:flex items-center space-x-8">
-            <a className="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant hover:text-primary transition-all" href="#jornada">Jornada</a>
-            <a className="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant hover:text-primary transition-all" href="#igreja-em-celulas">Igreja em Células</a>
-            <a className="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant hover:text-primary transition-all" href="#trilha-discipulado">Trilha Discipulado</a>
-            <a className="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant hover:text-primary transition-all" href="#voluntariado">Voluntariado</a>
-            <a className="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant hover:text-primary transition-all" href="https://projeto-luz-para-a-cidade-757083107524.us-west1.run.app/" target="_blank" rel="noopener noreferrer">Ação Social</a>
-            <a className="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant hover:text-primary transition-all" href="#visita">Visite-nos</a>
+            <a className="font-label-md text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors" href="#jornada">Sobre Nós</a>
+            <Link className="font-label-md text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors" href="/gc">GCs</Link>
+            <a className="font-label-md text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors" href="#trilha-discipulado">Trilha</a>
+            <a className="font-label-md text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors" href="https://projeto-luz-para-a-cidade-757083107524.us-west1.run.app/" target="_blank" rel="noopener noreferrer">Ação Social</a>
           </div>
           <div className="flex items-center gap-4">
-            <Link href="/public/enrollment" className="border border-primary text-primary px-6 py-2.5 rounded-full font-label-md text-label-md hover:bg-primary/5 hover:scale-105 transition-all active:scale-95">
-              Inscrições
-            </Link>
-            <Link href="/login" className="bg-primary text-on-primary px-6 py-2.5 rounded-full font-label-md text-label-md hover:opacity-90 hover:scale-105 transition-all active:scale-95 shadow-md shadow-primary/10">
+            <Link href="/login" className="bg-slate-900 text-white px-6 py-2.5 rounded-full font-label-md text-sm font-bold hover:bg-slate-800 transition-all active:scale-95 shadow-md">
               Área do Membro
             </Link>
           </div>
@@ -247,56 +240,44 @@ export default function LandingPage() {
       </nav>
 
       <main className="pt-20">
-        {/* Hero Section */}
-        <section className="relative overflow-hidden min-h-[90vh] flex items-center trellis-grid">
-          <div className="max-w-[1440px] mx-auto px-container-margin grid grid-cols-1 lg:grid-cols-2 gap-gutter items-center w-full">
-            <div className="relative z-10 space-y-8 reveal-on-scroll">
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-primary/5 rounded-full border border-primary/20">
-                <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
-                <span className="font-label-sm text-label-sm text-primary uppercase tracking-widest">DISCIPULADO QUE TRANSFORMA</span>
+        <section className="relative overflow-hidden min-h-[90vh] flex items-center bg-[#fafafa]">
+          {/* Subtle blurred background for modern editorial look */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl h-[600px] bg-orange-600/5 blur-[120px] rounded-full pointer-events-none" />
+
+          <div className="max-w-[1440px] mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center w-full relative z-10">
+            <div className="space-y-8 reveal-on-scroll">
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-orange-100 rounded-full text-orange-700">
+                <span className="font-bold text-xs uppercase tracking-widest">DISCIPULADO QUE TRANSFORMA</span>
               </div>
-              <h1 className="font-display-lg text-display-lg-mobile md:text-display-lg leading-[1.05] max-w-xl">
-                Mudar a cidade através do <span className="text-primary italic">discipulado</span>.
+              <h1 className="text-6xl sm:text-7xl lg:text-8xl font-black tracking-tight text-slate-900 leading-[1.05] max-w-xl">
+                Confrontando a cultura. <br />
+                <span className="text-orange-600">Amando pessoas.</span>
               </h1>
-              <p className="font-body-lg text-body-lg text-on-surface-variant max-w-lg leading-relaxed">
-                Somos uma igreja EM células, vivendo relacionamentos que transformam pessoas e cidades. Uma estrutura de ordem para o florescimento da vida.
+              <p className="text-lg text-slate-500 max-w-lg leading-relaxed font-medium">
+                Somos uma igreja viva durante a semana. Relacionamentos reais que transformam corações e a cidade de São Gonçalo.
               </p>
               <div className="flex flex-wrap gap-4 pt-4">
-                <a href="#visita" className="bg-primary-container text-on-primary px-8 py-4 rounded-full font-headline-sm text-base hover:shadow-xl hover:shadow-primary/20 hover:-translate-y-0.5 transition-all active:scale-95 flex items-center justify-center">
-                  Quero visitar
+                <a href="#visita" className="bg-orange-600 text-white px-8 py-4 rounded-full font-bold text-base hover:bg-orange-700 transition-all active:scale-95 flex items-center justify-center shadow-lg shadow-orange-600/20">
+                  Planeje sua visita
                 </a>
-                <Link href="/gc" className="border border-primary/30 text-primary px-8 py-4 rounded-full font-headline-sm text-base hover:bg-primary/5 transition-all flex items-center justify-center">
-                  Encontrar um GC
+                <Link href="/gc" className="border border-slate-200 text-slate-700 bg-white px-8 py-4 rounded-full font-bold text-base hover:border-slate-300 hover:bg-slate-50 transition-all flex items-center justify-center">
+                  Encontre um GC
                 </Link>
-                <button onClick={openNeemiasWidget} className="text-on-surface-variant flex items-center gap-2 px-6 py-4 hover:text-primary transition-all group">
-                  <span className="material-symbols-outlined transition-transform group-hover:rotate-12" data-icon="forum">forum</span>
-                  Falar com Neemias
-                </button>
               </div>
             </div>
             
-            <div className="relative h-full flex justify-center lg:justify-end reveal-on-scroll" style={{ transitionDelay: '200ms' }}>
-              <div className="relative w-full max-w-[620px] aspect-square rounded-3xl overflow-hidden bg-white apple-shadow">
-                {/* Custom SVG Animation for Living Urban Network */}
-                <svg className="absolute inset-0 w-full h-full opacity-60" viewBox="0 0 800 800">
-                  <defs>
-                    <linearGradient id="lineGrad" x1="0%" x2="100%" y1="0%" y2="100%">
-                      <stop offset="0%" style={{ stopColor: '#a63b00', stopOpacity: 0.6 }} />
-                      <stop offset="100%" style={{ stopColor: '#f26522', stopOpacity: 0.2 }} />
-                    </linearGradient>
-                  </defs>
-                  <g className="stroke-[1.5] fill-none" id="network-vines">
-                    <path className="animate-draw" d="M100 400 Q 250 350 400 400 T 700 400" stroke="url(#lineGrad)" />
-                    <path className="animate-draw" d="M200 100 Q 300 400 200 700" stroke="url(#lineGrad)" style={{ animationDelay: '1s' }} />
-                    <path className="animate-draw" d="M150 150 C 400 200 400 600 650 650" stroke="url(#lineGrad)" style={{ animationDelay: '2s' }} />
-                    <circle className="animate-pulse-soft" cx={400} cy={400} fill="#a63b00" r={8} />
-                    <circle className="animate-pulse-soft" cx={200} cy={100} fill="#a63b00" r={6} style={{ animationDelay: '0.5s' }} />
-                    <circle className="animate-pulse-soft" cx={700} cy={400} fill="#f26522" r={6} style={{ animationDelay: '1.2s' }} />
-                    <circle className="animate-pulse-soft" cx={150} cy={150} fill="#f26522" r={5} style={{ animationDelay: '0.8s' }} />
-                    <circle className="animate-pulse-soft" cx={650} cy={650} fill="#a63b00" r={10} style={{ animationDelay: '1.5s' }} />
-                  </g>
-                </svg>
-                <img alt="Church network visualization" className="w-full h-full object-cover mix-blend-overlay opacity-80" data-alt="Premium digital city network visualization" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB_g3Fce7pwGFSpfiWtiSrvCX4t37IcoMTJFaokjAfIZRI64leYYbtIfV3flrlHX22A74fJYTvSGSYPjeGdoSE3bDjEOH1zZ9GWpalN_RvHClvhDfHX_RgGXoqack-7T9WqLC_XabAEUaAyCiqB_ISMLlAKhyjlxXivZtOifdT-dWYtrKkRZSNRmm6y0ZqQkXhmBw12_8Fyz92045OcTcTqdGrvoTs8yDc2OQnnovcB4yO102fIgsFtoq6LtM7Xu6dPVQOqP_iPVCYo"/>
+            <div className="relative h-full hidden lg:flex justify-end reveal-on-scroll" style={{ transitionDelay: '200ms' }}>
+              <div className="relative w-full max-w-[550px] aspect-[4/5] rounded-[2.5rem] overflow-hidden shadow-2xl bg-slate-100 border-8 border-white rotate-2 hover:rotate-0 transition-transform duration-500">
+                <img 
+                  alt="Igreja Batista da Manhã Adoração" 
+                  className="w-full h-full object-cover" 
+                  src="https://images.unsplash.com/photo-1511246981156-f4460c386689?auto=format&fit=crop&q=80&w=800"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end p-10">
+                  <p className="text-white font-bold text-xl italic leading-relaxed">
+                    "O nosso lugar seguro para pertencer."
+                  </p>
+                </div>
               </div>
             </div>
           </div>
