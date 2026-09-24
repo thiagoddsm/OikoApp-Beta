@@ -217,6 +217,9 @@ export function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors,
       membros: finalMembers,
       targetAudience,
       tags,
+      meetingDay: meetingDay || null,
+      meetingTime: meetingTime || null,
+      multiplicationDate: multiplicationDate || null,
     };
     try {
       const validUserIds = new Set((users || []).map((u: any) => u.id));
