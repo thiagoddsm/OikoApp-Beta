@@ -8,6 +8,7 @@ import Script from 'next/script';
 import { firebaseConfig } from '@/firebase/config';
 import { ZaiaCleanup } from '@/components/zaia-cleanup';
 import { SystemCacheCleaner } from '@/components/system/system-cache-cleaner';
+import { ForceLightMode } from '@/components/system/force-light-mode';
 
 const manrope = Manrope({
   subsets: ['latin'],
@@ -58,10 +59,12 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="https://firebasestorage.googleapis.com/v0/b/studio-1424813022-71754.firebasestorage.app/o/pwa%2Flogo_1772385880160.png?alt=media&token=9f992f3e-70cd-4a19-a67f-77d16369e81a" />
         <script dangerouslySetInnerHTML={{__html: `
           try {
-            if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-              document.documentElement.classList.add('dark')
+            if (window.location.pathname.startsWith('/public')) {
+              document.documentElement.classList.remove('dark');
+            } else if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+              document.documentElement.classList.add('dark');
             } else {
-              document.documentElement.classList.remove('dark')
+              document.documentElement.classList.remove('dark');
             }
           } catch (_) {}
           
@@ -89,6 +92,7 @@ export default function RootLayout({
         inter.variable
       )}>
         <FirebaseClientProvider>
+          <ForceLightMode />
           <SystemCacheCleaner />
           <ZaiaCleanup />
           {children}
