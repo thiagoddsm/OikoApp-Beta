@@ -61,6 +61,19 @@ export default function TrilhoDiscipuladoPage() {
           <p className="text-lg md:text-xl text-on-surface-variant font-body max-w-3xl mx-auto mb-10 leading-relaxed">
             Descubra o seu propósito e desenvolva o caráter de Cristo através de uma jornada de aprendizado, comunhão e serviço na Igreja Batista da Manhã.
           </p>
+
+          {/* Video Section */}
+          <div className="w-full max-w-4xl mx-auto mb-10 rounded-2xl overflow-hidden shadow-2xl border border-outline-variant/30 aspect-video bg-slate-900 relative">
+            <iframe 
+              className="absolute top-0 left-0 w-full h-full"
+              src="https://www.youtube.com/embed/dQw4w9WgXcQ?rel=0&showinfo=0" 
+              title="Vídeo Trilha do Discipulado" 
+              frameBorder="0" 
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+              allowFullScreen
+            ></iframe>
+          </div>
+
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-10">
             <Link 
               href="/public/enrollment?utm_source=academia_lumine" 
