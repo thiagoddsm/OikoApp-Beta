@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useCollection, updateDocumentNonBlocking, useMemoFirebase } from '@/firebase';
-import { collectionGroup, query, where, doc, updateDoc } from 'firebase/firestore';
+import { collectionGroup, query, where, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { useFirebase } from '@/firebase/provider';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,7 @@ import {
   Loader2, Search, Filter, RefreshCw, Users, Waves, 
   GraduationCap, HandHelping, MessageSquare, Sparkles, CheckCircle2, 
   ArrowRight, ArrowLeft, UserCheck, Calendar, ExternalLink, FileText, 
-  ChevronDown, ChevronUp, Columns3, LayoutGrid, Phone 
+  ChevronDown, ChevronUp, Columns3, LayoutGrid, Phone, Trash2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useMembersData } from '@/hooks/useDomainData';
@@ -174,6 +174,20 @@ export default function GestaoProcessosPage() {
       await handleUpdateStage(personId, processId, targetStageId, isFinal);
     } catch (err) {
       console.error('Erro ao soltar card no Kanban:', err);
+    }
+  };
+
+  const handleDeleteProcess = async (personId: string, processId: string, processTitle: string) => {
+    if (!firestore) return;
+    const confirmDelete = window.confirm(`Tem certeza que deseja excluir o processo "${processTitle}"?`);
+    if (!confirmDelete) return;
+
+    try {
+      await deleteDoc(doc(firestore, 'users', personId, 'processos', processId));
+      toast({ title: 'Sucesso', description: 'Processo excluído com sucesso.' });
+    } catch (err) {
+      console.error('Erro ao excluir processo:', err);
+      toast({ title: 'Erro', description: 'Não foi possível excluir o processo.', variant: 'destructive' });
     }
   };
 
@@ -373,54 +387,73 @@ export default function GestaoProcessosPage() {
                               </div>
                             </div>
 
-                            {/* WhatsApp Direct Link */}
-                            {cleanPhoneDigits && (
-                              <a
-                                href={`https://wa.me/55${cleanPhoneDigits}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors shrink-0"
-                                title="Conversar no WhatsApp"
-                              >
-                                <Phone className="size-3.5" />
-                              </a>
-                            )}
-                          </div>
-
-                          {/* Detalhes rápidos / Decisão */}
-                          {(details.decisaoProximoPasso || details.bairro) && (
-                            <div className="text-[11px] bg-slate-50 p-2 rounded-xl border border-slate-100 space-y-1">
-                              {details.decisaoProximoPasso && (
-                                <p className="font-bold text-slate-800 line-clamp-1">
-                                  🎯 {details.decisaoProximoPasso}
-                                </p>
+                            {/* Actions */}
+                            <div className="flex items-center gap-1 shrink-0">
+                              {cleanPhoneDigits && (
+                                <a
+                                  href={`https://wa.me/55${cleanPhoneDigits}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors"
+                                  title="Conversar no WhatsApp"
+                                >
+                                  <Phone className="size-3.5" />
+                                </a>
                               )}
-                              {details.bairro && (
-                                <p className="text-slate-500 truncate">
-                                  📍 {details.bairro}
-                                </p>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Botão de Observações expansíveis */}
-                          {details.observacoes && (
-                            <div>
                               <button
                                 type="button"
-                                onClick={() => toggleExpand(proc.id)}
-                                className="text-[10px] font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1"
+                                onClick={(e) => { e.stopPropagation(); handleDeleteProcess(proc.personId, proc.id, proc.title); }}
+                                className="p-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors"
+                                title="Excluir processo"
                               >
-                                {isExpanded ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
-                                {isExpanded ? 'Ocultar recado' : 'Ver recado do visitante'}
+                                <Trash2 className="size-3.5" />
                               </button>
-                              {isExpanded && (
-                                <p className="text-[11px] text-slate-700 bg-amber-50/70 p-2 rounded-xl border border-amber-200/60 mt-1.5 whitespace-pre-wrap">
-                                  "{details.observacoes}"
-                                </p>
-                              )}
                             </div>
-                          )}
+                          </div>
+
+                          {/* Detalhes rapidos / Decisao */}
+                          <div className="text-[11px] bg-slate-50 p-2 rounded-xl border border-slate-100 space-y-1">
+                            {details.gcName && (
+                              <p className="font-bold text-slate-800 line-clamp-1" title="GC Solicitado">
+                                🏠 {details.gcName}
+                              </p>
+                            )}
+                            {details.decisaoProximoPasso && (
+                              <p className="font-bold text-slate-800 line-clamp-1">
+                                🎯 {details.decisaoProximoPasso}
+                              </p>
+                            )}
+                            
+                            <p className="text-slate-500 font-medium truncate">
+                              📅 Inscrito em: {proc.createdAt ? new Date(proc.createdAt.seconds * 1000).toLocaleDateString() : (proc.startedAt ? new Date(proc.startedAt.seconds * 1000).toLocaleDateString() : 'N/A')}
+                            </p>
+                            
+                            <button
+                              type="button"
+                              onClick={() => toggleExpand(proc.id)}
+                              className="w-full mt-2 text-center text-[10px] font-bold text-primary hover:bg-primary/5 py-1 rounded transition-colors flex items-center justify-center gap-1"
+                            >
+                              {isExpanded ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+                              {isExpanded ? 'Ocultar detalhes' : 'Ver mais detalhes'}
+                            </button>
+
+                            {isExpanded && (
+                              <div className="pt-2 mt-2 border-t border-slate-200 text-slate-600 space-y-2 animate-in fade-in duration-200">
+                                <div>
+                                  {person?.idade && <p><span className="font-bold">Idade:</span> {person.idade} anos</p>}
+                                  {person?.estadoCivil && <p><span className="font-bold">Estado Civil:</span> {person.estadoCivil}</p>}
+                                  {(person?.address?.neighborhood || person?.bairro || details.bairro) && <p><span className="font-bold">Bairro:</span> {person?.address?.neighborhood || person?.bairro || details.bairro}</p>}
+                                  {person?.email && <p className="truncate"><span className="font-bold">E-mail:</span> {person.email}</p>}
+                                </div>
+                                {details.observacoes && (
+                                  <div className="text-[11px] text-slate-700 bg-amber-50/70 p-2 rounded-xl border border-amber-200/60 whitespace-pre-wrap">
+                                    <span className="font-bold block text-amber-900 mb-0.5">Recado / Observação:</span>
+                                    "{details.observacoes}"
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
 
                           {/* Controles Rápidos de Navegação entre Etapas */}
                           <div className="flex items-center justify-between pt-1 border-t border-slate-100">
@@ -502,10 +535,21 @@ export default function GestaoProcessosPage() {
                         <p className="text-[11px] text-slate-500 font-medium">{personPhone}</p>
                       </div>
                     </div>
-                    <Badge variant="outline" className={`text-[10px] font-bold uppercase ${typeConfig.color}`}>
-                      <Icon className="size-3 mr-1" />
-                      {proc.processType}
-                    </Badge>
+                    <div className="flex flex-col items-end gap-2 shrink-0">
+                      <Badge variant="outline" className={`text-[10px] font-bold uppercase ${typeConfig.color}`}>
+                        <Icon className="size-3 mr-1" />
+                        {proc.processType}
+                      </Badge>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleDeleteProcess(proc.personId, proc.id, proc.title); }}
+                        className="text-[10px] text-rose-500 hover:text-rose-700 flex items-center gap-1 font-bold transition-colors"
+                        title="Excluir processo"
+                      >
+                        <Trash2 className="size-3" />
+                        Excluir
+                      </button>
+                    </div>
                   </CardHeader>
 
                   <CardContent className="p-4 space-y-3">
