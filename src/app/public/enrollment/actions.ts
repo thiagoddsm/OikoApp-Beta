@@ -384,6 +384,19 @@ export async function getPublicGCs() {
             // Check kids
             const hasKids = !!cell.tags?.some((t: string) => t.toLowerCase().includes('kids') || t.toLowerCase().includes('criança'));
             
+            // Tentar extrair o bairro (geralmente fica após o primeiro hífen e antes da vírgula)
+            let neighborhood = 'São Gonçalo';
+            if (cell.address?.street) {
+                const parts = cell.address.street.split('-');
+                if (parts.length > 1) {
+                    neighborhood = parts[1].split(',')[0].trim();
+                } else {
+                    neighborhood = cell.address.street.split(',')[0].trim();
+                }
+            } else if (cell.address?.city) {
+                neighborhood = cell.address.city;
+            }
+
             return {
                 id: cell.id,
                 name: leaderName,
@@ -391,7 +404,7 @@ export async function getPublicGCs() {
                 tags,
                 day: cell.meetingDay || 'Sábado',
                 time: cell.meetingTime || '19:00',
-                neighborhood: cell.address?.street?.split(',')[0] || cell.address?.city || 'São Gonçalo',
+                neighborhood,
                 image,
                 hasKids,
                 bio: cell.targetAudience ? `Público: ${cell.targetAudience}. Venha fazer parte do nosso GC!` : 'Um lugar de ensino sólido, oração intensa e cuidado familiar. Todos são bem-vindos.',
