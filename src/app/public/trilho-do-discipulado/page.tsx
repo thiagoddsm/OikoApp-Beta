@@ -93,13 +93,13 @@ export default function TrilhoDiscipuladoPage() {
                 <Leaf className="w-7 h-7" />
               </div>
               <h3 className="text-2xl font-bold font-display text-on-surface mb-2">A Varanda <br/><span className="text-emerald-600 font-black text-lg">(Iluminar)</span></h3>
-              <p className="text-sm font-bold text-on-surface-variant uppercase tracking-wider mb-4">Onde tudo começa.</p>
+              <p className="text-sm font-bold text-on-surface-variant uppercase tracking-wider mb-4">Ganhar pessoas.</p>
               <p className="text-on-surface-variant mb-6 leading-relaxed flex-1">
-                Ambiente de evangelização, acolhimento e primeiro contato para um novo começo.
+                Despertar a fé e integrar o novo discípulo na família espiritual. Ambiente de evangelização e acolhimento.
               </p>
               <div className="bg-white p-4 rounded-xl border border-outline-variant/30 mt-auto">
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Cursos</p>
-                <p className="font-semibold text-on-surface">Identidade (Batismo) & Pertencer</p>
+                <p className="font-semibold text-on-surface">Batismo & Pertencer</p>
               </div>
             </div>
 
@@ -109,13 +109,13 @@ export default function TrilhoDiscipuladoPage() {
                 <Armchair className="w-7 h-7" />
               </div>
               <h3 className="text-2xl font-bold font-display text-on-surface mb-2">A Sala <br/><span className="text-blue-600 font-black text-lg">(Buscar)</span></h3>
-              <p className="text-sm font-bold text-on-surface-variant uppercase tracking-wider mb-4">Criando raízes.</p>
+              <p className="text-sm font-bold text-on-surface-variant uppercase tracking-wider mb-4">Comunhão e Capacitação.</p>
               <p className="text-on-surface-variant mb-6 leading-relaxed flex-1">
-                Onde vivemos em família. Foco em comunhão profunda, consolidação e ativação no voluntariado.
+                Aprofundar o relacionamento com Deus e com a comunidade. Criando raízes e vivendo em família.
               </p>
               <div className="bg-white p-4 rounded-xl border border-outline-variant/30 mt-auto">
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Cursos</p>
-                <p className="font-semibold text-on-surface">Crescer</p>
+                <p className="font-semibold text-on-surface">Crescer, Cuidar & Discipular</p>
               </div>
             </div>
 
@@ -125,13 +125,13 @@ export default function TrilhoDiscipuladoPage() {
                 <UtensilsCrossed className="w-7 h-7" />
               </div>
               <h3 className="text-2xl font-bold font-display text-on-surface mb-2">A Cozinha <br/><span className="text-amber-600 font-black text-lg">(Mudar)</span></h3>
-              <p className="text-sm font-bold text-on-surface-variant uppercase tracking-wider mb-4">A mão na massa.</p>
+              <p className="text-sm font-bold text-on-surface-variant uppercase tracking-wider mb-4">Enviar e Servir.</p>
               <p className="text-on-surface-variant mb-6 leading-relaxed flex-1">
-                Foco em liderança, discipulado prático e multiplicação de vidas para transformar a cidade.
+                Impactar a sociedade e multiplicar o Reino através do envio. A mão na massa para transformar a cidade.
               </p>
               <div className="bg-white p-4 rounded-xl border border-outline-variant/30 mt-auto">
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Cursos</p>
-                <p className="font-semibold text-on-surface text-sm">Cuidar, Discipular, Apoiar e Enviar</p>
+                <p className="font-semibold text-on-surface text-sm">Apoiar & Enviar</p>
               </div>
             </div>
           </div>
@@ -141,21 +141,30 @@ export default function TrilhoDiscipuladoPage() {
       {/* 3. O TRILHO DO DISCIPULADO EM DETALHES */}
       <section className="py-24 relative overflow-hidden bg-surface">
         <div className="max-w-5xl mx-auto px-6">
-          <div className="text-center mb-20 reveal-on-scroll" style={{ opacity: 0, transform: 'translateY(25px)', transition: 'all 0.8s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+          <div className="text-center mb-10 reveal-on-scroll" style={{ opacity: 0, transform: 'translateY(25px)', transition: 'all 0.8s cubic-bezier(0.16, 1, 0.3, 1)' }}>
             <span className="text-primary font-bold tracking-widest text-xs uppercase mb-3 block">Detalhes da Academia Lumine</span>
             <h2 className="text-3xl md:text-5xl font-display font-black tracking-tight text-on-surface mb-4">O Trilho do Discipulado</h2>
-            <p className="text-on-surface-variant font-body text-lg">Seis etapas claras para o seu desenvolvimento contínuo.</p>
+            <p className="text-on-surface-variant font-body text-lg">A jornada estruturada para formar discípulos de Jesus.</p>
+          </div>
+          
+          <div className="bg-primary/10 border border-primary/20 p-6 rounded-3xl max-w-3xl mx-auto mb-20 text-center reveal-on-scroll apple-shadow" style={{ opacity: 0, transform: 'translateY(25px)', transition: 'all 0.8s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+            <h4 className="text-xl font-bold text-primary font-display mb-2">O Passaporte do Discipulado</h4>
+            <p className="text-on-surface-variant text-sm md:text-base leading-relaxed">
+              Ao iniciar sua jornada, cada participante recebe o <strong>Passaporte Trilho do Discipulado</strong>, que deverá acompanhá-lo durante todo o percurso. Cada aula ou curso terá um selo correspondente para ser colado no passaporte, registrando o avanço em cada etapa.<br/><br/>
+              <span className="font-bold text-primary">Mais que cursos, uma caminhada real com Deus.</span>
+            </p>
           </div>
 
           <div className="space-y-6 relative before:absolute before:inset-0 before:ml-[2.25rem] md:before:ml-[50%] before:-translate-x-px md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-outline-variant/30 before:to-transparent">
             
             {[
-              { id: 1, icon: Handshake, title: "PERTENCER", obj: "Integração oficial, batismo e alinhamento com a visão da igreja.", para: "Visitantes frequentes e novos decididos.", req: "Conclusão do curso, batismo nas águas e estar ativamente inserido em um GC." },
-              { id: 2, icon: BookOpen, title: "CRESCER", obj: "Aprofundar a maturidade espiritual, desenvolver a vida devocional e aprender a cultura da casa.", para: "Membros oficiais da igreja.", req: "Conclusão do curso, 7 encontros mensais de consolidação e ativação no voluntariado." },
-              { id: 3, icon: Heart, title: "CUIDAR", obj: "Preparação prática para cuidar de pessoas, pastorear e acompanhar vidas no GC.", para: "Líderes em Treinamento (LTs).", req: "Conclusão do curso e estágio prático com a indicação do líder do grupo." },
-              { id: 4, icon: Users, title: "DISCIPULAR", obj: "Assumir a liderança de um Grupo de Crescimento para formar novos discípulos.", para: "Futuros Líderes de GC.", req: "Conclusão do curso e avaliação baseada no perfil F.D.E. (Fiel, Disponível e Ensinável)." },
-              { id: 5, icon: Shield, title: "APOIAR", obj: "Passar a cuidar de líderes, acompanhar células e contribuir para o crescimento saudável da igreja.", para: "Líderes Experientes e Supervisores.", req: "Conclusão do curso e fruto prático comprovado multiplicando um novo Líder de GC." },
-              { id: 6, icon: Rocket, title: "ENVIAR", obj: "Expandir a visão da igreja, fortalecer redes e levantar novas lideranças na cidade.", para: "Coordenadores e Pastores de Rede.", req: "Conclusão do curso e indicação com alinhamento direto do Conselho Pastoral." },
+              { id: 1, icon: Heart, title: "BATISMO", obj: "Declaração pública de fé e início da jornada com Cristo." },
+              { id: 2, icon: Handshake, title: "PERTENCER", obj: "Integração oficial, alinhamento com a visão e valores da igreja." },
+              { id: 3, icon: BookOpen, title: "CRESCER", obj: "Maturidade espiritual através do estudo da Palavra e devocionais." },
+              { id: 4, icon: Heart, title: "CUIDAR", obj: "Pastoreio mútuo e amor prático nas relações cotidianas e nos GCs." },
+              { id: 5, icon: Users, title: "DISCIPULAR", obj: "Caminhar com outros, transmitindo ensinamentos e gerando líderes." },
+              { id: 6, icon: Shield, title: "APOIAR", obj: "Capacitar Líderes de Área para pastorear e supervisionar líderes de GC." },
+              { id: 7, icon: Rocket, title: "ENVIAR", obj: "Preparar Líderes de Rede para multiplicação de células e expansão." },
             ].map((step, idx) => (
               <div key={step.id} className={`relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group reveal-on-scroll`} style={{ opacity: 0, transform: 'translateY(25px)', transition: 'all 0.8s cubic-bezier(0.16, 1, 0.3, 1)' }}>
                 {/* Ícone central */}
@@ -168,16 +177,12 @@ export default function TrilhoDiscipuladoPage() {
                   {/* Flechinha indicadora para desktop */}
                   <div className={`hidden md:block absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white border-outline-variant/20 rotate-45 ${idx % 2 === 0 ? 'border-l border-b -left-2' : 'border-t border-r -right-2'}`} />
                   
-                  <div className="flex items-center gap-3 mb-5 border-b border-outline-variant/10 pb-4">
+                  <div className="flex items-center gap-3 mb-2">
                     <span className="text-3xl font-black text-primary/20 font-display">{step.id}.</span>
                     <h3 className="text-xl md:text-2xl font-black font-display text-on-surface">{step.title}</h3>
                   </div>
                   <div className="space-y-4">
-                    <p className="text-sm md:text-base text-on-surface-variant leading-relaxed"><strong className="text-on-surface block mb-1">Objetivo:</strong> {step.obj}</p>
-                    <p className="text-sm md:text-base text-on-surface-variant leading-relaxed"><strong className="text-on-surface block mb-1">Para quem é:</strong> {step.para}</p>
-                    <div className="bg-surface-container p-4 rounded-xl mt-4">
-                      <p className="text-sm text-on-surface-variant"><strong className="text-on-surface block mb-1 text-xs uppercase tracking-wider text-slate-500">Requisitos:</strong> {step.req}</p>
-                    </div>
+                    <p className="text-sm md:text-base text-on-surface-variant leading-relaxed">{step.obj}</p>
                   </div>
                 </div>
               </div>
