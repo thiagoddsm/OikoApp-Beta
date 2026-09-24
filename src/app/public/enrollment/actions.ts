@@ -374,8 +374,8 @@ export async function getPublicGCs() {
                 leaderName = `${leaderName.split(' ')[0]} & ${lider2.name.split(' ')[0]}`;
             }
             
-            // Definir foto padrão caso não tenha
-            let image = lider1?.photoURL || lider2?.photoURL || 'https://images.unsplash.com/photo-1522529599102-193c0d76b5b6?w=500&auto=format&fit=crop&q=80';
+            // Definir foto padrão caso não tenha (prioriza a imagem da própria célula, depois a foto do líder)
+            let image = cell.imageUrl || cell.coverImage || lider1?.photoURL || lider2?.photoURL || 'https://images.unsplash.com/photo-1522529599102-193c0d76b5b6?w=500&auto=format&fit=crop&q=80';
             
             // Usar o público-alvo exato e as tags que vêm do banco
             const targetAudience = cell.targetAudience || 'Geral';
@@ -399,7 +399,8 @@ export async function getPublicGCs() {
 
             return {
                 id: cell.id,
-                name: leaderName,
+                name: cell.nome || leaderName,
+                leaders: leaderName,
                 targetAudience,
                 tags,
                 day: cell.meetingDay || 'Sábado',

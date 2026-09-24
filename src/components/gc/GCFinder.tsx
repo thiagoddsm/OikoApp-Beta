@@ -167,7 +167,8 @@ export function GCFinder() {
                 </div>
                 
                 <div className="p-6 flex flex-col flex-1">
-                  <h3 className="text-2xl font-black text-on-surface font-display tracking-tight mb-4">{squad.name}</h3>
+                  <h3 className="text-2xl font-black text-on-surface font-display tracking-tight leading-none mb-1">{squad.name}</h3>
+                  <p className="text-sm font-semibold text-primary/80 mb-5">{squad.leaders}</p>
                   
                   <div className="space-y-3 mb-6">
                     <div className="flex items-center gap-3 text-on-surface-variant text-sm font-body font-medium">
@@ -224,7 +225,8 @@ export function GCFinder() {
                   <div className="flex gap-4 items-center mb-6">
                     <img src={selectedSquad.image} alt={selectedSquad.name} className="w-16 h-16 rounded-full object-cover shadow-sm border border-outline-variant/20" />
                     <div>
-                      <h3 className="font-bold text-lg text-on-surface font-display">{selectedSquad.name}</h3>
+                      <h3 className="font-bold text-lg text-on-surface font-display leading-none mb-1">{selectedSquad.name}</h3>
+                      <p className="text-xs font-semibold text-primary/80 mb-2">{selectedSquad.leaders}</p>
                       <p className="text-sm text-on-surface-variant font-body">{selectedSquad.day}s às {selectedSquad.time} · {selectedSquad.neighborhood}</p>
                     </div>
                   </div>
@@ -241,7 +243,8 @@ export function GCFinder() {
                     if (selectedSquad?.whatsapp) {
                       const phone = selectedSquad.whatsapp.replace(/\D/g, '');
                       if (phone) {
-                        const url = `https://wa.me/55${phone}?text=${encodeURIComponent(`Olá ${selectedSquad.name}! Encontrei o seu GC no site da igreja e gostaria de fazer uma visita!`)}`;
+                        const firstName = selectedSquad.leaders.split(' ')[0] || 'Líder';
+                        const url = `https://wa.me/55${phone}?text=${encodeURIComponent(`Olá ${firstName}! Encontrei o GC ${selectedSquad.name} no site da igreja e gostaria de fazer uma visita!`)}`;
                         window.open(url, '_blank');
                       }
                     }
