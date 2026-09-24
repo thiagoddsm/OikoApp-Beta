@@ -271,7 +271,12 @@ export async function submitSolicitacao(data: {
       'ATUALIZACAO': { type: 'GERAL', title: 'Atualização Cadastral', initialStage: 'CONCLUIDO' },
     };
 
-    const processInfo = processMapping[data.intentType] || { type: 'GERAL', title: 'Acompanhamento Geral', initialStage: 'EM_ANDAMENTO' };
+    let processInfo = processMapping[data.intentType] || { type: 'GERAL', title: 'Acompanhamento Geral', initialStage: 'EM_ANDAMENTO' };
+
+    // Se a pessoa preencheu como visitante mas escolheu participar de um GC, o processo deve ser do tipo GC
+    if (data.intentType === 'VISITANDO' && data.decisaoProximoPasso === 'Gostaria de participar de um GC') {
+      processInfo = processMapping['GC'];
+    }
 
     const processoData = {
       personId: targetUserId,
