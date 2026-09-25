@@ -104,8 +104,17 @@ export function EventRegistrationsTab({ eventId, eventPrice = 0, isPaid = false,
         const email = normalize(r.userMetadata?.email || '');
         const phone = normalize(r.userMetadata?.phone || '');
         const companion = normalize(r.companionName || '');
+        const ticket = normalize((r as any).ticketName || '');
+        const answers = Object.values((r as any).customAnswers || {})
+           .map(v => normalize(String(v)))
+           .join(' ');
 
-        return name.includes(search) || email.includes(search) || phone.includes(search) || companion.includes(search);
+        return name.includes(search) || 
+               email.includes(search) || 
+               phone.includes(search) || 
+               companion.includes(search) ||
+               ticket.includes(search) ||
+               answers.includes(search);
       })
       .sort((a, b) => {
         const dateA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
@@ -415,7 +424,7 @@ export function EventRegistrationsTab({ eventId, eventPrice = 0, isPaid = false,
               </Button>
               <div className="w-full sm:w-64">
                 <Input
-                  placeholder="Buscar participante..."
+                  placeholder="Buscar nome, ingresso ou resposta..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="bg-slate-50 border-slate-200 focus-visible:ring-primary text-xs"
