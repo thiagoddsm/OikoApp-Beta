@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="h-full bg-slate-50">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OikoApp — Mapeamento Vocacional S.H.A.P.E.</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- FontAwesome 6 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              200: '#c7d2fe',
+              300: '#a5b4fc',
+              400: '#818cf8',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              800: '#3730a3',
+              900: '#312e81',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    
+    /* Animações suaves de transição */
+    .step-content {
+      animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  </style>
+</head>
+
+<body class="min-h-full flex flex-col justify-between text-slate-800 antialiased pb-24">
+
+  <!-- ========================================================================= -->
+  <!-- 1. BARRA SUPERIOR FIXA / PROGRESSO GLOBAL (Passos 1 a 5)                 -->
+  <!-- ========================================================================= -->
+  <header id="global-header" class="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs transition-all">
+    <div class="max-w-2xl mx-auto px-4 py-3">
+      <div class="flex items-center justify-between gap-4">
+        <!-- Logo & Identidade -->
+        <div class="flex items-center gap-2">
+          <div class="size-8 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-500 text-white flex items-center justify-center font-black text-sm shadow-sm shadow-brand-500/20">
+            O
+          </div>
+          <div>
+            <h1 class="text-xs font-black tracking-tight text-slate-900 leading-tight">OikoApp</h1>
+            <p class="text-[10px] font-bold text-brand-600 uppercase tracking-wider">Teste S.H.A.P.E.</p>
+          </div>
+        </div>
+
+        <!-- Indicador de Passo Atual -->
+        <div class="text-right">
+          <span id="step-indicator-text" class="text-xs font-extrabold text-slate-700">Passo 1 de 5</span>
+          <p id="step-name-text" class="text-[10px] font-medium text-slate-400">Início &amp; Dados</p>
+        </div>
+      </div>
+
+      <!-- Barra de Progresso Global -->
+      <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden mt-2.5">
+        <div id="global-progress-bar" class="bg-gradient-to-r from-brand-500 to-indigo-600 h-full rounded-full transition-all duration-300" style="width: 20%;"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ========================================================================= -->
+  <!-- 2. CONTAINER PRINCIPAL DO WIZARD                                         -->
+  <!-- ========================================================================= -->
+  <main class="max-w-2xl mx-auto w-full px-4 pt-6 flex-1">
+
+    <!-- ===================================================================== -->
+    <!-- PASSO 1: INÍCIO E IDENTIFICAÇÃO                                       -->
+    <!-- ===================================================================== -->
+    <section id="step-1" class="step-content space-y-6">
+      <!-- Card Hero de Boas-Vindas -->
+      <div class="bg-gradient-to-br from-brand-600 via-indigo-600 to-purple-700 rounded-3xl p-6 sm:p-8 text-white shadow-lg shadow-brand-600/15 relative overflow-hidden">
+        <div class="absolute -right-8 -bottom-8 opacity-10 text-white text-9xl pointer-events-none">
+          <i class="fa-solid fa-puzzle-piece"></i>
+        </div>
+
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md text-[11px] font-extrabold uppercase tracking-wider text-brand-100 mb-4">
+          <i class="fa-solid fa-sparkles text-amber-300"></i>
+          Descubra o seu Design Único
+        </div>
+
+        <h2 class="text-2xl sm:text-3xl font-black tracking-tight leading-tight mb-3">
+          Mapeamento de Dons &amp; Vocação S.H.A.P.E.
+        </h2>
+        
+        <p class="text-xs sm:text-sm text-brand-100/90 leading-relaxed max-w-lg mb-6">
+          Deus te criou com uma combinação única de Dons Espirituais, Paixões do Coração, Habilidades Naturais, Personalidade e Experiências. Preencha com calma e sinceridade.
+        </p>
+
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-4 border-t border-white/15 text-left text-xs font-semibold text-white/90">
+          <div class="flex items-center gap-2">
+            <i class="fa-regular fa-clock text-brand-200"></i>
+            <span>~10 a 15 minutos</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-id-card text-brand-200"></i>
+            <span>Cartão do Servo Final</span>
+          </div>
+          <div class="flex items-center gap-2 col-span-2 sm:col-span-1">
+            <i class="fa-solid fa-shield-check text-brand-200"></i>
+            <span>100% Confidencial</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Formulário de Identificação -->
+      <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm space-y-4">
+        <div class="border-b border-slate-100 pb-3">
+          <h3 class="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+            <i class="fa-solid fa-user-circle text-brand-600"></i>
+            Suas Informações
+          </h3>
+          <p class="text-xs text-slate-500 mt-0.5">Informe seus dados para personalizar o seu Cartão do Servo.</p>
+        </div>
+
+        <div class="space-y-4">
+          <div>
+            <label for="input-name" class="block text-xs font-bold text-slate-700 mb-1">Nome Completo <span class="text-red-500">*</span></label>
+            <div class="relative">
+              <i class="fa-solid fa-user absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+              <input type="text" id="input-name" placeholder="Ex: Lucas Ribeiro da Silva" 
+                class="w-full h-11 pl-9 pr-4 text-xs font-semibold bg-slate-50/50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 transition">
+            </div>
+            <p id="err-name" class="text-[11px] font-bold text-red-500 mt-1 hidden">Por favor, preencha seu nome completo.</p>
+          </div>
+
+          <div>
+            <label for="input-email" class="block text-xs font-bold text-slate-700 mb-1">E-mail Principal <span class="text-red-500">*</span></label>
+            <div class="relative">
+              <i class="fa-solid fa-envelope absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+              <input type="email" id="input-email" placeholder="seuemail@exemplo.com" 
+                class="w-full h-11 pl-9 pr-4 text-xs font-semibold bg-slate-50/50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 transition">
+            </div>
+            <p id="err-email" class="text-[11px] font-bold text-red-500 mt-1 hidden">Informe um e-mail válido para continuar.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- PASSO 2: HABILIDADES & EXPERIÊNCIAS                                    -->
+    <!-- ===================================================================== -->
+    <section id="step-2" class="step-content space-y-6 hidden">
+      <div class="space-y-1">
+        <span class="text-[11px] font-extrabold uppercase tracking-wider text-brand-600">Letras A &amp; E (Abilities &amp; Experiences)</span>
+        <h2 class="text-xl font-black text-slate-900 tracking-tight">Habilidades Naturais &amp; Experiências</h2>
+        <p class="text-xs text-slate-500">Selecione as habilidades que você domina ou tem facilidade, e compartilhe brevemente sua trajetória.</p>
+      </div>
+
+      <!-- Áreas de Habilidades (Renderizadas via JS) -->
+      <div class="space-y-4">
+        <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+          <i class="fa-solid fa-toolbox text-brand-600"></i>
+          Habilidades e Competências
+        </h3>
+        <div id="abilities-container" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5"></div>
+      </div>
+
+      <!-- Experiências de Vida & Trabalho (Textareas) -->
+      <div class="space-y-4 pt-4 border-t border-slate-200/80">
+        <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+          <i class="fa-solid fa-book-bookmark text-indigo-600"></i>
+          Experiências de Vida
+        </h3>
+        <div id="experiences-container" class="space-y-4"></div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- PASSO 3: O CORAÇÃO (SONHO MINISTERIAL)                                 -->
+    <!-- ===================================================================== -->
+    <section id="step-3" class="step-content space-y-6 hidden">
+      <div class="space-y-1">
+        <span class="text-[11px] font-extrabold uppercase tracking-wider text-rose-600">Letra H (Heart / Paixões)</span>
+        <h2 class="text-xl font-black text-slate-900 tracking-tight">O que Acelera o seu Coração?</h2>
+        <p class="text-xs text-slate-500">Deus coloca paixões e causas específicas no coração de cada filho. Compartilhe onde você sente mais alegria em servir.</p>
+      </div>
+
+      <div id="heart-container" class="space-y-4"></div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- PASSO 4: PERSONALIDADE (2 EIXOS)                                      -->
+    <!-- ===================================================================== -->
+    <section id="step-4" class="step-content space-y-6 hidden">
+      <div class="space-y-1">
+        <span class="text-[11px] font-extrabold uppercase tracking-wider text-amber-600">Letra P (Personality / Comportamento)</span>
+        <h2 class="text-xl font-black text-slate-900 tracking-tight">Seu Estilo de Personalidade</h2>
+        <p class="text-xs text-slate-500">Avalie onde você se posiciona na escala de 1 a 5 entre os dois extremos de cada pergunta.</p>
+      </div>
+
+      <!-- Eixo 1: Organização -->
+      <div class="space-y-3">
+        <div class="flex items-center gap-2 pb-1 border-b border-slate-200">
+          <span class="size-6 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center font-black text-xs">1</span>
+          <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-700">Eixo Organização (Espontâneo vs. Metódico)</h3>
+        </div>
+        <div id="personality-org-container" class="space-y-4"></div>
+      </div>
+
+      <!-- Eixo 2: Motivação -->
+      <div class="space-y-3 pt-4">
+        <div class="flex items-center gap-2 pb-1 border-b border-slate-200">
+          <span class="size-6 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center font-black text-xs">2</span>
+          <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-700">Eixo Motivação (Tarefas vs. Pessoas)</h3>
+        </div>
+        <div id="personality-mot-container" class="space-y-4"></div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- PASSO 5: DONS ESPIRITUAIS (QUESTIONÁRIO)                              -->
+    <!-- ===================================================================== -->
+    <section id="step-5" class="step-content space-y-6 hidden">
+      
+      <!-- STICKY SUB-HEADER: Barra de Progresso Local de Perguntas -->
+      <div class="sticky top-[69px] z-30 -mx-4 px-4 py-3 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <div class="size-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-xs">
+            <i class="fa-solid fa-list-check"></i>
+          </div>
+          <div>
+            <span id="gift-progress-count" class="text-xs font-black text-slate-900">Respondidas: 0 de 4</span>
+            <p class="text-[10px] text-slate-400 font-medium">Seja transparente em cada resposta</p>
+          </div>
+        </div>
+        
+        <div class="w-28 sm:w-40 bg-slate-100 h-2 rounded-full overflow-hidden">
+          <div id="gift-progress-bar" class="bg-emerald-500 h-full rounded-full transition-all duration-200" style="width: 0%;"></div>
+        </div>
+      </div>
+
+      <div class="space-y-1 pt-2">
+        <span class="text-[11px] font-extrabold uppercase tracking-wider text-emerald-600">Letra S (Spiritual Gifts / Dons)</span>
+        <h2 class="text-xl font-black text-slate-900 tracking-tight">Questionário de Dons Espirituais</h2>
+        <p class="text-xs text-slate-500 leading-relaxed">
+          Para cada afirmação, escolha a frequência que mais se aplica à sua vida prática:
+        </p>
+      </div>
+
+      <!-- Legenda Visual da Escala 0 a 3 -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-3 bg-slate-100/70 rounded-xl text-center text-[10px] font-bold text-slate-600">
+        <div class="bg-white py-1 rounded-md border border-slate-200/60 shadow-2xs">0 = Nunca</div>
+        <div class="bg-white py-1 rounded-md border border-slate-200/60 shadow-2xs">1 = Às vezes</div>
+        <div class="bg-white py-1 rounded-md border border-slate-200/60 shadow-2xs">2 = Maioria das vezes</div>
+        <div class="bg-white py-1 rounded-md border border-slate-200/60 shadow-2xs">3 = Sempre</div>
+      </div>
+
+      <!-- Container das Questões dos Dons -->
+      <div id="gift-questions-container" class="space-y-3"></div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- PASSO 6: O RESULTADO FINAL (CARTÃO DO SERVO)                          -->
+    <!-- ===================================================================== -->
+    <section id="step-6" class="step-content space-y-6 hidden">
+      
+      <!-- Banner de Conclusão -->
+      <div class="text-center space-y-2">
+        <div class="size-14 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-2xl mx-auto shadow-sm">
+          <i class="fa-solid fa-award"></i>
+        </div>
+        <h2 class="text-2xl font-black text-slate-900 tracking-tight">Seu Mapeamento S.H.A.P.E. está Pronto!</h2>
+        <p class="text-xs text-slate-500 max-w-md mx-auto">
+          Abaixo está o seu <strong>Cartão do Servo</strong> personalizado. Salve uma imagem ou print para compartilhar com o seu líder de GC ou pastor de ministério.
+        </p>
+      </div>
+
+      <!-- =================================================================== -->
+      <!-- ID CARD / CARTÃO DO SERVO (VISUAL PREMIUM)                          -->
+      <!-- =================================================================== -->
+      <div id="servant-card" class="bg-white rounded-3xl border-2 border-slate-200 shadow-xl overflow-hidden relative">
+        
+        <!-- Header Decorativo do Cartão -->
+        <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-brand-900 p-6 text-white relative">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="size-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-xl font-black text-white">
+                <span id="card-avatar-initials">JS</span>
+              </div>
+              <div>
+                <span class="inline-block px-2 py-0.5 rounded-full bg-brand-500/30 border border-brand-400/40 text-[9px] font-black uppercase tracking-widest text-brand-200 mb-0.5">
+                  Cartão do Servo &bull; S.H.A.P.E.
+                </span>
+                <h3 id="card-user-name" class="text-lg font-black tracking-tight text-white leading-tight">Nome do Membro</h3>
+                <p id="card-user-email" class="text-[11px] text-slate-300 font-mono">email@exemplo.com</p>
+              </div>
+            </div>
+            
+            <div class="text-right hidden sm:block">
+              <div class="size-8 rounded-xl bg-white/10 flex items-center justify-center text-sm text-brand-300">
+                <i class="fa-solid fa-fingerprint"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Corpo do Cartão -->
+        <div class="p-6 space-y-6">
+          
+          <!-- 1. Quadrante de Personalidade -->
+          <div class="space-y-2">
+            <h4 class="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+              <i class="fa-solid fa-compass text-indigo-600"></i>
+              Perfil de Personalidade (P)
+            </h4>
+            <div class="bg-gradient-to-br from-indigo-50/70 via-white to-purple-50/50 p-4 rounded-2xl border border-indigo-100 flex items-start gap-3.5">
+              <div id="card-quadrant-icon" class="size-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-lg shrink-0 shadow-sm shadow-indigo-500/20">
+                <i class="fa-solid fa-shapes"></i>
+              </div>
+              <div>
+                <div class="flex items-center gap-2">
+                  <h5 id="card-quadrant-title" class="text-sm font-black text-slate-900">Perfil Executor Metódico</h5>
+                  <span id="card-quadrant-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800">Tarefas / Formal</span>
+                </div>
+                <p id="card-quadrant-desc" class="text-xs text-slate-600 mt-1 leading-relaxed">
+                  Pessoa estruturada e analítica, orientada para metas claras, processos organizados e excelência na execução.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. Top 3 Dons Espirituais Dominantes -->
+          <div class="space-y-2">
+            <h4 class="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+              <i class="fa-solid fa-fire text-amber-500"></i>
+              Top 3 Dons Espirituais Dominantes (S)
+            </h4>
+            <div id="card-top-gifts-container" class="space-y-2.5">
+              <!-- Renderizado via JS -->
+            </div>
+          </div>
+
+          <!-- 3. Habilidades Naturais Mapeadas -->
+          <div class="space-y-2">
+            <h4 class="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+              <i class="fa-solid fa-toolbox text-brand-600"></i>
+              Habilidades Identificadas (A)
+            </h4>
+            <div id="card-abilities-tags" class="flex flex-wrap gap-1.5">
+              <!-- Tags via JS -->
+            </div>
+          </div>
+
+          <!-- 4. Resumo de Sonho & Experiências (Accordion/Box) -->
+          <div id="card-heart-exp-box" class="pt-3 border-t border-slate-100 space-y-2">
+            <h4 class="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+              <i class="fa-solid fa-heart text-rose-500"></i>
+              Coração &amp; Chamado (H &amp; E)
+            </h4>
+            <div id="card-heart-summary" class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/70 text-xs text-slate-700 italic">
+              "Sonho em servir no ministério com excelência e acolher novas pessoas..."
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Footer do Cartão com Data e Assinatura Digital -->
+        <div class="bg-slate-50/80 px-6 py-3 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400 font-semibold">
+          <span>OikoApp &bull; Módulo de Ensino &amp; Vocação</span>
+          <span id="card-date">Emitido em 25/09/2026</span>
+        </div>
+      </div>
+
+      <!-- Botões de Ação do Resultado -->
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+        <button onclick="window.print()" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-extrabold shadow-sm transition">
+          <i class="fa-solid fa-print"></i>
+          Imprimir / Salvar PDF
+        </button>
+        <button onclick="location.reload()" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-extrabold border border-slate-200 shadow-sm transition">
+          <i class="fa-solid fa-rotate-right"></i>
+          Refazer Teste
+        </button>
+      </div>
+
+      <!-- Dica de Compartilhamento -->
+      <div class="p-3.5 bg-amber-50 rounded-2xl border border-amber-200 text-center">
+        <p class="text-xs font-bold text-amber-900">
+          💡 <span class="font-black">Dica de Ouro:</span> Tire um print desta tela ou salve o PDF para apresentar no seu próximo encontro de alinhamento com o seu líder!
+        </p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- 3. BARRA INFERIOR FIXA DE NAVEGAÇÃO (Passos 1 a 5)                       -->
+  <!-- ========================================================================= -->
+  <footer id="global-footer" class="fixed bottom-0 left-0 right-0 z-40 bg-white/90 backdrop-blur-md border-t border-slate-200/80 p-3 sm:p-4 shadow-lg">
+    <div class="max-w-2xl mx-auto flex items-center justify-between gap-3">
+      
+      <!-- Botão Voltar -->
+      <button id="btn-prev" onclick="handlePrevStep()" 
+        class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-extrabold text-slate-700 transition opacity-0 pointer-events-none">
+        <i class="fa-solid fa-arrow-left"></i>
+        <span>Voltar</span>
+      </button>
+
+      <!-- Botão Avançar / Concluir -->
+      <button id="btn-next" onclick="handleNextStep()" 
+        class="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-extrabold shadow-md shadow-brand-600/20 transition">
+        <span id="btn-next-text">Começar Teste</span>
+        <i id="btn-next-icon" class="fa-solid fa-arrow-right"></i>
+      </button>
+
+    </div>
+  </footer>
+
+  <!-- ========================================================================= -->
+  <!-- 4. MOTOR JAVASCRIPT & ESTRUTURA DE DADOS                                 -->
+  <!-- ========================================================================= -->
+  <script>
+    /**
+     * DADOS BASE DO TESTE S.H.A.P.E.
+     */
+    const SHAPE_DATA = {
+      // 19 Dons Espirituais
+      gifts: {
+        "A": { name: "Administração", desc: "Habilidade de planejar, delegar e coordenar recursos e pessoas para cumprir propósitos divinos com excelência." },
+        "B": { name: "Apostolado / Pioneirismo", desc: "Visão pioneira para desbravar novas frentes, plantar novos projetos e inspirar movimentos." },
+        "C": { name: "Comunicação / Ensino", desc: "Facilidade em transmitir a Palavra de Deus de forma clara, didática e transformadora." },
+        "D": { name: "Contribuição / Generosidade", desc: "Alegria especial em consagrar recursos financeiros e materiais para o Reino." },
+        "E": { name: "Discernimento Espiritual", desc: "Percepção aguçada entre a verdade de Deus, intenções humanas e armadilhas espirituais." },
+        "F": { name: "Encorajamento / Exortação", desc: "Capacidade de consolar, motivar e desafiar irmãos a perseverarem na fé e no propósito." },
+        "G": { name: "Evangelismo", desc: "Paixão ardente em compartilhar as Boas Novas com quem ainda não conhece a Cristo." },
+        "H": { name: "Fé Audaciosa", desc: "Confiança inabalável no poder de Deus para agir em situações aparentemente impossíveis." },
+        "I": { name: "Hospitalidade", desc: "Alegria em abrir o lar e o coração para acolher e fazer os outros se sentirem em casa." },
+        "J": { name: "Intercessão / Oração", desc: "Chamado para orar com perseverança e autoridade pelas causas da igreja e do próximo." },
+        "K": { name: "Liderança", desc: "Capacidade de mobilizar pessoas em torno de uma visão divina e inspirá-las à ação." },
+        "L": { name: "Misericórdia / Compaixão", desc: "Profunda sensibilidade para estender a mão aos que sofrem física ou emocionalmente." },
+        "M": { name: "Música / Louvor", desc: "Unção para conduzir a igreja à presença de Deus por meio da música e adoração." },
+        "N": { name: "Pastoreio / Discipulado", desc: "Cuidado amoroso e constante pelo crescimento e proteção da vida espiritual dos irmãos." },
+        "O": { name: "Profecia / Mensagem Oportuna", desc: "Comunicação corajosa de mensagens de Deus para edificação, consolo e exortação." },
+        "P": { name: "Serviço Prático / Socorro", desc: "Prontidão para realizar tarefas práticas nos bastidores para que a obra avance." },
+        "Q": { name: "Sabedoria Prática", desc: "Capacidade dada pelo Espírito de aplicar os princípios bíblicos a decisões complexas." },
+        "R": { name: "Artesanato / Arte Manual", desc: "Habilidade técnica e artística com as mãos para embelezar e estruturar o culto e espaços." },
+        "S": { name: "Aconselhamento Bíblico", desc: "Graça para ouvir em profundidade e guiar pessoas em cura emocional e espiritual." }
+      },
+
+      // Questões dos Dons (Mock funcional representativo)
+      giftQuestions: [
+        { id: 1, domId: "A", text: "Gosto de criar cronogramas, fluxos e organizar detalhes para que eventos ou ministérios funcionem sem falhas." },
+        { id: 2, domId: "A", text: "Tenho facilidade natural para planejar projetos por etapas e gerenciar recursos com eficácia." },
+        { id: 3, domId: "B", text: "Sinto um impulso irresistível para iniciar projetos e ministérios do zero onde ninguém fez antes." },
+        { id: 4, domId: "B", text: "Adapto-me rapidamente a novas culturas, ambientes e públicos para plantar o Reino de Deus." },
+        { id: 5, domId: "C", text: "Tenho prazer em estudar a Bíblia e explicar verdades profundas de forma simples para os outros." },
+        { id: 6, domId: "F", text: "Pessoas costumam me procurar quando estão desanimadas porque saem revigoradas após conversarem comigo." },
+        { id: 7, domId: "G", text: "Sinto muita facilidade em puxar assunto sobre Jesus com pessoas que acabei de conhecer." },
+        { id: 8, domId: "L", text: "Fico comovido ao ver pessoas passando por necessidades e sinto uma urgência em ajudá-las concretamente." }
+      ],
+
+      // Eixos de Personalidade
+      personality: {
+        organization: [
+          { id: "org_1", leftText: "100% Espontâneo / Fluido", rightText: "100% Planejado / Metódico", text: "Como você prefere lidar com sua rotina de trabalho ou serviço?" },
+          { id: "org_2", leftText: "Gosta de Improvisar", rightText: "Segue Manuais e Roteiros", text: "Diante de um novo desafio ministerial, qual é a sua postura?" }
+        ],
+        motivation: [
+          { id: "mot_1", leftText: "Foco Total em Resultados e Tarefas", rightText: "Foco Total nas Pessoas e Relacionamentos", text: "O que te gera maior satisfação ao concluir um projeto?" },
+          { id: "mot_2", leftText: "Energizado por Objetivos Concluídos", rightText: "Energizado por Conversas e Comunhão", text: "Ao servir em equipe, onde sua atenção se concentra primeiro?" }
+        ]
+      },
+
+      // Habilidades Naturais (7 Áreas)
+      abilityAreas: [
+        { id: "comunicacao", title: "Comunicação & Mídia", items: ["Design Gráfico", "Edição de Vídeo", "Fotografia", "Oratória / Fala em Público", "Redação / Textos", "Mídias Sociais"] },
+        { id: "tecnica", title: "Tecnologia & Operação", items: ["Áudio e Som", "Transmissão ao Vivo", "Iluminação de Palco", "Programação / TI", "Operação de Telão"] },
+        { id: "gestao", title: "Gestão & Estratégia", items: ["Gestão de Projetos", "Finanças / Contabilidade", "Logística e Eventos", "Recursos Humanos / Gestão de Pessoas"] },
+        { id: "cuidado", title: "Cuidado & Acolhimento", items: ["Aconselhamento", "Visitação Hospitalar", "Recepção / Boas-Vindas", "Cuidado de Crianças", "Cozinha / Alimentação"] },
+        { id: "artes", title: "Artes & Criatividade", items: ["Canto / Vocal", "Instrumento Musical", "Teatro / Expressão", "Decoração e Cenografia", "Artesanato"] },
+        { id: "ensino", title: "Educação & Treinamento", items: ["Ensino Bíblico", "Didática Infantil", "Mentoria de Jovens", "Treinamento de Líderes"] },
+        { id: "social", title: "Ação Social & Apoio", items: ["Distribuição de Alimentos", "Apoio a Famílias Carentes", "Capacitação Profissional", "Reabilitação"] }
+      ],
+
+      // Coração (5 Questões Abertas)
+      heartQuestions: [
+        { id: "heart_1", label: "1. Quais causas, faixas etárias ou grupos mais tocam seu coração?", placeholder: "Ex: Crianças, casais em crise, jovens sem direção, idosos..." },
+        { id: "heart_2", label: "2. Se você pudesse resolver um problema na igreja ou comunidade hoje, qual seria?", placeholder: "Ex: Falta de acolhimento aos novos, famílias sem suporte..." },
+        { id: "heart_3", label: "3. Que tipo de atividade você faria com alegria mesmo sem receber nada?", placeholder: "Descreva o que te dá energia..." },
+        { id: "heart_4", label: "4. Qual é o seu maior sonho ministerial para os próximos 3 anos?", placeholder: "Onde você se vê servindo..." },
+        { id: "heart_5", label: "5. Quais temas bíblicos você tem mais prazer em estudar e conversar?", placeholder: "Ex: Oração, graça, liderança, missões..." }
+      ],
+
+      // Experiências (4 Campos)
+      experienceQuestions: [
+        { id: "exp_1", label: "1. Experiências Profissionais ou Formação", placeholder: "Sua profissão atual, formações ou áreas de atuação..." },
+        { id: "exp_2", label: "2. Experiências Ministeriais Anteriores", placeholder: "Ministérios onde você já serviu no passado..." },
+        { id: "exp_3", label: "3. Experiências de Dores ou Provações Superadas", placeholder: "Desertos ou desafios que Deus usou para forjar seu caráter..." },
+        { id: "exp_4", label: "4. Experiências Espirituais Marcantes", placeholder: "Momentos decisivos de encontro com Deus..." }
+      ]
+    };
+
+    /**
+     * ESTADO GLOBAL DA APLICAÇÃO
+     */
+    const AppState = {
+      currentStep: 1,
+      totalSteps: 6,
+      userData: {
+        name: "",
+        email: ""
+      },
+      selectedAbilities: new Set(),
+      experiences: {},
+      heart: {},
+      personality: {},
+      giftAnswers: {}
+    };
+
+    /**
+     * INICIALIZAÇÃO DA INTERFACE
+     */
+    document.addEventListener("DOMContentLoaded", () => {
+      renderAbilities();
+      renderExperiences();
+      renderHeart();
+      renderPersonality();
+      renderGiftQuestions();
+      updateWizardUI();
+    });
+
+    /**
+     * RENDERIZADORES
+     */
+    function renderAbilities() {
+      const container = document.getElementById("abilities-container");
+      container.innerHTML = "";
+
+      SHAPE_DATA.abilityAreas.forEach(area => {
+        const areaCard = document.createElement("div");
+        areaCard.className = "bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs space-y-2.5";
+        
+        areaCard.innerHTML = `
+          <h4 class="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+            <span class="size-2 rounded-full bg-brand-600"></span>
+            ${area.title}
+          </h4>
+          <div class="flex flex-wrap gap-1.5">
+            ${area.items.map(item => `
+              <button type="button" onclick="toggleAbility('${item}', this)" 
+                class="ability-pill text-xs font-semibold px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 hover:border-brand-300 hover:bg-brand-50/50 transition flex items-center gap-1.5 cursor-pointer">
+                <i class="fa-solid fa-plus text-[10px] text-slate-400"></i>
+                <span>${item}</span>
+              </button>
+            `).join("")}
+          </div>
+        `;
+        container.appendChild(areaCard);
+      });
+    }
+
+    function toggleAbility(item, el) {
+      if (AppState.selectedAbilities.has(item)) {
+        AppState.selectedAbilities.delete(item);
+        el.classList.remove("bg-brand-600", "text-white", "border-brand-600");
+        el.classList.add("bg-slate-50", "text-slate-700", "border-slate-200");
+        el.querySelector("i").className = "fa-solid fa-plus text-[10px] text-slate-400";
+      } else {
+        AppState.selectedAbilities.add(item);
+        el.classList.remove("bg-slate-50", "text-slate-700", "border-slate-200");
+        el.classList.add("bg-brand-600", "text-white", "border-brand-600");
+        el.querySelector("i").className = "fa-solid fa-check text-[10px] text-white";
+      }
+    }
+
+    function renderExperiences() {
+      const container = document.getElementById("experiences-container");
+      container.innerHTML = "";
+
+      SHAPE_DATA.experienceQuestions.forEach(q => {
+        const field = document.createElement("div");
+        field.className = "bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs space-y-1.5";
+        field.innerHTML = `
+          <label class="block text-xs font-extrabold text-slate-800">${q.label}</label>
+          <textarea rows="2" placeholder="${q.placeholder}" 
+            oninput="AppState.experiences['${q.id}'] = this.value"
+            class="w-full text-xs font-medium bg-slate-50/50 border border-slate-200 rounded-xl p-3 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 transition resize-none"></textarea>
+        `;
+        container.appendChild(field);
+      });
+    }
+
+    function renderHeart() {
+      const container = document.getElementById("heart-container");
+      container.innerHTML = "";
+
+      SHAPE_DATA.heartQuestions.forEach(q => {
+        const field = document.createElement("div");
+        field.className = "bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs space-y-1.5";
+        field.innerHTML = `
+          <label class="block text-xs font-extrabold text-slate-800">${q.label}</label>
+          <textarea rows="2" placeholder="${q.placeholder}" 
+            oninput="AppState.heart['${q.id}'] = this.value"
+            class="w-full text-xs font-medium bg-slate-50/50 border border-slate-200 rounded-xl p-3 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 transition resize-none"></textarea>
+        `;
+        container.appendChild(field);
+      });
+    }
+
+    function renderPersonality() {
+      // Eixo 1: Organização
+      const orgContainer = document.getElementById("personality-org-container");
+      orgContainer.innerHTML = "";
+      SHAPE_DATA.personality.organization.forEach(q => {
+        orgContainer.appendChild(createPersonalityCard(q, "org"));
+      });
+
+      // Eixo 2: Motivação
+      const motContainer = document.getElementById("personality-mot-container");
+      motContainer.innerHTML = "";
+      SHAPE_DATA.personality.motivation.forEach(q => {
+        motContainer.appendChild(createPersonalityCard(q, "mot"));
+      });
+    }
+
+    function createPersonalityCard(q, axisKey) {
+      const card = document.createElement("div");
+      card.className = "bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs space-y-3";
+      card.id = `card-p-${q.id}`;
+      card.innerHTML = `
+        <p class="text-xs font-extrabold text-slate-900">${q.text}</p>
+        <div class="space-y-2">
+          <div class="flex items-center justify-between text-[10px] font-bold text-slate-500 px-1">
+            <span class="text-indigo-700 max-w-[40%] text-left">${q.leftText}</span>
+            <span class="text-purple-700 max-w-[40%] text-right">${q.rightText}</span>
+          </div>
+          <div class="flex items-center justify-between gap-1 sm:gap-2 p-1.5 bg-slate-50 rounded-xl border border-slate-100">
+            ${[1, 2, 3, 4, 5].map(val => `
+              <button type="button" onclick="selectPersonality('${q.id}', ${val}, '${axisKey}', this)"
+                class="btn-personality-${q.id} flex-1 h-9 rounded-lg font-black text-xs transition border border-slate-200 bg-white text-slate-700 hover:border-brand-400 cursor-pointer">
+                ${val}
+              </button>
+            `).join("")}
+          </div>
+        </div>
+      `;
+      return card;
+    }
+
+    function selectPersonality(qId, val, axisKey, btn) {
+      AppState.personality[qId] = { val, axis: axisKey };
+      
+      const buttons = document.querySelectorAll(`.btn-personality-${qId}`);
+      buttons.forEach(b => {
+        b.className = `btn-personality-${qId} flex-1 h-9 rounded-lg font-black text-xs transition border border-slate-200 bg-white text-slate-700 hover:border-brand-400 cursor-pointer`;
+      });
+
+      btn.className = `btn-personality-${qId} flex-1 h-9 rounded-lg font-black text-xs transition border border-brand-600 bg-brand-600 text-white shadow-sm cursor-pointer`;
+      
+      const card = document.getElementById(`card-p-${qId}`);
+      if (card) {
+        card.classList.add("border-brand-300", "bg-brand-50/20");
+      }
+    }
+
+    function renderGiftQuestions() {
+      const container = document.getElementById("gift-questions-container");
+      container.innerHTML = "";
+
+      SHAPE_DATA.giftQuestions.forEach((q, idx) => {
+        const card = document.createElement("div");
+        card.id = `gift-card-${q.id}`;
+        card.className = "gift-card bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs space-y-3 transition-all";
+        
+        card.innerHTML = `
+          <div class="flex items-start gap-2.5">
+            <span class="size-6 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center font-extrabold text-[11px] shrink-0">
+              ${idx + 1}
+            </span>
+            <p class="text-xs font-bold text-slate-800 leading-snug">${q.text}</p>
+          </div>
+
+          <div class="grid grid-cols-4 gap-1.5 pt-1">
+            ${[
+              { val: 0, label: "Nunca" },
+              { val: 1, label: "Às vezes" },
+              { val: 2, label: "Maioria" },
+              { val: 3, label: "Sempre" }
+            ].map(opt => `
+              <button type="button" onclick="selectGiftAnswer(${q.id}, '${q.domId}', ${opt.val}, this)"
+                class="btn-gift-${q.id} py-2 px-1 rounded-xl text-xs font-black border border-slate-200 bg-slate-50/80 text-slate-700 hover:bg-brand-50 hover:border-brand-300 transition cursor-pointer flex flex-col items-center gap-0.5">
+                <span class="text-sm">${opt.val}</span>
+                <span class="text-[9px] font-bold text-slate-400">${opt.label}</span>
+              </button>
+            `).join("")}
+          </div>
+        `;
+
+        container.appendChild(card);
+      });
+      updateGiftProgress();
+    }
+
+    function selectGiftAnswer(qId, domId, val, btn) {
+      AppState.giftAnswers[qId] = { val, domId };
+
+      const buttons = document.querySelectorAll(`.btn-gift-${qId}`);
+      buttons.forEach(b => {
+        b.className = `btn-gift-${qId} py-2 px-1 rounded-xl text-xs font-black border border-slate-200 bg-slate-50/80 text-slate-700 hover:bg-brand-50 hover:border-brand-300 transition cursor-pointer flex flex-col items-center gap-0.5`;
+        b.querySelector("span:last-child").className = "text-[9px] font-bold text-slate-400";
+      });
+
+      btn.className = `btn-gift-${qId} py-2 px-1 rounded-xl text-xs font-black border border-emerald-600 bg-emerald-600 text-white shadow-sm transition cursor-pointer flex flex-col items-center gap-0.5`;
+      btn.querySelector("span:last-child").className = "text-[9px] font-bold text-emerald-100";
+
+      const card = document.getElementById(`gift-card-${qId}`);
+      if (card) {
+        card.classList.add("border-emerald-300", "bg-emerald-50/20");
+      }
+
+      updateGiftProgress();
+    }
+
+    function updateGiftProgress() {
+      const answered = Object.keys(AppState.giftAnswers).length;
+      const total = SHAPE_DATA.giftQuestions.length;
+      const pct = Math.round((answered / total) * 100);
+
+      const countEl = document.getElementById("gift-progress-count");
+      const barEl = document.getElementById("gift-progress-bar");
+
+      if (countEl) countEl.innerText = `Respondidas: ${answered} de ${total}`;
+      if (barEl) barEl.style.width = `${pct}%`;
+    }
+
+    /**
+     * NAVEGAÇÃO DO WIZARD
+     */
+    function updateWizardUI() {
+      // 1. Esconde todos os passos e mostra o atual
+      for (let i = 1; i <= AppState.totalSteps; i++) {
+        const sec = document.getElementById(`step-${i}`);
+        if (sec) {
+          if (i === AppState.currentStep) {
+            sec.classList.remove("hidden");
+          } else {
+            sec.classList.add("hidden");
+          }
+        }
+      }
+
+      // 2. Atualiza cabeçalho e footer conforme o passo
+      const header = document.getElementById("global-header");
+      const footer = document.getElementById("global-footer");
+      const stepIndicator = document.getElementById("step-indicator-text");
+      const stepName = document.getElementById("step-name-text");
+      const progressBar = document.getElementById("global-progress-bar");
+      const btnPrev = document.getElementById("btn-prev");
+      const btnNextText = document.getElementById("btn-next-text");
+      const btnNextIcon = document.getElementById("btn-next-icon");
+
+      const stepNames = {
+        1: "Início & Dados",
+        2: "Habilidades & Experiências",
+        3: "O Coração",
+        4: "Personalidade",
+        5: "Dons Espirituais",
+        6: "Resultado S.H.A.P.E."
+      };
+
+      if (AppState.currentStep === 6) {
+        // Passo 6 (Resultado): Oculta header global e footer de navegação
+        if (header) header.classList.add("hidden");
+        if (footer) footer.classList.add("hidden");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
+
+      if (header) header.classList.remove("hidden");
+      if (footer) footer.classList.remove("hidden");
+
+      if (stepIndicator) stepIndicator.innerText = `Passo ${AppState.currentStep} de 5`;
+      if (stepName) stepName.innerText = stepNames[AppState.currentStep] || "";
+      if (progressBar) progressBar.style.width = `${(AppState.currentStep / 5) * 100}%`;
+
+      // Controle do Botão Voltar
+      if (btnPrev) {
+        if (AppState.currentStep > 1) {
+          btnPrev.classList.remove("opacity-0", "pointer-events-none");
+        } else {
+          btnPrev.classList.add("opacity-0", "pointer-events-none");
+        }
+      }
+
+      // Controle do Botão Avançar
+      if (btnNextText && btnNextIcon) {
+        if (AppState.currentStep === 1) {
+          btnNextText.innerText = "Começar Teste";
+          btnNextIcon.className = "fa-solid fa-arrow-right";
+        } else if (AppState.currentStep === 5) {
+          btnNextText.innerText = "Gerar Meu Cartão do Servo";
+          btnNextIcon.className = "fa-solid fa-wand-magic-sparkles";
+        } else {
+          btnNextText.innerText = "Continuar";
+          btnNextIcon.className = "fa-solid fa-arrow-right";
+        }
+      }
+
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function handlePrevStep() {
+      if (AppState.currentStep > 1) {
+        AppState.currentStep--;
+        updateWizardUI();
+      }
+    }
+
+    function handleNextStep() {
+      // Validação do Passo 1: Nome e Email
+      if (AppState.currentStep === 1) {
+        const nameInput = document.getElementById("input-name");
+        const emailInput = document.getElementById("input-email");
+        const errName = document.getElementById("err-name");
+        const errEmail = document.getElementById("err-email");
+
+        const name = (nameInput.value || "").trim();
+        const email = (emailInput.value || "").trim();
+        let isValid = true;
+
+        if (name.length < 3) {
+          errName.classList.remove("hidden");
+          nameInput.classList.add("border-red-500");
+          isValid = false;
+        } else {
+          errName.classList.add("hidden");
+          nameInput.classList.remove("border-red-500");
+        }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+          errEmail.classList.remove("hidden");
+          emailInput.classList.add("border-red-500");
+          isValid = false;
+        } else {
+          errEmail.classList.add("hidden");
+          emailInput.classList.remove("border-red-500");
+        }
+
+        if (!isValid) return;
+
+        AppState.userData.name = name;
+        AppState.userData.email = email;
+      }
+
+      // Validação do Passo 4: Personalidade
+      if (AppState.currentStep === 4) {
+        const totalP = SHAPE_DATA.personality.organization.length + SHAPE_DATA.personality.motivation.length;
+        const answeredP = Object.keys(AppState.personality).length;
+        if (answeredP < totalP) {
+          alert("Por favor, responda todas as perguntas de personalidade para avançar.");
+          return;
+        }
+      }
+
+      // Validação do Passo 5: Dons Espirituais
+      if (AppState.currentStep === 5) {
+        const totalG = SHAPE_DATA.giftQuestions.length;
+        const answeredG = Object.keys(AppState.giftAnswers).length;
+        if (answeredG < totalG) {
+          alert(`Você respondeu ${answeredG} de ${totalG} perguntas de dons. Por favor, responda todas para gerar seu cartão.`);
+          return;
+        }
+
+        // Processa os cálculos e gera o resultado
+        calculateAndRenderResults();
+      }
+
+      AppState.currentStep++;
+      updateWizardUI();
+    }
+
+    /**
+     * MOTOR DE CÁLCULO E RENDERIZAÇÃO DO CARTÃO DO SERVO
+     */
+    function calculateAndRenderResults() {
+      // 1. Cálculo dos Dons Espirituais
+      const giftScores = {};
+      Object.values(AppState.giftAnswers).forEach(ans => {
+        giftScores[ans.domId] = (giftScores[ans.domId] || 0) + ans.val;
+      });
+
+      // Ordena por pontuação decrescente
+      const sortedGifts = Object.entries(giftScores)
+        .map(([id, score]) => ({
+          id,
+          score,
+          name: SHAPE_DATA.gifts[id]?.name || `Dom ${id}`,
+          desc: SHAPE_DATA.gifts[id]?.desc || "Descrição do dom espiritual."
+        }))
+        .sort((a, b) => b.score - a.score);
+
+      // Top 3 Dons
+      const top3Gifts = sortedGifts.slice(0, 3);
+
+      // 2. Cálculo da Personalidade (Média dos Eixos)
+      let orgSum = 0, orgCount = 0;
+      let motSum = 0, motCount = 0;
+
+      Object.values(AppState.personality).forEach(item => {
+        if (item.axis === "org") {
+          orgSum += item.val;
+          orgCount++;
+        } else if (item.axis === "mot") {
+          motSum += item.val;
+          motCount++;
+        }
+      });
+
+      const orgMean = orgCount > 0 ? orgSum / orgCount : 3;
+      const motMean = motCount > 0 ? motSum / motCount : 3;
+
+      const isFormal = orgMean >= 3;
+      const isPeople = motMean >= 3;
+
+      // Matriz de Quadrantes
+      let quadTitle = "";
+      let quadBadge = "";
+      let quadDesc = "";
+      let quadIcon = "fa-solid fa-shapes";
+
+      if (!isPeople && isFormal) {
+        quadTitle = "Perfil Executor Metódico";
+        quadBadge = "Tarefas / Formal";
+        quadDesc = "Pessoa estruturada, analítica e disciplinada. Busca excelência, ordem, cumprimento rigoroso de prazos e processos bem definidos.";
+        quadIcon = "fa-solid fa-compass-drafting";
+      } else if (!isPeople && !isFormal) {
+        quadTitle = "Perfil Resolutivo Dinâmico";
+        quadBadge = "Tarefas / Informal";
+        quadDesc = "Pragmático, rápido e flexível. Focado em resolver problemas práticos na hora, adaptando-se com facilidade a imprevistos.";
+        quadIcon = "fa-solid fa-bolt";
+      } else if (isPeople && isFormal) {
+        quadTitle = "Perfil Cuidado Estável";
+        quadBadge = "Pessoas / Formal";
+        quadDesc = "Acolhedor, leal e confiável. Preza pelo bem-estar das pessoas mantendo a estabilidade, segurança e compromisso institucional.";
+        quadIcon = "fa-solid fa-shield-heart";
+      } else {
+        quadTitle = "Perfil Conector Espontâneo";
+        quadBadge = "Pessoas / Informal";
+        quadDesc = "Extrovertido, relacional e inspirador. Cria laços com facilidade, contagia grupos e traz entusiasmo e criatividade aos ambientes.";
+        quadIcon = "fa-solid fa-comments";
+      }
+
+      // 3. Preenchimento do ID Card
+      document.getElementById("card-user-name").innerText = AppState.userData.name || "Membro Oiko";
+      document.getElementById("card-user-email").innerText = AppState.userData.email || "email@oiko.app";
+
+      // Iniciais no Avatar
+      const names = (AppState.userData.name || "Oiko").split(" ");
+      const initials = names.length > 1 ? `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase() : names[0].slice(0, 2).toUpperCase();
+      document.getElementById("card-avatar-initials").innerText = initials;
+
+      // Data de Emissão
+      const todayStr = new Date().toLocaleDateString("pt-BR");
+      document.getElementById("card-date").innerText = `Emitido em ${todayStr}`;
+
+      // Quadrante
+      document.getElementById("card-quadrant-title").innerText = quadTitle;
+      document.getElementById("card-quadrant-badge").innerText = quadBadge;
+      document.getElementById("card-quadrant-desc").innerText = quadDesc;
+      document.getElementById("card-quadrant-icon").innerHTML = `<i class="${quadIcon}"></i>`;
+
+      // Top 3 Dons no Cartão
+      const giftsContainer = document.getElementById("card-top-gifts-container");
+      giftsContainer.innerHTML = "";
+
+      const ribbonColors = [
+        { bg: "from-amber-500 to-amber-600", text: "text-amber-700", border: "border-amber-200", light: "bg-amber-50", badge: "🥇 1º Dom Principal" },
+        { bg: "from-slate-400 to-slate-500", text: "text-slate-700", border: "border-slate-200", light: "bg-slate-50", badge: "🥈 2º Dom" },
+        { bg: "from-amber-700 to-amber-800", text: "text-amber-800", border: "border-amber-100", light: "bg-amber-50/50", badge: "🥉 3º Dom" }
+      ];
+
+      top3Gifts.forEach((gift, idx) => {
+        const style = ribbonColors[idx] || ribbonColors[1];
+        const giftEl = document.createElement("div");
+        giftEl.className = `${style.light} p-3.5 rounded-2xl border ${style.border} space-y-1`;
+        giftEl.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-black text-slate-900">${gift.name}</span>
+              <span class="text-[10px] font-extrabold ${style.text}">(${style.badge})</span>
+            </div>
+            <span class="text-xs font-black px-2 py-0.5 rounded-md bg-white border border-slate-200 shadow-2xs">
+              Pontuação: ${gift.score}
+            </span>
+          </div>
+          <p class="text-[11px] text-slate-600 leading-relaxed">${gift.desc}</p>
+        `;
+        giftsContainer.appendChild(giftEl);
+      });
+
+      // Tags de Habilidades
+      const abilitiesContainer = document.getElementById("card-abilities-tags");
+      abilitiesContainer.innerHTML = "";
+      if (AppState.selectedAbilities.size === 0) {
+        abilitiesContainer.innerHTML = `<span class="text-xs text-slate-400 italic">Nenhuma habilidade selecionada.</span>`;
+      } else {
+        AppState.selectedAbilities.forEach(ab => {
+          const pill = document.createElement("span");
+          pill.className = "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-800 border border-slate-200/80";
+          pill.innerHTML = `<i class="fa-solid fa-check text-[9px] text-emerald-600"></i> ${ab}`;
+          abilitiesContainer.appendChild(pill);
+        });
+      }
+
+      // Coração & Experiências
+      const heartFirst = Object.values(AppState.heart)[0] || "";
+      const heartSummaryEl = document.getElementById("card-heart-summary");
+      if (heartFirst.trim()) {
+        heartSummaryEl.innerText = `"${heartFirst.trim()}"`;
+      } else {
+        heartSummaryEl.innerText = `"Disposto(a) a servir onde houver necessidade no Reino de Deus."`;
+      }
+    }
+  </script>
+
+</body>
+</html>
