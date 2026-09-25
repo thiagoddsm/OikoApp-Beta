@@ -4,10 +4,11 @@ import { EventPlanningForm } from '@/components/events/planning-form';
 import { GuestBriefingGenerator } from '@/components/events/guest-briefing';
 import { PostEventFeedback } from '@/components/events/post-event-feedback';
 import { EventRegistrationsTab } from '@/components/events/event-registrations-tab';
+import { EventCheckInTab } from '@/components/events/event-checkin-tab';
 import { VolunteeringProvider } from '@/contexts/volunteering-context';
 import { useParams } from 'next/navigation';
 import { useDoc } from '@/firebase';
-import { Loader2, FileText, UserCheck, MessageSquare, Users, Share2, ExternalLink, Link as LinkIcon, MessageCircle } from 'lucide-react';
+import { Loader2, FileText, UserCheck, MessageSquare, Users, Share2, ExternalLink, Link as LinkIcon, MessageCircle, CheckCircle2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -109,20 +110,24 @@ export default function EventDetailPage() {
           )}
 
           <Tabs defaultValue="planning" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
-                    <TabsTrigger value="planning">
+                <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 h-auto">
+                    <TabsTrigger value="planning" className="py-2.5">
                         <FileText className="mr-2 size-4" />
-                        Planejamento Estratégico
+                        Planejamento
                     </TabsTrigger>
-                    <TabsTrigger value="registrations">
+                    <TabsTrigger value="registrations" className="py-2.5">
                         <Users className="mr-2 size-4" />
                         Inscrições
                     </TabsTrigger>
-                    <TabsTrigger value="guest_briefing">
-                        <UserCheck className="mr-2 size-4" />
-                        Briefing Convidado
+                    <TabsTrigger value="checkin" className="py-2.5">
+                        <CheckCircle2 className="mr-2 size-4 text-emerald-600" />
+                        Portaria
                     </TabsTrigger>
-                    <TabsTrigger value="post_event">
+                    <TabsTrigger value="guest_briefing" className="py-2.5">
+                        <UserCheck className="mr-2 size-4" />
+                        Briefing
+                    </TabsTrigger>
+                    <TabsTrigger value="post_event" className="py-2.5">
                         <MessageSquare className="mr-2 size-4" />
                         Pós-Evento
                     </TabsTrigger>
@@ -136,6 +141,9 @@ export default function EventDetailPage() {
                         eventPrice={eventData.ticketPrice}
                         isPaid={eventData.isPaid === 'pago'}
                      />
+                </TabsContent>
+                <TabsContent value="checkin" className="mt-6">
+                     <EventCheckInTab eventId={eventId} />
                 </TabsContent>
                 <TabsContent value="guest_briefing" className="mt-6">
                      <GuestBriefingGenerator event={eventData} />
