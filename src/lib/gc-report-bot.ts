@@ -1254,6 +1254,49 @@ async function finalizeAndSubmitReport(session: GcReportSession, feedback: strin
     });
 
     await batch.commit();
+
+    // Automação Kanban: Avançar visitantes no Funil de Engajamento
+    try {
+      const checkProcessos = session.members.map(async (member) => {
+        if (finalAttendance[member.id] === 'presente') {
+          const processosSnap = await db.collection('users').doc(member.id).collection('processos')
+            .where('processType', '==', 'GC')
+            .where('status', '==', 'ACTIVE')
+            .get();
+            
+          if (!processosSnap.empty) {
+            const procDoc = processosSnap.docs[0];
+            const procData = procDoc.data();
+            let newStage = null;
+
+            if (procData.currentStage === 'AGUARDANDO_CONTATO') {
+              newStage = 'EM_VISITA'; // Visitante Reuniões
+            } else if (procData.currentStage === 'EM_VISITA') {
+              const histSnap = await db.collection('presencas_historico')
+                .where('membroId', '==', member.id)
+                .where('cellId', '==', session.cellId)
+                .where('status', '==', 'presente')
+                .get();
+                
+              if (histSnap.size >= 4) {
+                newStage = 'INTEGRADO_GC'; // Frequente no GC
+              }
+            }
+            
+            if (newStage) {
+              await procDoc.ref.update({ 
+                currentStage: newStage, 
+                updatedAt: now 
+              });
+            }
+          }
+        }
+      });
+      await Promise.all(checkProcessos);
+    } catch(e) {
+      console.error('[GC Bot] Erro na automação Kanban:', e);
+    }
+
     return true;
   } catch (error) {
     console.error('[GC Bot] Erro ao gravar relatório no Firestore:', error);

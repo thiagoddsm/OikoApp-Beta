@@ -231,6 +231,15 @@ export async function submitSolicitacao(data: {
       updatedProfile.decisaoPublicaCulto = data.decisaoPublicaCulto;
     }
 
+    const intentIsGC = (data.intentType === 'GC' || (data.intentType === 'VISITANDO' && data.decisaoProximoPasso === 'Gostaria de participar de um GC'));
+    if (intentIsGC && data.intentDetails?.celulaId) {
+      updatedProfile.hierarchy = {
+        ...(existingData.hierarchy || {}),
+        celulaId: data.intentDetails.celulaId,
+        role: existingData.hierarchy?.role || 'visitante'
+      };
+    }
+
     if (!updatedProfile.createdAt) {
       updatedProfile.createdAt = now;
     }
@@ -240,6 +249,21 @@ export async function submitSolicitacao(data: {
     } else {
       const newDoc = await db.collection('users').add(updatedProfile);
       targetUserId = newDoc.id;
+    }
+
+    if (intentIsGC && data.intentDetails?.celulaId) {
+      const { FieldValue } = require('firebase-admin/firestore');
+      const visitorObj = {
+        id: targetUserId,
+        name: formatName(data.name),
+        phone: cleanPhone || '',
+        origin: 'Portal /conectar',
+        firstVisitDate: new Date().toISOString(),
+        consolidationStatus: 'new'
+      };
+      await db.collection('cells').doc(data.intentDetails.celulaId).update({
+        visitors: FieldValue.arrayUnion(visitorObj)
+      }).catch(err => console.error("Erro ao adicionar visitante na célula", err));
     }
 
     // 2. Gravar o Registro de Solicitação na coleção "solicitacoes"
@@ -341,6 +365,47 @@ export async function submitSolicitacao(data: {
                   type: 'text',
                   body: { to: liderPhone, text: gcNotifyText }
                 });
+              }
+
+              // Notificar Lider de Rede e Lider de Area
+              let areaLiderPhone = '';
+              let redeLiderPhone = '';
+
+              if (cellData.areaId) {
+                const areaDoc = await db.collection('areas').doc(cellData.areaId).get();
+                if (areaDoc.exists && areaDoc.data()?.liderId) {
+                    const aLiderDoc = await db.collection('users').doc(areaDoc.data()!.liderId).get();
+                    if (aLiderDoc.exists) {
+                        areaLiderPhone = String(aLiderDoc.data()?.phone || aLiderDoc.data()?.phoneNumber || '').replace(/\D/g, '');
+                    }
+                }
+              }
+
+              if (cellData.redeId) {
+                const redeDoc = await db.collection('redes').doc(cellData.redeId).get();
+                if (redeDoc.exists && redeDoc.data()?.liderId) {
+                    const rLiderDoc = await db.collection('users').doc(redeDoc.data()!.liderId).get();
+                    if (rLiderDoc.exists) {
+                        redeLiderPhone = String(rLiderDoc.data()?.phone || rLiderDoc.data()?.phoneNumber || '').replace(/\D/g, '');
+                    }
+                }
+              }
+
+              const superiorNotifyText = `👀 *Novo Visitante no GC da sua Liderança!*\n\n` +
+                  `🏡 *Célula:* ${cellData.nome || 'GC'}\n` +
+                  `👤 *Líder do GC:* ${liderDoc.data()?.name || 'Não informado'}\n` +
+                  `👤 *Visitante:* ${formatName(data.name)}\n` +
+                  `📞 *WhatsApp do Visitante:* ${cleanPhone}\n` +
+                  `📍 *Bairro:* ${data.bairro || 'Não informado'}\n` +
+                  `🎯 *Decisão/Passo:* ${data.decisaoProximoPasso || data.intentType}\n` +
+                  (data.intentDetails?.observacoes ? `💬 *Mensagem:* ${data.intentDetails.observacoes}\n\n` : '\n') +
+                  `_Acompanhe se o líder fará o contato acolhedor em até 24h!_`;
+
+              if (areaLiderPhone && areaLiderPhone !== liderPhone) {
+                await whatsapp.sendMessage({ type: 'text', body: { to: areaLiderPhone, text: superiorNotifyText } });
+              }
+              if (redeLiderPhone && redeLiderPhone !== liderPhone && redeLiderPhone !== areaLiderPhone) {
+                await whatsapp.sendMessage({ type: 'text', body: { to: redeLiderPhone, text: superiorNotifyText } });
               }
             }
           }
