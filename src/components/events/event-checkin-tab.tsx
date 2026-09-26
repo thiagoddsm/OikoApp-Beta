@@ -50,19 +50,6 @@ function normalizeText(text: string): string {
   return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 }
 
-function inferIsMember(reg: Registration): boolean {
-  if (reg.attendance?.isVisitor === false) return true;
-  if (reg.attendance?.isVisitor === true) return false;
-  if (!reg.customAnswers) return false;
-  for (const [key, val] of Object.entries(reg.customAnswers)) {
-    const k = normalizeText(key);
-    const v = normalizeText(val);
-    if (k.includes('membro') && (v === 'sim' || v.includes('sou'))) return true;
-    if (k.includes('igreja') && (v.includes('manha') || v.includes('ibm'))) return true;
-  }
-  return false;
-}
-
 function inferIsInGC(reg: Registration): boolean {
   if (!reg.customAnswers) return false;
   for (const [key, val] of Object.entries(reg.customAnswers)) {
@@ -73,6 +60,46 @@ function inferIsInGC(reg: Registration): boolean {
     }
   }
   return false;
+}
+
+function inferIsInServico(reg: Registration): boolean {
+  if (!reg.customAnswers) return false;
+  for (const [key, val] of Object.entries(reg.customAnswers)) {
+    const k = normalizeText(key);
+    const v = normalizeText(val);
+    if (k.includes('servico') || k.includes('servir') || k.includes('ministerio') || k.includes('voluntario') || k.includes('equipe')) {
+      if (v === 'sim' || (v.length > 2 && !v.includes('nao') && !v.includes('nenhum') && !v.includes('nao participo'))) return true;
+    }
+  }
+  return false;
+}
+
+function inferIsInEnsino(reg: Registration): boolean {
+  if (!reg.customAnswers) return false;
+  for (const [key, val] of Object.entries(reg.customAnswers)) {
+    const k = normalizeText(key);
+    const v = normalizeText(val);
+    if (k.includes('ensino') || k.includes('trilho') || k.includes('academia') || k.includes('discipulado') || k.includes('classe') || k.includes('curso')) {
+      if (v === 'sim' || (v.length > 2 && !v.includes('nao') && !v.includes('nenhum') && !v.includes('nao participo'))) return true;
+    }
+  }
+  return false;
+}
+
+function inferIsMember(reg: Registration): boolean {
+  if (reg.attendance?.isVisitor === false) return true;
+  if (reg.attendance?.isVisitor === true) return false;
+  
+  if (inferIsInGC(reg) || inferIsInServico(reg) || inferIsInEnsino(reg)) return true;
+
+  if (!reg.customAnswers) return false;
+  for (const [key, val] of Object.entries(reg.customAnswers)) {
+    const k = normalizeText(key);
+    const v = normalizeText(val);
+    if (k.includes('membro') && (v === 'sim' || v.includes('sou'))) return true;
+    if (k.includes('igreja') && (v.includes('manha') || v.includes('ibm'))) return true;
+  }
+  return false; // Alguém que não está em NADA.
 }
 
 function inferHasShirt(reg: Registration): boolean {
@@ -302,6 +329,8 @@ export function EventCheckInTab({ eventId }: EventCheckInTabProps) {
                 filteredRegistrations.map((reg) => {
                   const isMember = inferIsMember(reg);
                   const inGC = inferIsInGC(reg);
+                  const inServico = inferIsInServico(reg);
+                  const inEnsino = inferIsInEnsino(reg);
                   const hasShirt = inferHasShirt(reg);
                   const shirtSize = getShirtSize(reg);
 
@@ -350,6 +379,12 @@ export function EventCheckInTab({ eventId }: EventCheckInTabProps) {
                           )}
                           {inGC && (
                             <Badge className="text-[10px] bg-teal-100 text-teal-700 hover:bg-teal-200 border-none px-1.5">Em GC</Badge>
+                          )}
+                          {inServico && (
+                            <Badge className="text-[10px] bg-fuchsia-100 text-fuchsia-700 hover:bg-fuchsia-200 border-none px-1.5">Serve</Badge>
+                          )}
+                          {inEnsino && (
+                            <Badge className="text-[10px] bg-cyan-100 text-cyan-700 hover:bg-cyan-200 border-none px-1.5">Ensino</Badge>
                           )}
                         </div>
 
