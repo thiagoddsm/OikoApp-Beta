@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, doc, query, deleteDoc, writeBatch } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -14,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Building, User, Pencil, Trash2, Network, MapPin, AreaChart, Calendar, Clock, PlusCircle, Droplets, ChevronRight, Users, UserCheck, BookOpen } from "lucide-react";
+import { Loader2, Building, User, Pencil, Trash2, Network, MapPin, AreaChart, Calendar, Clock, PlusCircle, Droplets, ChevronRight, Users, UserCheck, BookOpen, UploadCloud } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useToast } from '@/hooks/use-toast';
@@ -87,11 +88,12 @@ interface CreateOrEditCellDialogProps {
 }
 
 export function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas, redes, existingCell, isSupervisor }: CreateOrEditCellDialogProps) {
-  const { firestore } = useFirebase();
+  const { firestore, storage } = useFirebase();
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
   const [nome, setNome] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [bio, setBio] = useState('');
   const [liderId, setLiderId] = useState('');
   const [liderCasalId, setLiderCasalId] = useState('');
@@ -116,6 +118,35 @@ export function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors,
   const [liderEAnfitriao, setLiderEAnfitriao] = useState(false);
   const [targetAudience, setTargetAudience] = useState('');
   const [tags, setTags] = useState<string[]>([]);
+
+  
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ variant: 'destructive', title: 'Arquivo muito grande', description: 'A imagem deve ter no mximo 5MB.' });
+      return;
+    }
+
+    try {
+      setIsUploadingImage(true);
+      const fileExt = file.name.split('.').pop();
+      const fileName = `gc-covers/gc_${Date.now()}.${fileExt}`;
+      const fileRef = ref(storage, fileName);
+      
+      await uploadBytes(fileRef, file);
+      const downloadUrl = await getDownloadURL(fileRef);
+      
+      setImageUrl(downloadUrl);
+      toast({ title: 'Sucesso', description: 'Foto de capa atualizada com sucesso!' });
+    } catch (err: any) {
+      console.error("Upload error:", err);
+      toast({ variant: 'destructive', title: 'Erro no upload', description: 'No foi possvel enviar a imagem.' });
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
 
   const availableAreas = useMemo(() => {
     if (!redeId || !areas) return [];
@@ -309,8 +340,28 @@ export function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors,
           
           {/* FOTO E BIO */}
           <div className="grid grid-cols-4 items-start gap-4">
-            <Label className="text-right mt-3">Foto de Capa (URL)</Label>
-            <Input value={imageUrl} onChange={e => setImageUrl(e.target.value)} className="col-span-3" placeholder="Ex: https://... ou /uploads/foto.jpg" />
+            <Label className="text-right mt-3">Foto de Capa</Label>
+            <div className="col-span-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <Input value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="Ex: https://... ou /uploads/foto.jpg" className="flex-1" />
+                <div className="relative">
+                  <Input 
+                    type="file" 
+                    accept="image/*" 
+                    onChange={handleImageUpload} 
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
+                    disabled={isUploadingImage}
+                  />
+                  <Button type="button" variant="outline" disabled={isUploadingImage} className="w-full flex items-center gap-2">
+                    {isUploadingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
+                    Upload
+                  </Button>
+                </div>
+              </div>
+              <p className="text-xs text-slate-500">
+                A foto ser exibida no carto da clula. <strong>Formato ideal: Paisagem (16:9). Tamanho mximo: 5MB.</strong>
+              </p>
+            </div>
           </div>
           <div className="grid grid-cols-4 items-start gap-4">
             <Label className="text-right mt-3">Descrição / Bio</Label>
