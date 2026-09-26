@@ -889,20 +889,6 @@ function PublicGcReportContent() {
                       />
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="oferta" className="text-xs font-black uppercase text-slate-700">
-                        Valor da Oferta (R$ - Opcional)
-                      </Label>
-                      <Input
-                        id="oferta"
-                        type="number"
-                        step="0.01"
-                        placeholder="0,00"
-                        value={oferta}
-                        onChange={e => setOferta(e.target.value ? Number(e.target.value) : '')}
-                        className="h-11 text-sm font-bold"
-                      />
-                    </div>
                   </div>
                 </CardContent>
               </Card>

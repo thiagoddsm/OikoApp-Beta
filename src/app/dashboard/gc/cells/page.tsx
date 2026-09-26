@@ -44,7 +44,7 @@ type CoLider = { id: string; casalId?: string };
 
 type Cell = {
   id: string;
-  nome: string;
+  nome: string; imageUrl?: string; coverImage?: string; bio?: string; description?: string;
   liderId: string;
   liderCasalId?: string;
   coLiderIds?: string[];
@@ -67,8 +67,8 @@ type Cell = {
   tags?: string[];
 };
 
-type Area = { id: string; nome: string; liderId: string; redeId: string; };
-type Rede = { id: string; nome: string; liderId: string; pastorId: string; };
+type Area = { id: string; nome: string; imageUrl?: string; coverImage?: string; bio?: string; description?: string; liderId: string; redeId: string; };
+type Rede = { id: string; nome: string; imageUrl?: string; coverImage?: string; bio?: string; description?: string; liderId: string; pastorId: string; };
 
 const cellStatusConfig = {
   active:   { label: 'Ativa',          className: 'bg-emerald-100 text-emerald-800 border-emerald-200' },

@@ -247,36 +247,79 @@ function StepCuidado({ members, attendance, onChange }: {
 }
 
 // ─── Step 3: Métricas ─────────────────────────────────────────────────────────
-function StepMetricas({ data, onChange, reportDate, onDateChange }: {
+function StepMetricas({ data, onChange, reportDate, onDateChange, expectedVisitors, checkedVisitors, onToggleVisitor }: {
   data: { visitantes: string; conversoes: number; licao: string };
   onChange: (field: string, value: any) => void;
   reportDate: string;
   onDateChange: (d: string) => void;
+  expectedVisitors?: any[];
+  checkedVisitors?: Set<string>;
+  onToggleVisitor?: (id: string, checked: boolean) => void;
 }) {
-  const visitantesCount = data.visitantes
+  const typedCount = data.visitantes
     .split(',')
     .map(v => v.trim())
     .filter(v => v.length > 0).length;
+  const checkedCount = checkedVisitors?.size || 0;
+  const visitantesCount = typedCount + checkedCount;
   return (
     <div className="space-y-5">
       <div className="space-y-2 bg-slate-50 p-3 rounded-lg border border-slate-100">
         <p className="text-xs text-slate-500 font-bold uppercase">Data da Reunião Selecionada</p>
-        <p className="text-sm font-semibold text-slate-800">📅 {reportDate ? format(parseISO(reportDate), "dd/MM/yyyy") : "—"}</p>
+        <p className="text-sm font-semibold text-slate-800">📅 {reportDate ? format(parseISO(reportDate), "dd/MM/yyyy") : "?"}</p>
       </div>
       <div className="space-y-2">
         <Label htmlFor="licao">Lição / Tema da Reunião</Label>
         <Input id="licao" value={data.licao} onChange={e => onChange('licao', e.target.value)} placeholder="Ex: Lição 5 – O Poder da Oração" />
       </div>
-      <div className="space-y-2">
+      <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <Label htmlFor="visitantes">Visitantes (nomes, separados por vírgula)</Label>
+          <Label>Visitantes</Label>
           {visitantesCount > 0 && (
             <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
               {visitantesCount} visitante{visitantesCount > 1 ? 's' : ''}
             </span>
           )}
         </div>
-        <Textarea id="visitantes" value={data.visitantes} onChange={e => onChange('visitantes', e.target.value)} placeholder="Ex: Maria, José, Ana" rows={2} />
+
+        {/* Visitantes Esperados (pré-cadastrados via portal ou marcados como esperados) */}
+        {(expectedVisitors || []).length > 0 && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3 space-y-2">
+            <p className="text-[10px] font-black uppercase text-amber-600 tracking-wider flex items-center gap-1">
+              <span>⭐</span> Aguardando este GC
+            </p>
+            {(expectedVisitors || []).map((v: any) => (
+              <label key={v.id} className="flex items-center gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={checkedVisitors?.has(v.id) || false}
+                  onChange={e => onToggleVisitor?.(v.id, e.target.checked)}
+                  className="w-4 h-4 rounded accent-primary cursor-pointer"
+                />
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-semibold text-slate-800 group-hover:text-primary transition-colors">
+                    {v.name}
+                  </span>
+                  {v.phone && (
+                    <span className="text-xs text-slate-500 ml-2">📞 {v.phone}</span>
+                  )}
+                  {v.origin && (
+                    <span className="text-[10px] ml-2 text-amber-600 font-medium">· {v.origin}</span>
+                  )}
+                </div>
+              </label>
+            ))}
+          </div>
+        )}
+
+        {/* Campo livre para visitantes novos */}
+        <Textarea
+          id="visitantes"
+          value={data.visitantes}
+          onChange={e => onChange('visitantes', e.target.value)}
+          placeholder={(expectedVisitors || []).length > 0 ? "Outros visitantes não cadastrados (nomes separados por vírgula)..." : "Ex: Maria, José, Ana"}
+          rows={2}
+        />
       </div>
       <div className="space-y-2">
         <Label htmlFor="conversoes">Conversões</Label>
@@ -535,6 +578,28 @@ export default function CellReportPage() {
   const [metricas, setMetricas] = useState({ visitantes: '', conversoes: 0, licao: '' });
   const [feedback, setFeedback] = useState('');
 
+  const expectedVisitors = useMemo(() => {
+    return (cell?.visitors || []).filter(
+      (v: any) => v.consolidationStatus !== 'integrated' &&
+        (v.origin?.includes('/conectar') || v.origin?.includes('/gc') || v.isEsperado === true)
+    );
+  }, [cell]);
+  const [checkedVisitors, setCheckedVisitors] = useState<Set<string>>(new Set());
+
+  // Reset checked visitors when cell changes
+  useEffect(() => {
+    setCheckedVisitors(new Set());
+  }, [cell?.id]);
+
+  const handleToggleVisitor = (id: string, checked: boolean) => {
+    setCheckedVisitors(prev => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+
   const handleAttendanceChange = (id: string, field: keyof MemberAttendance, value: any) => {
     setAttendance(prev => prev.map(a => a.membroId === id ? { ...a, [field]: value } : a));
   };
@@ -546,7 +611,7 @@ export default function CellReportPage() {
   const presentes = attendance.filter(a => a.status === 'presente').length;
   const ausentesJust = attendance.filter(a => a.status === 'ausente_justificado').length;
   const ausentesSemJust = attendance.filter(a => a.status === 'ausente_sem_justificativa').length;
-  const visitantesCount = metricas.visitantes.split(',').filter(v => v.trim()).length;
+  const visitantesCount = metricas.visitantes.split(',').filter(v => v.trim()).length + checkedVisitors.size;
 
   const handleSubmit = async () => {
     if (!firestore || !cell || !user) return;
@@ -564,7 +629,7 @@ export default function CellReportPage() {
 
       // ── CASO 1: CANCELADO ──
       if (meetingStatusChoice === 'cancelled') {
-        const logData = {
+        const checkedNames = expectedVisitors.filter(v => checkedVisitors.has(v.id)).map(v => v.name); const allVisitorNames = [...checkedNames, ...metricas.visitantes.split(',').map(n => n.trim()).filter(n => n)].join(', '); const logData = {
           cellId: cell.id,
           cellNome: cell.nome,
           date: dateStr,
@@ -603,7 +668,7 @@ export default function CellReportPage() {
 
       // ── CASO 2: REMARCADO / ADIADO ──
       if (meetingStatusChoice === 'postponed') {
-        const logData = {
+        const checkedNames = expectedVisitors.filter(v => checkedVisitors.has(v.id)).map(v => v.name); const allVisitorNames = [...checkedNames, ...metricas.visitantes.split(',').map(n => n.trim()).filter(n => n)].join(', '); const logData = {
           cellId: cell.id,
           cellNome: cell.nome,
           date: dateStr,
@@ -641,7 +706,7 @@ export default function CellReportPage() {
       }
 
       // ── CASO 3: REALIZADO (PADRÃO) ──
-      const logData = {
+      const checkedNames = expectedVisitors.filter(v => checkedVisitors.has(v.id)).map(v => v.name); const allVisitorNames = [...checkedNames, ...metricas.visitantes.split(',').map(n => n.trim()).filter(n => n)].join(', '); const logData = {
         cellId: cell.id,
         cellNome: cell.nome,
         date: dateStr,
@@ -657,7 +722,7 @@ export default function CellReportPage() {
           conversoes: metricas.conversoes,
         },
         licaoMinistrada: metricas.licao,
-        visitantesNomes: metricas.visitantes,
+        visitantesNomes: allVisitorNames, visitantesPreRegistrados: expectedVisitors.map(v => ({ ...v, presente: checkedVisitors.has(v.id) })),
         feedbackAoSupervisor: feedback,
         updatedAt: now,
       };
@@ -1100,7 +1165,15 @@ export default function CellReportPage() {
                 <StepCuidado members={members || []} attendance={attendance} onChange={handleAttendanceChange} />
               )}
               {step === 3 && (
-                <StepMetricas data={metricas} onChange={handleMetricasChange} reportDate={reportDate} onDateChange={setReportDate} />
+                <StepMetricas
+                  data={metricas}
+                  onChange={handleMetricasChange}
+                  reportDate={reportDate}
+                  onDateChange={setReportDate}
+                  expectedVisitors={expectedVisitors}
+                  checkedVisitors={checkedVisitors}
+                  onToggleVisitor={handleToggleVisitor}
+                />
               )}
               {step === 4 && (
                 <StepFeedback value={feedback} onChange={setFeedback} />
