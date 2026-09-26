@@ -45,15 +45,20 @@ type Registration = {
   };
 };
 
+function normalizeText(text: string): string {
+  if (!text) return '';
+  return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
 function inferIsMember(reg: Registration): boolean {
   if (reg.attendance?.isVisitor === false) return true;
   if (reg.attendance?.isVisitor === true) return false;
   if (!reg.customAnswers) return false;
   for (const [key, val] of Object.entries(reg.customAnswers)) {
-    const k = key.toLowerCase();
-    const v = val.toLowerCase();
+    const k = normalizeText(key);
+    const v = normalizeText(val);
     if (k.includes('membro') && (v === 'sim' || v.includes('sou'))) return true;
-    if (k.includes('igreja') && (v.includes('manhã') || v.includes('ibm'))) return true;
+    if (k.includes('igreja') && (v.includes('manha') || v.includes('ibm'))) return true;
   }
   return false;
 }
@@ -61,22 +66,23 @@ function inferIsMember(reg: Registration): boolean {
 function inferIsInGC(reg: Registration): boolean {
   if (!reg.customAnswers) return false;
   for (const [key, val] of Object.entries(reg.customAnswers)) {
-    const k = key.toLowerCase();
-    const v = val.toLowerCase();
-    if (k.includes('gc') || k.includes('célula') || k.includes('grupo de crescimento')) {
-      if (v === 'sim' || (v.length > 2 && v !== 'não' && v !== 'nenhum' && !v.includes('não participo'))) return true;
+    const k = normalizeText(key);
+    const v = normalizeText(val);
+    if (k.includes('gc') || k.includes('celula') || k.includes('grupo de crescimento')) {
+      if (v === 'sim' || (v.length > 2 && !v.includes('nao') && !v.includes('nenhum') && !v.includes('nao participo'))) return true;
     }
   }
   return false;
 }
 
 function inferHasShirt(reg: Registration): boolean {
-  const t = (reg.ticketName || '').toLowerCase();
+  const t = normalizeText(reg.ticketName || '');
   if (t.includes('camisa') || t.includes('t-shirt') || t.includes('kit completo')) return true;
   if (!reg.customAnswers) return false;
   for (const [key, val] of Object.entries(reg.customAnswers)) {
-    const k = key.toLowerCase();
-    if ((k.includes('camisa') || k.includes('tamanho')) && val.length > 0 && val.toLowerCase() !== 'não quero') return true;
+    const k = normalizeText(key);
+    const v = normalizeText(val);
+    if ((k.includes('camisa') || k.includes('tamanho')) && v.length > 0 && !v.includes('nao quero') && !v.includes('sem camisa')) return true;
   }
   return false;
 }
@@ -84,7 +90,7 @@ function inferHasShirt(reg: Registration): boolean {
 function getShirtSize(reg: Registration): string | null {
   if (!reg.customAnswers) return null;
   for (const [key, val] of Object.entries(reg.customAnswers)) {
-    const k = key.toLowerCase();
+    const k = normalizeText(key);
     if (k.includes('tamanho') || k.includes('camisa')) return val;
   }
   return null;
@@ -113,7 +119,11 @@ export function EventCheckInTab({ eventId }: EventCheckInTabProps) {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const regs: Registration[] = [];
       snapshot.forEach((doc) => {
-        regs.push({ id: doc.id, ...doc.data() } as Registration);
+        const data = doc.data() as Registration;
+        if (regs.length === 0) {
+           console.log("SAMPLE CUSTOM ANSWERS:", data.customAnswers);
+        }
+        regs.push({ id: doc.id, ...data });
       });
       regs.sort((a, b) => a.userMetadata.name.localeCompare(b.userMetadata.name));
       setRegistrations(regs);
