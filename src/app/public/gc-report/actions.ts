@@ -1,10 +1,10 @@
-﻿'use server';
+'use server';
 
 import { getAdminDb } from '@/lib/firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
 
 /**
- * Converte recursivamente Timestamps do Firestore e objetos nÃ£o-planos em dados primitivos/JSON.
+ * Converte recursivamente Timestamps do Firestore e objetos não-planos em dados primitivos/JSON.
  */
 function sanitizeFirestoreData<T = any>(data: any): T {
   if (data === null || data === undefined) return data;
@@ -39,8 +39,8 @@ function sanitizeFirestoreData<T = any>(data: any): T {
 }
 
 const DAY_MAP: Record<string, number> = {
-  'Domingo': 0, 'Segunda-feira': 1, 'TerÃ§a-feira': 2, 'Quarta-feira': 3,
-  'Quinta-feira': 4, 'Sexta-feira': 5, 'SÃ¡bado': 6,
+  'Domingo': 0, 'Segunda-feira': 1, 'Terça-feira': 2, 'Quarta-feira': 3,
+  'Quinta-feira': 4, 'Sexta-feira': 5, 'Sábado': 6,
 };
 
 function calculateLastMeetingDate(meetingDay?: string): string {
@@ -56,23 +56,23 @@ function calculateLastMeetingDate(meetingDay?: string): string {
 }
 
 /**
- * Valida o e-mail do lÃ­der ou secretÃ¡rio e retorna a cÃ©lula e seus membros ativos.
+ * Valida o e-mail do líder ou secretário e retorna a célula e seus membros ativos.
  */
 export async function verifyLeaderAccess(email: string, cellIdParam?: string) {
   try {
     const cleanEmail = (email || '').toLowerCase().trim();
     if (!cleanEmail || !cleanEmail.includes('@')) {
-      return { success: false, error: 'Por favor, informe um endereÃ§o de e-mail vÃ¡lido.' };
+      return { success: false, error: 'Por favor, informe um endereço de e-mail válido.' };
     }
 
     const db = getAdminDb();
 
-    // 1. Localizar o usuÃ¡rio pelo e-mail
+    // 1. Localizar o usuário pelo e-mail
     const usersSnap = await db.collection('users').where('email', '==', cleanEmail).get();
     if (usersSnap.empty) {
       return { 
         success: false, 
-        error: 'E-mail nÃ£o encontrado no cadastro da igreja. Verifique a digitaÃ§Ã£o ou entre em contato com seu supervisor.' 
+        error: 'E-mail não encontrado no cadastro da igreja. Verifique a digitação ou entre em contato com seu supervisor.' 
       };
     }
 
@@ -80,7 +80,7 @@ export async function verifyLeaderAccess(email: string, cellIdParam?: string) {
     const userData = userDoc.data();
     const userId = userDoc.id;
 
-    // 2. Localizar cÃ©lulas onde este usuÃ¡rio Ã© lÃ­der, co-lÃ­der ou secretÃ¡rio
+    // 2. Localizar células onde este usuário é líder, co-líder ou secretário
     const cellsSnap = await db.collection('cells').get();
     const matchedCells: any[] = [];
 
@@ -94,13 +94,13 @@ export async function verifyLeaderAccess(email: string, cellIdParam?: string) {
       const isCoLeader = Array.isArray(c.coLiderIds) && c.coLiderIds.includes(userId);
 
       if (isLeader || isSecretary || isCoLeader) {
-        let role = 'LÃ­der';
-        if (isSecretary) role = 'SecretÃ¡rio(a)';
-        else if (isCoLeader) role = 'Co-lÃ­der';
+        let role = 'Líder';
+        if (isSecretary) role = 'Secretário(a)';
+        else if (isCoLeader) role = 'Co-líder';
 
         matchedCells.push({
           id: doc.id,
-          nome: c.nome || c.name || 'CÃ©lula',
+          nome: c.nome || c.name || 'Célula',
           role,
           meetingDay: c.meetingDay || '',
           meetingTime: c.meetingTime || '',
@@ -113,18 +113,18 @@ export async function verifyLeaderAccess(email: string, cellIdParam?: string) {
     if (matchedCells.length === 0) {
       return { 
         success: false, 
-        error: 'Nenhum GC ativo foi encontrado vinculado ao seu e-mail como LÃ­der, Co-lÃ­der ou SecretÃ¡rio(a).' 
+        error: 'Nenhum GC ativo foi encontrado vinculado ao seu e-mail como Líder, Co-líder ou Secretário(a).' 
       };
     }
 
-    // Se houver parÃ¢metro cellId e ele pertencer a este lÃ­der, seleciona diretamente
+    // Se houver parâmetro cellId e ele pertencer a este líder, seleciona diretamente
     let targetCell = matchedCells[0];
     if (cellIdParam) {
       const foundParam = matchedCells.find(c => c.id === cellIdParam);
       if (foundParam) targetCell = foundParam;
     }
 
-    // Se houver mÃºltiplas cÃ©lulas e nenhuma foi explicitamente escolhida pelo cellIdParam
+    // Se houver múltiplas células e nenhuma foi explicitamente escolhida pelo cellIdParam
     if (matchedCells.length > 1 && (!cellIdParam || !matchedCells.some(c => c.id === cellIdParam))) {
       return JSON.parse(JSON.stringify({
         success: true,
@@ -132,13 +132,13 @@ export async function verifyLeaderAccess(email: string, cellIdParam?: string) {
         cells: matchedCells.map(sanitizeFirestoreData),
         user: {
           id: userId,
-          name: userData.name || 'LÃ­der',
+          name: userData.name || 'Líder',
           email: cleanEmail
         }
       }));
     }
 
-    // 3. Buscar membros oficiais da cÃ©lula selecionada (users com hierarchy.celulaId == cellId)
+    // 3. Buscar membros oficiais da célula selecionada (users com hierarchy.celulaId == cellId)
     const membersSnap = await db.collection('users')
       .where('hierarchy.celulaId', '==', targetCell.id)
       .get();
@@ -166,7 +166,7 @@ export async function verifyLeaderAccess(email: string, cellIdParam?: string) {
       members: sanitizeFirestoreData(members),
       user: {
         id: userId,
-        name: userData.name || 'LÃ­der',
+        name: userData.name || 'Líder',
         email: cleanEmail,
         role: targetCell.role
       },
@@ -207,19 +207,19 @@ export interface SubmitPublicReportPayload {
 }
 
 /**
- * Salva o relatÃ³rio pÃºblico de GC nas coleÃ§Ãµes oficiais reuniao_logs e presencas_historico.
+ * Salva o relatório público de GC nas coleções oficiais reuniao_logs e presencas_historico.
  */
 export async function submitPublicGcReport(payload: SubmitPublicReportPayload) {
   try {
     const { cellId, userEmail, userId, userName, reportDate, status } = payload;
     if (!cellId || !userEmail || !reportDate) {
-      return { success: false, error: 'ParÃ¢metros obrigatÃ³rios ausentes para envio do relatÃ³rio.' };
+      return { success: false, error: 'Parâmetros obrigatórios ausentes para envio do relatório.' };
     }
 
     const db = getAdminDb();
     const cellSnap = await db.collection('cells').doc(cellId).get();
     if (!cellSnap.exists) {
-      return { success: false, error: 'CÃ©lula de destino nÃ£o encontrada.' };
+      return { success: false, error: 'Célula de destino não encontrada.' };
     }
     const cellData = cellSnap.data()!;
     const now = Timestamp.now();
@@ -228,11 +228,11 @@ export async function submitPublicGcReport(payload: SubmitPublicReportPayload) {
     const logRef = db.collection('reuniao_logs').doc();
 
     if (status === 'postponed') {
-      // ReuniÃ£o Adiada
+      // Reunião Adiada
       const newDateText = payload.novaData || 'A definir';
       batch.set(logRef, {
         cellId,
-        cellNome: cellData.nome || 'CÃ©lula',
+        cellNome: cellData.nome || 'Célula',
         date: reportDate,
         liderId: cellData.liderId || userId,
         supervisorId: cellData.supervisorId || cellData.areaId || null,
@@ -248,12 +248,12 @@ export async function submitPublicGcReport(payload: SubmitPublicReportPayload) {
           conversoes: 0,
           oferta: 0
         },
-        feedbackAoSupervisor: `ReuniÃ£o remarcada/adiada para: ${newDateText}`,
+        feedbackAoSupervisor: `Reunião remarcada/adiada para: ${newDateText}`,
         createdAt: now,
         updatedAt: now
       });
 
-      // TambÃ©m em gc_reuniao_logs para compatibilidade
+      // Também em gc_reuniao_logs para compatibilidade
       batch.set(db.collection('gc_reuniao_logs').doc(logRef.id), {
         cellId,
         date: reportDate,
@@ -263,11 +263,11 @@ export async function submitPublicGcReport(payload: SubmitPublicReportPayload) {
         createdAt: now
       });
     } else if (status === 'cancelled') {
-      // ReuniÃ£o Cancelada
-      const reason = payload.motivoCancelamento || 'NÃ£o informado';
+      // Reunião Cancelada
+      const reason = payload.motivoCancelamento || 'Não informado';
       batch.set(logRef, {
         cellId,
-        cellNome: cellData.nome || 'CÃ©lula',
+        cellNome: cellData.nome || 'Célula',
         date: reportDate,
         liderId: cellData.liderId || userId,
         supervisorId: cellData.supervisorId || cellData.areaId || null,
@@ -283,12 +283,12 @@ export async function submitPublicGcReport(payload: SubmitPublicReportPayload) {
           conversoes: 0,
           oferta: 0
         },
-        feedbackAoSupervisor: `ReuniÃ£o cancelada. Motivo: ${reason}`,
+        feedbackAoSupervisor: `Reunião cancelada. Motivo: ${reason}`,
         createdAt: now,
         updatedAt: now
       });
 
-      // TambÃ©m em gc_reuniao_logs para compatibilidade
+      // Também em gc_reuniao_logs para compatibilidade
       batch.set(db.collection('gc_reuniao_logs').doc(logRef.id), {
         cellId,
         date: reportDate,
@@ -298,7 +298,7 @@ export async function submitPublicGcReport(payload: SubmitPublicReportPayload) {
         createdAt: now
       });
     } else {
-      // ReuniÃ£o Realizada (Completa)
+      // Reunião Realizada (Completa)
       let presentes = 0;
       let ausentesJustificados = 0;
       let ausentesSemJust = 0;
@@ -316,7 +316,7 @@ export async function submitPublicGcReport(payload: SubmitPublicReportPayload) {
 
       const logData: any = {
         cellId,
-        cellNome: cellData.nome || 'CÃ©lula',
+        cellNome: cellData.nome || 'Célula',
         date: reportDate,
         liderId: cellData.liderId || userId,
         supervisorId: cellData.supervisorId || cellData.areaId || null,
@@ -360,7 +360,77 @@ export async function submitPublicGcReport(payload: SubmitPublicReportPayload) {
     // Commit no banco
     await batch.commit();
 
-    // 4. Limpar sessÃµes ativas do bot de WhatsApp desta cÃ©lula para evitar mensagens duplicadas
+    
+    // 3.5. Atualizar est�gio do Kanban (Processos) para Membros e Visitantes
+    try {
+      // Membros presentes
+      const presentMembers = payload.attendance?.filter(a => a.status === 'presente') || [];
+      const checkMembros = presentMembers.map(async (member) => {
+        if (!member.membroId) return;
+        const processosSnap = await db.collection('users').doc(member.membroId).collection('processos')
+          .where('processType', '==', 'GC')
+          .where('status', '==', 'ACTIVE')
+          .get();
+        if (!processosSnap.empty) {
+          const procDoc = processosSnap.docs[0];
+          const procData = procDoc.data();
+          let newStage = null;
+          if (procData.currentStage === 'AGUARDANDO_CONTATO') {
+            newStage = 'EM_VISITA';
+          } else if (procData.currentStage === 'EM_VISITA') {
+            const histSnap = await db.collection('presencas_historico')
+              .where('membroId', '==', member.membroId)
+              .where('cellId', '==', cellId)
+              .where('status', '==', 'presente')
+              .get();
+            if (histSnap.size >= 4) {
+              newStage = 'INTEGRADO_GC';
+            }
+          }
+          if (newStage) {
+            await procDoc.ref.update({ currentStage: newStage, updatedAt: Timestamp.now() });
+          }
+        }
+      });
+      await Promise.all(checkMembros);
+
+      // Visitantes pr�-registrados presentes
+      const presentPreRegistered = payload.metricas.visitantesPreRegistrados?.filter(v => (v as any).presente === true) || [];
+      if (presentPreRegistered.length > 0) {
+        const checkExpected = presentPreRegistered.map(async (visitor: any) => {
+          if (!visitor.id) return;
+          const processosSnap = await db.collection('users').doc(visitor.id).collection('processos')
+            .where('processType', '==', 'GC')
+            .where('status', '==', 'ACTIVE')
+            .get();
+          if (!processosSnap.empty) {
+            const procDoc = processosSnap.docs[0];
+            const procData = procDoc.data();
+            let newStage = null;
+            if (procData.currentStage === 'AGUARDANDO_CONTATO') {
+              newStage = 'EM_VISITA';
+            } else if (procData.currentStage === 'EM_VISITA') {
+              const histSnap = await db.collection('presencas_historico')
+                .where('membroId', '==', visitor.id)
+                .where('cellId', '==', cellId)
+                .where('status', '==', 'presente')
+                .get();
+              if (histSnap.size >= 4) {
+                newStage = 'INTEGRADO_GC';
+              }
+            }
+            if (newStage) {
+              await procDoc.ref.update({ currentStage: newStage, updatedAt: Timestamp.now() });
+            }
+          }
+        });
+        await Promise.all(checkExpected);
+      }
+    } catch (kanbanErr) {
+      console.warn('[Public GC Report] Error updating kanban stages:', kanbanErr);
+    }
+
+    // 4. Limpar sess�es ativas do bot de WhatsApp desta c�lula para evitar mensagens duplicadas
     try {
       const sessionsSnap = await db.collection('gc_report_sessions').where('cellId', '==', cellId).get();
       if (!sessionsSnap.empty) {
@@ -375,7 +445,6 @@ export async function submitPublicGcReport(payload: SubmitPublicReportPayload) {
     return { success: true, logId: logRef.id };
   } catch (error: any) {
     console.error('[Public GC Report] Error submitting report:', error);
-    return { success: false, error: error.message || 'Erro ao gravar relatÃ³rio no servidor.' };
+    return { success: false, error: error.message || 'Erro ao gravar relat�rio no servidor.' };
   }
 }
-
