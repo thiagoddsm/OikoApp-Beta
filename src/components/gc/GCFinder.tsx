@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { MapPin, Clock, ArrowRight, X, Baby, Search, CheckCircle2 } from 'lucide-react';
+import { MapPin, Clock, ArrowRight, X, Baby, Search, CheckCircle2, Loader2 } from 'lucide-react';
 import { getPublicGCs } from '@/app/public/enrollment/actions';
+import { submitSolicitacao } from '@/app/public/conectar/actions';
 
 export function GCFinder() {
   const [squads, setSquads] = useState<any[]>([]);
@@ -16,6 +17,8 @@ export function GCFinder() {
   const [selectedSquad, setSelectedSquad] = useState<any | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [formSent, setFormSent] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState({ name: '', phone: '', email: '', bairro: '', idade: '', estadoCivil: '' });
 
   useEffect(() => {
     async function loadGCs() {
@@ -237,37 +240,112 @@ export function GCFinder() {
                     </p>
                   </div>
 
-                  <form className="space-y-5" onSubmit={(e) => { 
+                  <form className="space-y-5" onSubmit={async (e) => { 
                     e.preventDefault(); 
-                    setFormSent(true);
-                    if (selectedSquad?.whatsapp) {
-                      const phone = selectedSquad.whatsapp.replace(/\D/g, '');
-                      if (phone) {
-                        const firstName = selectedSquad.leaders.split(' ')[0] || 'Líder';
-                        const url = `https://wa.me/55${phone}?text=${encodeURIComponent(`Olá ${firstName}! Encontrei o GC ${selectedSquad.name} no site da igreja e gostaria de fazer uma visita!`)}`;
-                        window.open(url, '_blank');
-                      }
+                    setIsSubmitting(true);
+                    try {
+                      await submitSolicitacao({
+                        name: formData.name,
+                        phone: formData.phone,
+                        email: formData.email,
+                        bairro: formData.bairro,
+                        idade: formData.idade,
+                        estadoCivil: formData.estadoCivil,
+                        intentType: 'GC',
+                        intentDetails: { gcId: selectedSquad.id, gcName: selectedSquad.name },
+                        entryPoint: 'gc_finder'
+                      });
+                      setFormSent(true);
+                    } catch (error) {
+                      console.error(error);
+                      alert("Ocorreu um erro. Tente novamente.");
+                    } finally {
+                      setIsSubmitting(false);
                     }
                   }}>
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-on-surface">Seu Nome *</label>
-                      <input 
-                        type="text" 
-                        required
-                        className="w-full px-4 py-3 bg-white border border-outline-variant/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-on-surface"
-                        placeholder="Como gostaria de ser chamado?"
-                      />
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-bold text-on-surface">Nome Completo *</label>
+                        <input 
+                          type="text" 
+                          required
+                          value={formData.name}
+                          onChange={e => setFormData(p => ({ ...p, name: e.target.value }))}
+                          className="w-full px-4 py-3 bg-white border border-outline-variant/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-on-surface"
+                          placeholder="Como gostaria de ser chamado?"
+                        />
+                      </div>
+                      <div className="flex gap-4">
+                        <div className="space-y-2 flex-1">
+                          <label className="text-sm font-bold text-on-surface">Idade *</label>
+                          <input 
+                            type="number" 
+                            required
+                            value={formData.idade}
+                            onChange={e => setFormData(p => ({ ...p, idade: e.target.value }))}
+                            className="w-full px-4 py-3 bg-white border border-outline-variant/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-on-surface"
+                            placeholder="Sua idade"
+                          />
+                        </div>
+                        <div className="space-y-2 flex-[2]">
+                          <label className="text-sm font-bold text-on-surface">Estado Civil *</label>
+                          <select 
+                            required
+                            value={formData.estadoCivil}
+                            onChange={e => setFormData(p => ({ ...p, estadoCivil: e.target.value }))}
+                            className="w-full px-4 py-3 bg-white border border-outline-variant/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-on-surface appearance-none"
+                          >
+                            <option value="" disabled>Selecione</option>
+                            <option value="Solteiro(a)">Solteiro(a)</option>
+                            <option value="Casado(a)">Casado(a)</option>
+                            <option value="Divorciado(a)">Divorciado(a)</option>
+                            <option value="Viúvo(a)">Viúvo(a)</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-bold text-on-surface">WhatsApp *</label>
+                        <input 
+                          type="tel" 
+                          required
+                          value={formData.phone}
+                          onChange={e => setFormData(p => ({ ...p, phone: e.target.value }))}
+                          className="w-full px-4 py-3 bg-white border border-outline-variant/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-on-surface"
+                          placeholder="(21) 90000-0000"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-bold text-on-surface">E-mail <span className="font-normal text-on-surface-variant text-xs">(Opcional)</span></label>
+                        <input 
+                          type="email"
+                          value={formData.email}
+                          onChange={e => setFormData(p => ({ ...p, email: e.target.value }))}
+                          className="w-full px-4 py-3 bg-white border border-outline-variant/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-on-surface"
+                          placeholder="seu@email.com"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-bold text-on-surface">Seu Bairro <span className="font-normal text-on-surface-variant text-xs">(Opcional)</span></label>
+                        <input 
+                          type="text"
+                          value={formData.bairro}
+                          onChange={e => setFormData(p => ({ ...p, bairro: e.target.value }))}
+                          className="w-full px-4 py-3 bg-white border border-outline-variant/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-on-surface"
+                          placeholder="De onde você vem?"
+                        />
+                      </div>
                     </div>
 
                     <div className="pt-4">
                       <button 
                         type="submit"
-                        className="w-full bg-primary hover:opacity-90 text-white font-black font-display py-4 rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98] flex justify-center items-center gap-2"
+                        disabled={isSubmitting}
+                        className="w-full bg-primary disabled:opacity-50 hover:opacity-90 text-white font-black font-display py-4 rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98] flex justify-center items-center gap-2"
                       >
-                        Chamar no WhatsApp
+                        {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : "Quero Participar"}
                       </button>
                       <p className="text-center text-xs text-on-surface-variant/70 mt-4 font-medium font-body">
-                        Você será redirecionado para o WhatsApp do líder para combinar o endereço exato.
+                        Sua solicitação será enviada para a central da igreja e os líderes do grupo entrarão em contato!
                       </p>
                     </div>
                   </form>
@@ -277,9 +355,9 @@ export function GCFinder() {
                   <div className="w-20 h-20 bg-[#6bfe9c]/20 rounded-full flex items-center justify-center text-[#006d37] mb-4">
                     <CheckCircle2 className="w-10 h-10" />
                   </div>
-                  <h3 className="text-2xl font-black text-on-surface font-display tracking-tight">Redirecionando!</h3>
+                  <h3 className="text-2xl font-black text-on-surface font-display tracking-tight">Solicitação Enviada!</h3>
                   <p className="text-on-surface-variant max-w-[280px] font-body">
-                    Incrível! Continue a conversa no seu WhatsApp e agende a sua primeira visita.
+                    Incrível! Nossa equipe já recebeu sua solicitação e em breve os líderes entrarão em contato.
                   </p>
                   <button 
                     onClick={() => setIsDrawerOpen(false)}
