@@ -965,7 +965,7 @@ export async function handleGcReportIncomingMessage(
             );
             
             const visitorNames = (session.expectedVisitors || []).map((v: any) => v.name.substring(0, 50));
-            await sendPoll(fromPhone, '📋 Visitantes Esperados — Quem veio?', visitorNames, true);
+            await sendPoll(fromPhone, '📋 Visitantes Esperados — Quem veio?', visitorNames, visitorNames.length);
           } else {
             await sendText(
               fromPhone,
