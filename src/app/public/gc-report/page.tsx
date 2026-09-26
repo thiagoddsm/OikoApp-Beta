@@ -84,6 +84,10 @@ function PublicGcReportContent() {
   const [oferta, setOferta] = useState<number | ''>('');
   const [feedback, setFeedback] = useState('');
 
+  // Expected Visitors (pre-registered via /gc or /conectar)
+  const [expectedVisitors, setExpectedVisitors] = useState<any[]>([]);
+  const [checkedVisitors, setCheckedVisitors] = useState<Set<string>>(new Set());
+
   // Submit & Success State
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedData, setSubmittedData] = useState<any>(null);
@@ -159,6 +163,14 @@ function PublicGcReportContent() {
       observacaoCuidado: ''
     }));
     setAttendance(initialAttendance);
+
+    // Load pre-registered visitors: portal sign-ups + manually flagged as isEsperado
+    const pending = (res.cell?.visitors || []).filter(
+      (v: any) => v.consolidationStatus !== 'integrated' &&
+        (v.origin?.includes('/conectar') || v.origin?.includes('/gc') || v.isEsperado === true)
+    );
+    setExpectedVisitors(pending);
+    setCheckedVisitors(new Set());
   };
 
   const handleSelectCell = async (cell: any) => {
@@ -202,8 +214,9 @@ function PublicGcReportContent() {
   const absentCount = useMemo(() => attendance.filter(a => a.status !== 'presente').length, [attendance]);
   const presentMembers = useMemo(() => attendance.filter(a => a.status === 'presente'), [attendance]);
   const visitantesCount = useMemo(() => {
-    return visitantes.split(',').map(v => v.trim()).filter(v => v.length > 0).length;
-  }, [visitantes]);
+    const typed = visitantes.split(',').map(v => v.trim()).filter(v => v.length > 0).length;
+    return typed + checkedVisitors.size;
+  }, [visitantes, checkedVisitors]);
 
   // Submissão do Relatório
   const handleSubmit = async () => {
@@ -241,7 +254,13 @@ function PublicGcReportContent() {
         })),
         metricas: {
           licao,
-          visitantes,
+          visitantes: [
+            ...visitantes.split(',').map(v => v.trim()).filter(v => v.length > 0),
+            ...expectedVisitors.filter(v => checkedVisitors.has(v.id)).map(v => v.name)
+          ].join(', '),
+          visitantesPreRegistrados: expectedVisitors
+            .filter(v => checkedVisitors.has(v.id))
+            .map(v => ({ id: v.id, name: v.name, phone: v.phone || '' })),
           conversoes: Number(conversoes || 0),
           oferta: oferta ? Number(oferta) : 0
         },
@@ -793,10 +812,10 @@ function PublicGcReportContent() {
                     />
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <Label htmlFor="visitantes" className="text-xs font-black uppercase text-slate-700">
-                        Visitantes (Nomes separados por vírgula)
+                      <Label className="text-xs font-black uppercase text-slate-700">
+                        Visitantes
                       </Label>
                       {visitantesCount > 0 && (
                         <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
@@ -804,14 +823,55 @@ function PublicGcReportContent() {
                         </span>
                       )}
                     </div>
-                    <Textarea
-                      id="visitantes"
-                      placeholder="Ex: Carlos Silva, Mariana Souza"
-                      rows={2}
-                      value={visitantes}
-                      onChange={e => setVisitantes(e.target.value)}
-                      className="text-sm"
-                    />
+
+                    {/* Expected visitors (pre-registered via /gc or /conectar) */}
+                    {expectedVisitors.length > 0 && (
+                      <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3 space-y-2">
+                        <p className="text-[10px] font-black uppercase text-amber-600 tracking-wider flex items-center gap-1">
+                          <span>⭐</span> Aguardando este GC
+                        </p>
+                        {expectedVisitors.map((v: any) => (
+                          <label key={v.id} className="flex items-center gap-3 cursor-pointer group">
+                            <input
+                              type="checkbox"
+                              checked={checkedVisitors.has(v.id)}
+                              onChange={(e) => {
+                                setCheckedVisitors(prev => {
+                                  const next = new Set(prev);
+                                  if (e.target.checked) next.add(v.id);
+                                  else next.delete(v.id);
+                                  return next;
+                                });
+                              }}
+                              className="w-4 h-4 rounded accent-primary cursor-pointer"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <span className="text-sm font-semibold text-slate-800 group-hover:text-primary transition-colors">
+                                {v.name}
+                              </span>
+                              {v.phone && (
+                                <span className="text-xs text-slate-500 ml-2">📞 {v.phone}</span>
+                              )}
+                              {v.origin && (
+                                <span className="text-[10px] ml-2 text-amber-600 font-medium">· {v.origin}</span>
+                              )}
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Free text for new/unregistered visitors */}
+                    <div>
+                      <Textarea
+                        id="visitantes"
+                        placeholder={expectedVisitors.length > 0 ? "Outros visitantes não cadastrados (nomes separados por vírgula)..." : "Ex: Carlos Silva, Mariana Souza"}
+                        rows={2}
+                        value={visitantes}
+                        onChange={e => setVisitantes(e.target.value)}
+                        className="text-sm"
+                      />
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

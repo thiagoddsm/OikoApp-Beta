@@ -5,8 +5,9 @@ export interface GcReportSession {
   id: string; // Telefone do líder formatado (ex: 5521999998888)
   cellId: string;
   liderId: string;
-  step: 'START' | 'CHOOSE_CHANNEL' | 'CHECK_MEETING' | 'MEETING_STATUS_CHOICE' | 'POSTPONED_DATE' | 'CANCELLED_REASON' | 'ATTENDANCE' | 'ATTENDANCE_CONFIRM' | 'CARE_CHOICE' | 'CARE_SELECT' | 'CARE_MEMBER_THERMOMETER' | 'CARE_MEMBER_PRAYER' | 'METRICS_LESSON' | 'METRICS_VISITORS' | 'METRICS_CONVERSIONS' | 'FEEDBACK' | 'SUMMARY_CONFIRM';
+  step: 'START' | 'CHOOSE_CHANNEL' | 'CHECK_MEETING' | 'MEETING_STATUS_CHOICE' | 'POSTPONED_DATE' | 'CANCELLED_REASON' | 'ATTENDANCE' | 'ATTENDANCE_CONFIRM' | 'CARE_CHOICE' | 'CARE_SELECT' | 'CARE_MEMBER_THERMOMETER' | 'CARE_MEMBER_PRAYER' | 'METRICS_LESSON' | 'EXPECTED_VISITORS_POLL' | 'METRICS_VISITORS' | 'METRICS_CONVERSIONS' | 'FEEDBACK' | 'SUMMARY_CONFIRM';
   members: { id: string; name: string }[];
+  expectedVisitors?: { id: string; name: string; phone: string }[];
   
   // Modo Edição de Relatório
   editingLogId?: string;
@@ -213,10 +214,22 @@ export async function startGcReportSession(
     const membersList: { id: string; name: string }[] = [];
     usersSnap.forEach(snap => {
       if (snap.exists) {
-        membersList.push({ id: snap.id, name: snap.data().name || 'Membro' });
+        const role = snap.data().hierarchy?.role;
+        // Exclude visitantes from members list — they get their own poll
+        if (role !== 'visitante') {
+          membersList.push({ id: snap.id, name: snap.data().name || 'Membro' });
+        }
       }
     });
     membersList.sort((a, b) => a.name.localeCompare(b.name));
+
+    // Load expected visitors:
+    // 1. Portal-registered via /gc or /conectar (consolidationStatus not integrated)
+    // 2. Manually flagged as isEsperado by the leader in the dashboard
+    const expectedVisitorsList = (cellData.visitors || []).filter(
+      (v: any) => v.consolidationStatus !== 'integrated' &&
+        (v.origin?.includes('/conectar') || v.origin?.includes('/gc') || v.isEsperado === true)
+    ).map((v: any) => ({ id: v.id, name: v.name, phone: v.phone || '' }));
 
     // 3. Resolver identificação do responsável (Secretário ou Líder)
     let respondentName = recipientInfo?.name || '';
@@ -270,6 +283,7 @@ export async function startGcReportSession(
       editingLogId: editingLogId || undefined,
       step: 'CHOOSE_CHANNEL',
       members: membersList,
+      expectedVisitors: expectedVisitorsList,
       attendancePage: 0,
       attendanceAccumulated: [],
       careMembersQueue: [],
@@ -932,15 +946,68 @@ export async function handleGcReportIncomingMessage(
       case 'METRICS_LESSON':
         if (type === 'text') {
           const licao = messageText.trim();
+
+          // If there are expected visitors, go to a poll step first
+          const hasExpected = (session.expectedVisitors || []).length > 0;
+          const nextStep = hasExpected ? 'EXPECTED_VISITORS_POLL' : 'METRICS_VISITORS';
+
           await sessionRef.update({
             'metrics.licao': licao,
+            step: nextStep,
+            updatedAt: now
+          });
+          await wait(1000);
+
+          if (hasExpected) {
+            await sendText(
+              fromPhone,
+              '⭐ *Visitantes Esperados*\n\nEsses visitantes se inscreveram para este GC pelo site. Marque na enquete os que estiveram presentes hoje:'
+            );
+            await wait(1500);
+            const visitorNames = (session.expectedVisitors || []).map((v: any) => v.name.substring(0, 50));
+            await sendPoll(fromPhone, '📋 Visitantes Esperados — Quem veio?', visitorNames, true);
+          } else {
+            await sendText(
+              fromPhone,
+              '👥 *Etapa 3: Visitantes*\n\nDigite o nome dos visitantes que estiveram presentes (separados por vírgula).\n\n*Caso não tenha havido nenhum visitante, envie 0.*'
+            );
+          }
+        }
+        break;
+
+      case 'EXPECTED_VISITORS_POLL':
+        if (type === 'poll' || type === 'text') {
+          let presentVisitorIds: string[] = [];
+
+          if (type === 'poll') {
+            const options = payload.selectedOptions as string[];
+            const visitorMap = new Map<string, string>();
+            (session.expectedVisitors || []).forEach((v: any) => {
+              visitorMap.set(v.name.substring(0, 50), v.id);
+            });
+            options.forEach(opt => {
+              const id = visitorMap.get(opt);
+              if (id) presentVisitorIds.push(id);
+            });
+          }
+
+          const presentExpectedNames = (session.expectedVisitors || [])
+            .filter((v: any) => presentVisitorIds.includes(v.id))
+            .map((v: any) => v.name);
+
+          await sessionRef.update({
+            'metrics.visitantesPreRegistrados': (session.expectedVisitors || []).map((v: any) => ({
+              ...v,
+              presente: presentVisitorIds.includes(v.id)
+            })),
+            'metrics.visitantesPreRegistradosNomes': presentExpectedNames,
             step: 'METRICS_VISITORS',
             updatedAt: now
           });
           await wait(1000);
           await sendText(
             fromPhone,
-            '👥 *Etapa 3: Visitantes*\n\nDigite o nome dos visitantes que estiveram presentes (separados por vírgula).\n\n*Caso não tenha havido nenhum visitante, envie 0.*'
+            `👥 *Outros visitantes?*\n\nAlém dos cadastrados, veio algum visitante novo?\n\nDigite os nomes (separados por vírgula) ou envie *0* caso não tenha.`
           );
         }
         break;
@@ -956,7 +1023,7 @@ export async function handleGcReportIncomingMessage(
           await wait(1000);
           await sendText(
             fromPhone,
-            '🎯 *Etapa 4: Conversões*\n\nQuantas decisões por Cristo ou reconciliações aconteceram na reunião?\n\nEnvie o número (ex: *0*, *1*, *2*...)'
+            '🙏 *Etapa 4: Conversões*\n\nQuantas decisões por Cristo ou reconciliações aconteceram na reunião?\n\nEnvie o número (ex: *0*, *1*, *2*...)'
           );
         }
         break;
@@ -1293,6 +1360,41 @@ async function finalizeAndSubmitReport(session: GcReportSession, feedback: strin
         }
       });
       await Promise.all(checkProcessos);
+
+      // Kanban for pre-registered expected visitors marked as present
+      const preRegistered = (session.metrics as any)?.visitantesPreRegistrados || [];
+      const presentPreRegistered = preRegistered.filter((v: any) => v.presente === true);
+      if (presentPreRegistered.length > 0) {
+        const checkExpected = presentPreRegistered.map(async (visitor: any) => {
+          if (!visitor.id) return;
+          const processosSnap = await db.collection('users').doc(visitor.id).collection('processos')
+            .where('processType', '==', 'GC')
+            .where('status', '==', 'ACTIVE')
+            .get();
+          if (!processosSnap.empty) {
+            const procDoc = processosSnap.docs[0];
+            const procData = procDoc.data();
+            let newStage = null;
+            if (procData.currentStage === 'AGUARDANDO_CONTATO') {
+              newStage = 'EM_VISITA';
+            } else if (procData.currentStage === 'EM_VISITA') {
+              const histSnap = await db.collection('presencas_historico')
+                .where('membroId', '==', visitor.id)
+                .where('cellId', '==', session.cellId)
+                .where('status', '==', 'presente')
+                .get();
+              if (histSnap.size >= 4) {
+                newStage = 'INTEGRADO_GC';
+              }
+            }
+            if (newStage) {
+              await procDoc.ref.update({ currentStage: newStage, updatedAt: now });
+            }
+          }
+        });
+        await Promise.all(checkExpected);
+      }
+
     } catch(e) {
       console.error('[GC Bot] Erro na automação Kanban:', e);
     }

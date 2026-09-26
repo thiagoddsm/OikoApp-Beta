@@ -144,6 +144,7 @@ export default function CellDetailPage() {
   const [visitorName, setVisitorName] = useState('');
   const [visitorPhone, setVisitorPhone] = useState('');
   const [visitorOrigin, setVisitorOrigin] = useState('');
+  const [isVisitorEsperado, setIsVisitorEsperado] = useState(false);
 
   // --- Add member state ---
   const [isAddMemberOpen, setAddMemberOpen] = useState(false);
@@ -195,11 +196,12 @@ export default function CellDetailPage() {
       id: `v_${Date.now()}`, name: visitorName.trim(),
       phone: visitorPhone.trim(), origin: visitorOrigin.trim(),
       firstVisitDate: new Date().toISOString(), consolidationStatus: 'new',
+      ...(isVisitorEsperado ? { isEsperado: true } : {})
     };
     updateCell({ visitors: [...(cell?.visitors || []), newVisitor] });
-    setVisitorName(''); setVisitorPhone(''); setVisitorOrigin('');
+    setVisitorName(''); setVisitorPhone(''); setVisitorOrigin(''); setIsVisitorEsperado(false);
     setAddVisitorOpen(false);
-    toast({ title: 'Visitante registrado!' });
+    toast({ title: isVisitorEsperado ? 'Visitante esperado registrado! Aparecerá no bot do GC.' : 'Visitante registrado!' });
   };
 
   const handlePromoteVisitor = (visitor: Visitor) => {
@@ -673,6 +675,18 @@ export default function CellDetailPage() {
               <Label>Como conheceu a célula?</Label>
               <Input placeholder="Ex: Convite de amigo, redes sociais..." value={visitorOrigin} onChange={e => setVisitorOrigin(e.target.value)} />
             </div>
+            <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl border border-amber-200 bg-amber-50/60 hover:bg-amber-50">
+              <input
+                type="checkbox"
+                checked={isVisitorEsperado}
+                onChange={e => setIsVisitorEsperado(e.target.checked)}
+                className="w-4 h-4 rounded accent-amber-500 cursor-pointer"
+              />
+              <div>
+                <p className="text-sm font-semibold text-amber-800">⭐ Visitante Esperado</p>
+                <p className="text-xs text-amber-600">Aparecerá no bot do GC para marcar presença e no formulário web do relatório.</p>
+              </div>
+            </label>
           </div>
           <DialogFooter>
             <DialogClose asChild><Button variant="secondary">Cancelar</Button></DialogClose>
