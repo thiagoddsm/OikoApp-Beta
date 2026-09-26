@@ -123,7 +123,7 @@ export function EventCheckInTab({ eventId }: EventCheckInTabProps) {
         if (regs.length === 0) {
            console.log("SAMPLE CUSTOM ANSWERS:", data.customAnswers);
         }
-        regs.push({ id: doc.id, ...data });
+        regs.push({ ...data, id: doc.id });
       });
       regs.sort((a, b) => a.userMetadata.name.localeCompare(b.userMetadata.name));
       setRegistrations(regs);
