@@ -963,7 +963,7 @@ export async function handleGcReportIncomingMessage(
               fromPhone,
               '⭐ *Visitantes Esperados*\n\nEsses visitantes se inscreveram para este GC pelo site. Marque na enquete os que estiveram presentes hoje:'
             );
-            await wait(1500);
+            
             const visitorNames = (session.expectedVisitors || []).map((v: any) => v.name.substring(0, 50));
             await sendPoll(fromPhone, '📋 Visitantes Esperados — Quem veio?', visitorNames, true);
           } else {
