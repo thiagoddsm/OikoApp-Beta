@@ -20,6 +20,7 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useToast } from '@/hooks/use-toast';
 import { GooglePlacesAutocomplete } from '@/components/common/google-places-autocomplete';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
@@ -90,6 +91,8 @@ export function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors,
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
   const [nome, setNome] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [bio, setBio] = useState('');
   const [liderId, setLiderId] = useState('');
   const [liderCasalId, setLiderCasalId] = useState('');
   const [coLideres, setCoLideres] = useState<CoLider[]>([]);
@@ -124,6 +127,8 @@ export function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors,
   useEffect(() => {
     if (existingCell) {
       setNome(existingCell.nome || '');
+      setImageUrl(existingCell.imageUrl || existingCell.coverImage || '');
+      setBio(existingCell.bio || existingCell.description || '');
       setLiderId(existingCell.liderId || '');
       setLiderCasalId(existingCell.liderCasalId || '');
       setCoLideres(existingCell.coLideres || (existingCell.coLiderIds || []).map((id: any) => ({ id })));
@@ -149,7 +154,7 @@ export function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors,
       setTargetAudience(existingCell.targetAudience || '');
       setTags(existingCell.tags || []);
     } else {
-      setNome(''); setLiderId(''); setLiderCasalId(''); setCoLideres([]); setAnfitriaoId('');
+      setNome(''); setImageUrl(''); setBio(''); setLiderId(''); setLiderCasalId(''); setCoLideres([]); setAnfitriaoId('');
       setAnfitriãoCasalId(''); setSecretariaId(''); setAreaId(''); setRedeId('');
       setStreet(''); setLat(undefined); setLng(undefined);
       setMeetingDay(''); setMeetingTime(''); setMultiplicationDate(''); setSelectedMembers([]);
@@ -299,6 +304,17 @@ export function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors,
                 <SelectItem value="inactive">Inativa</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          
+          {/* FOTO E BIO */}
+          <div className="grid grid-cols-4 items-start gap-4">
+            <Label className="text-right mt-3">Foto de Capa (URL)</Label>
+            <Input value={imageUrl} onChange={e => setImageUrl(e.target.value)} className="col-span-3" placeholder="Ex: https://... ou /uploads/foto.jpg" />
+          </div>
+          <div className="grid grid-cols-4 items-start gap-4">
+            <Label className="text-right mt-3">Descrição / Bio</Label>
+            <Textarea value={bio} onChange={e => setBio(e.target.value)} className="col-span-3" placeholder="Breve descrição da célula..." />
           </div>
 
           {/* PÚBLICO E TAGS */}
