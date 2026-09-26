@@ -232,10 +232,10 @@ export async function submitSolicitacao(data: {
     }
 
     const intentIsGC = (data.intentType === 'GC' || (data.intentType === 'VISITANDO' && data.decisaoProximoPasso === 'Gostaria de participar de um GC'));
-    if (intentIsGC && data.intentDetails?.celulaId) {
+    if (intentIsGC && (data.intentDetails?.celulaId || data.intentDetails?.gcId)) {
       updatedProfile.hierarchy = {
         ...(existingData.hierarchy || {}),
-        celulaId: data.intentDetails.celulaId,
+        celulaId: (data.intentDetails?.celulaId || data.intentDetails?.gcId),
         role: existingData.hierarchy?.role || 'visitante'
       };
     }
@@ -251,7 +251,8 @@ export async function submitSolicitacao(data: {
       targetUserId = newDoc.id;
     }
 
-    if (intentIsGC && data.intentDetails?.celulaId) {
+    if (intentIsGC && (data.intentDetails?.celulaId || data.intentDetails?.gcId)) {
+      const targetCelId = (data.intentDetails?.celulaId || data.intentDetails?.gcId);
       const { FieldValue } = require('firebase-admin/firestore');
       const visitorObj = {
         id: targetUserId,
@@ -261,7 +262,7 @@ export async function submitSolicitacao(data: {
         firstVisitDate: new Date().toISOString(),
         consolidationStatus: 'new'
       };
-      await db.collection('cells').doc(data.intentDetails.celulaId).update({
+      await db.collection('cells').doc(targetCelId).update({
         visitors: FieldValue.arrayUnion(visitorObj)
       }).catch(err => console.error("Erro ao adicionar visitante na célula", err));
     }
@@ -341,7 +342,7 @@ export async function submitSolicitacao(data: {
       const whatsapp = await getWhatsAppClient();
 
       // A) Se selecionou um GC específico, notificar o Líder do GC
-      const selectedCellId = data.intentDetails?.celulaId;
+      const selectedCellId = (data.intentDetails?.celulaId || data.intentDetails?.gcId);
       if (selectedCellId && selectedCellId !== 'indicacao') {
         const cellDoc = await db.collection('cells').doc(selectedCellId).get();
         if (cellDoc.exists) {
