@@ -274,144 +274,148 @@ export function EventCheckInTab({ eventId }: EventCheckInTabProps) {
         </CardHeader>
 
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader className="bg-slate-50">
-                <TableRow>
-                  <TableHead className="w-[250px] pl-6">Participante</TableHead>
-                  <TableHead>Perfil & Entregas</TableHead>
-                  <TableHead className="text-right pr-6">Check-in Diário</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredRegistrations.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={3} className="text-center py-12 text-slate-500">
-                      Nenhum participante encontrado com estes filtros.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredRegistrations.map((reg) => {
-                    const isMember = inferIsMember(reg);
-                    const inGC = inferIsInGC(reg);
-                    const hasShirt = inferHasShirt(reg);
-                    const shirtSize = getShirtSize(reg);
+          <div className="rounded-xl border-t md:border bg-white overflow-hidden">
+            {/* Cabeçalho Desktop */}
+            <div className="hidden md:grid grid-cols-12 gap-4 p-4 bg-slate-50 border-b font-medium text-sm text-slate-500 items-center">
+              <div className="col-span-4 pl-2">Participante</div>
+              <div className="col-span-3">Perfil & Entregas</div>
+              <div className="col-span-5 text-right pr-2">Check-in Diário</div>
+            </div>
 
-                    const att = reg.attendance || {};
-                    const domM = att.domManha || false;
-                    const domT = att.domTarde || false;
-                    const ter = att.terca || false;
-                    const qui = att.quinta || false;
+            {/* Lista de Participantes */}
+            <div className="divide-y divide-slate-100">
+              {filteredRegistrations.length === 0 ? (
+                <div className="text-center py-12 text-slate-500">
+                  Nenhum participante encontrado com estes filtros.
+                </div>
+              ) : (
+                filteredRegistrations.map((reg) => {
+                  const isMember = inferIsMember(reg);
+                  const inGC = inferIsInGC(reg);
+                  const hasShirt = inferHasShirt(reg);
+                  const shirtSize = getShirtSize(reg);
 
-                    const checkedInCount = [domM, domT, ter, qui].filter(Boolean).length;
+                  const att = reg.attendance || {};
+                  const domM = att.domManha || false;
+                  const domT = att.domTarde || false;
+                  const ter = att.terca || false;
+                  const qui = att.quinta || false;
 
-                    return (
-                      <TableRow key={reg.id} className={checkedInCount > 0 ? "bg-slate-50/50" : ""}>
-                        <TableCell className="pl-6">
-                          <div className="font-bold text-slate-800 text-sm">{reg.userMetadata.name}</div>
-                          <div className="text-xs text-slate-500 flex items-center gap-2 mt-1">
-                            {reg.payment.status === 'pending' && (
-                              <span className="text-red-600 font-bold bg-red-100 px-2 py-0.5 rounded-full">Pendente</span>
-                            )}
-                            <Badge variant="outline" className="text-[10px] bg-white border-slate-200">
-                              {reg.ticketName || 'Geral'}
+                  const checkedInCount = [domM, domT, ter, qui].filter(Boolean).length;
+
+                  return (
+                    <div key={reg.id} className={`p-4 md:p-4 grid grid-cols-1 md:grid-cols-12 gap-4 md:items-center ${checkedInCount > 0 ? "bg-slate-50/50" : ""}`}>
+                      
+                      {/* Coluna 1: Dados do Participante */}
+                      <div className="md:col-span-4 flex flex-col items-start gap-1 md:pl-2">
+                        <div className="flex items-center justify-between w-full md:w-auto">
+                          <div className="font-bold text-slate-800 text-base md:text-sm">{reg.userMetadata.name}</div>
+                          {/* Botão Detalhes Mobile */}
+                          <Button size="icon" variant="ghost" className="h-8 w-8 md:hidden text-slate-400" onClick={() => openCheckInModal(reg)}>
+                            <ListOrdered className="size-4" />
+                          </Button>
+                        </div>
+                        <div className="text-xs text-slate-500 flex flex-wrap items-center gap-2 mt-1">
+                          {reg.payment.status === 'pending' && (
+                            <span className="text-red-600 font-bold bg-red-100 px-2 py-0.5 rounded-full">Pendente</span>
+                          )}
+                          <Badge variant="outline" className="text-[10px] bg-white border-slate-200">
+                            {reg.ticketName || 'Geral'}
+                          </Badge>
+                        </div>
+                      </div>
+                      
+                      {/* Coluna 2: Perfil e Entregas (Kit/Camisa) */}
+                      <div className="md:col-span-4 flex flex-col gap-3 md:gap-1.5 items-start">
+                        {/* Tags de Perfil */}
+                        <div className="flex flex-wrap gap-1">
+                          {isMember ? (
+                            <Badge className="text-[10px] bg-slate-100 text-slate-700 hover:bg-slate-200 border-none px-1.5">
+                              <ShieldCheck className="size-3 mr-1" /> Membro
                             </Badge>
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell>
-                          <div className="flex flex-col gap-1.5 items-start">
-                            <div className="flex gap-1">
-                              {isMember ? (
-                                <Badge className="text-[10px] bg-slate-100 text-slate-700 hover:bg-slate-200 border-none px-1.5">
-                                  <ShieldCheck className="size-3 mr-1" /> Membro
-                                </Badge>
-                              ) : (
-                                <Badge className="text-[10px] bg-blue-100 text-blue-700 hover:bg-blue-200 border-none px-1.5 font-bold">
-                                  <HeartHandshake className="size-3 mr-1" /> Visitante
-                                </Badge>
-                              )}
-                              {inGC && (
-                                <Badge className="text-[10px] bg-teal-100 text-teal-700 hover:bg-teal-200 border-none px-1.5">Em GC</Badge>
-                              )}
-                            </div>
+                          ) : (
+                            <Badge className="text-[10px] bg-blue-100 text-blue-700 hover:bg-blue-200 border-none px-1.5 font-bold">
+                              <HeartHandshake className="size-3 mr-1" /> Visitante
+                            </Badge>
+                          )}
+                          {inGC && (
+                            <Badge className="text-[10px] bg-teal-100 text-teal-700 hover:bg-teal-200 border-none px-1.5">Em GC</Badge>
+                          )}
+                        </div>
 
-                            <div className="flex gap-1 mt-0.5 items-center">
-                              {/* Kit Toggle */}
-                              <Button 
-                                size="sm" 
-                                variant={att.kitRetirado ? "default" : "outline"}
-                                className={`h-6 px-2 text-[10px] ${att.kitRetirado ? 'bg-indigo-600 hover:bg-indigo-700' : 'border-slate-300 text-slate-600 hover:bg-slate-100'}`}
-                                onClick={() => handleUpdateAttendance(reg.id, 'kitRetirado', !att.kitRetirado)}
-                              >
-                                {att.kitRetirado ? <Check className="size-3 mr-1"/> : <Package className="size-3 mr-1"/>} {isMember ? 'Kit Membro' : 'Kit Visitante'}
-                              </Button>
+                        {/* Botões de Entrega: em mobile ocupam a tela toda lado a lado, em desktop pequenos */}
+                        <div className="flex gap-2 md:gap-1 w-full md:w-auto mt-1 md:mt-0">
+                          {/* Kit Toggle */}
+                          <Button 
+                            size="sm" 
+                            variant={att.kitRetirado ? "default" : "outline"}
+                            className={`flex-1 md:flex-none h-9 md:h-6 px-2 text-xs md:text-[10px] ${att.kitRetirado ? 'bg-indigo-600 hover:bg-indigo-700' : 'border-slate-300 text-slate-600 hover:bg-slate-100'}`}
+                            onClick={() => handleUpdateAttendance(reg.id, 'kitRetirado', !att.kitRetirado)}
+                          >
+                            {att.kitRetirado ? <Check className="size-3 md:size-3 mr-1"/> : <Package className="size-3 md:size-3 mr-1"/>} {isMember ? 'Kit Membro' : 'Kit Visitante'}
+                          </Button>
 
-                              {/* Camisa Toggle */}
-                              {hasShirt && (
-                                <Button 
-                                  size="sm" 
-                                  variant={att.camisaRetirada ? "default" : "outline"}
-                                  className={`h-6 px-2 text-[10px] ${att.camisaRetirada ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100'}`}
-                                  onClick={() => handleUpdateAttendance(reg.id, 'camisaRetirada', !att.camisaRetirada)}
-                                >
-                                  {att.camisaRetirada ? <Check className="size-3 mr-1"/> : <Shirt className="size-3 mr-1"/>} Camisa {shirtSize && `(${shirtSize})`}
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        </TableCell>
-
-                        <TableCell className="text-right pr-6">
-                          <div className="flex items-center justify-end gap-2">
-                            
-                            {/* Check-ins Diários */}
-                            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-md border border-slate-200">
-                              <Button 
-                                size="sm" variant={domM ? "default" : "ghost"} 
-                                className={`h-7 px-2 text-xs ${domM ? 'bg-emerald-600 hover:bg-emerald-700' : 'text-slate-500 hover:text-slate-700'}`}
-                                onClick={() => handleUpdateAttendance(reg.id, 'domManha', !domM)}
-                                title="Domingo Manhã"
-                              >
-                                Dom M
-                              </Button>
-                              <Button 
-                                size="sm" variant={domT ? "default" : "ghost"} 
-                                className={`h-7 px-2 text-xs ${domT ? 'bg-emerald-600 hover:bg-emerald-700' : 'text-slate-500 hover:text-slate-700'}`}
-                                onClick={() => handleUpdateAttendance(reg.id, 'domTarde', !domT)}
-                                title="Domingo Tarde/Noite"
-                              >
-                                Dom N
-                              </Button>
-                              <Button 
-                                size="sm" variant={ter ? "default" : "ghost"} 
-                                className={`h-7 px-2 text-xs ${ter ? 'bg-emerald-600 hover:bg-emerald-700' : 'text-slate-500 hover:text-slate-700'}`}
-                                onClick={() => handleUpdateAttendance(reg.id, 'terca', !ter)}
-                                title="Terça-feira"
-                              >
-                                Ter
-                              </Button>
-                              <Button 
-                                size="sm" variant={qui ? "default" : "ghost"} 
-                                className={`h-7 px-2 text-xs ${qui ? 'bg-emerald-600 hover:bg-emerald-700' : 'text-slate-500 hover:text-slate-700'}`}
-                                onClick={() => handleUpdateAttendance(reg.id, 'quinta', !qui)}
-                                title="Quinta-feira"
-                              >
-                                Qui
-                              </Button>
-                            </div>
-
-                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-slate-400 hover:text-slate-600 ml-1" onClick={() => openCheckInModal(reg)}>
-                              <ListOrdered className="size-4" />
+                          {/* Camisa Toggle */}
+                          {hasShirt && (
+                            <Button 
+                              size="sm" 
+                              variant={att.camisaRetirada ? "default" : "outline"}
+                              className={`flex-1 md:flex-none h-9 md:h-6 px-2 text-xs md:text-[10px] ${att.camisaRetirada ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100'}`}
+                              onClick={() => handleUpdateAttendance(reg.id, 'camisaRetirada', !att.camisaRetirada)}
+                            >
+                              {att.camisaRetirada ? <Check className="size-3 md:size-3 mr-1"/> : <Shirt className="size-3 md:size-3 mr-1"/>} Camisa {shirtSize && `(${shirtSize})`}
                             </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Coluna 3: Check-ins Diários */}
+                      <div className="md:col-span-4 flex flex-col md:flex-row md:items-center justify-start md:justify-end gap-2 md:pr-2 w-full mt-2 md:mt-0">
+                        <div className="grid grid-cols-4 md:flex items-center gap-1.5 w-full md:w-auto bg-slate-50 md:bg-slate-100 p-1.5 md:p-1 rounded-lg border border-slate-200">
+                          <Button 
+                            size="sm" variant={domM ? "default" : "ghost"} 
+                            className={`h-9 md:h-7 px-0 md:px-2 text-xs font-bold md:font-normal ${domM ? 'bg-emerald-600 hover:bg-emerald-700' : 'text-slate-500 hover:text-slate-700 bg-white md:bg-transparent shadow-sm md:shadow-none border md:border-none border-slate-200'}`}
+                            onClick={() => handleUpdateAttendance(reg.id, 'domManha', !domM)}
+                            title="Domingo Manhã"
+                          >
+                            Dom M
+                          </Button>
+                          <Button 
+                            size="sm" variant={domT ? "default" : "ghost"} 
+                            className={`h-9 md:h-7 px-0 md:px-2 text-xs font-bold md:font-normal ${domT ? 'bg-emerald-600 hover:bg-emerald-700' : 'text-slate-500 hover:text-slate-700 bg-white md:bg-transparent shadow-sm md:shadow-none border md:border-none border-slate-200'}`}
+                            onClick={() => handleUpdateAttendance(reg.id, 'domTarde', !domT)}
+                            title="Domingo Tarde/Noite"
+                          >
+                            Dom N
+                          </Button>
+                          <Button 
+                            size="sm" variant={ter ? "default" : "ghost"} 
+                            className={`h-9 md:h-7 px-0 md:px-2 text-xs font-bold md:font-normal ${ter ? 'bg-emerald-600 hover:bg-emerald-700' : 'text-slate-500 hover:text-slate-700 bg-white md:bg-transparent shadow-sm md:shadow-none border md:border-none border-slate-200'}`}
+                            onClick={() => handleUpdateAttendance(reg.id, 'terca', !ter)}
+                            title="Terça-feira"
+                          >
+                            Ter
+                          </Button>
+                          <Button 
+                            size="sm" variant={qui ? "default" : "ghost"} 
+                            className={`h-9 md:h-7 px-0 md:px-2 text-xs font-bold md:font-normal ${qui ? 'bg-emerald-600 hover:bg-emerald-700' : 'text-slate-500 hover:text-slate-700 bg-white md:bg-transparent shadow-sm md:shadow-none border md:border-none border-slate-200'}`}
+                            onClick={() => handleUpdateAttendance(reg.id, 'quinta', !qui)}
+                            title="Quinta-feira"
+                          >
+                            Qui
+                          </Button>
+                        </div>
+
+                        {/* Botão de Detalhes Desktop */}
+                        <Button size="sm" variant="ghost" className="hidden md:flex h-8 w-8 p-0 text-slate-400 hover:text-slate-600 ml-1" onClick={() => openCheckInModal(reg)}>
+                          <ListOrdered className="size-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
