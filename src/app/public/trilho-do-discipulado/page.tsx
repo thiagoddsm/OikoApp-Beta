@@ -66,7 +66,7 @@ export default function TrilhoDiscipuladoPage() {
           <div className="w-full max-w-4xl mx-auto mb-10 rounded-2xl overflow-hidden shadow-2xl border border-outline-variant/30 aspect-video bg-slate-900 relative">
             <iframe 
               className="absolute top-0 left-0 w-full h-full"
-              src="https://www.youtube.com/embed/dQw4w9WgXcQ?rel=0&showinfo=0" 
+              src="https://www.youtube.com/embed/YcPPoC70BG4?rel=0&showinfo=0" 
               title="Vídeo Trilha do Discipulado" 
               frameBorder="0" 
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
