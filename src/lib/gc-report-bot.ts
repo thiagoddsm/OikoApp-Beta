@@ -311,7 +311,7 @@ export async function startGcReportSession(
         greetingText,
         [
           { id: 'channel_whatsapp', text: '💬¬ No WhatsApp' },
-          { id: 'channel_link', text: 'ðŸ”— Pelo Link' }
+          { id: 'channel_link', text: '🔗— Pelo Link' }
         ],
         editingLogId ? 'Edição de Relatório' : 'Relatório Semanal de GC'
       );
@@ -533,7 +533,7 @@ export async function handleGcReportIncomingMessage(
             'Por favor, escolha como deseja responder o relatório do seu GC:',
             [
               { id: 'channel_whatsapp', text: '💬¬ No WhatsApp' },
-              { id: 'channel_link', text: 'ðŸ”— Pelo Link' }
+              { id: 'channel_link', text: '🔗— Pelo Link' }
             ]
           );
         }
@@ -1172,7 +1172,7 @@ async function resendCurrentStepMessage(to: string, session: GcReportSession) {
         'Como você prefere responder o relatório do GC esta semana?',
         [
           { id: 'channel_whatsapp', text: '💬¬ No WhatsApp' },
-          { id: 'channel_link', text: 'ðŸ”— Pelo Link' }
+          { id: 'channel_link', text: '🔗— Pelo Link' }
         ]
       );
       break;
