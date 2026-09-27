@@ -1,4 +1,4 @@
-﻿import { getAdminDb } from '@/lib/firebase-admin';
+import { getAdminDb } from '@/lib/firebase-admin';
 import { getWhatsAppClient } from '@/lib/whatsapp';
 
 export interface GcReportSession {
@@ -1225,7 +1225,7 @@ async function resendCurrentStepMessage(to: string, session: GcReportSession) {
 /**
  * Compila e salva o relatÃ³rio nas coleÃ§Ãµes reuniao_logs e presencas_historico do Firestore.
  */
-async function finalizeAndSubmitReport(session: GcReportSession, feedback: string): Promise<boolean> {
+export async function finalizeAndSubmitReport(session: GcReportSession, feedback: string): Promise<boolean> {
   const db = getAdminDb();
   const now = new Date();
   const batch = db.batch();
@@ -1375,11 +1375,12 @@ async function finalizeAndSubmitReport(session: GcReportSession, feedback: strin
           if (!visitor.id) return;
 
           // 1. Atualizar attendedDates no array cell.visitors para rastrear as visitas individuais
+          const dateToLog = session.date || reportDate;
           updatedCellVisitors = updatedCellVisitors.map((v: any) => {
             if (v.id === visitor.id) {
               const attended = v.attendedDates || [];
-              if (!attended.includes(reportDate)) {
-                return { ...v, attendedDates: [...attended, reportDate] };
+              if (!attended.includes(dateToLog)) {
+                return { ...v, attendedDates: [...attended, dateToLog] };
               }
             }
             return v;
