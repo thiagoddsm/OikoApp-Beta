@@ -1,7 +1,7 @@
 'use server';
 
 import { getAdminDb } from '@/lib/firebase-admin';
-import { Timestamp } from 'firebase-admin/firestore';
+import { FieldValue } from 'firebase-admin/firestore';
 
 export async function submitHangoutQuestion(data: {
     text: string;
@@ -14,13 +14,13 @@ export async function submitHangoutQuestion(data: {
             text: data.text,
             author: data.author || 'Anônimo',
             answered: false,
-            createdAt: Timestamp.now()
+            createdAt: FieldValue.serverTimestamp()
         });
 
         return { success: true };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Erro ao enviar pergunta:", error);
-        return { success: false, error: "Falha ao enviar a pergunta." };
+        return { success: false, error: "Firebase Error: " + (error?.message || String(error)) };
     }
 }
 
@@ -31,8 +31,8 @@ export async function toggleQuestionAnswered(id: string, answered: boolean) {
         await db.collection('hangout_questions').doc(id).update({ answered });
 
         return { success: true };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Erro ao atualizar status da pergunta:", error);
-        return { success: false, error: "Falha ao atualizar a pergunta." };
+        return { success: false, error: "Firebase Error: " + (error?.message || String(error)) };
     }
 }
