@@ -1366,8 +1366,42 @@ async function finalizeAndSubmitReport(session: GcReportSession, feedback: strin
       const preRegistered = (session.metrics as any)?.visitantesPreRegistrados || [];
       const presentPreRegistered = preRegistered.filter((v: any) => v.presente === true);
       if (presentPreRegistered.length > 0) {
+        // Buscar a célula para atualizar o attendedDates dos visitantes
+        const cellDocForVisitors = await db.collection('cells').doc(session.cellId).get();
+        const cellVisitors: any[] = cellDocForVisitors.exists ? (cellDocForVisitors.data()?.visitors || []) : [];
+        let updatedCellVisitors = [...cellVisitors];
+
         const checkExpected = presentPreRegistered.map(async (visitor: any) => {
           if (!visitor.id) return;
+
+          // 1. Atualizar attendedDates no array cell.visitors para rastrear as visitas individuais
+          updatedCellVisitors = updatedCellVisitors.map((v: any) => {
+            if (v.id === visitor.id) {
+              const attended = v.attendedDates || [];
+              if (!attended.includes(reportDate)) {
+                return { ...v, attendedDates: [...attended, reportDate] };
+              }
+            }
+            return v;
+          });
+
+          // 2. Verificar se chegou a 4 visitas — promover automaticamente para membro
+          const visitorInCell = updatedCellVisitors.find((v: any) => v.id === visitor.id);
+          if (visitorInCell && (visitorInCell.attendedDates || []).length >= 4) {
+            const userSnap = await db.collection('users').doc(visitor.id).get();
+            if (userSnap.exists) {
+              const userData = userSnap.data()!;
+              if (userData.hierarchy?.role === 'visitante') {
+                await db.collection('users').doc(visitor.id).update({
+                  'hierarchy.role': 'membro',
+                  updatedAt: now
+                });
+                console.log(`[GC Bot] Visitante ${visitor.name} promovido a membro após 4ª visita.`);
+              }
+            }
+          }
+
+          // 3. Kanban: avançar estágio do processo GC
           const processosSnap = await db.collection('users').doc(visitor.id).collection('processos')
             .where('processType', '==', 'GC')
             .where('status', '==', 'ACTIVE')
@@ -1379,12 +1413,8 @@ async function finalizeAndSubmitReport(session: GcReportSession, feedback: strin
             if (procData.currentStage === 'AGUARDANDO_CONTATO') {
               newStage = 'EM_VISITA';
             } else if (procData.currentStage === 'EM_VISITA') {
-              const histSnap = await db.collection('presencas_historico')
-                .where('membroId', '==', visitor.id)
-                .where('cellId', '==', session.cellId)
-                .where('status', '==', 'presente')
-                .get();
-              if (histSnap.size >= 4) {
+              const attendedCount = (visitorInCell?.attendedDates || []).length;
+              if (attendedCount >= 4) {
                 newStage = 'INTEGRADO_GC';
               }
             }
@@ -1394,6 +1424,9 @@ async function finalizeAndSubmitReport(session: GcReportSession, feedback: strin
           }
         });
         await Promise.all(checkExpected);
+
+        // Salvar visitors atualizados na célula (com attendedDates)
+        await db.collection('cells').doc(session.cellId).update({ visitors: updatedCellVisitors });
       }
 
     } catch(e) {

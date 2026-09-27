@@ -48,6 +48,7 @@ type Rede = { id: string; nome: string };
 type Visitor = {
   id: string; name: string; phone?: string;
   firstVisitDate?: string; origin?: string; consolidationStatus?: string;
+  attendedDates?: string[]; // datas ISO das presenças confirmadas no GC
 };
 
 const ROLES: Record<string, { label: string; color: string }> = {
@@ -409,17 +410,54 @@ export default function CellDetailPage() {
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-sm">{visitor.name}</p>
-                      <div className="flex items-center gap-3 mt-0.5">
+                      <div className="flex items-center gap-3 mt-0.5 flex-wrap">
                         {visitor.phone && <span className="text-[11px] text-muted-foreground flex items-center gap-1"><Phone className="h-2.5 w-2.5"/>{visitor.phone}</span>}
                         {visitor.firstVisitDate && (
                           <span className="text-[11px] text-muted-foreground">
-                            1ª visita: {format(new Date(visitor.firstVisitDate), "dd/MM/yyyy", { locale: ptBR })}
+                            📅 Inscrito em: {format(new Date(visitor.firstVisitDate), "dd/MM/yyyy", { locale: ptBR })}
                           </span>
                         )}
                         {visitor.origin && <span className="text-[11px] text-muted-foreground">Origem: {visitor.origin}</span>}
                       </div>
+                      {/* Rastreamento das 4 primeiras visitas ao GC */}
+                      <div className="flex items-center gap-1.5 mt-1.5">
+                        <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Visitas ao GC:</span>
+                        {[0, 1, 2, 3].map(i => {
+                          const dateStr = (visitor.attendedDates || [])[i];
+                          return (
+                            <span key={i} title={dateStr ? format(new Date(dateStr), 'dd/MM/yyyy', { locale: ptBR }) : `${i + 1}ª visita`}
+                              className={cn(
+                                'h-4 w-4 rounded-full border-2 text-[8px] flex items-center justify-center font-black',
+                                dateStr ? 'bg-emerald-500 border-emerald-600 text-white' : 'bg-slate-100 border-slate-300 text-slate-400'
+                              )}
+                            >
+                              {dateStr ? '✓' : i + 1}
+                            </span>
+                          );
+                        })}
+                        {(visitor.attendedDates || []).length >= 4 && (
+                          <span className="text-[10px] font-black text-emerald-600 ml-1">🎉 Pronto p/ membro!</span>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap justify-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-[11px] font-bold text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                        onClick={() => {
+                          const today = new Date().toISOString().split('T')[0];
+                          const attended = visitor.attendedDates || [];
+                          if (attended.includes(today)) {
+                            toast({ description: 'Presença já registrada hoje.' }); return;
+                          }
+                          const newDates = [...attended, today];
+                          updateCell({ visitors: (cell?.visitors || []).map(v => v.id === visitor.id ? { ...v, attendedDates: newDates } : v) });
+                          toast({ title: `✅ Presença de ${visitor.name} registrada!`, description: `${newDates.length}/4 visitas ao GC` });
+                        }}
+                      >
+                        <HandHeart className="mr-1 h-3 w-3" />Marcar Presença
+                      </Button>
                       <Select value={visitor.consolidationStatus || 'new'} onValueChange={val => handleVisitorConsolidation(visitor.id, val)}>
                         <SelectTrigger className="h-7 text-[11px] w-28 font-bold">
                           <SelectValue />

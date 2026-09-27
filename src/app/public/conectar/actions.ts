@@ -233,10 +233,12 @@ export async function submitSolicitacao(data: {
 
     const intentIsGC = (data.intentType === 'GC' || (data.intentType === 'VISITANDO' && data.decisaoProximoPasso === 'Gostaria de participar de um GC'));
     if (intentIsGC && (data.intentDetails?.celulaId || data.intentDetails?.gcId)) {
+      // Sempre forçar role 'visitante' para quem se inscreve via portal — nunca pular direto para membro.
+      // Só sobe de nível após 4 presenças confirmadas no GC.
       updatedProfile.hierarchy = {
         ...(existingData.hierarchy || {}),
         celulaId: (data.intentDetails?.celulaId || data.intentDetails?.gcId),
-        role: existingData.hierarchy?.role || 'visitante'
+        role: 'visitante'
       };
     }
 
@@ -254,17 +256,26 @@ export async function submitSolicitacao(data: {
     if (intentIsGC && (data.intentDetails?.celulaId || data.intentDetails?.gcId)) {
       const targetCelId = (data.intentDetails?.celulaId || data.intentDetails?.gcId);
       const { FieldValue } = require('firebase-admin/firestore');
-      const visitorObj = {
-        id: targetUserId,
-        name: formatName(data.name),
-        phone: cleanPhone || '',
-        origin: 'Portal /conectar',
-        firstVisitDate: new Date().toISOString(),
-        consolidationStatus: 'new'
-      };
-      await db.collection('cells').doc(targetCelId).update({
-        visitors: FieldValue.arrayUnion(visitorObj)
-      }).catch(err => console.error("Erro ao adicionar visitante na célula", err));
+      
+      // Verificar se o visitante já está no array (evitar duplicata)
+      const cellSnap = await db.collection('cells').doc(targetCelId).get();
+      const existingVisitors: any[] = cellSnap.exists ? (cellSnap.data()?.visitors || []) : [];
+      const alreadyInCell = existingVisitors.some((v: any) => v.id === targetUserId);
+      
+      if (!alreadyInCell) {
+        const visitorObj = {
+          id: targetUserId,
+          name: formatName(data.name),
+          phone: cleanPhone || '',
+          origin: 'Portal /conectar',
+          firstVisitDate: new Date().toISOString(), // data de cadastro (inscrição)
+          attendedDates: [], // presenças confirmadas no GC — começa vazio
+          consolidationStatus: 'new'
+        };
+        await db.collection('cells').doc(targetCelId).update({
+          visitors: FieldValue.arrayUnion(visitorObj)
+        }).catch(err => console.error("Erro ao adicionar visitante na célula", err));
+      }
     }
 
     // 2. Gravar o Registro de Solicitação na coleção "solicitacoes"
