@@ -1,4 +1,4 @@
-﻿'use server';
+'use server';
 
 import { getAdminDb } from '@/lib/firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
@@ -398,12 +398,59 @@ export async function submitPublicGcReport(payload: SubmitPublicReportPayload) {
       // Visitantes pré-registrados presentes
       const presentPreRegistered = payload.metricas.visitantesPreRegistrados?.filter(v => (v as any).presente === true) || [];
       if (presentPreRegistered.length > 0) {
+        // Buscar a célula para atualizar o attendedDates dos visitantes
+        const cellDocForVisitors = await db.collection('cells').doc(cellId).get();
+        const cellVisitors: any[] = cellDocForVisitors.exists ? (cellDocForVisitors.data()?.visitors || []) : [];
+        let updatedCellVisitors = [...cellVisitors];
+
         const checkExpected = presentPreRegistered.map(async (visitor: any) => {
           if (!visitor.id) return;
+
+          // 1. Atualizar attendedDates no array cell.visitors
+          updatedCellVisitors = updatedCellVisitors.map((v: any) => {
+            if (v.id === visitor.id) {
+              const attended = v.attendedDates || [];
+              if (!attended.includes(reportDate)) {
+                return { ...v, attendedDates: [...attended, reportDate] };
+              }
+            }
+            return v;
+          });
+
+          // 2. Verificar promoção para membro
+          const visitorInCell = updatedCellVisitors.find((v: any) => v.id === visitor.id);
+          if (visitorInCell && (visitorInCell.attendedDates || []).length >= 4) {
+            const userSnap = await db.collection('users').doc(visitor.id).get();
+            if (userSnap.exists) {
+              const userData = userSnap.data()!;
+              if (userData.hierarchy?.role === 'visitante' || userData.situacaoCaminhada === 'VISITANTE') {
+                await db.collection('users').doc(visitor.id).update({
+                  'hierarchy.role': 'membro',
+                  'hierarchy.updatedAt': Timestamp.now(),
+                  'situacaoCaminhada': 'EM_INTEGRACAO'
+                });
+                
+                // Mover de cell.visitors para cell.members
+                const finalCellDoc = await db.collection('cells').doc(cellId).get();
+                const currentMembers = finalCellDoc.data()?.members || [];
+                const currentVisitors = finalCellDoc.data()?.visitors || [];
+                
+                await db.collection('cells').doc(cellId).update({
+                  members: [...currentMembers, visitor.id],
+                  visitors: currentVisitors.filter((v: any) => v.id !== visitor.id)
+                });
+                // Remove dos visitantes para não ser salvo de volta no passo final
+                updatedCellVisitors = updatedCellVisitors.filter((v: any) => v.id !== visitor.id);
+              }
+            }
+          }
+
+          // 3. Atualizar Kanban
           const processosSnap = await db.collection('users').doc(visitor.id).collection('processos')
             .where('processType', '==', 'GC')
             .where('status', '==', 'ACTIVE')
             .get();
+          
           if (!processosSnap.empty) {
             const procDoc = processosSnap.docs[0];
             const procData = procDoc.data();
@@ -411,12 +458,8 @@ export async function submitPublicGcReport(payload: SubmitPublicReportPayload) {
             if (procData.currentStage === 'AGUARDANDO_CONTATO') {
               newStage = 'EM_VISITA';
             } else if (procData.currentStage === 'EM_VISITA') {
-              const histSnap = await db.collection('presencas_historico')
-                .where('membroId', '==', visitor.id)
-                .where('cellId', '==', cellId)
-                .where('status', '==', 'presente')
-                .get();
-              if (histSnap.size >= 4) {
+              const attendedCount = (visitorInCell?.attendedDates || []).length;
+              if (attendedCount >= 4) {
                 newStage = 'INTEGRADO_GC';
               }
             }
@@ -426,6 +469,9 @@ export async function submitPublicGcReport(payload: SubmitPublicReportPayload) {
           }
         });
         await Promise.all(checkExpected);
+
+        // Salvar visitors atualizados na célula
+        await db.collection('cells').doc(cellId).update({ visitors: updatedCellVisitors });
       }
     } catch (kanbanErr) {
       console.warn('[Public GC Report] Error updating kanban stages:', kanbanErr);
