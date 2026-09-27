@@ -28,8 +28,9 @@ export class OikoWhatsAppClient {
         // (só a Evolution consegue entregar as respostas das enquetes via webhook)
         if (type === 'poll' || type === 'survey') {
             const evUrl = `${this.evUrl}/message/sendPoll/${this.evInstance}`;
+            const formattedNumber = formatWhatsAppNumber(body.to || '');
             const evData = {
-                number: (body.to || '').replace(/\D/g, ''),
+                number: formattedNumber,
                 name: body.name || body.text || 'Enquete',
                 selectableCount: body.selectableCount || (body.multiple === false ? 1 : (body.options || []).length),
                 values: body.options && body.options.length > 0 ? body.options : ['Sim', 'Não']
