@@ -4,7 +4,6 @@ import { getWhatsAppClient } from '@/lib/whatsapp';
 export interface GcReportSession {
   id: string; // Telefone do líder formatado (ex: 5521999998888)
   cellId: string;
-  date?: string;
   liderId: string;
   step: 'START' | 'CHOOSE_CHANNEL' | 'CHECK_MEETING' | 'MEETING_STATUS_CHOICE' | 'POSTPONED_DATE' | 'CANCELLED_REASON' | 'ATTENDANCE' | 'ATTENDANCE_CONFIRM' | 'CARE_CHOICE' | 'CARE_SELECT' | 'CARE_MEMBER_THERMOMETER' | 'CARE_MEMBER_PRAYER' | 'METRICS_LESSON' | 'EXPECTED_VISITORS_POLL' | 'METRICS_VISITORS' | 'METRICS_CONVERSIONS' | 'FEEDBACK' | 'SUMMARY_CONFIRM';
   members: { id: string; name: string }[];
@@ -206,7 +205,7 @@ export async function startGcReportSession(
     const cellData = cellDoc.data()!;
     const liderId = cellData.liderId || '';
 
-    // Opção B: busca membros por hierarchy.celulaId â€” fonte única de verdade.
+    // Opção B: busca membros por hierarchy.celulaId — fonte única de verdade.
     // TODO (Opção C): substituir por query na coleção /memberships quando migrar para multi-igreja.
     const usersSnap = await db.collection('users')
       .where('hierarchy.celulaId', '==', cellId)
@@ -216,7 +215,7 @@ export async function startGcReportSession(
     usersSnap.forEach(snap => {
       if (snap.exists) {
         const role = snap.data().hierarchy?.role;
-        // Exclude visitantes from members list â€” they get their own poll
+        // Exclude visitantes from members list — they get their own poll
         if (role !== 'visitante') {
           membersList.push({ id: snap.id, name: snap.data().name || 'Membro' });
         }
@@ -310,8 +309,8 @@ export async function startGcReportSession(
         recipientPhone,
         greetingText,
         [
-          { id: 'channel_whatsapp', text: '💬¬ No WhatsApp' },
-          { id: 'channel_link', text: '🔗— Pelo Link' }
+          { id: 'channel_whatsapp', text: '💬 No WhatsApp' },
+          { id: 'channel_link', text: '🔗 Pelo Link' }
         ],
         editingLogId ? 'Edição de Relatório' : 'Relatório Semanal de GC'
       );
@@ -353,7 +352,7 @@ export async function startGcReportEditSession(fromPhone: string): Promise<boole
     }
 
     if (!foundUser) {
-      await sendText(fromPhone, 'âš ï¸ Não encontramos um cadastro de líder ou secretário associado ao seu número de WhatsApp.');
+      await sendText(fromPhone, '⚠️ Não encontramos um cadastro de líder ou secretário associado ao seu número de WhatsApp.');
       return false;
     }
 
@@ -372,7 +371,7 @@ export async function startGcReportEditSession(fromPhone: string): Promise<boole
     }
 
     if (!foundCell) {
-      await sendText(fromPhone, `âš ï¸ Olá, ${foundUser.name || 'irmão(ã)'}! Não encontramos nenhum GC vinculado Ã  sua liderança no sistema.`);
+      await sendText(fromPhone, `⚠️ Olá, ${foundUser.name || 'irmão(ã)'}! Não encontramos nenhum GC vinculado à sua liderança no sistema.`);
       return false;
     }
 
@@ -382,7 +381,7 @@ export async function startGcReportEditSession(fromPhone: string): Promise<boole
       .get();
 
     if (logsSnap.empty) {
-      await sendText(fromPhone, `âš ï¸ O GC *${foundCell.nome || 'Célula'}* ainda não possui nenhum relatório registrado para ser editado.`);
+      await sendText(fromPhone, `⚠️ O GC *${foundCell.nome || 'Célula'}* ainda não possui nenhum relatório registrado para ser editado.`);
       return false;
     }
 
@@ -412,7 +411,7 @@ export async function startGcReportEditSession(fromPhone: string): Promise<boole
     );
   } catch (err: any) {
     console.error('[GC Bot] Erro ao iniciar edição de relatório:', err);
-    await sendText(fromPhone, 'âš ï¸ Ocorreu um erro ao buscar o último relatório para edição. Tente novamente mais tarde.');
+    await sendText(fromPhone, '⚠️ Ocorreu um erro ao buscar o último relatório para edição. Tente novamente mais tarde.');
     return false;
   }
 }
@@ -457,7 +456,7 @@ export async function handleGcReportIncomingMessage(
     });
     await sendButton(
       fromPhone,
-      'Perfeito! Vamos responder aqui pelo WhatsApp. 💬¬\n\nâ“ *Aconteceu a reunião do GC esta semana?*',
+      'Perfeito! Vamos responder aqui pelo WhatsApp. 💬\n\n❓ *Aconteceu a reunião do GC esta semana?*',
       [
         { id: 'meeting_yes', text: 'Sim' },
         { id: 'meeting_no', text: 'Não' }
@@ -507,7 +506,7 @@ export async function handleGcReportIncomingMessage(
           });
           await sendButton(
             fromPhone,
-            'Perfeito! Vamos responder aqui pelo WhatsApp. 💬¬\n\nâ“ *Aconteceu a reunião do GC esta semana?*',
+            'Perfeito! Vamos responder aqui pelo WhatsApp. 💬\n\n❓ *Aconteceu a reunião do GC esta semana?*',
             [
               { id: 'meeting_yes', text: 'Sim' },
               { id: 'meeting_no', text: 'Não' }
@@ -520,7 +519,7 @@ export async function handleGcReportIncomingMessage(
 
           await sendText(
             fromPhone,
-            `Perfeito! ðŸŒŸ\n\nClique no link abaixo para preencher o relatório completo com lista de presença na tela:\n\n👉 ${link}\n\n💡 Basta confirmar seu e-mail para abrir a chamada do seu GC.\n\n_(Se preferir responder pelo WhatsApp a qualquer momento, digite /whatsapp)_`
+            `Perfeito! 🌟\n\nClique no link abaixo para preencher o relatório completo com lista de presença na tela:\n\n👉 ${link}\n\n💡 Basta confirmar seu e-mail para abrir a chamada do seu GC.\n\n_(Se preferir responder pelo WhatsApp a qualquer momento, digite /whatsapp)_`
           );
 
           await sessionRef.update({
@@ -532,8 +531,8 @@ export async function handleGcReportIncomingMessage(
             fromPhone,
             'Por favor, escolha como deseja responder o relatório do seu GC:',
             [
-              { id: 'channel_whatsapp', text: '💬¬ No WhatsApp' },
-              { id: 'channel_link', text: '🔗— Pelo Link' }
+              { id: 'channel_whatsapp', text: '💬 No WhatsApp' },
+              { id: 'channel_link', text: '🔗 Pelo Link' }
             ]
           );
         }
@@ -552,7 +551,7 @@ export async function handleGcReportIncomingMessage(
           });
           await sendText(
             fromPhone,
-            '📅‹ *Etapa 1: Chamada*\n\nResponda na enquete/lista abaixo quem esteve *PRESENTE* na reunião.'
+            '📋 *Etapa 1: Chamada*\n\nResponda na enquete/lista abaixo quem esteve *PRESENTE* na reunião.'
           );
           // Aguardar antes das enquetes para o texto chegar primeiro
           await new Promise(resolve => setTimeout(resolve, 2000));
@@ -597,7 +596,7 @@ export async function handleGcReportIncomingMessage(
           });
           await sendText(
             fromPhone,
-            '📅… *Para qual dia a reunião foi adiada?*\n\nDigite a nova data ou dia da semana (ex: *Sexta-feira 25/07* ou *28/07*).'
+            '📅 *Para qual dia a reunião foi adiada?*\n\nDigite a nova data ou dia da semana (ex: *Sexta-feira 25/07* ou *28/07*).'
           );
         } else if (isCancelled) {
           await sessionRef.update({
@@ -607,7 +606,7 @@ export async function handleGcReportIncomingMessage(
           });
           await sendText(
             fromPhone,
-            'âŒ *Qual foi o motivo do cancelamento da reunião?*\n\n(ex: *Feriado*, *Encontro de Casais*, *Imprevisto no local*...)'
+            '❌ *Qual foi o motivo do cancelamento da reunião?*\n\n(ex: *Feriado*, *Encontro de Casais*, *Imprevisto no local*...)'
           );
         } else {
           await sendButton(
@@ -670,7 +669,7 @@ export async function handleGcReportIncomingMessage(
             createdAt: now
           });
 
-          // Agendar nova tentativa de coleta de relatório no dia seguinte Ã  nova data
+          // Agendar nova tentativa de coleta de relatório no dia seguinte à nova data
           // Tentamos interpretar a data informada pelo líder
           const scheduleRef = db.collection('gc_report_schedules').doc();
           await scheduleRef.set({
@@ -681,12 +680,12 @@ export async function handleGcReportIncomingMessage(
             status: 'pending',
             createdAt: now,
             // O trigger-reports vai checar esse campo para saber se já passou do dia seguinte
-            triggerAfter: newDateText       // referencia textual â€” o trigger vai comparar com data atual
+            triggerAfter: newDateText       // referencia textual — o trigger vai comparar com data atual
           });
 
           await sendText(
             fromPhone,
-            `ðŸ‘ Entendido! A reunião foi reagendada para *${newDateText}*.\n\nVou te enviar o formulário de relatório automaticamente no dia seguinte. Bom trabalho na liderança! 🙏`
+            `👍 Entendido! A reunião foi reagendada para *${newDateText}*.\n\nVou te enviar o formulário de relatório automaticamente no dia seguinte. Bom trabalho na liderança! 🙏`
           );
 
           await sessionRef.delete();
@@ -744,7 +743,7 @@ export async function handleGcReportIncomingMessage(
 
           await sendText(
             fromPhone,
-            `📅Œ Registrado! O motivo do cancelamento (*"${reasonText}"*) foi enviado ao seu supervisor.\n\nDesejamos uma abençoada semana e nos falamos na próxima! ðŸ™Œ`
+            `📌 Registrado! O motivo do cancelamento (*"${reasonText}"*) foi enviado ao seu supervisor.\n\nDesejamos uma abençoada semana e nos falamos na próxima! 🙌`
           );
 
           await sessionRef.delete();
@@ -803,7 +802,7 @@ export async function handleGcReportIncomingMessage(
           return true; // Aguarda o usuário responder OK
          } else if ((type === 'button' && payload?.buttonId === 'attendance_done') || (type === 'text' && isAdvanceCommand(msg))) {
            // Enviar aviso de sincronização
-           await sendText(fromPhone, 'â³ _Aguardando sincronização final com o WhatsApp (5 segundos)..._');
+           await sendText(fromPhone, '⏳ _Aguardando sincronização final com o WhatsApp (5 segundos)..._');
            await wait(5000);
 
            // Computar presentes/ausentes pós-sincronização
@@ -844,18 +843,18 @@ export async function handleGcReportIncomingMessage(
             updatedAt: now
           });
           
-          const summaryAttendanceText = `📅‹ *Resumo da Chamada:*\n\n` +
-            `âœ… *Presentes (${presentCount}):*\n${presentNames.length > 0 ? presentNames.map(n => `â€¢ ${n}`).join('\n') : '_Nenhum_'}\n\n` +
-            `âŒ *Ausentes (${absentCount}):*\n${absentNames.length > 0 ? absentNames.map(n => `â€¢ ${n}`).join('\n') : '_Nenhum_'}\n\n` +
+          const summaryAttendanceText = `📋 *Resumo da Chamada:*\n\n` +
+            `✅ *Presentes (${presentCount}):*\n${presentNames.length > 0 ? presentNames.map(n => `• ${n}`).join('\n') : '_Nenhum_'}\n\n` +
+            `❌ *Ausentes (${absentCount}):*\n${absentNames.length > 0 ? absentNames.map(n => `• ${n}`).join('\n') : '_Nenhum_'}\n\n` +
             `Deseja avançar ou refazer a chamada?\n` +
-            `*1* ou *Avançar* âž¡ï¸ Prosseguir para a Lição\n` +
+            `*1* ou *Avançar* ➡️ Prosseguir para a Lição\n` +
             `*2* ou *Refazer* 🔄 Refazer marcações`;
 
           await sendButton(
             fromPhone,
             summaryAttendanceText,
             [
-              { id: 'attendance_advance', text: 'Avançar âž¡ï¸' },
+              { id: 'attendance_advance', text: 'Avançar ➡️' },
               { id: 'attendance_retry', text: 'Refazer Chamada 🔄' }
             ],
             'Confirmação da Chamada'
@@ -871,10 +870,10 @@ export async function handleGcReportIncomingMessage(
                
                const clickedMember = session.members.find(m => m.id === memberId);
                if (clickedMember) {
-                   await sendText(fromPhone, `âœ… ${clickedMember.name} marcado(a)!`);
+                   await sendText(fromPhone, `✅ ${clickedMember.name} marcado(a)!`);
                }
            } else {
-               await sendText(fromPhone, `âš ï¸ Esse membro já foi marcado.`);
+               await sendText(fromPhone, `⚠️ Esse membro já foi marcado.`);
            }
            return true;
         } else if (type === 'text') {
@@ -897,7 +896,7 @@ export async function handleGcReportIncomingMessage(
                  pollSelections,
                  updatedAt: now
                });
-               await sendText(fromPhone, `ðŸ‘ Seleção registrada! Se tiver mais alguém, envie o número, senão, envie *OK* para avançar.`);
+               await sendText(fromPhone, `👍 Seleção registrada! Se tiver mais alguém, envie o número, senão, envie *OK* para avançar.`);
              }
            }
         }
@@ -915,7 +914,7 @@ export async function handleGcReportIncomingMessage(
           });
           await sendText(
             fromPhone,
-            '📅– *Etapa 2: Tema da Lição*\n\nQual foi o tema ou título da lição ministrada no GC esta semana?\n\n_Envie o título por mensagem de texto._'
+            '📖 *Etapa 2: Tema da Lição*\n\nQual foi o tema ou título da lição ministrada no GC esta semana?\n\n_Envie o título por mensagem de texto._'
           );
         } else if (isRetry) {
           await sessionRef.update({
@@ -936,7 +935,7 @@ export async function handleGcReportIncomingMessage(
             fromPhone,
             'Por favor, escolha se deseja avançar para a lição ou refazer a chamada:',
             [
-              { id: 'attendance_advance', text: 'Avançar âž¡ï¸' },
+              { id: 'attendance_advance', text: 'Avançar ➡️' },
               { id: 'attendance_retry', text: 'Refazer Chamada 🔄' }
             ]
           );
@@ -962,15 +961,15 @@ export async function handleGcReportIncomingMessage(
           if (hasExpected) {
             await sendText(
               fromPhone,
-              'â­ *Visitantes Esperados*\n\nEsses visitantes se inscreveram para este GC pelo site. Marque na enquete os que estiveram presentes hoje:'
+              '⭐ *Visitantes Esperados*\n\nEsses visitantes se inscreveram para este GC pelo site. Marque na enquete os que estiveram presentes hoje:'
             );
-            
+            await wait(1500);
             const visitorNames = (session.expectedVisitors || []).map((v: any) => v.name.substring(0, 50));
-            await sendPoll(fromPhone, '📅‹ Visitantes Esperados â€” Quem veio?', visitorNames, visitorNames.length);
+            await sendPoll(fromPhone, '📋 Visitantes Esperados — Quem veio?', visitorNames, true);
           } else {
             await sendText(
               fromPhone,
-              'ðŸ‘¥ *Etapa 3: Visitantes*\n\nDigite o nome dos visitantes que estiveram presentes (separados por vírgula).\n\n*Caso não tenha havido nenhum visitante, envie 0.*'
+              '👥 *Etapa 3: Visitantes*\n\nDigite o nome dos visitantes que estiveram presentes (separados por vírgula).\n\n*Caso não tenha havido nenhum visitante, envie 0.*'
             );
           }
         }
@@ -1008,7 +1007,7 @@ export async function handleGcReportIncomingMessage(
           await wait(1000);
           await sendText(
             fromPhone,
-            `ðŸ‘¥ *Outros visitantes?*\n\nAlém dos cadastrados, veio algum visitante novo?\n\nDigite os nomes (separados por vírgula) ou envie *0* caso não tenha.`
+            `👥 *Outros visitantes?*\n\nAlém dos cadastrados, veio algum visitante novo?\n\nDigite os nomes (separados por vírgula) ou envie *0* caso não tenha.`
           );
         }
         break;
@@ -1045,7 +1044,7 @@ export async function handleGcReportIncomingMessage(
             fromPhone,
             'Quer deixar alguma mensagem, observação de cuidado ou feedback para o seu supervisor?\n\nDigite sua mensagem ou clique no botão para finalizar.',
             [{ id: 'feed_skip', text: 'Pular Feedback' }],
-            '💬¬ *Etapa 5: Feedback*'
+            '💬 *Etapa 5: Feedback*'
           );
         }
         // Aceitar botão legado
@@ -1089,21 +1088,21 @@ export async function handleGcReportIncomingMessage(
         const lesson = latest.metrics?.licao || 'Não informada';
         const fbDisplay = feedbackContent || 'Nenhum';
 
-        const summaryGeneral = `📅Š *Resumo Geral do Relatório - ${cellNome}*\n\n` +
-          `ðŸ‘¥ *Chamada:* ${presentCount} presentes / ${absentCount} ausentes\n` +
-          `📅– *Lição:* ${lesson}\n` +
-          `ðŸ¤ *Visitantes:* ${visitors}\n` +
-          `ðŸŽ¯ *Decisões:* ${conversions}\n` +
-          `💬¬ *Feedback:* ${fbDisplay}\n\n` +
+        const summaryGeneral = `📊 *Resumo Geral do Relatório - ${cellNome}*\n\n` +
+          `👥 *Chamada:* ${presentCount} presentes / ${absentCount} ausentes\n` +
+          `📖 *Lição:* ${lesson}\n` +
+          `🤝 *Visitantes:* ${visitors}\n` +
+          `🎯 *Decisões:* ${conversions}\n` +
+          `💬 *Feedback:* ${fbDisplay}\n\n` +
           `Deseja confirmar e enviar o relatório?\n` +
-          `*1* ou *Confirmar* âœ… Enviar relatório\n` +
+          `*1* ou *Confirmar* ✅ Enviar relatório\n` +
           `*2* ou *Refazer* 🔄 Recomeçar do início`;
 
         await sendButton(
           fromPhone,
           summaryGeneral,
           [
-            { id: 'summary_confirm', text: 'Confirmar e Enviar âœ…' },
+            { id: 'summary_confirm', text: 'Confirmar e Enviar ✅' },
             { id: 'summary_retry', text: 'Recomeçar 🔄' }
           ],
           'Confirmação Final'
@@ -1122,14 +1121,14 @@ export async function handleGcReportIncomingMessage(
           if (success) {
             const isEdit = !!latest.editingLogId;
             const successMsg = isEdit
-              ? 'ðŸŽ‰ *Relatório Atualizado com Sucesso!*\n\nAs alterações da reunião foram salvas e sincronizadas com a liderança. Obrigado pela atenção e cuidado! ðŸš€'
-              : 'ðŸŽ‰ *Relatório Enviado com Sucesso!*\n\nMuito obrigado pelo seu relatório e pela dedicação na liderança do seu GC! Que Deus continue abençoando vocês. ðŸš€';
+              ? '🎉 *Relatório Atualizado com Sucesso!*\n\nAs alterações da reunião foram salvas e sincronizadas com a liderança. Obrigado pela atenção e cuidado! 🚀'
+              : '🎉 *Relatório Enviado com Sucesso!*\n\nMuito obrigado pelo seu relatório e pela dedicação na liderança do seu GC! Que Deus continue abençoando vocês. 🚀';
             await sendText(fromPhone, successMsg);
             await sessionRef.delete();
           } else {
             await sendText(
               fromPhone,
-              'âš ï¸ Desculpe, ocorreu um erro ao salvar o seu relatório. Por favor, tente enviar novamente ou use o comando /reiniciar.'
+              '⚠️ Desculpe, ocorreu um erro ao salvar o seu relatório. Por favor, tente enviar novamente ou use o comando /reiniciar.'
             );
           }
         } else if (isRetry) {
@@ -1142,7 +1141,7 @@ export async function handleGcReportIncomingMessage(
             fromPhone,
             'Por favor, escolha se deseja confirmar o envio ou recomeçar o preenchimento:',
             [
-              { id: 'summary_confirm', text: 'Confirmar e Enviar âœ…' },
+              { id: 'summary_confirm', text: 'Confirmar e Enviar ✅' },
               { id: 'summary_retry', text: 'Recomeçar 🔄' }
             ]
           );
@@ -1171,33 +1170,33 @@ async function resendCurrentStepMessage(to: string, session: GcReportSession) {
         to,
         'Como você prefere responder o relatório do GC esta semana?',
         [
-          { id: 'channel_whatsapp', text: '💬¬ No WhatsApp' },
-          { id: 'channel_link', text: '🔗— Pelo Link' }
+          { id: 'channel_whatsapp', text: '💬 No WhatsApp' },
+          { id: 'channel_link', text: '🔗 Pelo Link' }
         ]
       );
       break;
     case 'ATTENDANCE':
       await sendText(
         to,
-        `📅‹ *Etapa 1: Chamada*\nMarque na enquete abaixo quem esteve *PRESENTE* na reunião.`
+        `📋 *Etapa 1: Chamada*\nMarque na enquete abaixo quem esteve *PRESENTE* na reunião.`
       );
       await sendMembersListAsPoll(to, session.members, false);
       break;
     case 'METRICS_LESSON':
-      await sendText(to, '📅– *Etapa 2: Tema da Lição*\n\nQual foi o tema ou título da lição ministrada no GC esta semana?');
+      await sendText(to, '📖 *Etapa 2: Tema da Lição*\n\nQual foi o tema ou título da lição ministrada no GC esta semana?');
       break;
     case 'METRICS_VISITORS':
-      await sendText(to, 'ðŸ‘¥ *Etapa 3: Visitantes*\n\nDigite os nomes separados por vírgula ou envie 0.');
+      await sendText(to, '👥 *Etapa 3: Visitantes*\n\nDigite os nomes separados por vírgula ou envie 0.');
       break;
     case 'METRICS_CONVERSIONS':
-      await sendText(to, 'ðŸŽ¯ *Etapa 4: Conversões*\n\nQuantas decisões por Cristo ou reconciliações aconteceram na reunião?\n\nEnvie o número (ex: *0*, *1*, *2*...)');
+      await sendText(to, '🎯 *Etapa 4: Conversões*\n\nQuantas decisões por Cristo ou reconciliações aconteceram na reunião?\n\nEnvie o número (ex: *0*, *1*, *2*...)');
       break;
     case 'FEEDBACK':
       await sendButton(
         to,
         'Quer deixar alguma mensagem, observação de cuidado ou feedback para o seu supervisor?\n\nDigite sua mensagem ou clique no botão para finalizar.',
         [{ id: 'feed_skip', text: 'Pular Feedback' }],
-        '💬¬ *Etapa 5: Feedback*'
+        '💬 *Etapa 5: Feedback*'
       );
       break;
     case 'ATTENDANCE_CONFIRM':
@@ -1205,7 +1204,7 @@ async function resendCurrentStepMessage(to: string, session: GcReportSession) {
         to,
         'Você deseja avançar para a lição ou refazer a chamada?',
         [
-          { id: 'attendance_advance', text: 'Avançar âž¡ï¸' },
+          { id: 'attendance_advance', text: 'Avançar ➡️' },
           { id: 'attendance_retry', text: 'Refazer Chamada 🔄' }
         ]
       );
@@ -1215,7 +1214,7 @@ async function resendCurrentStepMessage(to: string, session: GcReportSession) {
         to,
         'Você deseja confirmar e enviar o relatório ou recomeçar o preenchimento?',
         [
-          { id: 'summary_confirm', text: 'Confirmar e Enviar âœ…' },
+          { id: 'summary_confirm', text: 'Confirmar e Enviar ✅' },
           { id: 'summary_retry', text: 'Recomeçar 🔄' }
         ]
       );
@@ -1407,20 +1406,21 @@ export async function finalizeAndSubmitReport(session: GcReportSession, feedback
           const processosSnap = await db.collection('users').doc(visitor.id).collection('processos')
             .where('processType', '==', 'GC')
             .where('status', '==', 'ACTIVE')
+            .limit(1)
             .get();
           if (!processosSnap.empty) {
             const procDoc = processosSnap.docs[0];
             const procData = procDoc.data();
-            let newStage = null;
+            let newStage = procData.currentStage;
             if (procData.currentStage === 'AGUARDANDO_CONTATO') {
               newStage = 'EM_VISITA';
             } else if (procData.currentStage === 'EM_VISITA') {
               const attendedCount = (visitorInCell?.attendedDates || []).length;
               if (attendedCount >= 4) {
-                newStage = 'INTEGRADO_GC';
+                newStage = 'CONCLUIDO';
               }
             }
-            if (newStage) {
+            if (newStage !== procData.currentStage) {
               await procDoc.ref.update({ currentStage: newStage, updatedAt: now });
             }
           }
@@ -1441,4 +1441,3 @@ export async function finalizeAndSubmitReport(session: GcReportSession, feedback
     return false;
   }
 }
-
