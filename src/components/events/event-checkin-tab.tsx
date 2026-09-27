@@ -123,7 +123,7 @@ function getShirtSize(reg: Registration): string | null {
   return null;
 }
 
-export function EventCheckInTab({ eventId }: EventCheckInTabProps) {
+export function EventCheckInTab({ eventId, eventData }: EventCheckInTabProps) {
   const { firestore, user } = useFirebase();
   const { toast } = useToast();
   
@@ -174,11 +174,11 @@ export function EventCheckInTab({ eventId }: EventCheckInTabProps) {
     const emailMatch = reg.userMetadata.email?.toLowerCase().includes(searchLower);
     if (!nameMatch && !emailMatch) return false;
 
-    const isMember = inferIsMember(reg);
+    const isMember = inferIsMember(reg, eventData);
     if (filterProfile === 'members' && !isMember) return false;
     if (filterProfile === 'visitors' && isMember) return false;
 
-    const inGC = inferIsInGC(reg);
+    const inGC = inferIsInGC(reg, eventData);
     if (filterGC === 'in_gc' && !inGC) return false;
     if (filterGC === 'no_gc' && inGC) return false;
 
@@ -327,10 +327,10 @@ export function EventCheckInTab({ eventId }: EventCheckInTabProps) {
                 </div>
               ) : (
                 filteredRegistrations.map((reg) => {
-                  const isMember = inferIsMember(reg);
-                  const inGC = inferIsInGC(reg);
-                  const inServico = inferIsInServico(reg);
-                  const inEnsino = inferIsInEnsino(reg);
+                  const isMember = inferIsMember(reg, eventData);
+                  const inGC = inferIsInGC(reg, eventData);
+                  const inServico = inferIsInServico(reg, eventData);
+                  const inEnsino = inferIsInEnsino(reg, eventData);
                   const hasShirt = inferHasShirt(reg);
                   const shirtSize = getShirtSize(reg);
 

@@ -143,7 +143,7 @@ export default function EventDetailPage() {
                      />
                 </TabsContent>
                 <TabsContent value="checkin" className="mt-6">
-                     <EventCheckInTab eventId={eventId} />
+                     <EventCheckInTab eventId={eventId} eventData={eventData} />
                 </TabsContent>
                 <TabsContent value="guest_briefing" className="mt-6">
                      <GuestBriefingGenerator event={eventData} />
