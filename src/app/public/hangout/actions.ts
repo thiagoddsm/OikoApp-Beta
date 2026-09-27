@@ -1,16 +1,16 @@
 'use server';
 
-import { initializeFirebase } from '@/firebase';
-import { collection, addDoc, Timestamp, doc, updateDoc } from 'firebase/firestore';
+import { getAdminDb } from '@/lib/firebase-admin';
+import { Timestamp } from 'firebase-admin/firestore';
 
 export async function submitHangoutQuestion(data: {
     text: string;
     author: string;
 }) {
     try {
-        const { firestore } = initializeFirebase();
+        const db = getAdminDb();
         
-        await addDoc(collection(firestore, 'hangout_questions'), {
+        await db.collection('hangout_questions').add({
             text: data.text,
             author: data.author || 'Anônimo',
             answered: false,
@@ -26,10 +26,9 @@ export async function submitHangoutQuestion(data: {
 
 export async function toggleQuestionAnswered(id: string, answered: boolean) {
     try {
-        const { firestore } = initializeFirebase();
-        const docRef = doc(firestore, 'hangout_questions', id);
+        const db = getAdminDb();
         
-        await updateDoc(docRef, { answered });
+        await db.collection('hangout_questions').doc(id).update({ answered });
 
         return { success: true };
     } catch (error) {
