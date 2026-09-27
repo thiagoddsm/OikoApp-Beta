@@ -2,17 +2,18 @@ import { getAdminDb } from '@/lib/firebase-admin';
 import { getWhatsAppClient } from '@/lib/whatsapp';
 
 export interface GcReportSession {
-  id: string; // Telefone do lÃ­der formatado (ex: 5521999998888)
+  id: string; // Telefone do líder formatado (ex: 5521999998888)
   cellId: string;
+  date?: string;
   liderId: string;
   step: 'START' | 'CHOOSE_CHANNEL' | 'CHECK_MEETING' | 'MEETING_STATUS_CHOICE' | 'POSTPONED_DATE' | 'CANCELLED_REASON' | 'ATTENDANCE' | 'ATTENDANCE_CONFIRM' | 'CARE_CHOICE' | 'CARE_SELECT' | 'CARE_MEMBER_THERMOMETER' | 'CARE_MEMBER_PRAYER' | 'METRICS_LESSON' | 'EXPECTED_VISITORS_POLL' | 'METRICS_VISITORS' | 'METRICS_CONVERSIONS' | 'FEEDBACK' | 'SUMMARY_CONFIRM';
   members: { id: string; name: string }[];
   expectedVisitors?: { id: string; name: string; phone: string }[];
   
-  // Modo EdiÃ§Ã£o de RelatÃ³rio
+  // Modo Edição de Relatório
   editingLogId?: string;
 
-  // Controle de reuniÃ£o (Adiada ou Cancelada)
+  // Controle de reunião (Adiada ou Cancelada)
   meetingOccurred?: boolean;
   meetingStatus?: 'postponed' | 'cancelled';
   postponedDate?: string;
@@ -21,17 +22,17 @@ export interface GcReportSession {
   // Controle da Chamada
   attendancePage?: number;
   attendanceAccumulated?: string[]; // IDs dos membros marcados como presentes
-  pollSelections?: any; // Mapeamento de seleÃ§Ãµes das enquetes
+  pollSelections?: any; // Mapeamento de seleções das enquetes
 
-  // Controle do ResponsÃ¡vel que estÃ¡ respondendo
+  // Controle do Responsável que está respondendo
   respondentId?: string;
   respondentName?: string;
   respondentRole?: 'secretario' | 'lider';
 
   // Controle de Cuidado
   careMembersQueue?: string[];      // IDs dos membros que precisam de cuidado
-  currentCareIndex?: number;        // Ãndice na fila de cuidado
-  careSelections?: any; // Mapeamento de seleÃ§Ãµes de cuidado
+  currentCareIndex?: number;        // Índice na fila de cuidado
+  careSelections?: any; // Mapeamento de seleções de cuidado
   
   attendance: { [memberId: string]: 'presente' | 'ausente_sem_justificativa' };
   thermometers?: { [memberId: string]: { termometro: number; pedidoOracao: string } };
@@ -49,7 +50,7 @@ export interface GcReportSession {
 }
 
 /**
- * Envia uma mensagem com botÃµes interativos.
+ * Envia uma mensagem com botões interativos.
  */
 async function sendButtons(to: string, text: string, buttons: { id: string; text: string }[], title?: string) {
   const whatsapp = await getWhatsAppClient();
@@ -76,8 +77,8 @@ async function sendText(to: string, text: string) {
 }
 
 /**
- * Envia um botÃ£o interativo via WAME.
- * Quando o usuÃ¡rio clica, o Evolution recebe a resposta como buttonsResponseMessage.
+ * Envia um botão interativo via WAME.
+ * Quando o usuário clica, o Evolution recebe a resposta como buttonsResponseMessage.
  */
 async function sendButton(to: string, text: string, buttons: { id: string, text: string }[], title?: string, footer?: string) {
   const whatsapp = await getWhatsAppClient();
@@ -113,7 +114,7 @@ async function sendList(to: string, text: string, buttonText: string, sections: 
 }
 
 /**
- * Envia uma enquete de mÃºltipla escolha.
+ * Envia uma enquete de múltipla escolha.
  */
 async function sendPoll(to: string, name: string, options: string[], selectableCount: number) {
   const whatsapp = await getWhatsAppClient();
@@ -132,7 +133,7 @@ async function sendMembersListAsPoll(to: string, membersList: { id: string; name
   const whatsapp = await getWhatsAppClient();
   const title = isCare ? 'Quem precisa de CUIDADO?' : 'Quem estava PRESENTE?';
   if (membersList.length === 0) {
-    await sendText(to, 'Nenhum membro encontrado na cÃ©lula.');
+    await sendText(to, 'Nenhum membro encontrado na célula.');
     return;
   }
 
@@ -160,23 +161,23 @@ async function sendMembersListAsPoll(to: string, membersList: { id: string; name
     await new Promise(resolve => setTimeout(resolve, 1500));
   }
   
-  // Delay adicional antes do botÃ£o de concluir para chegar DEPOIS das enquetes
+  // Delay adicional antes do botão de concluir para chegar DEPOIS das enquetes
   await new Promise(resolve => setTimeout(resolve, 1500));
 
   const buttonId = isCare ? 'care_done' : 'attendance_done';
-  const buttonText = isCare ? 'Concluir SeleÃ§Ã£o' : 'Concluir Chamada';
+  const buttonText = isCare ? 'Concluir Seleção' : 'Concluir Chamada';
   await sendButton(
     to,
-    'ðŸ‘‰ Quando terminar de marcar na(s) enquete(s) acima, clique no botÃ£o abaixo para avanÃ§armos.',
+    '👉 Quando terminar de marcar na(s) enquete(s) acima, clique no botão abaixo para avançarmos.',
     [{ id: buttonId, text: buttonText }],
-    'Igreja Batista da ManhÃ£',
-    'OpÃ§Ãµes do RelatÃ³rio'
+    'Igreja Batista da Manhã',
+    'Opções do Relatório'
   );
 
 }
 
 /**
- * Inicializa a sessÃ£o do relatÃ³rio de GC para um secretÃ¡rio ou lÃ­der.
+ * Inicializa a sessão do relatório de GC para um secretário ou líder.
  */
 export async function startGcReportSession(
   cellId: string, 
@@ -189,24 +190,24 @@ export async function startGcReportSession(
   const sessionRef = db.collection('gc_report_sessions').doc(recipientPhone);
 
   try {
-    // 1. Limpar sessÃ£o antiga se existir
+    // 1. Limpar sessão antiga se existir
     const existingSession = await sessionRef.get();
     if (existingSession.exists) {
-      console.log(`[GC Bot] SessÃ£o anterior encontrada para ${recipientPhone}. Deletando...`);
+      console.log(`[GC Bot] Sessão anterior encontrada para ${recipientPhone}. Deletando...`);
       await sessionRef.delete();
     }
 
-    // 2. Buscar informaÃ§Ãµes da cÃ©lula e seus membros
+    // 2. Buscar informações da célula e seus membros
     const cellDoc = await db.collection('cells').doc(cellId).get();
     if (!cellDoc.exists) {
-      console.error('[GC Bot] CÃ©lula nÃ£o encontrada:', cellId);
-      throw new Error('CÃ©lula nÃ£o encontrada.');
+      console.error('[GC Bot] Célula não encontrada:', cellId);
+      throw new Error('Célula não encontrada.');
     }
     const cellData = cellDoc.data()!;
     const liderId = cellData.liderId || '';
 
-    // OpÃ§Ã£o B: busca membros por hierarchy.celulaId â€” fonte Ãºnica de verdade.
-    // TODO (OpÃ§Ã£o C): substituir por query na coleÃ§Ã£o /memberships quando migrar para multi-igreja.
+    // Opção B: busca membros por hierarchy.celulaId â€” fonte única de verdade.
+    // TODO (Opção C): substituir por query na coleção /memberships quando migrar para multi-igreja.
     const usersSnap = await db.collection('users')
       .where('hierarchy.celulaId', '==', cellId)
       .get();
@@ -231,7 +232,7 @@ export async function startGcReportSession(
         (v.origin?.includes('/conectar') || v.origin?.includes('/gc') || v.isEsperado === true)
     ).map((v: any) => ({ id: v.id, name: v.name, phone: v.phone || '' }));
 
-    // 3. Resolver identificaÃ§Ã£o do responsÃ¡vel (SecretÃ¡rio ou LÃ­der)
+    // 3. Resolver identificação do responsável (Secretário ou Líder)
     let respondentName = recipientInfo?.name || '';
     let respondentRole: 'secretario' | 'lider' = recipientInfo?.role || 'lider';
     let respondentId = recipientInfo?.userId || '';
@@ -244,7 +245,7 @@ export async function startGcReportSession(
           const secData = secDoc.data() || {};
           const secPhone = secData.phone || secData.phoneNumber;
           if (secPhone && recipientPhone.includes(String(secPhone).replace(/\D/g, '').slice(-8))) {
-            respondentName = secData.name || 'SecretÃ¡rio(a)';
+            respondentName = secData.name || 'Secretário(a)';
             respondentRole = 'secretario';
             respondentId = secId;
           }
@@ -254,7 +255,7 @@ export async function startGcReportSession(
       if (!respondentName && liderId) {
         const liderDoc = await db.collection('users').doc(liderId).get();
         if (liderDoc.exists) {
-          respondentName = liderDoc.data()!.name || 'LÃ­der';
+          respondentName = liderDoc.data()!.name || 'Líder';
           respondentRole = 'lider';
           respondentId = liderId;
         }
@@ -262,16 +263,16 @@ export async function startGcReportSession(
     }
 
     const firstName = respondentName ? ` ${respondentName.split(' ')[0]}` : '';
-    const roleLabel = respondentRole === 'secretario' ? 'secretÃ¡rio(a)' : 'lÃ­der';
+    const roleLabel = respondentRole === 'secretario' ? 'secretário(a)' : 'líder';
 
     // 4. Enviar mensagem de boas-vindas com escolha de canal (WhatsApp simplificado vs Link completo)
-    console.log(`[GC Bot] Enviando fluxo de relatÃ³rio para ${recipientPhone} (${roleLabel}: ${respondentName}, editando: ${!!editingLogId})...`);
+    console.log(`[GC Bot] Enviando fluxo de relatório para ${recipientPhone} (${roleLabel}: ${respondentName}, editando: ${!!editingLogId})...`);
 
     const greetingText = editingLogId
-      ? `OlÃ¡, ${roleLabel}${firstName}! ðŸ‘‹\n\nðŸ”„ *Modo de EdiÃ§Ã£o de RelatÃ³rio*\nVamos revisar os dados da reuniÃ£o do GC *${cellData.nome || 'CÃ©lula'}*.\n\nComo vocÃª prefere preencher o relatÃ³rio?\n1ï¸âƒ£ *No WhatsApp* (simplificado)\n2ï¸âƒ£ *Pelo Link* (completo com tela de chamada)`
-      : `OlÃ¡, ${roleLabel}${firstName}! ðŸ‘‹\nQue a paz do Senhor esteja com vocÃª!\n\nChegou a hora de registrar as bÃªnÃ§Ã£os da reuniÃ£o do GC *${cellData.nome || 'CÃ©lula'}* desta semana.\n\nComo vocÃª prefere responder o relatÃ³rio?\n1ï¸âƒ£ *No WhatsApp* (simplificado)\n2ï¸âƒ£ *Pelo Link* (completo com lista de presenÃ§a na tela)`;
+      ? `Olá, ${roleLabel}${firstName}! 👋\n\n🔄 *Modo de Edição de Relatório*\nVamos revisar os dados da reunião do GC *${cellData.nome || 'Célula'}*.\n\nComo você prefere preencher o relatório?\n1️⃣ *No WhatsApp* (simplificado)\n2️⃣ *Pelo Link* (completo com tela de chamada)`
+      : `Olá, ${roleLabel}${firstName}! 👋\nQue a paz do Senhor esteja com você!\n\nChegou a hora de registrar as bênçãos da reunião do GC *${cellData.nome || 'Célula'}* desta semana.\n\nComo você prefere responder o relatório?\n1️⃣ *No WhatsApp* (simplificado)\n2️⃣ *Pelo Link* (completo com lista de presença na tela)`;
 
-    // 4. Salvar estado da sessÃ£o na coleÃ§Ã£o `gc_report_sessions`
+    // 4. Salvar estado da sessão na coleção `gc_report_sessions`
     const now = new Date();
     const newSession: GcReportSession = {
       id: recipientPhone,
@@ -309,27 +310,27 @@ export async function startGcReportSession(
         recipientPhone,
         greetingText,
         [
-          { id: 'channel_whatsapp', text: 'ðŸ’¬ No WhatsApp' },
+          { id: 'channel_whatsapp', text: '💬¬ No WhatsApp' },
           { id: 'channel_link', text: 'ðŸ”— Pelo Link' }
         ],
-        editingLogId ? 'EdiÃ§Ã£o de RelatÃ³rio' : 'RelatÃ³rio Semanal de GC'
+        editingLogId ? 'Edição de Relatório' : 'Relatório Semanal de GC'
       );
-      console.log(`[GC Bot] Mensagem inicial enviada com sucesso para ${recipientPhone} (cÃ©lula: ${cellData.nome})`);
+      console.log(`[GC Bot] Mensagem inicial enviada com sucesso para ${recipientPhone} (célula: ${cellData.nome})`);
       return true;
     } catch (sendErr: any) {
       console.error(`[GC Bot] Falha ao enviar mensagem WhatsApp para ${recipientPhone}:`, sendErr.message || sendErr);
-      // Limpar sessÃ£o para nÃ£o ficar travada se o envio do WhatsApp falhou
+      // Limpar sessão para não ficar travada se o envio do WhatsApp falhou
       await sessionRef.delete().catch(() => {});
       throw sendErr;
     }
   } catch (error) {
-    console.error('[GC Bot] Erro ao iniciar sessÃ£o:', error);
+    console.error('[GC Bot] Erro ao iniciar sessão:', error);
     return false;
   }
 }
 
 /**
- * Localiza a cÃ©lula do remetente e o Ãºltimo relatÃ³rio para permitir ediÃ§Ã£o.
+ * Localiza a célula do remetente e o último relatório para permitir edição.
  */
 export async function startGcReportEditSession(fromPhone: string): Promise<boolean> {
   const db = getAdminDb();
@@ -339,7 +340,7 @@ export async function startGcReportEditSession(fromPhone: string): Promise<boole
   if (!last8) return false;
 
   try {
-    // 1. Localizar usuÃ¡rio pelo telefone
+    // 1. Localizar usuário pelo telefone
     const usersSnap = await db.collection('users').get();
     let foundUser: any = null;
     for (const doc of usersSnap.docs) {
@@ -352,11 +353,11 @@ export async function startGcReportEditSession(fromPhone: string): Promise<boole
     }
 
     if (!foundUser) {
-      await sendText(fromPhone, 'âš ï¸ NÃ£o encontramos um cadastro de lÃ­der ou secretÃ¡rio associado ao seu nÃºmero de WhatsApp.');
+      await sendText(fromPhone, 'âš ï¸ Não encontramos um cadastro de líder ou secretário associado ao seu número de WhatsApp.');
       return false;
     }
 
-    // 2. Localizar a cÃ©lula do usuÃ¡rio
+    // 2. Localizar a célula do usuário
     const cellsSnap = await db.collection('cells').get();
     let foundCell: any = null;
     for (const doc of cellsSnap.docs) {
@@ -371,21 +372,21 @@ export async function startGcReportEditSession(fromPhone: string): Promise<boole
     }
 
     if (!foundCell) {
-      await sendText(fromPhone, `âš ï¸ OlÃ¡, ${foundUser.name || 'irmÃ£o(Ã£)'}! NÃ£o encontramos nenhum GC vinculado Ã  sua lideranÃ§a no sistema.`);
+      await sendText(fromPhone, `âš ï¸ Olá, ${foundUser.name || 'irmão(ã)'}! Não encontramos nenhum GC vinculado Ã  sua liderança no sistema.`);
       return false;
     }
 
-    // 3. Localizar o Ãºltimo relatÃ³rio da reuniÃ£o em reuniao_logs
+    // 3. Localizar o último relatório da reunião em reuniao_logs
     const logsSnap = await db.collection('reuniao_logs')
       .where('cellId', '==', foundCell.id)
       .get();
 
     if (logsSnap.empty) {
-      await sendText(fromPhone, `âš ï¸ O GC *${foundCell.nome || 'CÃ©lula'}* ainda nÃ£o possui nenhum relatÃ³rio registrado para ser editado.`);
+      await sendText(fromPhone, `âš ï¸ O GC *${foundCell.nome || 'Célula'}* ainda não possui nenhum relatório registrado para ser editado.`);
       return false;
     }
 
-    // Ordenar em memÃ³ria para garantir o mais recente sem depender de Ã­ndice composto no Firestore
+    // Ordenar em memória para garantir o mais recente sem depender de índice composto no Firestore
     const sortedLogs = logsSnap.docs.sort((a, b) => {
       const timeA = a.data().createdAt?.toMillis?.() || new Date(a.data().date || 0).getTime();
       const timeB = b.data().createdAt?.toMillis?.() || new Date(b.data().date || 0).getTime();
@@ -397,7 +398,7 @@ export async function startGcReportEditSession(fromPhone: string): Promise<boole
     // Notificar e iniciar
     await sendText(
       fromPhone,
-      `ðŸ”„ *Editando Ãšltimo RelatÃ³rio*\n\nLocalizamos o relatÃ³rio registrado em *${lastLog.date || 'data recente'}* do GC *${foundCell.nome || 'CÃ©lula'}*.\n\nVamos refazer o lanÃ§amento. As novas respostas substituirÃ£o o relatÃ³rio anterior!`
+      `🔄 *Editando Último Relatório*\n\nLocalizamos o relatório registrado em *${lastLog.date || 'data recente'}* do GC *${foundCell.nome || 'Célula'}*.\n\nVamos refazer o lançamento. As novas respostas substituirão o relatório anterior!`
     );
 
     await new Promise(r => setTimeout(r, 1500));
@@ -410,15 +411,15 @@ export async function startGcReportEditSession(fromPhone: string): Promise<boole
       lastLogDoc.id
     );
   } catch (err: any) {
-    console.error('[GC Bot] Erro ao iniciar ediÃ§Ã£o de relatÃ³rio:', err);
-    await sendText(fromPhone, 'âš ï¸ Ocorreu um erro ao buscar o Ãºltimo relatÃ³rio para ediÃ§Ã£o. Tente novamente mais tarde.');
+    console.error('[GC Bot] Erro ao iniciar edição de relatório:', err);
+    await sendText(fromPhone, 'âš ï¸ Ocorreu um erro ao buscar o último relatório para edição. Tente novamente mais tarde.');
     return false;
   }
 }
 
 /**
- * Handler principal para processar mensagens recebidas no Webhook vinculadas a sessÃµes ativas.
- * Usa respostas por TEXTO em vez de botÃµes interativos para mÃ¡xima compatibilidade.
+ * Handler principal para processar mensagens recebidas no Webhook vinculadas a sessões ativas.
+ * Usa respostas por TEXTO em vez de botões interativos para máxima compatibilidade.
  */
 export async function handleGcReportIncomingMessage(
   fromPhone: string,
@@ -443,7 +444,7 @@ export async function handleGcReportIncomingMessage(
     return true;
   }
 
-  if (type === 'text' && (msg === '/editar' || msg === 'editar reuniao' || msg === 'editar reuniÃ£o' || msg === 'editar relatorio' || msg === 'editar relatÃ³rio')) {
+  if (type === 'text' && (msg === '/editar' || msg === 'editar reuniao' || msg === 'editar reunião' || msg === 'editar relatorio' || msg === 'editar relatório')) {
     await sessionRef.delete();
     await startGcReportEditSession(fromPhone);
     return true;
@@ -456,20 +457,20 @@ export async function handleGcReportIncomingMessage(
     });
     await sendButton(
       fromPhone,
-      'Perfeito! Vamos responder aqui pelo WhatsApp. ðŸ’¬\n\nâ“ *Aconteceu a reuniÃ£o do GC esta semana?*',
+      'Perfeito! Vamos responder aqui pelo WhatsApp. 💬¬\n\nâ“ *Aconteceu a reunião do GC esta semana?*',
       [
         { id: 'meeting_yes', text: 'Sim' },
-        { id: 'meeting_no', text: 'NÃ£o' }
+        { id: 'meeting_no', text: 'Não' }
       ],
-      'Status da ReuniÃ£o'
+      'Status da Reunião'
     );
     return true;
   }
 
-  // Helper: detecta palavras de avanÃ§o
+  // Helper: detecta palavras de avanço
   const isAdvanceCommand = (t: string) => [
-    'ok', 'pronto', 'avanÃ§ar', 'avancar', 'proximo', 'prÃ³ximo', 'concluir', 'done', 'sim',
-    'finalizar lanÃ§amento de presenÃ§a', 'finalizar lanÃ§amento de presenca', 'finalizar chamada'
+    'ok', 'pronto', 'avançar', 'avancar', 'proximo', 'próximo', 'concluir', 'done', 'sim',
+    'finalizar lançamento de presença', 'finalizar lançamento de presenca', 'finalizar chamada'
   ].includes(t.toLowerCase().trim());
 
   // Helper: delay entre mensagens
@@ -478,7 +479,7 @@ export async function handleGcReportIncomingMessage(
   try {
     switch (session.step) {
       case 'START':
-        // Se por algum motivo chegou aqui, avanÃ§ar automaticamente
+        // Se por algum motivo chegou aqui, avançar automaticamente
         if (type === 'text') {
           await sessionRef.delete();
           await startGcReportSession(session.cellId, fromPhone, session.isTestData);
@@ -497,7 +498,7 @@ export async function handleGcReportIncomingMessage(
           msg === '2' ||
           msg.includes('completo') ||
           msg.includes('pagin') ||
-          msg.includes('pÃ¡gina');
+          msg.includes('página');
 
         if (isWhatsapp) {
           await sessionRef.update({
@@ -506,12 +507,12 @@ export async function handleGcReportIncomingMessage(
           });
           await sendButton(
             fromPhone,
-            'Perfeito! Vamos responder aqui pelo WhatsApp. ðŸ’¬\n\nâ“ *Aconteceu a reuniÃ£o do GC esta semana?*',
+            'Perfeito! Vamos responder aqui pelo WhatsApp. 💬¬\n\nâ“ *Aconteceu a reunião do GC esta semana?*',
             [
               { id: 'meeting_yes', text: 'Sim' },
-              { id: 'meeting_no', text: 'NÃ£o' }
+              { id: 'meeting_no', text: 'Não' }
             ],
-            'Status da ReuniÃ£o'
+            'Status da Reunião'
           );
         } else if (isLink) {
           const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ibmanha.com.br';
@@ -519,7 +520,7 @@ export async function handleGcReportIncomingMessage(
 
           await sendText(
             fromPhone,
-            `Perfeito! ðŸŒŸ\n\nClique no link abaixo para preencher o relatÃ³rio completo com lista de presenÃ§a na tela:\n\nðŸ‘‰ ${link}\n\nðŸ’¡ Basta confirmar seu e-mail para abrir a chamada do seu GC.\n\n_(Se preferir responder pelo WhatsApp a qualquer momento, digite /whatsapp)_`
+            `Perfeito! ðŸŒŸ\n\nClique no link abaixo para preencher o relatório completo com lista de presença na tela:\n\n👉 ${link}\n\n💡 Basta confirmar seu e-mail para abrir a chamada do seu GC.\n\n_(Se preferir responder pelo WhatsApp a qualquer momento, digite /whatsapp)_`
           );
 
           await sessionRef.update({
@@ -529,9 +530,9 @@ export async function handleGcReportIncomingMessage(
         } else {
           await sendButton(
             fromPhone,
-            'Por favor, escolha como deseja responder o relatÃ³rio do seu GC:',
+            'Por favor, escolha como deseja responder o relatório do seu GC:',
             [
-              { id: 'channel_whatsapp', text: 'ðŸ’¬ No WhatsApp' },
+              { id: 'channel_whatsapp', text: '💬¬ No WhatsApp' },
               { id: 'channel_link', text: 'ðŸ”— Pelo Link' }
             ]
           );
@@ -541,7 +542,7 @@ export async function handleGcReportIncomingMessage(
 
       case 'CHECK_MEETING': {
         const isYes = payload?.buttonId === 'meeting_yes' || ['sim', 's', '1', 'teve', 'aconteceu', 'meeting_yes'].includes(msg);
-        const isNo = payload?.buttonId === 'meeting_no' || ['nÃ£o', 'nao', 'n', '2', 'nÃ£o teve', 'nao teve', 'meeting_no'].includes(msg);
+        const isNo = payload?.buttonId === 'meeting_no' || ['não', 'nao', 'n', '2', 'não teve', 'nao teve', 'meeting_no'].includes(msg);
 
         if (isYes) {
           await sessionRef.update({
@@ -551,7 +552,7 @@ export async function handleGcReportIncomingMessage(
           });
           await sendText(
             fromPhone,
-            'ðŸ“‹ *Etapa 1: Chamada*\n\nResponda na enquete/lista abaixo quem esteve *PRESENTE* na reuniÃ£o.'
+            '📅‹ *Etapa 1: Chamada*\n\nResponda na enquete/lista abaixo quem esteve *PRESENTE* na reunião.'
           );
           // Aguardar antes das enquetes para o texto chegar primeiro
           await new Promise(resolve => setTimeout(resolve, 2000));
@@ -564,20 +565,20 @@ export async function handleGcReportIncomingMessage(
           });
           await sendButton(
             fromPhone,
-            'Compreendido. A reuniÃ£o foi *Adiada* para outro dia ou foi *Cancelada* nesta semana?',
+            'Compreendido. A reunião foi *Adiada* para outro dia ou foi *Cancelada* nesta semana?',
             [
               { id: 'status_postponed', text: 'Adiada' },
               { id: 'status_cancelled', text: 'Cancelada' }
             ],
-            'Status da ReuniÃ£o'
+            'Status da Reunião'
           );
         } else {
           await sendButton(
             fromPhone,
-            'Por favor, escolha uma das opÃ§Ãµes abaixo:\n\nAconteceu a reuniÃ£o do GC esta semana?',
+            'Por favor, escolha uma das opções abaixo:\n\nAconteceu a reunião do GC esta semana?',
             [
               { id: 'meeting_yes', text: 'Sim' },
-              { id: 'meeting_no', text: 'NÃ£o' }
+              { id: 'meeting_no', text: 'Não' }
             ]
           );
         }
@@ -596,7 +597,7 @@ export async function handleGcReportIncomingMessage(
           });
           await sendText(
             fromPhone,
-            'ðŸ“… *Para qual dia a reuniÃ£o foi adiada?*\n\nDigite a nova data ou dia da semana (ex: *Sexta-feira 25/07* ou *28/07*).'
+            '📅… *Para qual dia a reunião foi adiada?*\n\nDigite a nova data ou dia da semana (ex: *Sexta-feira 25/07* ou *28/07*).'
           );
         } else if (isCancelled) {
           await sessionRef.update({
@@ -606,12 +607,12 @@ export async function handleGcReportIncomingMessage(
           });
           await sendText(
             fromPhone,
-            'âŒ *Qual foi o motivo do cancelamento da reuniÃ£o?*\n\n(ex: *Feriado*, *Encontro de Casais*, *Imprevisto no local*...)'
+            'âŒ *Qual foi o motivo do cancelamento da reunião?*\n\n(ex: *Feriado*, *Encontro de Casais*, *Imprevisto no local*...)'
           );
         } else {
           await sendButton(
             fromPhone,
-            'Por favor, informe se a reuniÃ£o foi Adiada ou Cancelada:',
+            'Por favor, informe se a reunião foi Adiada ou Cancelada:',
             [
               { id: 'status_postponed', text: 'Adiada' },
               { id: 'status_cancelled', text: 'Cancelada' }
@@ -631,14 +632,14 @@ export async function handleGcReportIncomingMessage(
             const cellSnap = await db.collection('cells').doc(session.cellId).get();
             if (cellSnap.exists) cellData = cellSnap.data() || {};
           } catch (err) {
-            console.error('[GC Bot] Erro ao buscar cÃ©lula para adiamento:', err);
+            console.error('[GC Bot] Erro ao buscar célula para adiamento:', err);
           }
 
-          // Salva log de reuniÃ£o adiada no Firestore oficial (reuniao_logs)
+          // Salva log de reunião adiada no Firestore oficial (reuniao_logs)
           const logRef = db.collection('reuniao_logs').doc();
           await logRef.set({
             cellId: session.cellId,
-            cellNome: cellData.nome || cellData.name || 'CÃ©lula',
+            cellNome: cellData.nome || cellData.name || 'Célula',
             date: reportDate,
             liderId: session.liderId,
             supervisorId: cellData.supervisorId || cellData.areaId || null,
@@ -653,12 +654,12 @@ export async function handleGcReportIncomingMessage(
               conversoes: 0,
               oferta: 0
             },
-            feedbackAoSupervisor: `ReuniÃ£o remarcada/adiada para: ${newDateText}`,
+            feedbackAoSupervisor: `Reunião remarcada/adiada para: ${newDateText}`,
             isTestData: !!session.isTestData,
             createdAt: now
           });
 
-          // MantÃ©m tambÃ©m em gc_reuniao_logs para compatibilidade
+          // Mantém também em gc_reuniao_logs para compatibilidade
           await db.collection('gc_reuniao_logs').doc(logRef.id).set({
             cellId: session.cellId,
             date: reportDate,
@@ -669,23 +670,23 @@ export async function handleGcReportIncomingMessage(
             createdAt: now
           });
 
-          // Agendar nova tentativa de coleta de relatÃ³rio no dia seguinte Ã  nova data
-          // Tentamos interpretar a data informada pelo lÃ­der
+          // Agendar nova tentativa de coleta de relatório no dia seguinte Ã  nova data
+          // Tentamos interpretar a data informada pelo líder
           const scheduleRef = db.collection('gc_report_schedules').doc();
           await scheduleRef.set({
             cellId: session.cellId,
             liderId: session.liderId,
             liderPhone: fromPhone,
-            novaData: newDateText,          // data informada pelo lÃ­der (texto livre)
+            novaData: newDateText,          // data informada pelo líder (texto livre)
             status: 'pending',
             createdAt: now,
-            // O trigger-reports vai checar esse campo para saber se jÃ¡ passou do dia seguinte
+            // O trigger-reports vai checar esse campo para saber se já passou do dia seguinte
             triggerAfter: newDateText       // referencia textual â€” o trigger vai comparar com data atual
           });
 
           await sendText(
             fromPhone,
-            `ðŸ‘ Entendido! A reuniÃ£o foi reagendada para *${newDateText}*.\n\nVou te enviar o formulÃ¡rio de relatÃ³rio automaticamente no dia seguinte. Bom trabalho na lideranÃ§a! ðŸ™`
+            `ðŸ‘ Entendido! A reunião foi reagendada para *${newDateText}*.\n\nVou te enviar o formulário de relatório automaticamente no dia seguinte. Bom trabalho na liderança! 🙏`
           );
 
           await sessionRef.delete();
@@ -703,14 +704,14 @@ export async function handleGcReportIncomingMessage(
             const cellSnap = await db.collection('cells').doc(session.cellId).get();
             if (cellSnap.exists) cellData = cellSnap.data() || {};
           } catch (err) {
-            console.error('[GC Bot] Erro ao buscar cÃ©lula para cancelamento:', err);
+            console.error('[GC Bot] Erro ao buscar célula para cancelamento:', err);
           }
           
-          // Salva log de reuniÃ£o cancelada no Firestore oficial (reuniao_logs)
+          // Salva log de reunião cancelada no Firestore oficial (reuniao_logs)
           const logRef = db.collection('reuniao_logs').doc();
           await logRef.set({
             cellId: session.cellId,
-            cellNome: cellData.nome || cellData.name || 'CÃ©lula',
+            cellNome: cellData.nome || cellData.name || 'Célula',
             date: reportDate,
             liderId: session.liderId,
             supervisorId: cellData.supervisorId || cellData.areaId || null,
@@ -725,12 +726,12 @@ export async function handleGcReportIncomingMessage(
               conversoes: 0,
               oferta: 0
             },
-            feedbackAoSupervisor: `ReuniÃ£o cancelada: ${reasonText}`,
+            feedbackAoSupervisor: `Reunião cancelada: ${reasonText}`,
             isTestData: !!session.isTestData,
             createdAt: now
           });
 
-          // MantÃ©m tambÃ©m em gc_reuniao_logs para compatibilidade
+          // Mantém também em gc_reuniao_logs para compatibilidade
           await db.collection('gc_reuniao_logs').doc(logRef.id).set({
             cellId: session.cellId,
             date: reportDate,
@@ -743,7 +744,7 @@ export async function handleGcReportIncomingMessage(
 
           await sendText(
             fromPhone,
-            `ðŸ“Œ Registrado! O motivo do cancelamento (*"${reasonText}"*) foi enviado ao seu supervisor.\n\nDesejamos uma abenÃ§oada semana e nos falamos na prÃ³xima! ðŸ™Œ`
+            `📅Œ Registrado! O motivo do cancelamento (*"${reasonText}"*) foi enviado ao seu supervisor.\n\nDesejamos uma abençoada semana e nos falamos na próxima! ðŸ™Œ`
           );
 
           await sessionRef.delete();
@@ -776,7 +777,7 @@ export async function handleGcReportIncomingMessage(
                  break;
                }
              }
-             // 2. Fallback de aproximaÃ§Ã£o, mas APENAS se o nome for longo (> 5 chars) para evitar falsos positivos
+             // 2. Fallback de aproximação, mas APENAS se o nome for longo (> 5 chars) para evitar falsos positivos
              if (!id && cleanOpt.length > 5) {
                for (const [key, val] of pollOptionsMap.entries()) {
                  const cleanKey = key.trim().toLowerCase();
@@ -799,19 +800,19 @@ export async function handleGcReportIncomingMessage(
             pollSelections,
             updatedAt: now
           });
-          return true; // Aguarda o usuÃ¡rio responder OK
+          return true; // Aguarda o usuário responder OK
          } else if ((type === 'button' && payload?.buttonId === 'attendance_done') || (type === 'text' && isAdvanceCommand(msg))) {
-           // Enviar aviso de sincronizaÃ§Ã£o
-           await sendText(fromPhone, 'â³ _Aguardando sincronizaÃ§Ã£o final com o WhatsApp (5 segundos)..._');
+           // Enviar aviso de sincronização
+           await sendText(fromPhone, 'â³ _Aguardando sincronização final com o WhatsApp (5 segundos)..._');
            await wait(5000);
 
-           // Computar presentes/ausentes pÃ³s-sincronizaÃ§Ã£o
+           // Computar presentes/ausentes pós-sincronização
           let freshDoc = await sessionRef.get();
           let freshSession = freshDoc.data() as GcReportSession;
           let pollSelections: any = freshSession?.pollSelections || {};
           let presentIds: string[] = [];
           
-          // Helper para extrair presentes do objeto de seleÃ§Ã£o
+          // Helper para extrair presentes do objeto de seleção
           const extractPresentIds = (selections: any) => {
             const ids: string[] = [];
             Object.keys(selections).forEach((key) => {
@@ -843,21 +844,21 @@ export async function handleGcReportIncomingMessage(
             updatedAt: now
           });
           
-          const summaryAttendanceText = `ðŸ“‹ *Resumo da Chamada:*\n\n` +
+          const summaryAttendanceText = `📅‹ *Resumo da Chamada:*\n\n` +
             `âœ… *Presentes (${presentCount}):*\n${presentNames.length > 0 ? presentNames.map(n => `â€¢ ${n}`).join('\n') : '_Nenhum_'}\n\n` +
             `âŒ *Ausentes (${absentCount}):*\n${absentNames.length > 0 ? absentNames.map(n => `â€¢ ${n}`).join('\n') : '_Nenhum_'}\n\n` +
-            `Deseja avanÃ§ar ou refazer a chamada?\n` +
-            `*1* ou *AvanÃ§ar* âž¡ï¸ Prosseguir para a LiÃ§Ã£o\n` +
-            `*2* ou *Refazer* ðŸ”„ Refazer marcaÃ§Ãµes`;
+            `Deseja avançar ou refazer a chamada?\n` +
+            `*1* ou *Avançar* âž¡ï¸ Prosseguir para a Lição\n` +
+            `*2* ou *Refazer* 🔄 Refazer marcações`;
 
           await sendButton(
             fromPhone,
             summaryAttendanceText,
             [
-              { id: 'attendance_advance', text: 'AvanÃ§ar âž¡ï¸' },
-              { id: 'attendance_retry', text: 'Refazer Chamada ðŸ”„' }
+              { id: 'attendance_advance', text: 'Avançar âž¡ï¸' },
+              { id: 'attendance_retry', text: 'Refazer Chamada 🔄' }
             ],
-            'ConfirmaÃ§Ã£o da Chamada'
+            'Confirmação da Chamada'
           );
         } else if (type === 'button') {
            const memberId = payload.buttonId;
@@ -873,7 +874,7 @@ export async function handleGcReportIncomingMessage(
                    await sendText(fromPhone, `âœ… ${clickedMember.name} marcado(a)!`);
                }
            } else {
-               await sendText(fromPhone, `âš ï¸ Esse membro jÃ¡ foi marcado.`);
+               await sendText(fromPhone, `âš ï¸ Esse membro já foi marcado.`);
            }
            return true;
         } else if (type === 'text') {
@@ -896,7 +897,7 @@ export async function handleGcReportIncomingMessage(
                  pollSelections,
                  updatedAt: now
                });
-               await sendText(fromPhone, `ðŸ‘ SeleÃ§Ã£o registrada! Se tiver mais alguÃ©m, envie o nÃºmero, senÃ£o, envie *OK* para avanÃ§ar.`);
+               await sendText(fromPhone, `ðŸ‘ Seleção registrada! Se tiver mais alguém, envie o número, senão, envie *OK* para avançar.`);
              }
            }
         }
@@ -904,8 +905,8 @@ export async function handleGcReportIncomingMessage(
       }
 
       case 'ATTENDANCE_CONFIRM': {
-        const isAdvance = payload?.buttonId === 'attendance_advance' || ['1', 'avancar', 'avanÃ§ar', 'proximo', 'prÃ³ximo', 'ok', 'sim', 'attendance_advance'].includes(msg);
-        const isRetry = payload?.buttonId === 'attendance_retry' || ['2', 'refazer', 'corrigir', 'voltar', 'nÃ£o', 'nao', 'attendance_retry'].includes(msg);
+        const isAdvance = payload?.buttonId === 'attendance_advance' || ['1', 'avancar', 'avançar', 'proximo', 'próximo', 'ok', 'sim', 'attendance_advance'].includes(msg);
+        const isRetry = payload?.buttonId === 'attendance_retry' || ['2', 'refazer', 'corrigir', 'voltar', 'não', 'nao', 'attendance_retry'].includes(msg);
 
         if (isAdvance) {
           await sessionRef.update({
@@ -914,7 +915,7 @@ export async function handleGcReportIncomingMessage(
           });
           await sendText(
             fromPhone,
-            'ðŸ“– *Etapa 2: Tema da LiÃ§Ã£o*\n\nQual foi o tema ou tÃ­tulo da liÃ§Ã£o ministrada no GC esta semana?\n\n_Envie o tÃ­tulo por mensagem de texto._'
+            '📅– *Etapa 2: Tema da Lição*\n\nQual foi o tema ou título da lição ministrada no GC esta semana?\n\n_Envie o título por mensagem de texto._'
           );
         } else if (isRetry) {
           await sessionRef.update({
@@ -926,17 +927,17 @@ export async function handleGcReportIncomingMessage(
           });
           await sendText(
             fromPhone,
-            'ðŸ”„ *Refazendo a Chamada*\n\nMarque novamente na enquete abaixo quem esteve *PRESENTE*:'
+            '🔄 *Refazendo a Chamada*\n\nMarque novamente na enquete abaixo quem esteve *PRESENTE*:'
           );
           await wait(1500);
           await sendMembersListAsPoll(fromPhone, session.members, false);
         } else {
           await sendButton(
             fromPhone,
-            'Por favor, escolha se deseja avanÃ§ar para a liÃ§Ã£o ou refazer a chamada:',
+            'Por favor, escolha se deseja avançar para a lição ou refazer a chamada:',
             [
-              { id: 'attendance_advance', text: 'AvanÃ§ar âž¡ï¸' },
-              { id: 'attendance_retry', text: 'Refazer Chamada ðŸ”„' }
+              { id: 'attendance_advance', text: 'Avançar âž¡ï¸' },
+              { id: 'attendance_retry', text: 'Refazer Chamada 🔄' }
             ]
           );
         }
@@ -965,11 +966,11 @@ export async function handleGcReportIncomingMessage(
             );
             
             const visitorNames = (session.expectedVisitors || []).map((v: any) => v.name.substring(0, 50));
-            await sendPoll(fromPhone, 'ðŸ“‹ Visitantes Esperados â€” Quem veio?', visitorNames, visitorNames.length);
+            await sendPoll(fromPhone, '📅‹ Visitantes Esperados â€” Quem veio?', visitorNames, visitorNames.length);
           } else {
             await sendText(
               fromPhone,
-              'ðŸ‘¥ *Etapa 3: Visitantes*\n\nDigite o nome dos visitantes que estiveram presentes (separados por vÃ­rgula).\n\n*Caso nÃ£o tenha havido nenhum visitante, envie 0.*'
+              'ðŸ‘¥ *Etapa 3: Visitantes*\n\nDigite o nome dos visitantes que estiveram presentes (separados por vírgula).\n\n*Caso não tenha havido nenhum visitante, envie 0.*'
             );
           }
         }
@@ -1007,7 +1008,7 @@ export async function handleGcReportIncomingMessage(
           await wait(1000);
           await sendText(
             fromPhone,
-            `ðŸ‘¥ *Outros visitantes?*\n\nAlÃ©m dos cadastrados, veio algum visitante novo?\n\nDigite os nomes (separados por vÃ­rgula) ou envie *0* caso nÃ£o tenha.`
+            `ðŸ‘¥ *Outros visitantes?*\n\nAlém dos cadastrados, veio algum visitante novo?\n\nDigite os nomes (separados por vírgula) ou envie *0* caso não tenha.`
           );
         }
         break;
@@ -1023,7 +1024,7 @@ export async function handleGcReportIncomingMessage(
           await wait(1000);
           await sendText(
             fromPhone,
-            'ðŸ™ *Etapa 4: ConversÃµes*\n\nQuantas decisÃµes por Cristo ou reconciliaÃ§Ãµes aconteceram na reuniÃ£o?\n\nEnvie o nÃºmero (ex: *0*, *1*, *2*...)'
+            '🙏 *Etapa 4: Conversões*\n\nQuantas decisões por Cristo ou reconciliações aconteceram na reunião?\n\nEnvie o número (ex: *0*, *1*, *2*...)'
           );
         }
         break;
@@ -1032,7 +1033,7 @@ export async function handleGcReportIncomingMessage(
         if (type === 'text') {
           const num = parseInt(messageText.trim(), 10);
           if (isNaN(num) || num < 0) {
-            await sendText(fromPhone, 'Por favor, digite um nÃºmero vÃ¡lido (ex: 0, 1, 2...)');
+            await sendText(fromPhone, 'Por favor, digite um número válido (ex: 0, 1, 2...)');
             return true;
           }
           await sessionRef.update({
@@ -1042,12 +1043,12 @@ export async function handleGcReportIncomingMessage(
           });
           await sendButton(
             fromPhone,
-            'Quer deixar alguma mensagem, observaÃ§Ã£o de cuidado ou feedback para o seu supervisor?\n\nDigite sua mensagem ou clique no botÃ£o para finalizar.',
+            'Quer deixar alguma mensagem, observação de cuidado ou feedback para o seu supervisor?\n\nDigite sua mensagem ou clique no botão para finalizar.',
             [{ id: 'feed_skip', text: 'Pular Feedback' }],
-            'ðŸ’¬ *Etapa 5: Feedback*'
+            '💬¬ *Etapa 5: Feedback*'
           );
         }
-        // Aceitar botÃ£o legado
+        // Aceitar botão legado
         if (type === 'button') {
           if (payload?.buttonId === 'conv_0') return handleGcReportIncomingMessage(fromPhone, '0', 'text');
           if (payload?.buttonId === 'conv_1') return handleGcReportIncomingMessage(fromPhone, '1', 'text');
@@ -1073,11 +1074,11 @@ export async function handleGcReportIncomingMessage(
           updatedAt: now
         });
 
-        // Buscar dados da cÃ©lula para resumo
-        let cellNome = 'CÃ©lula';
+        // Buscar dados da célula para resumo
+        let cellNome = 'Célula';
         try {
           const cellSnap = await db.collection('cells').doc(latest.cellId).get();
-          if (cellSnap.exists) cellNome = cellSnap.data()?.nome || 'CÃ©lula';
+          if (cellSnap.exists) cellNome = cellSnap.data()?.nome || 'Célula';
         } catch (_) {}
 
         const presentCount = (latest.attendanceAccumulated || []).length;
@@ -1085,34 +1086,34 @@ export async function handleGcReportIncomingMessage(
         const absentCount = totalMembers - presentCount;
         const visitors = latest.metrics?.visitantes?.trim() || 'Nenhum';
         const conversions = latest.metrics?.conversoes || 0;
-        const lesson = latest.metrics?.licao || 'NÃ£o informada';
+        const lesson = latest.metrics?.licao || 'Não informada';
         const fbDisplay = feedbackContent || 'Nenhum';
 
-        const summaryGeneral = `ðŸ“Š *Resumo Geral do RelatÃ³rio - ${cellNome}*\n\n` +
+        const summaryGeneral = `📅Š *Resumo Geral do Relatório - ${cellNome}*\n\n` +
           `ðŸ‘¥ *Chamada:* ${presentCount} presentes / ${absentCount} ausentes\n` +
-          `ðŸ“– *LiÃ§Ã£o:* ${lesson}\n` +
+          `📅– *Lição:* ${lesson}\n` +
           `ðŸ¤ *Visitantes:* ${visitors}\n` +
-          `ðŸŽ¯ *DecisÃµes:* ${conversions}\n` +
-          `ðŸ’¬ *Feedback:* ${fbDisplay}\n\n` +
-          `Deseja confirmar e enviar o relatÃ³rio?\n` +
-          `*1* ou *Confirmar* âœ… Enviar relatÃ³rio\n` +
-          `*2* ou *Refazer* ðŸ”„ RecomeÃ§ar do inÃ­cio`;
+          `ðŸŽ¯ *Decisões:* ${conversions}\n` +
+          `💬¬ *Feedback:* ${fbDisplay}\n\n` +
+          `Deseja confirmar e enviar o relatório?\n` +
+          `*1* ou *Confirmar* âœ… Enviar relatório\n` +
+          `*2* ou *Refazer* 🔄 Recomeçar do início`;
 
         await sendButton(
           fromPhone,
           summaryGeneral,
           [
             { id: 'summary_confirm', text: 'Confirmar e Enviar âœ…' },
-            { id: 'summary_retry', text: 'RecomeÃ§ar ðŸ”„' }
+            { id: 'summary_retry', text: 'Recomeçar 🔄' }
           ],
-          'ConfirmaÃ§Ã£o Final'
+          'Confirmação Final'
         );
         break;
       }
 
       case 'SUMMARY_CONFIRM': {
         const isConfirm = payload?.buttonId === 'summary_confirm' || ['1', 'sim', 'confirmar', 'enviar', 'ok', 'summary_confirm'].includes(msg);
-        const isRetry = payload?.buttonId === 'summary_retry' || ['2', 'refazer', 'recomecar', 'recomeÃ§ar', 'summary_retry'].includes(msg);
+        const isRetry = payload?.buttonId === 'summary_retry' || ['2', 'refazer', 'recomecar', 'recomeçar', 'summary_retry'].includes(msg);
 
         if (isConfirm) {
           const latestDoc = await sessionRef.get();
@@ -1121,14 +1122,14 @@ export async function handleGcReportIncomingMessage(
           if (success) {
             const isEdit = !!latest.editingLogId;
             const successMsg = isEdit
-              ? 'ðŸŽ‰ *RelatÃ³rio Atualizado com Sucesso!*\n\nAs alteraÃ§Ãµes da reuniÃ£o foram salvas e sincronizadas com a lideranÃ§a. Obrigado pela atenÃ§Ã£o e cuidado! ðŸš€'
-              : 'ðŸŽ‰ *RelatÃ³rio Enviado com Sucesso!*\n\nMuito obrigado pelo seu relatÃ³rio e pela dedicaÃ§Ã£o na lideranÃ§a do seu GC! Que Deus continue abenÃ§oando vocÃªs. ðŸš€';
+              ? 'ðŸŽ‰ *Relatório Atualizado com Sucesso!*\n\nAs alterações da reunião foram salvas e sincronizadas com a liderança. Obrigado pela atenção e cuidado! ðŸš€'
+              : 'ðŸŽ‰ *Relatório Enviado com Sucesso!*\n\nMuito obrigado pelo seu relatório e pela dedicação na liderança do seu GC! Que Deus continue abençoando vocês. ðŸš€';
             await sendText(fromPhone, successMsg);
             await sessionRef.delete();
           } else {
             await sendText(
               fromPhone,
-              'âš ï¸ Desculpe, ocorreu um erro ao salvar o seu relatÃ³rio. Por favor, tente enviar novamente ou use o comando /reiniciar.'
+              'âš ï¸ Desculpe, ocorreu um erro ao salvar o seu relatório. Por favor, tente enviar novamente ou use o comando /reiniciar.'
             );
           }
         } else if (isRetry) {
@@ -1139,10 +1140,10 @@ export async function handleGcReportIncomingMessage(
         } else {
           await sendButton(
             fromPhone,
-            'Por favor, escolha se deseja confirmar o envio ou recomeÃ§ar o preenchimento:',
+            'Por favor, escolha se deseja confirmar o envio ou recomeçar o preenchimento:',
             [
               { id: 'summary_confirm', text: 'Confirmar e Enviar âœ…' },
-              { id: 'summary_retry', text: 'RecomeÃ§ar ðŸ”„' }
+              { id: 'summary_retry', text: 'Recomeçar 🔄' }
             ]
           );
         }
@@ -1152,13 +1153,13 @@ export async function handleGcReportIncomingMessage(
     return true;
   } catch (error) {
     console.error('[GC Bot] Erro ao processar mensagem do estado:', error);
-    await sendText(fromPhone, 'Ocorreu um erro interno ao processar a resposta. Digite /reiniciar se desejar recomeÃ§ar.');
+    await sendText(fromPhone, 'Ocorreu um erro interno ao processar a resposta. Digite /reiniciar se desejar recomeçar.');
     return true;
   }
 }
 
 /**
- * Re-envia a instruÃ§Ã£o ou mensagem correspondente ao passo atual da sessÃ£o.
+ * Re-envia a instrução ou mensagem correspondente ao passo atual da sessão.
  */
 async function resendCurrentStepMessage(to: string, session: GcReportSession) {
   switch (session.step) {
@@ -1168,9 +1169,9 @@ async function resendCurrentStepMessage(to: string, session: GcReportSession) {
     case 'CHOOSE_CHANNEL':
       await sendButton(
         to,
-        'Como vocÃª prefere responder o relatÃ³rio do GC esta semana?',
+        'Como você prefere responder o relatório do GC esta semana?',
         [
-          { id: 'channel_whatsapp', text: 'ðŸ’¬ No WhatsApp' },
+          { id: 'channel_whatsapp', text: '💬¬ No WhatsApp' },
           { id: 'channel_link', text: 'ðŸ”— Pelo Link' }
         ]
       );
@@ -1178,44 +1179,44 @@ async function resendCurrentStepMessage(to: string, session: GcReportSession) {
     case 'ATTENDANCE':
       await sendText(
         to,
-        `ðŸ“‹ *Etapa 1: Chamada*\nMarque na enquete abaixo quem esteve *PRESENTE* na reuniÃ£o.`
+        `📅‹ *Etapa 1: Chamada*\nMarque na enquete abaixo quem esteve *PRESENTE* na reunião.`
       );
       await sendMembersListAsPoll(to, session.members, false);
       break;
     case 'METRICS_LESSON':
-      await sendText(to, 'ðŸ“– *Etapa 2: Tema da LiÃ§Ã£o*\n\nQual foi o tema ou tÃ­tulo da liÃ§Ã£o ministrada no GC esta semana?');
+      await sendText(to, '📅– *Etapa 2: Tema da Lição*\n\nQual foi o tema ou título da lição ministrada no GC esta semana?');
       break;
     case 'METRICS_VISITORS':
-      await sendText(to, 'ðŸ‘¥ *Etapa 3: Visitantes*\n\nDigite os nomes separados por vÃ­rgula ou envie 0.');
+      await sendText(to, 'ðŸ‘¥ *Etapa 3: Visitantes*\n\nDigite os nomes separados por vírgula ou envie 0.');
       break;
     case 'METRICS_CONVERSIONS':
-      await sendText(to, 'ðŸŽ¯ *Etapa 4: ConversÃµes*\n\nQuantas decisÃµes por Cristo ou reconciliaÃ§Ãµes aconteceram na reuniÃ£o?\n\nEnvie o nÃºmero (ex: *0*, *1*, *2*...)');
+      await sendText(to, 'ðŸŽ¯ *Etapa 4: Conversões*\n\nQuantas decisões por Cristo ou reconciliações aconteceram na reunião?\n\nEnvie o número (ex: *0*, *1*, *2*...)');
       break;
     case 'FEEDBACK':
       await sendButton(
         to,
-        'Quer deixar alguma mensagem, observaÃ§Ã£o de cuidado ou feedback para o seu supervisor?\n\nDigite sua mensagem ou clique no botÃ£o para finalizar.',
+        'Quer deixar alguma mensagem, observação de cuidado ou feedback para o seu supervisor?\n\nDigite sua mensagem ou clique no botão para finalizar.',
         [{ id: 'feed_skip', text: 'Pular Feedback' }],
-        'ðŸ’¬ *Etapa 5: Feedback*'
+        '💬¬ *Etapa 5: Feedback*'
       );
       break;
     case 'ATTENDANCE_CONFIRM':
       await sendButton(
         to,
-        'VocÃª deseja avanÃ§ar para a liÃ§Ã£o ou refazer a chamada?',
+        'Você deseja avançar para a lição ou refazer a chamada?',
         [
-          { id: 'attendance_advance', text: 'AvanÃ§ar âž¡ï¸' },
-          { id: 'attendance_retry', text: 'Refazer Chamada ðŸ”„' }
+          { id: 'attendance_advance', text: 'Avançar âž¡ï¸' },
+          { id: 'attendance_retry', text: 'Refazer Chamada 🔄' }
         ]
       );
       break;
     case 'SUMMARY_CONFIRM':
       await sendButton(
         to,
-        'VocÃª deseja confirmar e enviar o relatÃ³rio ou recomeÃ§ar o preenchimento?',
+        'Você deseja confirmar e enviar o relatório ou recomeçar o preenchimento?',
         [
           { id: 'summary_confirm', text: 'Confirmar e Enviar âœ…' },
-          { id: 'summary_retry', text: 'RecomeÃ§ar ðŸ”„' }
+          { id: 'summary_retry', text: 'Recomeçar 🔄' }
         ]
       );
       break;
@@ -1223,7 +1224,7 @@ async function resendCurrentStepMessage(to: string, session: GcReportSession) {
 }
 
 /**
- * Compila e salva o relatÃ³rio nas coleÃ§Ãµes reuniao_logs e presencas_historico do Firestore.
+ * Compila e salva o relatório nas coleções reuniao_logs e presencas_historico do Firestore.
  */
 export async function finalizeAndSubmitReport(session: GcReportSession, feedback: string): Promise<boolean> {
   const db = getAdminDb();
@@ -1232,7 +1233,7 @@ export async function finalizeAndSubmitReport(session: GcReportSession, feedback
 
   try {
     const cellSnap = await db.collection('cells').doc(session.cellId).get();
-    if (!cellSnap.exists) throw new Error('CÃ©lula de destino nÃ£o encontrada.');
+    if (!cellSnap.exists) throw new Error('Célula de destino não encontrada.');
     const cellData = cellSnap.data()!;
 
     const reportDate = new Date().toISOString().split('T')[0];
@@ -1271,13 +1272,13 @@ export async function finalizeAndSubmitReport(session: GcReportSession, feedback
           batch.delete(pDoc.ref);
         });
       } catch (err) {
-        console.warn('[GC Bot] Erro ao limpar presenÃ§as do relatÃ³rio editado:', err);
+        console.warn('[GC Bot] Erro ao limpar presenças do relatório editado:', err);
       }
     }
 
     const logData: any = {
       cellId: session.cellId,
-      cellNome: cellData.nome || 'CÃ©lula',
+      cellNome: cellData.nome || 'Célula',
       date: reportDate,
       liderId: session.liderId,
       supervisorId: cellData.supervisorId || null,
@@ -1323,7 +1324,7 @@ export async function finalizeAndSubmitReport(session: GcReportSession, feedback
 
     await batch.commit();
 
-    // AutomaÃ§Ã£o Kanban: AvanÃ§ar visitantes no Funil de Engajamento
+    // Automação Kanban: Avançar visitantes no Funil de Engajamento
     try {
       const checkProcessos = session.members.map(async (member) => {
         if (finalAttendance[member.id] === 'presente') {
@@ -1338,7 +1339,7 @@ export async function finalizeAndSubmitReport(session: GcReportSession, feedback
             let newStage = null;
 
             if (procData.currentStage === 'AGUARDANDO_CONTATO') {
-              newStage = 'EM_VISITA'; // Visitante ReuniÃµes
+              newStage = 'EM_VISITA'; // Visitante Reuniões
             } else if (procData.currentStage === 'EM_VISITA') {
               const histSnap = await db.collection('presencas_historico')
                 .where('membroId', '==', member.id)
@@ -1431,12 +1432,12 @@ export async function finalizeAndSubmitReport(session: GcReportSession, feedback
       }
 
     } catch(e) {
-      console.error('[GC Bot] Erro na automaÃ§Ã£o Kanban:', e);
+      console.error('[GC Bot] Erro na automação Kanban:', e);
     }
 
     return true;
   } catch (error) {
-    console.error('[GC Bot] Erro ao gravar relatÃ³rio no Firestore:', error);
+    console.error('[GC Bot] Erro ao gravar relatório no Firestore:', error);
     return false;
   }
 }
