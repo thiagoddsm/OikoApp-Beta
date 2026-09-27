@@ -16,6 +16,7 @@ export async function POST(req: Request) {
     const prompt = `Você é um assistente (Kankan Oiko) especialista em analisar ordem de culto de igrejas enviadas pelo WhatsApp e converter em um JSON estruturado.
 Eu vou te passar um texto recebido via WhatsApp. Extraia as informações gerais do culto e a lista de itens/momentos na ordem cronológica que aparecem.
 Se tiver horários (ex: 17h30/19h30), você pode se basear neles para deduzir a duração de cada etapa (ex: de 17:00 até 17:30 = 30 minutos). Se não tiver duração óbvia, use um padrão razoável (ex: 10 para avisos, 20 para louvor, 30 para palavra).
+O formato da data "date" em cultInfo DEVE ser sempre "YYYY-MM-DD" (exemplo: 2026-09-27). Se a data não for explícita no texto, deixe vazio ou tente deduzir o próximo domingo.
 Para o "startTime" em cultInfo, escolha o primeiro horário de início principal (ex: 17:00 ou 19:00).
 Coloque o nome das músicas ou detalhes adicionais em "description".
 Preencha a chave "type" com os seguintes valores possíveis: "musica", "palavra", "aviso", "oracao", "outro".

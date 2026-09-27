@@ -192,7 +192,7 @@ function PlanEditorInner({ planId }: { planId: string }) {
         if (json.cultInfo) {
           setLocalMeta(prev => ({
             ...prev,
-            date: json.cultInfo.date || prev.date,
+            date: (json.cultInfo.date && /^\d{4}-\d{2}-\d{2}$/.test(json.cultInfo.date)) ? json.cultInfo.date : prev.date,
             startTime: json.cultInfo.startTime || prev.startTime,
             notes: (prev.notes ? prev.notes + ' \n' : '') + `Equipe: ${json.cultInfo.coordenadorTecnico || ''} ${json.cultInfo.staff || ''} ${json.cultInfo.lead || ''}`
           }));
