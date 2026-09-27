@@ -1,12 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { initializeFirebase } from '@/firebase';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, CheckCircle2, User, Clock, Loader2 } from 'lucide-react';
+import { MessageCircle, CheckCircle2, User, Loader2 } from 'lucide-react';
 import { toggleQuestionAnswered } from '../actions';
+import { fetchHangoutQuestions } from './actions';
 import { useToast } from '@/hooks/use-toast';
 
 interface Question {
@@ -14,7 +13,7 @@ interface Question {
     text: string;
     author: string;
     answered: boolean;
-    createdAt: any;
+    createdAt: string;
 }
 
 export default function HangoutPanelPage() {
@@ -22,31 +21,29 @@ export default function HangoutPanelPage() {
     const [questions, setQuestions] = useState<Question[]>([]);
     const [loading, setLoading] = useState(true);
 
+    const loadQuestions = async () => {
+        const res = await fetchHangoutQuestions();
+        if (res.success && res.questions) {
+            setQuestions(res.questions);
+        }
+        setLoading(false);
+    };
+
     useEffect(() => {
-        const { firestore } = initializeFirebase();
-        const q = query(
-            collection(firestore, 'hangout_questions'),
-            orderBy('createdAt', 'desc')
-        );
-
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const data: Question[] = [];
-            snapshot.forEach((doc) => {
-                data.push({ id: doc.id, ...doc.data() } as Question);
-            });
-            setQuestions(data);
-            setLoading(false);
-        }, (error) => {
-            console.error("Erro ao escutar perguntas:", error);
-            setLoading(false);
-        });
-
-        return () => unsubscribe();
+        loadQuestions();
+        // Polling a cada 3 segundos (tempo real simulado sem regras de firestore)
+        const interval = setInterval(loadQuestions, 3000);
+        return () => clearInterval(interval);
     }, []);
 
     const handleToggle = async (id: string, currentStatus: boolean) => {
+        // Optimistic UI update
+        setQuestions(prev => prev.map(q => q.id === id ? { ...q, answered: !currentStatus } : q));
+        
         const result = await toggleQuestionAnswered(id, !currentStatus);
         if (!result.success) {
+            // Revert on failure
+            setQuestions(prev => prev.map(q => q.id === id ? { ...q, answered: currentStatus } : q));
             toast({
                 title: 'Erro',
                 description: 'Não foi possível atualizar o status.',
@@ -93,7 +90,7 @@ export default function HangoutPanelPage() {
                 {loading ? (
                     <div className="flex flex-col items-center justify-center py-20 text-slate-400">
                         <Loader2 className="size-8 animate-spin mb-4" />
-                        <p className="font-medium">Carregando perguntas em tempo real...</p>
+                        <p className="font-medium">Conectando ao painel...</p>
                     </div>
                 ) : questions.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20 text-slate-400 bg-white border border-slate-200 rounded-3xl border-dashed">
