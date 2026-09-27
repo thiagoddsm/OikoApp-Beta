@@ -965,7 +965,7 @@ export async function handleGcReportIncomingMessage(
             );
             await wait(1500);
             const visitorNames = (session.expectedVisitors || []).map((v: any) => v.name.substring(0, 50));
-            await sendPoll(fromPhone, '📋 Visitantes Esperados — Quem veio?', visitorNames, true);
+            await sendPoll(fromPhone, '📋 Visitantes Esperados — Quem veio?', visitorNames, visitorNames.length);
           } else {
             await sendText(
               fromPhone,
@@ -1375,7 +1375,7 @@ export async function finalizeAndSubmitReport(session: GcReportSession, feedback
           if (!visitor.id) return;
 
           // 1. Atualizar attendedDates no array cell.visitors para rastrear as visitas individuais
-          const dateToLog = session.date || reportDate;
+          const dateToLog = (session as any).date || reportDate;
           updatedCellVisitors = updatedCellVisitors.map((v: any) => {
             if (v.id === visitor.id) {
               const attended = v.attendedDates || [];
