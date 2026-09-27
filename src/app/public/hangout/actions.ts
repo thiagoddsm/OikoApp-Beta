@@ -36,3 +36,25 @@ export async function toggleQuestionAnswered(id: string, answered: boolean) {
         return { success: false, error: "Firebase Error: " + (error?.message || String(error)) };
     }
 }
+
+export async function toggleQuestionStarred(id: string, starred: boolean) {
+    try {
+        const db = getAdminDb();
+        await db.collection('hangout_questions').doc(id).update({ starred });
+        return { success: true };
+    } catch (error: any) {
+        console.error("Erro ao favoritar pergunta:", error);
+        return { success: false, error: "Firebase Error: " + (error?.message || String(error)) };
+    }
+}
+
+export async function deleteHangoutQuestion(id: string) {
+    try {
+        const db = getAdminDb();
+        await db.collection('hangout_questions').doc(id).delete();
+        return { success: true };
+    } catch (error: any) {
+        console.error("Erro ao excluir pergunta:", error);
+        return { success: false, error: "Firebase Error: " + (error?.message || String(error)) };
+    }
+}

@@ -16,6 +16,7 @@ export async function fetchHangoutQuestions() {
                 text: data.text || '',
                 author: data.author || 'Anônimo',
                 answered: !!data.answered,
+                starred: !!data.starred,
                 createdAt: data.createdAt ? data.createdAt.toDate().toISOString() : new Date().toISOString()
             };
         });
