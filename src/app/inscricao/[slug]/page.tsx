@@ -62,7 +62,11 @@ export default function DirectRegistrationPage() {
         setData(res);
         if (res?.type === 'event') {
           const tickets = (res.item as any)?.tickets || [];
-          const active = tickets.filter((t: any) => t.isActive !== false);
+          const active = tickets.filter((t: any) => {
+              const isSoldOut = t.limit && t.limit > 0 && t.soldCount >= t.limit;
+              const isClosed = t.endDate && new Date(t.endDate) < new Date();
+              return t.isActive !== false && !isSoldOut && !isClosed;
+            });
           if (active.length > 0) {
             setSelectedTicketId(active[0].id);
           }
