@@ -9,7 +9,7 @@ import { Timestamp } from 'firebase-admin/firestore';
  */
 export async function verifyMemberEmail(email: string) {
     try {
-        const db = getAdminDb();
+                const db = getAdminDb();
         const q = db.collection('users').where('email', '==', email.toLowerCase().trim());
         const snap = await q.get();
 
@@ -150,7 +150,37 @@ export async function submitEventRegistration(data: {
     tenantId?: string;
 }) {
     try {
-        const db = getAdminDb();
+                const db = getAdminDb();
+
+        // VALIDAÇÃO DE LIMITES E DATAS DO INGRESSO
+        const eventDoc = await db.collection('strategic_events').doc(data.eventId).get();
+        if (!eventDoc.exists) {
+            throw new Error("Evento não encontrado.");
+        }
+        const eventData = eventDoc.data()!;
+
+        if (data.ticketId && data.ticketId !== 'default' && eventData.tickets) {
+            const ticket = eventData.tickets.find((t: any) => t.id === data.ticketId);
+            if (ticket) {
+                if (!ticket.isActive) {
+                    throw new Error(`As inscrições para "${ticket.name}" estão desativadas.`);
+                }
+                
+                if (ticket.endDate && new Date(ticket.endDate) < new Date()) {
+                    throw new Error(`As vendas para o ingresso "${ticket.name}" foram encerradas.`);
+                }
+
+                if (ticket.limit && ticket.limit > 0) {
+                    const regs = await db.collection('event_registrations')
+                        .where('eventId', '==', data.eventId)
+                        .where('ticketId', '==', data.ticketId)
+                        .get();
+                    if (regs.size >= ticket.limit) {
+                        throw new Error(`Esgotado! O ingresso "${ticket.name}" não tem mais vagas disponíveis.`);
+                    }
+                }
+            }
+        }
 
         let finalName = data.name?.trim();
         let finalPhone = data.phone?.trim();

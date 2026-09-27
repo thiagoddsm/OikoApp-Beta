@@ -244,7 +244,7 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
     slug: '',
 
     // Novos campos
-    tickets: [] as { id: string; name: string; description: string; price: number; limit?: number; isActive: boolean }[],
+    tickets: [] as { id: string; name: string; description: string; price: number; limit?: number; endDate?: string; isActive: boolean }[],
     allowCompanions: false,
     maxCompanions: 1,
     customQuestions: [] as { id: string; label: string; type: 'text' | 'select'; options?: string[]; isRequired: boolean }[],
@@ -1406,6 +1406,7 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
                             description: '',
                             price: 0,
                             limit: undefined,
+                              endDate: '',
                             isActive: true
                           }]
                         }))}
@@ -1428,7 +1429,7 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
                             >
                               Excluir
                             </button>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                               <div className="space-y-1">
                                 <Label className="text-[10px] text-slate-400 font-bold uppercase">Nome do Ingresso</Label>
                                 <Input
@@ -1459,20 +1460,33 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
                                 />
                               </div>
                               <div className="space-y-1">
-                                <Label className="text-[10px] text-slate-400 font-bold uppercase">Vagas Limitadas (Opcional)</Label>
-                                <Input
-                                  type="number"
-                                  value={ticket.limit || ''}
-                                  placeholder="Ilimitado"
-                                  className="h-8 text-xs bg-slate-950 border-slate-800"
-                                  onChange={(e) => {
-                                    const updated = [...formData.tickets];
-                                    const val = parseInt(e.target.value);
-                                    updated[tIndex].limit = isNaN(val) ? undefined : val;
-                                    setFormData(p => ({ ...p, tickets: updated }));
-                                  }}
-                                />
-                              </div>
+                                  <Label className="text-[10px] text-slate-400 font-bold uppercase">Vagas Limitadas</Label>
+                                  <Input
+                                    type="number"
+                                    value={ticket.limit || ''}
+                                    placeholder="Ilimitado"
+                                    className="h-8 text-xs bg-slate-950 border-slate-800"
+                                    onChange={(e) => {
+                                      const updated = [...formData.tickets];
+                                      const val = parseInt(e.target.value);
+                                      updated[tIndex].limit = isNaN(val) ? undefined : val;
+                                      setFormData(p => ({ ...p, tickets: updated }));
+                                    }}
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <Label className="text-[10px] text-slate-400 font-bold uppercase">Encerra em (Opcional)</Label>
+                                  <Input
+                                    type="datetime-local"
+                                    value={ticket.endDate || ''}
+                                    className="h-8 text-xs bg-slate-950 border-slate-800"
+                                    onChange={(e) => {
+                                      const updated = [...formData.tickets];
+                                      updated[tIndex].endDate = e.target.value;
+                                      setFormData(p => ({ ...p, tickets: updated }));
+                                    }}
+                                  />
+                                </div>
                             </div>
                             <div className="space-y-1">
                               <Label className="text-[10px] text-slate-400 font-bold uppercase">Descrição / Informações</Label>

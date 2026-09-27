@@ -8,6 +8,7 @@ import {
   Home,
   Users,
   Settings,
+  Sparkles,
   LogOut,
   ChevronDown,
   Network,
@@ -131,6 +132,7 @@ const menuItems = [
       subItems: [
         { href: "/dashboard/volunteering", label: "Áreas de Serviço", icon: HandHelping, permissionId: 'servico_areas' },
         { href: "/dashboard/volunteering/servos", label: "Servos & Voluntários", icon: Users, permissionId: 'servico_servos' },
+        { href: "/dashboard/volunteering/molde-de-servo", label: "Molde de Servo", icon: Sparkles, permissionId: 'servico_servos' },
         { href: "/dashboard/volunteering/teams", label: "Equipes", icon: Shield, permissionId: 'servico_teams' },
         { href: "/dashboard/volunteering/events", label: "Gerenciar Eventos", icon: CalendarPlus, permissionId: 'servico_events' },
         { href: "/dashboard/volunteering/schedule", label: "Gerar Escala", icon: CalendarCog, permissionId: 'servico_schedule' },
@@ -600,3 +602,4 @@ export default function DashboardLayout({
     </div>
   );
 }
+

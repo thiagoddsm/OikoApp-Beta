@@ -192,12 +192,18 @@ function EnrollmentForm() {
         return selectedEvent.tickets.find((t: any) => t.id === selectedTicketId);
     }, [selectedEvent, selectedTicketId]);
 
-    // Auto-select first active ticket when selectedEvent changes
+    // Auto-select first active and available ticket when selectedEvent changes
     useEffect(() => {
         if (selectedEvent?.tickets && selectedEvent.tickets.length > 0) {
-            const activeTickets = selectedEvent.tickets.filter((t: any) => t.isActive);
+            const activeTickets = selectedEvent.tickets.filter((t: any) => {
+                const isSoldOut = t.limit && t.limit > 0 && t.soldCount >= t.limit;
+                const isClosed = t.endDate && new Date(t.endDate) < new Date();
+                return t.isActive && !isSoldOut && !isClosed;
+            });
             if (activeTickets.length > 0) {
                 setSelectedTicketId(activeTickets[0].id);
+            } else {
+                setSelectedTicketId(null);
             }
         } else {
             setSelectedTicketId(null);
@@ -1468,20 +1474,31 @@ function EnrollmentForm() {
                                             <div className="grid grid-cols-1 gap-2.5">
                                                 {selectedEvent.tickets.filter((t: any) => t.isActive).map((ticket: any) => {
                                                     const isSelected = selectedTicketId === ticket.id;
+                                                    const isSoldOut = ticket.limit && ticket.limit > 0 && ticket.soldCount >= ticket.limit;
+                                                    const isClosed = ticket.endDate && new Date(ticket.endDate) < new Date();
+                                                    const isDisabled = isSoldOut || isClosed;
+
                                                     return (
                                                         <button
                                                             key={ticket.id}
                                                             type="button"
+                                                            disabled={isDisabled}
                                                             onClick={() => setSelectedTicketId(ticket.id)}
                                                             className={cn(
                                                                 "p-4 rounded-xl border text-left transition-all flex items-center justify-between",
-                                                                isSelected 
+                                                                isDisabled 
+                                                                    ? "border-white/5 bg-white/5 opacity-50 cursor-not-allowed" 
+                                                                    : isSelected 
                                                                     ? "border-primary bg-primary/10 text-white font-bold" 
                                                                     : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
                                                             )}
                                                         >
                                                             <div>
-                                                                <p className="text-sm font-bold">{ticket.name}</p>
+                                                                <p className="text-sm font-bold flex items-center gap-2">
+                                                                    {ticket.name}
+                                                                    {isSoldOut && <span className="text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full">Esgotado</span>}
+                                                                    {isClosed && !isSoldOut && <span className="text-[10px] bg-slate-500/20 text-slate-400 px-2 py-0.5 rounded-full">Encerrado</span>}
+                                                                </p>
                                                                 {ticket.description && (
                                                                     <p className="text-[11px] text-slate-400 font-medium mt-0.5">{ticket.description}</p>
                                                                 )}
