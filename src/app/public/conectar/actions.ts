@@ -358,7 +358,7 @@ export async function submitSolicitacao(data: {
         const cellDoc = await db.collection('cells').doc(selectedCellId).get();
         if (cellDoc.exists) {
           const cellData = cellDoc.data()!;
-          const liderId = cellData.liderId;
+          const liderId = cellData.liderId || cellData.leaderId || cellData.liderCasalId;
           if (liderId) {
             const liderDoc = await db.collection('users').doc(liderId).get();
             if (liderDoc.exists) {
