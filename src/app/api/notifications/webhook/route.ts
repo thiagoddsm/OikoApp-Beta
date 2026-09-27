@@ -13,6 +13,12 @@ export async function POST(request: Request) {
     const raw = await request.json();
     console.log("RAW WEBHOOK PAYLOAD:", JSON.stringify(raw, null, 2));
     
+    // LOG TO FIRESTORE SO WE CAN DEBUG IN PRODUCTION
+    await db.collection('webhook_logs').add({
+      timestamp: Timestamp.now(),
+      payload: JSON.stringify(raw)
+    });
+
     // Tratamento para arrays (ex: pollUpdates) e estrutura de dados
     let data = raw.data || raw;
     if (Array.isArray(data)) data = data[0];
