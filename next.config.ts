@@ -49,6 +49,20 @@ const nextConfig: NextConfig = {
     // Propriedades experimentais permitidas
   },
 
+  
+  async rewrites() {
+    return [
+      {
+        source: '/hangout',
+        destination: '/public/hangout',
+      },
+      {
+        source: '/hangout/painel',
+        destination: '/public/hangout/painel',
+      }
+    ];
+  },
+
   async redirects() {
     return [
       {
