@@ -363,7 +363,7 @@ export default function CellReportPage() {
     if (!cell?.id) return;
     setIsTriggeringWhatsApp(true);
     try {
-      const res = await triggerGcReportForCell(cell.id);
+      const res = await triggerGcReportForCell(cell.id, reportDate);
       if (res.success) {
         toast({ title: '✅ Bot acionado!', description: 'Você receberá uma mensagem no WhatsApp em instantes para preencher o relatório.' });
       } else {

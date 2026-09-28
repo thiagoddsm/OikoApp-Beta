@@ -328,7 +328,7 @@ export async function resolveGcReportRecipient(cellData: any, db: FirebaseFirest
 /**
  * Triggers a GC report session via WhatsApp for a specific cell.
  */
-export async function triggerGcReportForCell(cellId: string) {
+export async function triggerGcReportForCell(cellId: string, reportDate?: string) {
     try {
         const db = getAdminDb();
         const cellDoc = await db.collection('cells').doc(cellId).get();
@@ -348,7 +348,7 @@ export async function triggerGcReportForCell(cellId: string) {
             userId: recipient.userId,
             name: recipient.name,
             role: recipient.role
-        });
+        }, undefined, reportDate);
 
         if (success) {
             return { 

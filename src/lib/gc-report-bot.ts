@@ -11,6 +11,7 @@ export interface GcReportSession {
   
   // Modo Edição de Relatório
   editingLogId?: string;
+  date?: string; // Data alvo do relatório, se preenchido pelo dashboard
 
   // Controle de reunião (Adiada ou Cancelada)
   meetingOccurred?: boolean;
@@ -190,7 +191,8 @@ export async function startGcReportSession(
   recipientPhone: string, 
   isTestData = false,
   recipientInfo?: { userId?: string; name?: string; role?: 'secretario' | 'lider' },
-  editingLogId?: string
+  editingLogId?: string,
+  reportDate?: string
 ): Promise<boolean> {
   const db = getAdminDb();
   const sessionRef = db.collection('gc_report_sessions').doc(recipientPhone);
@@ -287,6 +289,7 @@ export async function startGcReportSession(
       id: recipientPhone,
       cellId,
       liderId,
+      date: reportDate,
       respondentId: respondentId || liderId,
       respondentName: respondentName || undefined,
       respondentRole,
