@@ -128,12 +128,19 @@ async function sendPoll(to: string, name: string, options: string[], selectableC
   });
 }
 
-async function sendMembersListAsPoll(to: string, membersList: { id: string; name: string }[], isCare: boolean) {
+async function sendMembersListAsPoll(to: string, membersList: { id: string; name: string }[], isCare: boolean, introText?: string) {
   const whatsapp = await getWhatsAppClient();
   const title = isCare ? 'Quem precisa de CUIDADO?' : 'Quem estava PRESENTE?';
   if (membersList.length === 0) {
     await sendText(to, 'Nenhum membro encontrado na célula.');
     return;
+  }
+
+  // Send introductory text FIRST (via WAME), then wait before Evolution polls
+  if (introText) {
+    await sendText(to, introText);
+    // Extra wait so the text arrives before the Evolution API polls
+    await new Promise(resolve => setTimeout(resolve, 3000));
   }
 
   const chunkSize = 10;
@@ -161,7 +168,7 @@ async function sendMembersListAsPoll(to: string, membersList: { id: string; name
   }
   
   // Delay adicional antes do botão de concluir para chegar DEPOIS das enquetes
-  await new Promise(resolve => setTimeout(resolve, 1500));
+  await new Promise(resolve => setTimeout(resolve, 2000));
 
   const buttonId = isCare ? 'care_done' : 'attendance_done';
   const buttonText = isCare ? 'Concluir Seleção' : 'Concluir Chamada';
@@ -226,8 +233,11 @@ export async function startGcReportSession(
     // Load expected visitors:
     // 1. Portal-registered via /gc or /conectar (consolidationStatus not integrated)
     // 2. Manually flagged as isEsperado by the leader in the dashboard
+    // 3. EXCLUDE anyone already in the official members list (no duplicates)
+    const memberIds = new Set(membersList.map(m => m.id));
     const expectedVisitorsList = (cellData.visitors || []).filter(
       (v: any) => v.consolidationStatus !== 'integrated' &&
+        !memberIds.has(v.id) && // never show in both places
         (v.origin?.includes('/conectar') || v.origin?.includes('/gc') || v.isEsperado === true)
     ).map((v: any) => ({ id: v.id, name: v.name, phone: v.phone || '' }));
 
@@ -549,13 +559,12 @@ export async function handleGcReportIncomingMessage(
             step: 'ATTENDANCE',
             updatedAt: now
           });
-          await sendText(
+          await sendMembersListAsPoll(
             fromPhone,
+            session.members,
+            false,
             '📋 *Etapa 1: Chamada*\n\nResponda na enquete/lista abaixo quem esteve *PRESENTE* na reunião.'
           );
-          // Aguardar antes das enquetes para o texto chegar primeiro
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          await sendMembersListAsPoll(fromPhone, session.members, false);
         } else if (isNo) {
           await sessionRef.update({
             meetingOccurred: false,
@@ -924,12 +933,12 @@ export async function handleGcReportIncomingMessage(
             pollSelections: {},
             updatedAt: now
           });
-          await sendText(
+          await sendMembersListAsPoll(
             fromPhone,
+            session.members,
+            false,
             '🔄 *Refazendo a Chamada*\n\nMarque novamente na enquete abaixo quem esteve *PRESENTE*:'
           );
-          await wait(1500);
-          await sendMembersListAsPoll(fromPhone, session.members, false);
         } else {
           await sendButton(
             fromPhone,
@@ -1176,11 +1185,12 @@ async function resendCurrentStepMessage(to: string, session: GcReportSession) {
       );
       break;
     case 'ATTENDANCE':
-      await sendText(
+      await sendMembersListAsPoll(
         to,
-        `📋 *Etapa 1: Chamada*\nMarque na enquete abaixo quem esteve *PRESENTE* na reunião.`
+        session.members,
+        false,
+        '📋 *Etapa 1: Chamada*\nMarque na enquete abaixo quem esteve *PRESENTE* na reunião.'
       );
-      await sendMembersListAsPoll(to, session.members, false);
       break;
     case 'METRICS_LESSON':
       await sendText(to, '📖 *Etapa 2: Tema da Lição*\n\nQual foi o tema ou título da lição ministrada no GC esta semana?');
