@@ -479,7 +479,20 @@ export function getResolvedSchedule(classData: any, courseData: any) {
     const startDateStr = classData.startDate || classData.createdAt || new Date().toISOString().split('T')[0];
     const start = parseISO(startDateStr);
     const holidaySet = new Set(classData.holidayDates || []);
-    const overrides = classData.scheduleOverrides || {};
+
+    // Sanitize overrides to fix year typos (e.g. 0206 -> 2026)
+    const rawOverrides = classData.scheduleOverrides || {};
+    const overrides: Record<string, any> = {};
+    Object.entries(rawOverrides).forEach(([k, v]) => {
+        let cleanKey = k;
+        if (cleanKey.startsWith('0206-')) {
+            cleanKey = cleanKey.replace('0206-', '2026-');
+        } else if (cleanKey.match(/^02[0-9]{2}-/)) {
+            cleanKey = '20' + cleanKey.substring(2);
+        }
+        overrides[cleanKey] = v;
+    });
+
     const syllabus = courseData?.syllabus || [];
     const slots = getSlotsPerOccurrence(classData);
     const slotsPerDay = slots.length;
@@ -614,7 +627,14 @@ export function getResolvedSchedule(classData: any, courseData: any) {
     // 4. Adicionar aulas extras (extraSessions)
     const extraSessions = classData.extraSessions || [];
     extraSessions.forEach((session: any) => {
-        const uniqueDateStr = session.startTime ? `${session.date}T${session.startTime}` : `${session.date}-extra`;
+        let cleanDate = session.date;
+        if (cleanDate && cleanDate.startsWith('0206-')) {
+            cleanDate = cleanDate.replace('0206-', '2026-');
+        } else if (cleanDate && cleanDate.match(/^02[0-9]{2}-/)) {
+            cleanDate = '20' + cleanDate.substring(2);
+        }
+
+        const uniqueDateStr = session.startTime ? `${cleanDate}T${session.startTime}` : `${cleanDate}-extra`;
 
         if (items.find(i => i.dateStr === uniqueDateStr)) return;
 
@@ -628,7 +648,7 @@ export function getResolvedSchedule(classData: any, courseData: any) {
 
         items.push({
             dateStr: uniqueDateStr,
-            date: parseISO(session.date),
+            date: parseISO(cleanDate),
             syllabusItem,
             syllabusOriginalIndex: originalIdx,
             isOverride: true,
