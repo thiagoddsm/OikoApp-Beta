@@ -253,9 +253,9 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId }:
             const classData = { 
                 courseId, 
                 name, 
-                cycle: cycle || undefined,
+                cycle: cycle || null,
                 teacherId: teacherId === 'null' ? '' : teacherId, 
-                maxStudents: maxStudents ? parseInt(maxStudents, 10) : undefined,
+                maxStudents: maxStudents ? parseInt(maxStudents, 10) : null,
                 students: existingClass?.students || [],
                 frequency,
                 startDate,
@@ -270,7 +270,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId }:
                 extraSessions,
                 scheduleOverrides,
                 registrationDeadline,
-                dailySlots: dailySlots.length > 1 ? dailySlots : undefined,
+                dailySlots: dailySlots.length > 1 ? dailySlots : [],
             };
             await updateClass(existingClass.id, classData);
         } else {
@@ -278,9 +278,9 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId }:
                 const classData = { 
                     courseId, 
                     name, 
-                    cycle: cycle || undefined,
+                    cycle: cycle || null,
                     teacherId: teacherId === 'null' ? '' : teacherId, 
-                    maxStudents: maxStudents ? parseInt(maxStudents, 10) : undefined,
+                    maxStudents: maxStudents ? parseInt(maxStudents, 10) : null,
                     students: [],
                     frequency,
                     startDate,
@@ -295,7 +295,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId }:
                     extraSessions,
                     scheduleOverrides,
                     registrationDeadline,
-                    dailySlots: dailySlots.length > 1 ? dailySlots : undefined,
+                    dailySlots: dailySlots.length > 1 ? dailySlots : [],
                 };
                 await addClass(classData);
             } else {
@@ -312,7 +312,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId }:
                         name: `${name} - ${sched.dayOfWeek}`, 
                         cycle: name,
                         teacherId: teacherId === 'null' ? '' : teacherId, 
-                        maxStudents: maxStudents ? parseInt(maxStudents, 10) : undefined,
+                        maxStudents: maxStudents ? parseInt(maxStudents, 10) : null,
                         students: [],
                         frequency: sched.frequency,
                         startDate: sched.startDate || startDate,
@@ -327,7 +327,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId }:
                         extraSessions,
                         scheduleOverrides,
                         registrationDeadline,
-                        dailySlots: sched.dailySlots.length > 1 ? sched.dailySlots : undefined,
+                        dailySlots: sched.dailySlots.length > 1 ? sched.dailySlots : [],
                     };
                     await addClass(classData);
                 }
@@ -1189,7 +1189,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId }:
                                     
                                     <div className="space-y-1.5 flex-[2] min-w-[200px]">
                                         <Label className="text-[9px] font-black uppercase text-muted-foreground">Conteúdo da Ementa</Label>
-                                        <Select value={session.syllabusId || 'null'} onValueChange={val => updateExtraSession(session.id, 'syllabusId', val === 'null' ? undefined : val)}>
+                                        <Select value={session.syllabusId || 'null'} onValueChange={val => updateExtraSession(session.id, 'syllabusId', val === 'null' ? null : val)}>
                                             <SelectTrigger className="h-9 text-xs">
                                                 <SelectValue placeholder="Vincular módulo..." />
                                             </SelectTrigger>
