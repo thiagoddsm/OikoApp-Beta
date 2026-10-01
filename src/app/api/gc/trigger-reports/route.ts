@@ -206,10 +206,18 @@ export async function POST(request: Request) {
         if (success) {
           triggeredCount++;
           console.log(`[GC Bot] Relatório disparado para célula ${cellId} -> ${recipient.role}: ${recipient.name} (${recipient.phone})`);
+          // ✅ ANTI-BAN FIX: Delay obrigatório entre cada célula para evitar burst de mensagens.
+          // Sem isso, 50 GCs disparam 50 mensagens em ~5 segundos → ban automático da Meta.
+          // 20–35 segundos de intervalo simula cadência humana e respeita os limites do WhatsApp.
+          const antiBanDelayMs = 20000 + Math.floor(Math.random() * 15000); // 20 a 35 segundos
+          console.log(`[GC Bot] Anti-ban delay: aguardando ${Math.round(antiBanDelayMs / 1000)}s antes da próxima célula...`);
+          await new Promise(resolve => setTimeout(resolve, antiBanDelayMs));
         }
       } catch (cellError: any) {
         console.error(`[GC Bot] Erro ao disparar relatório para célula ${cellId}:`, cellError);
         errors.push(`Cell ${cellId}: ${cellError.message}`);
+        // Mesmo em caso de erro, aguarda antes de tentar a próxima para não acumular requisições
+        await new Promise(resolve => setTimeout(resolve, 10000));
       }
     }
 

@@ -34,7 +34,42 @@ export interface GcDispatchJob {
   finishedAt?: Timestamp;
 }
 
-let isWorkerRunning = false;
+// ✅ ANTI-BAN FIX: Lock baseado no Firestore em vez de variável global.
+// Em ambientes serverless (Vercel), variáveis globais não são compartilhadas entre containers.
+// Múltiplos workers rodando em paralelo = mensagens duplicadas = spike de volume = ban.
+const WORKER_LOCK_DOC = 'gc_dispatch_worker_lock';
+
+async function acquireWorkerLock(): Promise<boolean> {
+  const db = getAdminDb();
+  const lockRef = db.collection('gc_dispatch_config').doc(WORKER_LOCK_DOC);
+  const lockTTLMs = 10 * 60 * 1000; // TTL de 10 minutos (evita deadlock se o worker morrer)
+  try {
+    const acquired = await db.runTransaction(async (t) => {
+      const lockDoc = await t.get(lockRef);
+      if (lockDoc.exists) {
+        const data = lockDoc.data()!;
+        const lockedAt = data.lockedAt?.toMillis?.() || 0;
+        if (Date.now() - lockedAt < lockTTLMs) return false; // Lock ativo e válido
+        console.log('[GC Queue Worker] Lock expirado encontrado. Renovando...');
+      }
+      t.set(lockRef, { lockedAt: Timestamp.now(), pid: process.pid || Math.random() });
+      return true;
+    });
+    return acquired;
+  } catch (e) {
+    console.error('[GC Queue Worker] Falha ao adquirir lock:', e);
+    return false;
+  }
+}
+
+async function releaseWorkerLock() {
+  try {
+    const db = getAdminDb();
+    await db.collection('gc_dispatch_config').doc(WORKER_LOCK_DOC).delete();
+  } catch (e) {
+    console.error('[GC Queue Worker] Falha ao liberar lock:', e);
+  }
+}
 
 /**
  * Enfileira disparos de GC com cadência configurável (padrão: 60s por pessoa / 1 pessoa por minuto)
@@ -187,16 +222,11 @@ export async function enqueueGcReportsBatch(options: {
  * Inicia o processador de fila em segundo plano no Node.js
  */
 export function triggerBackgroundQueueWorker() {
-  if (isWorkerRunning) {
-    console.log('[GC Queue Worker] Worker já está em execução.');
-    return;
-  }
-
-  // Execução assíncrona desacoplada
+  // O lock no Firestore previne dupla execução entre containers serverless
   setImmediate(() => {
     processQueueLoop().catch(err => {
       console.error('[GC Queue Worker] Erro no loop de processamento:', err);
-      isWorkerRunning = false;
+      releaseWorkerLock().catch(() => {});
     });
   });
 }
@@ -205,10 +235,14 @@ export function triggerBackgroundQueueWorker() {
  * Loop contínuo que processa itens da fila respeitando o agendamento de 60s
  */
 async function processQueueLoop() {
-  if (isWorkerRunning) return;
-  isWorkerRunning = true;
+  // ✅ ANTI-BAN FIX: Lock distribuído no Firestore (serverless-safe)
+  const acquired = await acquireWorkerLock();
+  if (!acquired) {
+    console.log('[GC Queue Worker] Outro worker já está em execução (lock Firestore ativo). Abortando.');
+    return;
+  }
 
-  console.log('[GC Queue Worker] Iniciando processamento da fila de disparos...');
+  console.log('[GC Queue Worker] Lock adquirido. Iniciando processamento da fila de disparos...');
   const db = getAdminDb();
 
   try {
@@ -347,8 +381,8 @@ async function processQueueLoop() {
   } catch (error) {
     console.error('[GC Queue Worker] Erro fatal no worker:', error);
   } finally {
-    isWorkerRunning = false;
-    console.log('[GC Queue Worker] Worker finalizado.');
+    await releaseWorkerLock();
+    console.log('[GC Queue Worker] Worker finalizado. Lock liberado.');
   }
 }
 
@@ -369,8 +403,12 @@ export async function getQueueStatus(jobId?: string) {
   }
 
   const pendingSnap = await db.collection('gc_dispatch_queue').where('status', 'in', ['pending', 'processing']).get();
+  // ✅ Verifica se o lock está ativo no Firestore para determinar se o worker está rodando
+  const lockDoc = await db.collection('gc_dispatch_config').doc(WORKER_LOCK_DOC).get();
+  const lockTTLMs = 10 * 60 * 1000;
+  const isWorkerActive = lockDoc.exists && (Date.now() - (lockDoc.data()?.lockedAt?.toMillis?.() || 0) < lockTTLMs);
   return {
-    isWorkerRunning,
+    isWorkerRunning: isWorkerActive,
     pendingCount: pendingSnap.size
   };
 }

@@ -163,9 +163,17 @@ async function handleReminders(request: Request) {
           }
         });
         sentCount++;
+        // ✅ ANTI-BAN FIX: Delay entre cada lembrete de voluntário.
+        // Sem isso, 80 voluntários → 80 mensagens instantâneas → ban.
+        // 15 a 25 segundos simula envio humano e respeita os limites do WhatsApp.
+        const antiBanDelayMs = 15000 + Math.floor(Math.random() * 10000);
+        console.log(`[Reminders] Anti-ban delay: aguardando ${Math.round(antiBanDelayMs / 1000)}s antes do próximo voluntário...`);
+        await new Promise(resolve => setTimeout(resolve, antiBanDelayMs));
       } catch (err: any) {
         errorCount++;
         console.error(`Erro ao enviar lembrete automático para ${first.volunteerName}:`, err.message);
+        // Mesmo em erro, aguarda para não acumular requisições
+        await new Promise(resolve => setTimeout(resolve, 8000));
       }
     }
 

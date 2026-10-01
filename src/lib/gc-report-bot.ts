@@ -140,8 +140,10 @@ async function sendMembersListAsPoll(to: string, membersList: { id: string; name
   // Send introductory text FIRST (via WAME), then wait before Evolution polls
   if (introText) {
     await sendText(to, introText);
-    // Extra wait so the text arrives before the Evolution API polls
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    // ✅ ANTI-BAN FIX: Aumentado de 3s para 8s.
+    // Garante que o texto seja entregue e processado antes da primeira enquete,
+    // reduzindo a densidade de mensagens por segundo para o mesmo destinatário.
+    await new Promise(resolve => setTimeout(resolve, 8000));
   }
 
   const chunkSize = 10;
@@ -164,12 +166,15 @@ async function sendMembersListAsPoll(to: string, membersList: { id: string; name
       }
     });
 
-    // Delay entre enquetes para garantir ordem de chegada
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    // ✅ ANTI-BAN FIX: Aumentado de 1.5s para 6s entre enquetes.
+    // Múltiplas enquetes em sucessão rápida são um sinal claro de automação para a Meta.
+    await new Promise(resolve => setTimeout(resolve, 6000));
   }
   
-  // Delay adicional antes do botão de concluir para chegar DEPOIS das enquetes
-  await new Promise(resolve => setTimeout(resolve, 2000));
+  // ✅ ANTI-BAN FIX: Aumentado de 2s para 8s antes do botão final.
+  // O botão enviado logo após as enquetes criava uma rajada WAME→Evolution→WAME
+  // que o WhatsApp detecta como comportamento automatizado.
+  await new Promise(resolve => setTimeout(resolve, 8000));
 
   const buttonId = isCare ? 'care_done' : 'attendance_done';
   const buttonText = isCare ? 'Concluir Seleção' : 'Concluir Chamada';
