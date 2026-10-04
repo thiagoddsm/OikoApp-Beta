@@ -62,7 +62,7 @@ const nextConfig: NextConfig = {
       },
       {
         source: '/molde-de-servo',
-        destination: '/molde-de-servo.html',
+        destination: '/public/molde-de-servo',
       }
     ];
   },
