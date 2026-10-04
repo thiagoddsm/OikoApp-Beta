@@ -32,6 +32,13 @@ export function evaluateAttendanceRequirement(params: ModuleCompletionParams): a
   return studentClass.attendance?.find((att: any) => {
     const isPresent = att.presentStudentIds?.includes(studentId) || att.onlineStudentIds?.includes(studentId);
     if (!isPresent) return false;
+    
+    if (att.moduleIndex !== undefined && Number(att.moduleIndex) === modIndex) return true;
+    if (att.syllabusId && course?.syllabus) {
+      const sIdx = course.syllabus.findIndex((s: any) => s.id === att.syllabusId);
+      if (sIdx === modIndex) return true;
+    }
+
     const dateModIndex = getModuleIndexForDate(att.date, studentClass, course?.syllabus || []);
     return dateModIndex === modIndex;
   }) || null;

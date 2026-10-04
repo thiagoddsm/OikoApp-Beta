@@ -331,10 +331,15 @@ function PedagogicalLogPageContent() {
             const externalPresentIds = presentStudents.filter(id => !enrolledSet.has(id));
             const allRepoIds = Array.from(new Set([...makeupStudentIds, ...externalPresentIds]));
 
-            // Bug #4 fix: inclui moduleIndex e syllabusId para que reposições em turmas
-            // de calendário diferente sejam reconhecidas corretamente pelo motor de domínio.
+            // Bug #4 fix: extrair o índice manual selecionado na UI ("Vincular a:")
+            let explicitModuleIndex = currentModuleIndex;
+            if (currentModuleKey && currentModuleKey.startsWith('module')) {
+                explicitModuleIndex = parseInt(currentModuleKey.replace('module', '')) - 1;
+            }
+
             const repoModuleId = currentResolvedItem?.syllabusItem?.id || null;
-            const repoModuleIndex = currentResolvedItem?.syllabusOriginalIndex ?? currentModuleIndex;
+            const repoModuleIndex = explicitModuleIndex !== -1 ? explicitModuleIndex : (currentResolvedItem?.syllabusOriginalIndex ?? currentModuleIndex);
+            
             const repositions = allRepoIds.map(studentId => ({
                 studentId,
                 date: selectedDate,
@@ -342,9 +347,23 @@ function PedagogicalLogPageContent() {
                 ...(repoModuleId !== null && { syllabusId: repoModuleId }),
                 ...(repoModuleIndex !== -1 && { moduleIndex: repoModuleIndex }),
             }));
+            // Bug #3 fix: garantir que removemos o exato mesmo registro que a UI carregou.
+            // Se selectedDate for '2026-10-03T10:30' mas o banco tiver '2026-10-03', o find() na UI 
+            // acha o antigo, mas o filter(a.date !== selectedDate) não removia o antigo, 
+            // criando duplicatas fantasma onde nomes desmarcados voltavam a aparecer.
+            const recordToRemove = existingAttendance.find((a: any) => a.date === selectedDate) 
+                || existingAttendance.find((a: any) => a.date?.split('T')[0] === baseDateStr);
+            
             const updatedAttendance = [
-                ...existingAttendance.filter((a: any) => a.date !== selectedDate),
-                { date: selectedDate, presentStudentIds: presentStudents, onlineStudentIds: onlineStudents, repositions }
+                ...existingAttendance.filter((a: any) => a !== recordToRemove),
+                { 
+                    date: selectedDate, 
+                    presentStudentIds: presentStudents, 
+                    onlineStudentIds: onlineStudents, 
+                    repositions,
+                    ...(repoModuleId !== null && { syllabusId: repoModuleId }),
+                    ...(repoModuleIndex !== -1 && { moduleIndex: repoModuleIndex })
+                }
             ];
             const attendancePromise = updateClass(classId, { attendance: updatedAttendance });
 
