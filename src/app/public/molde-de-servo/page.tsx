@@ -7,9 +7,17 @@ import Step3Heart from '@/components/volunteering/shape/Step3Heart';
 import Step4Gifts from '@/components/volunteering/shape/Step4Gifts';
 import Step5Result from '@/components/volunteering/shape/Step5Result';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { SHAPE_DATA } from '@/lib/shape-complete-data';
+
+const STEP_SUBTITLES: Record<number, string> = {
+  1: 'Dons Espirituais & Início',
+  2: 'Habilidades & Talentos',
+  3: 'Personalidade & Coração',
+  4: 'Inventário de Dons',
+  5: 'Cartão do Servo',
+};
 
 export default function MoldeDeServoPage() {
   const { toast } = useToast();
@@ -30,6 +38,7 @@ export default function MoldeDeServoPage() {
   // Step 2: Habilidades & Experiências
   const [selectedAbilities, setSelectedAbilities] = useState<string[]>([]);
   const [experiences, setExperiences] = useState<Record<string, string>>({});
+  const [availability, setAvailability] = useState<string[]>([]);
 
   // Step 3: Coração & Personalidade
   const [heartAnswers, setHeartAnswers] = useState<Record<string, string>>({});
@@ -45,6 +54,12 @@ export default function MoldeDeServoPage() {
   const handleToggleAbility = (ability: string) => {
     setSelectedAbilities((prev) =>
       prev.includes(ability) ? prev.filter((a) => a !== ability) : [...prev, ability]
+    );
+  };
+
+  const handleToggleAvailability = (timeSlot: string) => {
+    setAvailability((prev) =>
+      prev.includes(timeSlot) ? prev.filter((t) => t !== timeSlot) : [...prev, timeSlot]
     );
   };
 
@@ -71,33 +86,33 @@ export default function MoldeDeServoPage() {
         toast({
           variant: 'destructive',
           title: 'Identificação necessária',
-          description: 'Por favor, busque seu e-mail ou preencha seus dados para avançar.',
+          description: 'Por favor, busque seu e-mail ou informe seus dados para avançar.',
         });
         return;
       }
     }
 
-    // Validação Step 2 (pelo menos 1 habilidade selecionada)
+    // Validação Step 2
     if (step === 2) {
       if (selectedAbilities.length === 0) {
         toast({
           variant: 'destructive',
           title: 'Selecione suas habilidades',
-          description: 'Por favor, marque pelo menos 1 habilidade para continuar.',
+          description: 'Por favor, selecione pelo menos 1 habilidade para continuar.',
         });
         return;
       }
     }
 
-    // Validação Step 4 (verificar se respondeu pelo menos 80% do inventário para ter precisão estatística)
+    // Validação Step 4
     if (step === 4) {
       const answered = Object.keys(giftAnswers).length;
       const total = SHAPE_DATA.giftQuestions.length;
-      if (answered < 50) {
+      if (answered < 40) {
         toast({
           variant: 'destructive',
-          title: 'Responda mais perguntas',
-          description: `Você respondeu ${answered} de ${total} perguntas. Responda mais questões para calcular seus dons com fidelidade.`,
+          title: 'Responda mais questões',
+          description: `Você respondeu ${answered} de ${total} questões. Responda pelo menos 40 perguntas para calcular o resultado com precisão.`,
         });
         return;
       }
@@ -113,33 +128,53 @@ export default function MoldeDeServoPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 selection:bg-primary selection:text-white">
-      {/* Top Header com Barra de Progresso */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur shadow-sm border-b">
-        <div className="h-1 bg-muted">
+    <div className="min-h-screen flex flex-col bg-[#F9F8FC] text-slate-900 font-sans selection:bg-[#6750A4] selection:text-white">
+      {/* Top Navbar Mobile & Desktop */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md shadow-sm border-b border-slate-150">
+        <div className="max-w-md md:max-w-4xl mx-auto px-4 h-14 sm:h-16 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={handlePrev}
+            disabled={step === 1}
+            className={`p-2 -ml-2 rounded-full transition-colors ${
+              step === 1 ? 'opacity-0 pointer-events-none' : 'text-slate-700 hover:bg-slate-100 active:scale-95'
+            }`}
+            aria-label="Voltar"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+
+          <div className="flex flex-col items-center text-center">
+            <span className="font-extrabold text-base sm:text-lg text-[#2B1B54] tracking-tight leading-none">
+              Molde de Servo
+            </span>
+            <span className="text-[11px] font-semibold text-[#6750A4] tracking-tight mt-0.5">
+              {STEP_SUBTITLES[step] || 'Avaliação Vocacional'}
+            </span>
+          </div>
+
+          <div className="w-9 h-9 rounded-full bg-[#6750A4]/10 text-[#6750A4] flex items-center justify-center font-bold text-xs shrink-0">
+            {formData.name ? formData.name.charAt(0).toUpperCase() : <User className="w-4 h-4" />}
+          </div>
+        </div>
+
+        {/* Barra de Progresso Superior com indicador "Passo X de 5" */}
+        <div className="w-full bg-slate-100 relative h-1">
           <div
-            className="h-full bg-primary transition-all duration-300"
+            className="h-full bg-[#6750A4] transition-all duration-300 ease-out"
             style={{ width: `${(step / 5) * 100}%` }}
           />
         </div>
-        <div className="h-16 max-w-4xl mx-auto px-4 flex items-center justify-between">
-          <div className="flex flex-col">
-            <span className="font-bold text-foreground tracking-tight">Molde de Servo</span>
-            <span className="text-[11px] text-muted-foreground uppercase tracking-wider hidden sm:block font-semibold">
-              OikoSHAPE • Avaliação Vocacional
-            </span>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold">
-              Etapa {step} de 5
-            </div>
-          </div>
+        <div className="max-w-md md:max-w-4xl mx-auto px-4 py-1 flex justify-end">
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            Passo {step} de 5
+          </span>
         </div>
       </header>
 
-      {/* Conteúdo Principal */}
-      <main className="flex-1 w-full pt-20 pb-28">
-        <div className="max-w-4xl mx-auto px-4 py-4">
+      {/* Conteúdo Principal Adaptado ao Mobile & Desktop */}
+      <main className="flex-1 w-full pt-20 sm:pt-24 pb-28">
+        <div className="max-w-md md:max-w-3xl mx-auto px-4 sm:px-6">
           {step === 1 && (
             <Step1Intro
               formData={formData}
@@ -153,6 +188,8 @@ export default function MoldeDeServoPage() {
               onToggleAbility={handleToggleAbility}
               experiences={experiences}
               onExperienceChange={handleExperienceChange}
+              availability={availability}
+              onToggleAvailability={handleToggleAvailability}
             />
           )}
           {step === 3 && (
@@ -167,6 +204,7 @@ export default function MoldeDeServoPage() {
             <Step4Gifts
               giftAnswers={giftAnswers}
               onGiftAnswer={handleGiftAnswer}
+              onFinish={handleNext}
             />
           )}
           {step === 5 && (
@@ -182,24 +220,30 @@ export default function MoldeDeServoPage() {
         </div>
       </main>
 
-      {/* Footer Fixo de Navegação */}
+      {/* Bottom Sticky Navigation Bar (Mobile & Desktop) */}
       {step < 5 && (
-        <footer className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur shadow-[0_-4px_12px_rgba(0,0,0,0.05)] border-t">
-          <div className="h-20 max-w-4xl mx-auto px-4 flex items-center justify-between">
-            <Button
-              variant="ghost"
+        <footer className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md shadow-[0_-4px_16px_rgba(43,27,84,0.06)] border-t border-slate-150 py-3">
+          <div className="max-w-md md:max-w-3xl mx-auto px-4 flex items-center justify-between gap-3">
+            <button
+              type="button"
               onClick={handlePrev}
               disabled={step === 1}
-              className="gap-2 font-bold text-muted-foreground hover:text-foreground"
+              className={`flex-1 h-12 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-1.5 ${
+                step === 1
+                  ? 'bg-slate-100 text-slate-300 pointer-events-none'
+                  : 'bg-[#EDE8F5] text-[#523A8C] hover:bg-[#E3DCF2] active:scale-98'
+              }`}
             >
               <ArrowLeft className="w-4 h-4" /> Voltar
-            </Button>
-            <Button
+            </button>
+
+            <button
+              type="button"
               onClick={handleNext}
-              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 font-bold px-6 shadow-md"
+              className="flex-1 h-12 rounded-2xl font-bold text-sm bg-[#523A8C] hover:bg-[#432E75] active:scale-98 text-white shadow-lg shadow-[#523A8C]/20 transition-all flex items-center justify-center gap-1.5"
             >
-              Continuar <ArrowRight className="w-4 h-4" />
-            </Button>
+              Avançar <ArrowRight className="w-4 h-4" />
+            </button>
           </div>
         </footer>
       )}

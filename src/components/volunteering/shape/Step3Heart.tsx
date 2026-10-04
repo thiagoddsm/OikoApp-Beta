@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { Heart, Activity, Sliders, Sparkles } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Heart, Sparkles, Sliders, BookOpen, Layers, Zap, HeartHandshake } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { SHAPE_DATA } from '@/lib/shape-complete-data';
 
@@ -18,53 +18,111 @@ export default function Step3Heart({
   personalityAnswers = {},
   onPersonalityChange,
 }: Step3HeartProps) {
+  // Cálculo do Feedback Imediato da Personalidade
+  const { quadTitle, quadDesc, motLabel, orgLabel } = useMemo(() => {
+    let orgSum = 0;
+    let motSum = 0;
+
+    SHAPE_DATA.personality.eixo_org.items.forEach((item) => {
+      orgSum += personalityAnswers[item.id] !== undefined ? personalityAnswers[item.id] : 3;
+    });
+
+    SHAPE_DATA.personality.eixo_mot.items.forEach((item) => {
+      motSum += personalityAnswers[item.id] !== undefined ? personalityAnswers[item.id] : 3;
+    });
+
+    const orgAvg = orgSum / SHAPE_DATA.personality.eixo_org.items.length;
+    const motAvg = motSum / SHAPE_DATA.personality.eixo_mot.items.length;
+
+    const orgRes = orgAvg >= 3.0 ? 'Formal' : 'Informal';
+    const motRes = motAvg >= 3.0 ? 'Pessoas' : 'Tarefas';
+
+    let title = '';
+    let desc = '';
+
+    if (motRes === 'Tarefas' && orgRes === 'Formal') {
+      title = 'Executor Metódico';
+      desc = 'Focado em processos, analítico e busca excelência organizando tarefas com início, meio e fim.';
+    } else if (motRes === 'Tarefas' && orgRes === 'Informal') {
+      title = 'Resolutivo Dinâmico';
+      desc = 'Pragmático, ágil e adaptável. Brilha resolvendo problemas na hora e montando estruturas práticas.';
+    } else if (motRes === 'Pessoas' && orgRes === 'Formal') {
+      title = 'Facilitador Acolhedor & Estruturado';
+      desc = 'Tendência a harmonizar processos organizados com profundo cuidado pessoal. Você traz segurança metodológica sem perder o foco na empatia e nos indivíduos.';
+    } else {
+      title = 'Conector Espontâneo';
+      desc = 'Extrovertido, inspirador e criativo. Perfeito para integração, quebra-gelo e acolhimento vibrante.';
+    }
+
+    return {
+      quadTitle: title,
+      quadDesc: desc,
+      motLabel: motRes === 'Pessoas' ? 'Relações & Acolhimento' : 'Foco em Tarefas',
+      orgLabel: orgRes === 'Formal' ? 'Plano Consistente' : 'Dinâmico & Flexível',
+    };
+  }, [personalityAnswers]);
+
   return (
-    <div className="flex flex-col gap-12">
-      {/* Header */}
+    <div className="flex flex-col gap-5 pb-4">
+      {/* 1. Header Badges */}
       <div>
-        <div className="inline-flex items-center gap-2 px-3 py-1 bg-rose-500/10 text-rose-600 rounded-full text-xs font-bold uppercase tracking-wider mb-2">
-          <Heart className="w-3.5 h-3.5" /> Etapa 3 • Coração (H) & Personalidade (P)
-        </div>
-        <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">
-          O Coração & Sua Personalidade Vocacional
+        <span className="px-2.5 py-1 bg-[#EDE8F5] text-[#523A8C] rounded-full text-[10px] font-black uppercase tracking-wider">
+          Passo 3 de 5 • Paixões & Temperamento
+        </span>
+      </div>
+
+      {/* 2. Título */}
+      <div className="flex flex-col gap-1">
+        <h1 className="text-2xl sm:text-3xl font-black text-[#1E113F] tracking-tight">
+          Coração e Personalidade
         </h1>
-        <p className="text-muted-foreground text-sm sm:text-base mt-1.5 leading-relaxed max-w-2xl">
-          Mapeie as paixões que fazem seus olhos brilharem e compreenda como você prefere se organizar e se motivar no serviço.
+        <p className="text-slate-600 text-xs sm:text-sm leading-relaxed">
+          Mapeie suas inclinações genuínas, onde seu entusiasmo natural encontra a vocação de servir.
         </p>
       </div>
 
-      {/* PARTE 1: O CORAÇÃO (5 REFLEXÕES PROFUNDAS) */}
-      <div className="flex flex-col gap-6">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center shadow-md shrink-0">
-            <Heart className="w-5 h-5 fill-current" />
+      {/* 3. Versículo Provérbios 4:23 */}
+      <div className="p-4 bg-white rounded-2xl border-l-4 border-l-[#523A8C] border-y border-r border-slate-150 shadow-sm flex flex-col gap-1">
+        <div className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase text-[#523A8C] tracking-wider">
+          <BookOpen className="w-3.5 h-3.5" /> PROVÉRBIOS 4:23
+        </div>
+        <p className="text-xs sm:text-sm text-slate-700 italic font-medium leading-relaxed">
+          “Sobre tudo o que se deve guardar, guarda o teu coração, porque dele procedem as fontes da vida.”
+        </p>
+      </div>
+
+      {/* 4. Coração & Paixões */}
+      <div className="flex flex-col gap-3 pt-2">
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <Heart className="w-4 h-4 text-rose-500 fill-current" />
+            <h2 className="text-sm font-extrabold text-[#1E113F]">
+              Coração & Paixões
+            </h2>
           </div>
-          <div>
-            <h2 className="text-lg sm:text-xl font-bold">O Coração: Sonhos, Paixões & Vocação</h2>
-            <p className="text-xs sm:text-sm text-muted-foreground">
-              Responda com o coração aberto e sincero
-            </p>
-          </div>
+          <span className="text-[11px] font-bold text-slate-400">
+            {SHAPE_DATA.heart.length} Reflexões
+          </span>
         </div>
 
-        <div className="grid gap-5">
+        <div className="flex flex-col gap-3">
           {SHAPE_DATA.heart.map((questionText, idx) => (
             <div
               key={idx}
-              className="p-5 sm:p-6 bg-card border rounded-2xl shadow-sm focus-within:ring-2 focus-within:ring-rose-500/30 transition-all"
+              className="p-4 bg-white rounded-2xl border border-slate-150 shadow-sm flex flex-col gap-2.5"
             >
-              <div className="flex items-start gap-3 mb-3">
-                <span className="px-2.5 py-1 rounded-lg font-black text-xs bg-rose-500/10 text-rose-600 shrink-0 mt-0.5">
-                  0{idx + 1}
+              <div className="flex items-start gap-2.5">
+                <span className="w-5 h-5 rounded-full bg-[#EDE8F5] text-[#523A8C] font-black text-xs flex items-center justify-center shrink-0 mt-0.5">
+                  {idx + 1}
                 </span>
-                <h3 className="font-bold text-sm sm:text-base text-foreground leading-snug">
+                <h3 className="text-xs sm:text-sm font-bold text-slate-800 leading-snug">
                   {questionText}
                 </h3>
               </div>
               <Textarea
-                rows={3}
-                className="w-full p-3.5 rounded-xl bg-muted/20 border-border text-sm resize-none focus-visible:ring-0 focus-visible:border-rose-500"
-                placeholder="Escreva com suas próprias palavras..."
+                rows={2}
+                className="text-xs rounded-xl bg-slate-50 border-slate-200 resize-none placeholder:text-slate-400"
+                placeholder="Escreva com sinceridade e acolhimento..."
                 value={heartAnswers[`q${idx}`] || ''}
                 onChange={(e) => onHeartChange(idx, e.target.value)}
               />
@@ -73,76 +131,71 @@ export default function Step3Heart({
         </div>
       </div>
 
-      {/* PARTE 2: PERSONALIDADE (MATRIZ DE 2 EIXOS) */}
-      <div className="flex flex-col gap-8 pt-8 border-t">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center shadow-md shrink-0">
-              <Sliders className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-lg sm:text-xl font-bold">Personalidade Vocacional</h2>
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                Escala de 1 a 5: Escolha o número que melhor expressa sua inclinação natural.
-              </p>
-            </div>
+      {/* 5. Personalidade Vocacional (2 Eixos) */}
+      <div className="flex flex-col gap-3 pt-4 border-t border-slate-200 mt-2">
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <Sliders className="w-4 h-4 text-[#523A8C]" />
+            <h2 className="text-sm font-extrabold text-[#1E113F]">
+              Personalidade Vocacional
+            </h2>
           </div>
+          <span className="text-[11px] font-bold text-slate-400">
+            2 Eixos
+          </span>
         </div>
 
         {/* EIXO 1: COMO ME ORGANIZO */}
-        <div className="space-y-4">
-          <div className="p-4 bg-muted/40 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div>
-              <span className="text-xs font-black uppercase text-primary tracking-wider">Eixo 1</span>
-              <h3 className="font-bold text-base text-foreground">
-                {SHAPE_DATA.personality.eixo_org.title}
-              </h3>
-            </div>
-            <span className="text-xs text-muted-foreground">
-              1 = Forte à Esquerda • 3 = Neutro • 5 = Forte à Direita
-            </span>
+        <div className="p-4 bg-white rounded-2xl border border-slate-150 shadow-sm flex flex-col gap-3">
+          <div>
+            <span className="text-[10px] font-black uppercase text-[#523A8C] tracking-wider">EIXO 1</span>
+            <h3 className="text-sm font-extrabold text-slate-900">Como me organizo?</h3>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              Defina seu ritmo entre adaptabilidade dinâmica e segurança em rotinas planejadas.
+            </p>
           </div>
 
-          <div className="space-y-3">
-            {SHAPE_DATA.personality.eixo_org.items.map((item) => {
+          <div className="flex items-center justify-between text-[11px] font-bold text-slate-600 px-1 pt-1">
+            <span className="text-[#523A8C]">✓ Espontâneo</span>
+            <span>Plano Fixo 📅</span>
+          </div>
+
+          {/* Botões do Eixo 1 */}
+          <div className="space-y-3 pt-1">
+            {SHAPE_DATA.personality.eixo_org.items.slice(0, 3).map((item) => {
               const currentVal = personalityAnswers[item.id] || 3;
+              const scalePills = [
+                { val: 1, label: 'Fluido' },
+                { val: 2, label: '-' },
+                { val: 3, label: 'Misto' },
+                { val: 4, label: '-' },
+                { val: 5, label: 'Método' },
+              ];
+
               return (
-                <div
-                  key={item.id}
-                  className="p-4 sm:p-5 rounded-2xl bg-card border shadow-sm flex flex-col gap-3"
-                >
-                  <span className="text-xs font-bold text-muted-foreground italic">
-                    {item.ctx}
-                  </span>
-
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <span className={`w-full sm:w-1/3 text-center sm:text-left text-xs sm:text-sm font-bold transition-colors ${currentVal <= 2 ? 'text-primary' : 'text-muted-foreground'}`}>
-                      {item.esq}
-                    </span>
-
-                    <div className="flex items-center justify-center gap-2 sm:gap-3 shrink-0">
-                      {[1, 2, 3, 4, 5].map((val) => {
-                        const isSelected = currentVal === val;
-                        return (
-                          <button
-                            type="button"
-                            key={val}
-                            onClick={() => onPersonalityChange(item.id, val)}
-                            className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl font-black text-sm transition-all flex items-center justify-center ${
-                              isSelected
-                                ? 'bg-primary text-white shadow-md scale-105'
-                                : 'bg-muted/40 hover:bg-muted text-foreground border border-border'
-                            }`}
-                          >
-                            {val}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    <span className={`w-full sm:w-1/3 text-center sm:text-right text-xs sm:text-sm font-bold transition-colors ${currentVal >= 4 ? 'text-primary' : 'text-muted-foreground'}`}>
-                      {item.dir}
-                    </span>
+                <div key={item.id} className="p-3 bg-slate-50/70 rounded-xl border border-slate-100 flex flex-col gap-2">
+                  <span className="text-[11px] font-bold text-slate-600">{item.ctx}</span>
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {scalePills.map((p) => {
+                      const isSelected = currentVal === p.val;
+                      return (
+                        <button
+                          type="button"
+                          key={p.val}
+                          onClick={() => onPersonalityChange(item.id, p.val)}
+                          className={`py-2 rounded-xl text-xs font-bold transition-all flex flex-col items-center justify-center ${
+                            isSelected
+                              ? 'bg-[#523A8C] text-white shadow-sm'
+                              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                          }`}
+                        >
+                          <span className="text-xs font-black">{p.val}</span>
+                          <span className={`text-[9px] ${isSelected ? 'text-white/80' : 'text-slate-400'}`}>
+                            {p.label}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               );
@@ -151,63 +204,89 @@ export default function Step3Heart({
         </div>
 
         {/* EIXO 2: COMO ME MOTIVO */}
-        <div className="space-y-4 pt-4">
-          <div className="p-4 bg-muted/40 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div>
-              <span className="text-xs font-black uppercase text-primary tracking-wider">Eixo 2</span>
-              <h3 className="font-bold text-base text-foreground">
-                {SHAPE_DATA.personality.eixo_mot.title}
-              </h3>
-            </div>
-            <span className="text-xs text-muted-foreground">
-              1 = Forte à Esquerda • 3 = Neutro • 5 = Forte à Direita
-            </span>
+        <div className="p-4 bg-white rounded-2xl border border-slate-150 shadow-sm flex flex-col gap-3">
+          <div>
+            <span className="text-[10px] font-black uppercase text-[#523A8C] tracking-wider">EIXO 2</span>
+            <h3 className="text-sm font-extrabold text-slate-900">Como me motivo?</h3>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              Sua energia cresce na realização de metas concretas ou nas relações interpessoais?
+            </p>
           </div>
 
-          <div className="space-y-3">
-            {SHAPE_DATA.personality.eixo_mot.items.map((item) => {
+          <div className="flex items-center justify-between text-[11px] font-bold text-slate-600 px-1 pt-1">
+            <span className="text-amber-600">⚡ Tarefas</span>
+            <span className="text-[#523A8C]">Pessoas 👥</span>
+          </div>
+
+          {/* Botões do Eixo 2 */}
+          <div className="space-y-3 pt-1">
+            {SHAPE_DATA.personality.eixo_mot.items.slice(0, 3).map((item) => {
               const currentVal = personalityAnswers[item.id] || 3;
+              const scalePills = [
+                { val: 1, label: 'Execução' },
+                { val: 2, label: '-' },
+                { val: 3, label: 'Equilíbrio' },
+                { val: 4, label: '-' },
+                { val: 5, label: 'Vínculos' },
+              ];
+
               return (
-                <div
-                  key={item.id}
-                  className="p-4 sm:p-5 rounded-2xl bg-card border shadow-sm flex flex-col gap-3"
-                >
-                  <span className="text-xs font-bold text-muted-foreground italic">
-                    {item.ctx}
-                  </span>
-
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <span className={`w-full sm:w-1/3 text-center sm:text-left text-xs sm:text-sm font-bold transition-colors ${currentVal <= 2 ? 'text-primary' : 'text-muted-foreground'}`}>
-                      {item.esq}
-                    </span>
-
-                    <div className="flex items-center justify-center gap-2 sm:gap-3 shrink-0">
-                      {[1, 2, 3, 4, 5].map((val) => {
-                        const isSelected = currentVal === val;
-                        return (
-                          <button
-                            type="button"
-                            key={val}
-                            onClick={() => onPersonalityChange(item.id, val)}
-                            className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl font-black text-sm transition-all flex items-center justify-center ${
-                              isSelected
-                                ? 'bg-primary text-white shadow-md scale-105'
-                                : 'bg-muted/40 hover:bg-muted text-foreground border border-border'
-                            }`}
-                          >
-                            {val}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    <span className={`w-full sm:w-1/3 text-center sm:text-right text-xs sm:text-sm font-bold transition-colors ${currentVal >= 4 ? 'text-primary' : 'text-muted-foreground'}`}>
-                      {item.dir}
-                    </span>
+                <div key={item.id} className="p-3 bg-slate-50/70 rounded-xl border border-slate-100 flex flex-col gap-2">
+                  <span className="text-[11px] font-bold text-slate-600">{item.ctx}</span>
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {scalePills.map((p) => {
+                      const isSelected = currentVal === p.val;
+                      return (
+                        <button
+                          type="button"
+                          key={p.val}
+                          onClick={() => onPersonalityChange(item.id, p.val)}
+                          className={`py-2 rounded-xl text-xs font-bold transition-all flex flex-col items-center justify-center ${
+                            isSelected
+                              ? 'bg-[#523A8C] text-white shadow-sm'
+                              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                          }`}
+                        >
+                          <span className="text-xs font-black">{p.val}</span>
+                          <span className={`text-[9px] ${isSelected ? 'text-white/80' : 'text-slate-400'}`}>
+                            {p.label}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               );
             })}
+          </div>
+        </div>
+
+        {/* 6. FEEDBACK IMEDIATO (SÍNTESE) */}
+        <div className="p-4 bg-slate-100/90 rounded-2xl border border-slate-200 flex flex-col gap-2 mt-1">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-[10px] font-black uppercase text-slate-600 tracking-wider">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#523A8C]" />
+              FEEDBACK IMEDIATO
+            </div>
+            <span className="text-[10px] font-bold text-[#523A8C] bg-white px-2 py-0.5 rounded-full border border-slate-200">
+              Síntese
+            </span>
+          </div>
+
+          <h4 className="font-extrabold text-sm text-[#1E113F]">
+            {quadTitle}
+          </h4>
+          <p className="text-xs text-slate-600 leading-relaxed">
+            {quadDesc}
+          </p>
+
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <div className="bg-white p-2 rounded-xl border border-slate-200 text-[10px] font-bold text-slate-700 flex items-center gap-1.5">
+              <span>📅</span> {orgLabel}
+            </div>
+            <div className="bg-white p-2 rounded-xl border border-slate-200 text-[10px] font-bold text-slate-700 flex items-center gap-1.5">
+              <span>👥</span> {motLabel}
+            </div>
           </div>
         </div>
       </div>

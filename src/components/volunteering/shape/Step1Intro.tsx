@@ -2,18 +2,22 @@
 
 import React, { useState } from 'react';
 import { 
-  Compass, 
   User, 
   Mail, 
   ArrowRight, 
-  Lightbulb, 
   Search, 
   Loader2, 
   CheckCircle2, 
   Sparkles, 
-  Info,
-  Phone,
-  RotateCcw
+  Phone, 
+  RotateCcw,
+  ShieldCheck,
+  Globe,
+  Heart,
+  Wrench,
+  Compass,
+  FileText,
+  Quote
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -109,7 +113,7 @@ export default function Step1Intro({ formData, updateFormData, onNext }: Step1In
         });
         toast({
           title: 'E-mail não cadastrado',
-          description: 'Preencha seus dados abaixo para iniciar sua jornada.',
+          description: 'Informe seu nome e WhatsApp para continuar.',
         });
       }
     } catch (err: any) {
@@ -136,201 +140,314 @@ export default function Step1Intro({ formData, updateFormData, onNext }: Step1In
     });
   };
 
+  const handleStartDiscovery = () => {
+    if (!formData.email || (!formData.name && !formData.isMemberIdentified)) {
+      if (!lookupDone) {
+        handleSearch();
+        return;
+      }
+      toast({
+        variant: 'destructive',
+        title: 'Identificação necessária',
+        description: 'Preencha seus dados para começar.',
+      });
+      return;
+    }
+    onNext();
+  };
+
   return (
-    <div className="flex flex-col w-full gap-8">
-      {/* Banner Superior de Boas-Vindas */}
-      <div className="relative overflow-hidden rounded-3xl bg-card border shadow-sm p-6 sm:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-        <div className="flex items-start gap-4">
-          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-tr from-primary to-accent flex items-center justify-center text-white shadow-lg shrink-0">
-            <Compass className="w-7 h-7 sm:w-8 sm:h-8" />
+    <div className="flex flex-col w-full gap-5 pb-4">
+      {/* 1. Header Badges */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="w-5 h-5 rounded-full bg-[#EDE8F5] text-[#523A8C] flex items-center justify-center font-black text-[11px]">
+            1
+          </span>
+          <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#523A8C]">
+            PASSO 1 DE 5 • INÍCIO
+          </span>
+        </div>
+        <span className="text-[11px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+          Etapa 1/5
+        </span>
+      </div>
+
+      {/* 2. Hero Card Principal */}
+      <div className="bg-white rounded-3xl p-6 border border-slate-150 shadow-sm flex flex-col gap-4">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#EDE8F5] text-[#523A8C] rounded-full text-[11px] font-bold uppercase tracking-wider w-max">
+          ⏱️ ETAPA INICIAL • 15 MIN
+        </div>
+
+        <h1 className="text-2xl sm:text-3xl font-black text-[#1E113F] tracking-tight leading-snug">
+          Descubra o seu Molde de Servo
+        </h1>
+
+        <p className="text-slate-600 text-xs sm:text-sm leading-relaxed">
+          Você foi planejado de forma única pelo Criador. Compreenda claramente seus dons espirituais, paixões e temperamento para servir com alegria genuína e propósito eterno (1 Coríntios 12).
+        </p>
+
+        {/* Social Proof / Avatars */}
+        <div className="flex items-center gap-2 pt-1 border-t border-slate-100 mt-1">
+          <div className="flex -space-x-1.5">
+            {['GS', 'MF', 'AL'].map((initials, i) => (
+              <div
+                key={i}
+                className="w-6 h-6 rounded-full bg-[#6750A4] text-white flex items-center justify-center font-bold text-[9px] border-2 border-white ring-1 ring-slate-100"
+              >
+                {initials}
+              </div>
+            ))}
           </div>
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-full bg-primary/10 text-[11px] text-primary uppercase font-bold tracking-wider">
-                Etapa 1 • Identificação
-              </span>
-              <span className="text-xs text-muted-foreground">• Tempo estimado: 15 min</span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
-              Descubra o seu Molde de Servo
-            </h1>
-            <p className="text-muted-foreground text-sm sm:text-base max-w-2xl leading-relaxed">
-              Você foi criado com uma assinatura singular. Deus entrelaçou seus dons, paixões e história para cumprir um propósito no Corpo de Cristo.
-            </p>
-          </div>
+          <span className="text-[11px] font-bold text-slate-500">
+            +140 servos moldados neste mês
+          </span>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Painel Principal de Identificação */}
-        <div className="lg:col-span-8 bg-card rounded-3xl p-6 sm:p-8 border shadow-sm flex flex-col gap-6">
-          <div className="flex items-center justify-between border-b pb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                <User className="w-5 h-5" />
-              </div>
-              <div>
-                <h2 className="text-lg sm:text-xl font-bold">Identificação do Membro</h2>
-                <p className="text-xs sm:text-sm text-muted-foreground">Localize seu cadastro através do seu e-mail</p>
-              </div>
+      {/* 3. Versículo Card */}
+      <div className="bg-[#EDE8F5]/60 rounded-2xl p-4 border border-[#523A8C]/15 flex items-start gap-3">
+        <div className="w-8 h-8 rounded-xl bg-[#523A8C] text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+          <Quote className="w-4 h-4 fill-current" />
+        </div>
+        <div className="flex flex-col">
+          <p className="text-xs sm:text-sm text-[#2B1B54] italic font-medium leading-snug">
+            “Há diferentes tipos de dons, mas o Espírito é o mesmo. Há diferentes formas de servir, mas o Senhor é o mesmo.”
+          </p>
+          <span className="text-[10px] font-bold text-[#523A8C] mt-1 uppercase tracking-wider">
+            1 Coríntios 12:4-5
+          </span>
+        </div>
+      </div>
+
+      {/* 4. Jornada S.H.A.P.E. (5 Pilares de Alinhamento) */}
+      <div className="flex flex-col gap-2.5">
+        <div className="flex items-center justify-between px-1">
+          <span className="text-xs font-black uppercase text-[#1E113F] tracking-wide">
+            Jornada S.H.A.P.E.
+          </span>
+          <span className="text-[11px] font-bold text-[#523A8C]">
+            5 Pilares de Alinhamento
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2.5">
+          {/* S */}
+          <div className="bg-white p-3.5 rounded-2xl border border-slate-150 shadow-sm flex flex-col justify-between h-24">
+            <div className="flex items-center justify-between">
+              <span className="w-6 h-6 rounded-lg bg-[#EDE8F5] text-[#523A8C] flex items-center justify-center font-black text-xs">
+                S
+              </span>
+              <Globe className="w-4 h-4 text-[#523A8C]/60" />
             </div>
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-muted text-muted-foreground">
-              Passo 1/5
+            <div>
+              <span className="text-[9px] font-extrabold uppercase text-slate-400 tracking-wider block">
+                SPIRITUAL GIFTS
+              </span>
+              <h4 className="text-xs font-black text-slate-800 leading-tight">
+                Dons Espirituais
+              </h4>
+            </div>
+          </div>
+
+          {/* H */}
+          <div className="bg-white p-3.5 rounded-2xl border border-slate-150 shadow-sm flex flex-col justify-between h-24">
+            <div className="flex items-center justify-between">
+              <span className="w-6 h-6 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center font-black text-xs">
+                H
+              </span>
+              <Heart className="w-4 h-4 text-rose-500/60" />
+            </div>
+            <div>
+              <span className="text-[9px] font-extrabold uppercase text-slate-400 tracking-wider block">
+                HEART
+              </span>
+              <h4 className="text-xs font-black text-slate-800 leading-tight">
+                Coração & Paixão
+              </h4>
+            </div>
+          </div>
+
+          {/* A */}
+          <div className="bg-white p-3.5 rounded-2xl border border-slate-150 shadow-sm flex flex-col justify-between h-24">
+            <div className="flex items-center justify-between">
+              <span className="w-6 h-6 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-black text-xs">
+                A
+              </span>
+              <Wrench className="w-4 h-4 text-amber-500/60" />
+            </div>
+            <div>
+              <span className="text-[9px] font-extrabold uppercase text-slate-400 tracking-wider block">
+                ABILITIES
+              </span>
+              <h4 className="text-xs font-black text-slate-800 leading-tight">
+                Habilidades Naturais
+              </h4>
+            </div>
+          </div>
+
+          {/* P */}
+          <div className="bg-white p-3.5 rounded-2xl border border-slate-150 shadow-sm flex flex-col justify-between h-24">
+            <div className="flex items-center justify-between">
+              <span className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-black text-xs">
+                P
+              </span>
+              <Compass className="w-4 h-4 text-blue-500/60" />
+            </div>
+            <div>
+              <span className="text-[9px] font-extrabold uppercase text-slate-400 tracking-wider block">
+                PERSONALITY
+              </span>
+              <h4 className="text-xs font-black text-slate-800 leading-tight">
+                Personalidade
+              </h4>
+            </div>
+          </div>
+        </div>
+
+        {/* E */}
+        <div className="bg-white p-3.5 rounded-2xl border border-slate-150 shadow-sm flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-black text-xs">
+              E
             </span>
+            <div>
+              <span className="text-[9px] font-extrabold uppercase text-slate-400 tracking-wider block">
+                EXPERIENCES
+              </span>
+              <h4 className="text-xs font-black text-slate-800 leading-tight">
+                Experiências de Vida
+              </h4>
+            </div>
           </div>
+          <FileText className="w-4 h-4 text-emerald-500/60" />
+        </div>
+      </div>
 
-          {/* 1. BUSCA POR E-MAIL */}
-          {!lookupDone ? (
-            <form onSubmit={handleSearch} className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="email-search" className="text-sm font-semibold flex items-center gap-1.5">
-                  <Mail className="w-4 h-4 text-primary" />
-                  E-mail Principal <span className="text-destructive">*</span>
-                </Label>
-                <div className="flex flex-col sm:flex-row gap-2.5">
-                  <div className="relative flex-1">
-                    <Input
-                      id="email-search"
-                      type="email"
-                      required
-                      placeholder="seu.email@exemplo.com"
-                      value={emailInput}
-                      onChange={(e) => setEmailInput(e.target.value)}
-                      className="h-12 text-base rounded-xl pl-4"
-                      autoFocus
-                    />
-                  </div>
-                  <Button
-                    type="submit"
-                    disabled={isSearching || !emailInput}
-                    className="h-12 px-6 rounded-xl font-bold bg-primary hover:bg-primary/90 text-white shadow-md flex items-center justify-center gap-2"
-                  >
-                    {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                    <span>Buscar Cadastro</span>
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground pl-1">
-                  Digite o e-mail que você utiliza na igreja para identificarmos seu cadastro automaticamente.
-                </p>
-              </div>
-            </form>
-          ) : foundMember ? (
-            /* 2. MEMBRO ENCONTRADO */
-            <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
-              <div className="p-5 sm:p-6 bg-primary/5 rounded-2xl border-2 border-primary/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-primary text-white flex items-center justify-center shadow-md shrink-0">
-                    <Sparkles className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <div className="inline-flex items-center gap-1.5 text-xs font-bold text-primary uppercase tracking-wider mb-0.5">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Cadastro Localizado
-                    </div>
-                    <h3 className="text-lg font-black text-foreground">
-                      {foundMember.maskedName || formData.name}
-                    </h3>
-                    <p className="text-xs text-muted-foreground">
-                      {foundMember.maskedPhone || formData.phone || formData.email}
-                    </p>
-                  </div>
-                </div>
-
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleResetSearch}
-                  className="text-xs font-semibold text-muted-foreground hover:text-foreground gap-1 h-9 rounded-xl"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" /> Trocar e-mail
-                </Button>
-              </div>
-
-              <div className="p-4 bg-muted/40 rounded-2xl border flex items-center justify-between text-xs sm:text-sm text-muted-foreground">
-                <span>Cadastro confirmado! Clique em <strong>Continuar</strong> abaixo para iniciar sua jornada.</span>
-              </div>
-            </div>
-          ) : (
-            /* 3. MEMBRO NÃO CADASTRADO (NOME + WHATSAPP) */
-            <div className="space-y-6 animate-in fade-in duration-300">
-              <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-center justify-between gap-3 text-amber-700 dark:text-amber-400">
-                <div className="flex items-center gap-2.5">
-                  <Info className="w-5 h-5 shrink-0" />
-                  <span className="text-xs sm:text-sm font-medium">
-                    E-mail <strong>{emailInput}</strong> não encontrado. Preencha seus dados para continuar.
-                  </span>
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleResetSearch}
-                  className="text-xs text-amber-800 dark:text-amber-300 hover:bg-amber-500/20 h-8 rounded-lg"
-                >
-                  Alterar
-                </Button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                <div className="space-y-2 sm:col-span-2">
-                  <Label className="text-sm font-semibold">
-                    Nome Completo <span className="text-destructive">*</span>
-                  </Label>
-                  <div className="relative">
-                    <User className="absolute left-3.5 top-3.5 w-5 h-5 text-muted-foreground" />
-                    <Input
-                      required
-                      className="pl-10 h-12 rounded-xl"
-                      placeholder="Ex: Carlos Eduardo Silva"
-                      value={formData.name}
-                      onChange={(e) => updateFormData({ name: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2 sm:col-span-2">
-                  <Label className="text-sm font-semibold">
-                    WhatsApp para Contato <span className="text-destructive">*</span>
-                  </Label>
-                  <div className="relative">
-                    <Phone className="absolute left-3.5 top-3.5 w-5 h-5 text-muted-foreground" />
-                    <Input
-                      required
-                      type="tel"
-                      className="pl-10 h-12 rounded-xl"
-                      placeholder="(21) 99999-9999"
-                      value={formData.phone}
-                      onChange={(e) => updateFormData({ phone: e.target.value })}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+      {/* 5. Dados do Servo / Identificação */}
+      <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-150 shadow-sm flex flex-col gap-4">
+        <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+          <div className="w-7 h-7 rounded-lg bg-[#EDE8F5] text-[#523A8C] flex items-center justify-center">
+            <User className="w-4 h-4" />
+          </div>
+          <h3 className="font-extrabold text-sm sm:text-base text-[#1E113F]">
+            Dados do Servo
+          </h3>
         </div>
 
-        {/* Card Lateral de Orientações */}
-        <div className="lg:col-span-4 flex flex-col gap-6">
-          <div className="rounded-3xl bg-card p-6 flex flex-col gap-4 border shadow-sm">
-            <div className="flex items-center gap-2 text-primary font-bold">
-              <Lightbulb className="w-5 h-5" />
-              <span>Dica para sua avaliação</span>
+        {!lookupDone ? (
+          <form onSubmit={handleSearch} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="email-search-mobile" className="text-xs font-bold text-slate-700">
+                E-mail Principal <span className="text-rose-500">*</span>
+              </Label>
+              <div className="relative">
+                <Mail className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
+                <Input
+                  id="email-search-mobile"
+                  type="email"
+                  required
+                  placeholder="seuemail@exemplo.com"
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                  className="h-12 pl-10 rounded-2xl bg-slate-50 border-slate-200 text-sm font-medium focus-visible:ring-[#523A8C]"
+                />
+              </div>
             </div>
-            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-              Responda com honestidade baseando-se em quem você <em>é de fato</em> no dia a dia, e não no que pensa que <em>deveria ser</em>. O Corpo funciona melhor quando cada membro expressa sua autenticidade.
-            </p>
-          </div>
 
-          <div className="rounded-3xl bg-primary/5 p-6 border border-primary/20 flex flex-col gap-3">
-            <div className="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-wider">
-              <span>Visão Bíblica</span>
+            <Button
+              type="submit"
+              disabled={isSearching || !emailInput}
+              className="w-full h-12 rounded-2xl font-bold bg-[#523A8C] hover:bg-[#432E75] text-white shadow-md flex items-center justify-center gap-2 text-sm"
+            >
+              {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+              <span>Localizar Cadastro</span>
+            </Button>
+          </form>
+        ) : foundMember ? (
+          <div className="space-y-4 animate-in fade-in">
+            <div className="p-4 bg-[#EDE8F5]/60 rounded-2xl border border-[#523A8C]/20 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#523A8C] text-white flex items-center justify-center font-bold text-sm shadow-sm">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1 text-[10px] font-extrabold uppercase text-[#523A8C]">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Membro Confirmado
+                  </div>
+                  <h4 className="font-extrabold text-sm text-[#1E113F]">
+                    {foundMember.maskedName || formData.name}
+                  </h4>
+                  <p className="text-[11px] text-slate-500">
+                    {foundMember.maskedPhone || formData.phone || formData.email}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleResetSearch}
+                className="text-xs font-bold text-[#523A8C] hover:underline p-1"
+              >
+                Trocar
+              </button>
             </div>
-            <blockquote className="text-sm font-semibold italic text-foreground leading-snug">
-              “Há diferentes tipos de dons, mas o Espírito é o mesmo.”
-            </blockquote>
-            <span className="text-xs text-muted-foreground font-medium">1 Coríntios 12:4</span>
           </div>
+        ) : (
+          <div className="space-y-3.5 animate-in fade-in">
+            <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-800 text-xs font-medium flex items-center justify-between">
+              <span>E-mail não cadastrado. Preencha seus dados:</span>
+              <button type="button" onClick={handleResetSearch} className="font-bold underline text-amber-900 ml-2">
+                Alterar
+              </button>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-slate-700">
+                Nome Completo <span className="text-rose-500">*</span>
+              </Label>
+              <Input
+                required
+                placeholder="Ex: Ana Clara Silva"
+                value={formData.name}
+                onChange={(e) => updateFormData({ name: e.target.value })}
+                className="h-11 rounded-xl bg-slate-50 border-slate-200 text-sm"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-slate-700">
+                WhatsApp <span className="text-rose-500">*</span>
+              </Label>
+              <Input
+                required
+                type="tel"
+                placeholder="(21) 99999-9999"
+                value={formData.phone}
+                onChange={(e) => updateFormData({ phone: e.target.value })}
+                className="h-11 rounded-xl bg-slate-50 border-slate-200 text-sm"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* LGPD Badge */}
+        <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 flex items-center gap-2.5 text-[11px] text-slate-500 mt-1">
+          <ShieldCheck className="w-4 h-4 text-[#523A8C] shrink-0" />
+          <span>
+            Ambiente seguro. <strong>Protegido pela LGPD</strong> • Seus dados são confidenciais e para pastoreio.
+          </span>
         </div>
+
+        {/* CTA Começar Descoberta Vocacional */}
+        <button
+          type="button"
+          onClick={handleStartDiscovery}
+          className="w-full h-13 py-3.5 rounded-2xl font-black text-sm uppercase tracking-wider bg-[#523A8C] hover:bg-[#432E75] active:scale-98 text-white shadow-xl shadow-[#523A8C]/25 transition-all flex items-center justify-center gap-2 mt-2"
+        >
+          <span>Começar Descoberta Vocacional</span>
+          <ArrowRight className="w-4 h-4" />
+        </button>
       </div>
     </div>
   );
