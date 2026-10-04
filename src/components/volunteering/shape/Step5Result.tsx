@@ -9,18 +9,16 @@ import {
   Sparkles, 
   Heart, 
   Briefcase, 
-  Sliders, 
   Check, 
-  Share2, 
   UserCheck, 
-  ArrowRight,
   Layers,
   Zap,
-  ShieldAlert,
-  Loader2
+  Compass,
+  CheckCircle2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { SHAPE_DATA } from '@/lib/shape-complete-data';
 import { submitShapeAssessment } from '@/app/public/molde-de-servo/actions';
@@ -35,6 +33,19 @@ interface Step5ResultProps {
   giftAnswers: Record<string, number>;
 }
 
+const MINISTRY_SUGGESTIONS = [
+  'Louvor & Adoração',
+  'Ensino & Discipulado',
+  'Crianças (OikoKids)',
+  'Acolhimento & Recepção',
+  'Mídia, Som & Produção',
+  'Ação Social & Misericórdia',
+  'Liderança de GC / Célula',
+  'Intercessão & Oração',
+  'Gestão & Apoio Operacional',
+  'Comunicação & Design',
+];
+
 export default function Step5Result({
   formData,
   selectedAbilities = [],
@@ -47,6 +58,7 @@ export default function Step5Result({
   const [copied, setCopied] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(null);
+  const [directedMinistry, setDirectedMinistry] = useState('');
 
   // 1. CÁLCULO DOS DONS
   const { topGifts, allGiftScores } = useMemo(() => {
@@ -76,7 +88,7 @@ export default function Step5Result({
   }, [giftAnswers]);
 
   // 2. CÁLCULO DA PERSONALIDADE / QUADRANTE
-  const { quadrant, quadTitle, quadDesc, quadIcon, orgLabel, motLabel, orgAvg, motAvg } = useMemo(() => {
+  const { quadrant, quadTitle, quadDesc, quadIcon, orgLabel, motLabel } = useMemo(() => {
     let orgSum = 0;
     let motSum = 0;
 
@@ -123,17 +135,14 @@ export default function Step5Result({
       quadIcon: icon,
       orgLabel: orgResult,
       motLabel: motResult,
-      orgAvg: orgAverage,
-      motAvg: motAverage,
     };
   }, [personalityAnswers]);
 
-  // 3. SALVAR RESULTADOS NO BANCO AUTOMATICAMENTE
+  // 3. SALVAR RESULTADOS NO BANCO AUTOMATICAMENTE (E RE-SALVAR SE ATUALIZAR DIRECIONAMENTO)
   useEffect(() => {
     let isMounted = true;
 
     async function autoSave() {
-      if (savedId || isSaving) return;
       setIsSaving(true);
       try {
         const res = await submitShapeAssessment({
@@ -143,7 +152,7 @@ export default function Step5Result({
           phone: formData.phone,
           gcId: formData.gcId,
           gcName: formData.gcName,
-          targetMinistry: formData.targetMinistry,
+          targetMinistry: directedMinistry || formData.targetMinistry,
           abilities: selectedAbilities,
           heart: heartAnswers,
           personality: personalityAnswers,
@@ -162,21 +171,22 @@ export default function Step5Result({
       }
     }
 
-    autoSave();
+    const timer = setTimeout(autoSave, 500);
     return () => {
       isMounted = false;
+      clearTimeout(timer);
     };
-  }, []);
+  }, [directedMinistry]);
 
   // 4. TEXTO DE COMPARTILHAMENTO (WHATSAPP)
   const whatsappSummaryText = useMemo(() => {
     const giftsList = topGifts.map((g, i) => `${i + 1}º ${g.name} (${g.score} pts)`).join('\n');
     const abilitiesList = selectedAbilities.length > 0 ? selectedAbilities.slice(0, 5).join(', ') : 'Não informado';
+    const ministryLine = directedMinistry ? `\n🌱 *Área de Direcionamento Sentida:* ${directedMinistry}` : '';
     
     return `*MOLDE DE SERVO (S.H.A.P.E.) — IGREJA BATISTA DA MANHÃ* 🏛️
 👤 *Servo(a):* ${formData.name || 'Membro'}
-📍 *GC:* ${formData.gcName || 'Não informado'}
-🎯 *Ministério de Interesse:* ${formData.targetMinistry || 'Geral'}
+📍 *GC:* ${formData.gcName || 'Membro IBM'}${ministryLine}
 
 ✨ *TOP 3 DONS ESPIRITUAIS:*
 ${giftsList}
@@ -188,7 +198,7 @@ _${quadDesc}_
 🛠️ *HABILIDADES:* ${abilitiesList}
 
 _Avaliação concluída no OikoApp • Conectando dons e propósitos no Reino!_`;
-  }, [formData, topGifts, quadTitle, motLabel, orgLabel, quadDesc, selectedAbilities]);
+  }, [formData, topGifts, quadTitle, motLabel, orgLabel, quadDesc, selectedAbilities, directedMinistry]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(whatsappSummaryText);
@@ -357,6 +367,46 @@ _Avaliação concluída no OikoApp • Conectando dons e propósitos no Reino!_`
               </p>
             </div>
           )}
+
+          {/* 5. INDICAÇÃO DE DIRECIONAMENTO MINISTERIAL APÓS O TESTE */}
+          <div className="p-5 rounded-2xl bg-muted/30 border border-border flex flex-col gap-3">
+            <div className="flex items-center gap-2 text-foreground font-bold text-sm">
+              <Compass className="w-4 h-4 text-primary" />
+              <span>Para onde você sente que Deus está te direcionando? (Opcional)</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Após ver seus dons e temperamento, selecione ou escreva a área ministerial onde você gostaria de servir:
+            </p>
+
+            {/* Chips de Sugestão Rápida */}
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {MINISTRY_SUGGESTIONS.map((sug) => {
+                const isSelected = directedMinistry === sug;
+                return (
+                  <button
+                    type="button"
+                    key={sug}
+                    onClick={() => setDirectedMinistry(isSelected ? '' : sug)}
+                    className={`text-xs px-2.5 py-1 rounded-lg border transition-all ${
+                      isSelected
+                        ? 'bg-primary text-white border-primary font-bold shadow-sm'
+                        : 'bg-card hover:bg-muted text-muted-foreground border-border'
+                    }`}
+                  >
+                    {isSelected && <Check className="w-3 h-3 inline mr-1" />}
+                    {sug}
+                  </button>
+                );
+              })}
+            </div>
+
+            <Input
+              className="h-10 text-xs rounded-xl bg-card"
+              placeholder="Ou digite outra área de interesse (ex: Ação com Mulheres, Comunicação...)"
+              value={directedMinistry}
+              onChange={(e) => setDirectedMinistry(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 

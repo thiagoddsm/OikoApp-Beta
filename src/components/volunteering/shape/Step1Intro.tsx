@@ -1,12 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   Compass, 
   User, 
   Mail, 
-  Users, 
-  HeartHandshake, 
   ArrowRight, 
   Lightbulb, 
   Search, 
@@ -20,8 +18,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { lookupMemberByEmail, getPublicGCs } from '@/app/public/molde-de-servo/actions';
+import { lookupMemberByEmail } from '@/app/public/molde-de-servo/actions';
 import { useToast } from '@/hooks/use-toast';
 
 export interface Step1FormData {
@@ -63,24 +60,6 @@ export default function Step1Intro({ formData, updateFormData, onNext }: Step1In
     gcId: formData.gcId,
     gcName: formData.gcName,
   } : null);
-  
-  const [gcs, setGcs] = useState<Array<{ id: string; name: string; leaders: string; neighborhood: string }>>([]);
-  const [loadingGCs, setLoadingGCs] = useState(true);
-
-  // Carrega lista pública de GCs
-  useEffect(() => {
-    async function loadGCs() {
-      try {
-        const list = await getPublicGCs();
-        setGcs(list || []);
-      } catch (e) {
-        console.error('Erro ao carregar GCs:', e);
-      } finally {
-        setLoadingGCs(false);
-      }
-    }
-    loadGCs();
-  }, []);
 
   const handleSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -155,18 +134,6 @@ export default function Step1Intro({ formData, updateFormData, onNext }: Step1In
       userId: null,
       isMemberIdentified: false,
     });
-  };
-
-  const handleGcChange = (val: string) => {
-    if (val === 'sem-gc') {
-      updateFormData({ gcId: 'sem-gc', gcName: 'Ainda não faço parte de um GC' });
-    } else {
-      const selected = gcs.find(g => g.id === val);
-      updateFormData({
-        gcId: val,
-        gcName: selected ? `${selected.name} (${selected.leaders})` : val,
-      });
-    }
   };
 
   return (
@@ -279,49 +246,12 @@ export default function Step1Intro({ formData, updateFormData, onNext }: Step1In
                 </Button>
               </div>
 
-              {/* Campos adicionais após localização */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-2">
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Grupo de Conexão / GC
-                  </Label>
-                  <Select
-                    value={formData.gcId || 'sem-gc'}
-                    onValueChange={handleGcChange}
-                  >
-                    <SelectTrigger className="h-12 rounded-xl">
-                      <Users className="w-4 h-4 mr-2 text-muted-foreground" />
-                      <SelectValue placeholder={loadingGCs ? "Carregando GCs..." : "Selecione seu GC"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="sem-gc">Ainda não participo de GC</SelectItem>
-                      {gcs.map((gc) => (
-                        <SelectItem key={gc.id} value={gc.id}>
-                          {gc.name} ({gc.neighborhood || gc.leaders})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Ministério de Maior Interesse
-                  </Label>
-                  <div className="relative">
-                    <HeartHandshake className="absolute left-3.5 top-3.5 w-5 h-5 text-muted-foreground" />
-                    <Input
-                      className="pl-10 h-12 rounded-xl text-sm"
-                      placeholder="Ex: Louvor, Acolhimento, Mídia..."
-                      value={formData.targetMinistry}
-                      onChange={(e) => updateFormData({ targetMinistry: e.target.value })}
-                    />
-                  </div>
-                </div>
+              <div className="p-4 bg-muted/40 rounded-2xl border flex items-center justify-between text-xs sm:text-sm text-muted-foreground">
+                <span>Cadastro confirmado! Clique em <strong>Continuar</strong> abaixo para iniciar sua jornada.</span>
               </div>
             </div>
           ) : (
-            /* 3. MEMBRO NÃO CADASTRADO (PREENCHIMENTO COMPLETO) */
+            /* 3. MEMBRO NÃO CADASTRADO (NOME + WHATSAPP) */
             <div className="space-y-6 animate-in fade-in duration-300">
               <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-center justify-between gap-3 text-amber-700 dark:text-amber-400">
                 <div className="flex items-center gap-2.5">
@@ -371,44 +301,6 @@ export default function Step1Intro({ formData, updateFormData, onNext }: Step1In
                       placeholder="(21) 99999-9999"
                       value={formData.phone}
                       onChange={(e) => updateFormData({ phone: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Grupo de Conexão / GC
-                  </Label>
-                  <Select
-                    value={formData.gcId || 'sem-gc'}
-                    onValueChange={handleGcChange}
-                  >
-                    <SelectTrigger className="h-12 rounded-xl">
-                      <Users className="w-4 h-4 mr-2 text-muted-foreground" />
-                      <SelectValue placeholder={loadingGCs ? "Carregando GCs..." : "Selecione seu GC"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="sem-gc">Ainda não participo de GC</SelectItem>
-                      {gcs.map((gc) => (
-                        <SelectItem key={gc.id} value={gc.id}>
-                          {gc.name} ({gc.neighborhood || gc.leaders})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Ministério de Maior Interesse
-                  </Label>
-                  <div className="relative">
-                    <HeartHandshake className="absolute left-3.5 top-3.5 w-5 h-5 text-muted-foreground" />
-                    <Input
-                      className="pl-10 h-12 rounded-xl text-sm"
-                      placeholder="Ex: Louvor, Acolhimento, Mídia..."
-                      value={formData.targetMinistry}
-                      onChange={(e) => updateFormData({ targetMinistry: e.target.value })}
                     />
                   </div>
                 </div>
