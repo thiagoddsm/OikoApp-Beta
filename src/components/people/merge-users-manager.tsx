@@ -150,8 +150,10 @@ export function MergeUsersManager() {
             });
         });
 
-        // Remove undefined fields and ID
-        const finalDataToUpdate = { ...mergedData };
+        // Next.js Server Actions require strict plain objects (no custom prototypes/toJSON methods).
+        // JSON.parse/stringify safely converts Firestore Timestamps to {seconds, nanoseconds} plain objects,
+        // which the server action (mergeUsersDeepAction) then restores to Admin Timestamps.
+        const finalDataToUpdate = JSON.parse(JSON.stringify(mergedData));
         delete finalDataToUpdate.id;
         Object.keys(finalDataToUpdate).forEach(key => finalDataToUpdate[key] === undefined && delete finalDataToUpdate[key]);
 
