@@ -59,6 +59,10 @@ const nextConfig: NextConfig = {
       {
         source: '/hangout/painel',
         destination: '/public/hangout/painel',
+      },
+      {
+        source: '/molde-de-servo',
+        destination: '/molde-de-servo.html',
       }
     ];
   },
@@ -70,6 +74,11 @@ const nextConfig: NextConfig = {
         destination: '/public/enrollment',
         permanent: true,
       },
+      {
+        source: '/teste-shape.html',
+        destination: '/molde-de-servo',
+        permanent: true,
+      }
     ];
   }
 };
