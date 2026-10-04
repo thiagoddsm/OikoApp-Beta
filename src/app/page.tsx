@@ -271,7 +271,7 @@ export default function LandingPage() {
                 <img 
                   alt="Comunidade Adorando" 
                   className="w-full h-full object-cover" 
-                  src="https://images.pexels.com/photos/2774556/pexels-photo-2774556.jpeg?auto=compress&cs=tinysrgb&w=800"
+                  src="/uploads/hero-hug.png"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end p-10">
                   <p className="text-white font-bold text-xl italic leading-relaxed">
