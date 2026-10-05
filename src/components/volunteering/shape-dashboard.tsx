@@ -211,12 +211,16 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                           ))}
                         </div>
 
-                        <div className="flex gap-2 text-lg">
-                          {(item.habilidades || []).slice(0, 3).map((habId, i) => (
-                            <span key={i} title={HABILIDADES_MAP[habId]?.nome}>
-                              {HABILIDADES_MAP[habId]?.icon}
-                            </span>
-                          ))}
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {(item.habilidades || []).slice(0, 3).map((habId, i) => {
+                            const oldHab = HABILIDADES_MAP[habId];
+                            const label = oldHab ? `${oldHab.icon} ${oldHab.nome}` : habId;
+                            return (
+                              <Badge key={i} variant="secondary" className="text-[10px] py-0 px-1.5 h-5 bg-slate-100 text-slate-600 truncate max-w-full">
+                                {label}
+                              </Badge>
+                            );
+                          })}
                         </div>
                       </CardContent>
                     </Card>
@@ -264,11 +268,15 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                     <TableCell>{item.top3?.[0]?.nome}</TableCell>
                     <TableCell>
                       <div className="flex gap-1 text-lg">
-                        {(item.habilidades || []).slice(0, 3).map((habId, i) => (
-                          <span key={i} title={HABILIDADES_MAP[habId]?.nome}>
-                            {HABILIDADES_MAP[habId]?.icon}
-                          </span>
-                        ))}
+                        {(item.habilidades || []).slice(0, 3).map((habId, i) => {
+                          const oldHab = HABILIDADES_MAP[habId];
+                          const label = oldHab ? `${oldHab.icon} ${oldHab.nome}` : habId;
+                          return (
+                            <Badge key={i} variant="secondary" className="text-[10px] truncate max-w-[150px]">
+                              {label}
+                            </Badge>
+                          );
+                        })}
                       </div>
                     </TableCell>
                     <TableCell>{item.gcInfo || '-'}</TableCell>
@@ -363,18 +371,49 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                 </h3>
                 <div className="flex flex-wrap gap-2">
                   {(selectedPerson.habilidades || []).map((habId, i) => {
-                    const hab = HABILIDADES_MAP[habId];
-                    if (!hab) return null;
+                    const oldHab = HABILIDADES_MAP[habId];
+                    const label = oldHab ? `${oldHab.icon} ${oldHab.nome}` : habId;
                     return (
-                      <Badge key={i} variant="outline" className="px-3 py-1.5 text-sm bg-white gap-2">
-                        <span>{hab.icon}</span> {hab.nome}
+                      <Badge key={i} variant="outline" className="px-3 py-1.5 text-sm bg-white">
+                        {label}
                       </Badge>
                     );
                   })}
                 </div>
               </section>
 
+              
+              {/* Experiências e Disponibilidade */}
+              {selectedPerson.experiencias && Object.keys(selectedPerson.experiencias).length > 0 && (
+                <section className="space-y-3">
+                  <h3 className="font-semibold text-lg flex items-center gap-2">
+                    <Briefcase className="w-5 h-5 text-slate-500" /> Experiência & Disponibilidade
+                  </h3>
+                  <div className="space-y-4 bg-slate-50 p-4 rounded-xl">
+                    {selectedPerson.experiencias['exp1'] && (
+                      <div>
+                        <p className="text-xs font-semibold text-slate-500 mb-1">Formação e Atuação Profissional</p>
+                        <p className="text-sm text-slate-800">{selectedPerson.experiencias['exp1']}</p>
+                      </div>
+                    )}
+                    {selectedPerson.experiencias['exp2'] && (
+                      <div>
+                        <p className="text-xs font-semibold text-slate-500 mb-1">Experiência Anterior em Ministério</p>
+                        <p className="text-sm text-slate-800">{selectedPerson.experiencias['exp2']}</p>
+                      </div>
+                    )}
+                    {selectedPerson.experiencias['availability'] && (
+                      <div>
+                        <p className="text-xs font-semibold text-slate-500 mb-1">Disponibilidade</p>
+                        <p className="text-sm text-slate-800">{selectedPerson.experiencias['availability']}</p>
+                      </div>
+                    )}
+                  </div>
+                </section>
+              )}
+
               {/* Coração */}
+
               {selectedPerson.coracao && Object.keys(selectedPerson.coracao).length > 0 && (
                 <section className="space-y-3">
                   <h3 className="font-semibold text-lg flex items-center gap-2">

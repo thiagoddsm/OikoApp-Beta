@@ -79,6 +79,7 @@ export async function submitShapeAssessment(data: {
   heart?: Record<string, string>;
   personality?: Record<string, number>;
   gifts?: Record<string, number>;
+  experiences?: Record<string, string>;
   quadrant?: string;
   topGifts?: Array<{ id: string; name: string; score: number; desc?: string }>;
 }) {
@@ -107,6 +108,7 @@ export async function submitShapeAssessment(data: {
       ministryTarget: data.targetMinistry || '',
       habilidades: data.abilities || [],
       coracao: data.heart || {},
+      experiencias: data.experiences || {},
       perso: data.personality || {},
       dom: data.gifts || {},
       quadrante: data.quadrant || 'Pessoas / Informal',

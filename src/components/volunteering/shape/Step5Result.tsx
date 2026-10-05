@@ -181,6 +181,7 @@ export default function Step5Result({
           gcName: formData.gcName,
           targetMinistry: directedMinistry || formData.targetMinistry,
           abilities: selectedAbilities,
+          experiences: experiences,
           heart: heartAnswers,
           personality: personalityAnswers,
           gifts: allGiftScores,

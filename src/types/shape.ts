@@ -35,6 +35,7 @@ export interface ShapeResult {
   motScore: number;
   domScores: Record<string, number>;
   top3: ShapeTop3Item[];
+  experiencias?: Record<string, string>;
   createdAt: string; // ISO string após sanitize
   aiAnalysis?: ShapeAiAnalysis | null;
 }
