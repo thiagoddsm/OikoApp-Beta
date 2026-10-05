@@ -3,6 +3,9 @@ import { getShapeResults } from './actions';
 import { ShapeDashboard } from '@/components/volunteering/shape-dashboard';
 import { Skeleton } from '@/components/ui/skeleton';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function MoldeDeServoPage() {
   const results = await getShapeResults();
   return (

@@ -1,11 +1,12 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import { ShapeResult, QUADRANTE_META, HABILIDADES_MAP, ShapeQuadrante } from '@/types/shape';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Search, LayoutGrid, List, Sparkles, User, Briefcase, Heart, Calendar } from 'lucide-react';
+import { Search, LayoutGrid, List, Sparkles, User, Briefcase, Heart, Calendar, RefreshCw } from 'lucide-react';
+import { getShapeResults } from '@/app/dashboard/volunteering/molde-de-servo/actions';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -29,6 +30,19 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
   
   const [selectedPerson, setSelectedPerson] = useState<ShapeResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      const fresh = await getShapeResults();
+      setResults(fresh);
+    } catch (e) {
+      console.error('Erro ao atualizar:', e);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   
 
@@ -111,6 +125,17 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
             ))}
           </SelectContent>
         </Select>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="h-9 gap-1.5 text-xs font-bold text-slate-700 rounded-xl"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+          <span>Atualizar</span>
+        </Button>
 
         <div className="flex bg-slate-100 p-1 rounded-lg">
           <Button 
