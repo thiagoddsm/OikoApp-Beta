@@ -48,8 +48,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { parseISO, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useMembersData, useCoursesData, useGCData } from "@/hooks/useDomainData";
-import { useFirebase } from '@/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { doc, setDoc, collection, query } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
@@ -66,6 +66,22 @@ function GeneralTeachingReportsContent() {
   const { updateClass } = useVolunteering();
   const { firestore, user: currentUser } = useFirebase();
   const { toast } = useToast();
+
+  // Quizzes do TheoFlix para cômputo de progresso EAD
+  const quizAttemptsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'theoflix_quiz_attempts'));
+  }, [firestore]);
+  const { data: quizAttempts } = useCollection<any>(quizAttemptsQuery);
+
+  const courseClassesMap = useMemo(() => {
+    const map = new Map<string, typeof classes>();
+    classes.forEach(c => {
+      if (!map.has(c.courseId)) map.set(c.courseId, []);
+      map.get(c.courseId)!.push(c);
+    });
+    return map;
+  }, [classes]);
 
   // Aba Ativa (Geral vs. Quadro Dinâmico de Frequência)
   const [activeTab, setActiveTab] = useState<'general' | 'dynamic_frequency'>('general');
@@ -389,6 +405,9 @@ function GeneralTeachingReportsContent() {
           classData: cls,
           courseData: course,
           studentId: stId,
+          studentUser: userMap.get(stId),
+          courseClasses: courseClassesMap.get(course.id) || [cls],
+          quizAttempts: quizAttempts || undefined,
           validSessionDates,
           isLessonDateInRange
         });
@@ -415,7 +434,7 @@ function GeneralTeachingReportsContent() {
     }).sort((a, b) => b.average - a.average);
 
     return { globalAverage, courseAverages, totalPresentsRegistered: grandTotalPresents };
-  }, [filteredClasses, courseMap, classScheduleMap, filteredCoursesByCycle, isStudentInScope, isEnrollmentDateInRange]);
+  }, [filteredClasses, courseMap, classScheduleMap, filteredCoursesByCycle, isStudentInScope, isEnrollmentDateInRange, userMap, courseClassesMap, quizAttempts]);
 
   // ── 3. DETALHAMENTO DE ENCONTROS POR AULA ──
   const classesAndLessonsDetail = useMemo(() => {
@@ -491,6 +510,9 @@ function GeneralTeachingReportsContent() {
           classData: cls,
           courseData: course,
           studentId,
+          studentUser: userMap.get(studentId),
+          courseClasses: courseClassesMap.get(course.id) || [cls],
+          quizAttempts: quizAttempts || undefined,
           validSessionDates,
           isLessonDateInRange
         });
@@ -513,7 +535,7 @@ function GeneralTeachingReportsContent() {
       projReprovados,
       taxaAprovacao
     };
-  }, [filteredClasses, courseMap, classScheduleMap, lessonDateStart, lessonDateEnd, enrollmentDateStart, enrollmentDateEnd, isStudentInScope, isEnrollmentDateInRange]);
+  }, [filteredClasses, courseMap, classScheduleMap, lessonDateStart, lessonDateEnd, enrollmentDateStart, enrollmentDateEnd, isStudentInScope, isEnrollmentDateInRange, userMap, courseClassesMap, quizAttempts]);
 
   // ── 5. TABELA NOMINAL DE ALUNOS COM HISTÓRICO DE CURSOS E EXCEÇÕES ─────────────
   const rawStudentsFollowUpList = useMemo(() => {
@@ -544,6 +566,9 @@ function GeneralTeachingReportsContent() {
           classData: cls,
           courseData: course,
           studentId,
+          studentUser: userObj,
+          courseClasses: courseClassesMap.get(course.id) || [cls],
+          quizAttempts: quizAttempts || undefined,
           validSessionDates,
           isLessonDateInRange
         });
@@ -565,6 +590,9 @@ function GeneralTeachingReportsContent() {
             classData: prevCls,
             courseData: prevCourse,
             studentId,
+            studentUser: userObj,
+            courseClasses: courseClassesMap.get(prevCourse?.id || prevCls.courseId) || [prevCls],
+            quizAttempts: quizAttempts || undefined,
             validSessionDates: prevValidDates
           });
 
@@ -917,6 +945,9 @@ function GeneralTeachingReportsContent() {
             classData: cls,
             courseData: course,
             studentId,
+            studentUser: userMap.get(studentId),
+            courseClasses: courseClassesMap.get(course.id) || [cls],
+            quizAttempts: quizAttempts || undefined,
             validSessionDates,
             isLessonDateInRange
           });
@@ -940,7 +971,7 @@ function GeneralTeachingReportsContent() {
     });
 
     return map;
-  }, [filteredCoursesByCycle, filteredClasses, enrollmentStats, frequencyStats, classScheduleMap, isStudentInScope, isEnrollmentDateInRange, lessonDateStart, lessonDateEnd]);
+  }, [filteredCoursesByCycle, filteredClasses, enrollmentStats, frequencyStats, classScheduleMap, isStudentInScope, isEnrollmentDateInRange, lessonDateStart, lessonDateEnd, userMap, courseClassesMap, quizAttempts]);
 
   // Ação de Decisão da Exceção
   const handleSaveExceptionDecision = async (newStatus: 'approved' | 'rejected') => {

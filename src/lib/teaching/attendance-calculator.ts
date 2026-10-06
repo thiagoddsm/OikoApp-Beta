@@ -1,4 +1,6 @@
-import { type Class, type Course, type CourseAttendancePolicy, type OnlineException } from '@/contexts/volunteering-context';
+import { type Class, type Course, type CourseAttendancePolicy, type OnlineException, getModuleIndexForDate } from '@/contexts/volunteering-context';
+import { getModuleCompletion } from '@/domain/teaching/module-completion';
+import { isMembershipCourse } from './is-membership-course';
 
 export type AttendanceStatus =
   | 'eligible'                      // Frequência total atingida e atende à política de modalidades (em andamento)
@@ -47,6 +49,11 @@ export interface EvaluateStudentAttendanceParams {
   classData: Class;
   courseData?: Course | null;
   studentId: string;
+  studentUser?: any;
+  studentEmail?: string;
+  studentJourney?: any;
+  courseClasses?: Class[];
+  quizAttempts?: any[];
   validSessionDates?: string[]; // Datas das aulas válidas no cronograma
   isLessonDateInRange?: (dateStr: string) => boolean; // Filtro opcional por período
   exception?: OnlineException | null;
@@ -60,6 +67,11 @@ export function evaluateStudentAttendance({
   classData,
   courseData,
   studentId,
+  studentUser,
+  studentEmail,
+  studentJourney,
+  courseClasses,
+  quizAttempts,
   validSessionDates,
   isLessonDateInRange,
   exception,
@@ -75,6 +87,14 @@ export function evaluateStudentAttendance({
     : 75;
 
   const mode = policy.mode || 'flexible';
+
+  const resolvedEmail = studentEmail || studentUser?.email;
+  const resolvedJourney = studentJourney || studentUser?.journey;
+  const resolvedCourseClasses = courseClasses || [classData];
+  const isMembership = isMembershipCourse(courseData || { id: classData.courseId });
+  const courseSyllabus = courseData?.syllabus || [];
+  const courseId = courseData?.id || classData.courseId;
+  const isDirectlyApprovedInJourney = resolvedJourney?.courseStatus?.[courseId] === 'approved';
 
   // 2. Resolução das Aulas e Presenças
   let inPersonCount = 0;
@@ -127,6 +147,36 @@ export function evaluateStudentAttendance({
           onlineCount++;
         } else {
           inPersonCount++;
+        }
+      } else if (courseData && (courseClasses || studentUser || studentJourney)) {
+        // Checar se o módulo correspondente a esta aula foi completado (Theoflix, reposição em outra turma, jornada)
+        const modIndex = getModuleIndexForDate(att.date, classData, courseSyllabus);
+        if (modIndex !== -1) {
+          const completion = getModuleCompletion({
+            studentId,
+            studentEmail: resolvedEmail,
+            studentJourney: resolvedJourney,
+            course: courseData || { id: classData.courseId },
+            modIndex,
+            modId: courseSyllabus[modIndex]?.id || (modIndex + 1).toString(),
+            modules: courseSyllabus,
+            courseClasses: resolvedCourseClasses,
+            quizAttempts,
+            isMembership
+          });
+
+          if (completion.isDone) {
+            if (completion.isOnline) {
+              onlineCount++;
+            } else {
+              repositionsCount++;
+              inPersonCount++;
+            }
+          } else {
+            absencesCount++;
+          }
+        } else {
+          absencesCount++;
         }
       } else {
         absencesCount++;
@@ -191,7 +241,12 @@ export function evaluateStudentAttendance({
 
   const isClassCompleted = classData.status === 'completed';
 
-  if (!meetsMinimumAttendance) {
+  if (isDirectlyApprovedInJourney) {
+    status = 'approved';
+    statusLabel = 'Formado';
+    statusDescription = 'Curso concluído e aprovado no histórico ministerial';
+    statusBadgeVariant = 'success';
+  } else if (!meetsMinimumAttendance) {
     status = 'insufficient_attendance';
     statusLabel = 'Frequência Insuficiente';
     statusDescription = `Frequência atual (${totalRate}%) abaixo do mínimo exigido (${minimumAttendanceRequired}%)`;
@@ -240,7 +295,7 @@ export function evaluateStudentAttendance({
     }
   }
 
-  const eligible = meetsMinimumAttendance && (meetsModePolicy || hasApprovedException);
+  const eligible = isDirectlyApprovedInJourney || (meetsMinimumAttendance && (meetsModePolicy || hasApprovedException));
 
   return {
     studentId,

@@ -247,6 +247,15 @@ export function TeachingDynamicFrequencyReport({
     return map;
   }, [users, cells, areas, redes]);
 
+  const courseClassesMap = useMemo(() => {
+    const map = new Map<string, typeof classes>();
+    classes.forEach(c => {
+      if (!map.has(c.courseId)) map.set(c.courseId, []);
+      map.get(c.courseId)!.push(c);
+    });
+    return map;
+  }, [classes]);
+
   // Cronogramas válidos pré-calculados
   const classScheduleMap = useMemo(() => {
     const map = new Map<string, { totalLessons: number; validSessions: any[] }>();
@@ -367,6 +376,8 @@ export function TeachingDynamicFrequencyReport({
           classData: cls,
           courseData: course,
           studentId,
+          studentUser: userObj,
+          courseClasses: courseClassesMap.get(course.id) || [cls],
           validSessionDates
         });
 

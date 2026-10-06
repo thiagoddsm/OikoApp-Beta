@@ -65,7 +65,13 @@ export function ClassPerformanceReport({ classData }: { classData: Class }) {
 
     const getStudentLessonStatus = (student: any, date: string) => {
         const cleanDate = date.split('T')[0];
-        const record = classData.attendance?.find(a => a.date === date || a.date?.split('T')[0] === cleanDate);
+        const occurrencesOnSameDay = classOccurrences.filter(d => d.split('T')[0] === cleanDate);
+        const isMultipleOnSameDay = occurrencesOnSameDay.length > 1;
+
+        let record = classData.attendance?.find(a => a.date === date);
+        if (!record && !isMultipleOnSameDay) {
+            record = classData.attendance?.find(a => a.date === cleanDate || a.date?.split('T')[0] === cleanDate);
+        }
         
         const isInPerson = !!record?.presentStudentIds?.includes(student.id);
         const isOnlineLive = !!record?.onlineStudentIds?.includes(student.id);

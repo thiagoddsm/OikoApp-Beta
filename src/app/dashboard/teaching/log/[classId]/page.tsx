@@ -113,19 +113,30 @@ function PedagogicalLogPageContent() {
     useEffect(() => {
         if (selectedDate && classData?.attendance) {
             const cleanSelected = selectedDate.split('T')[0];
-            const record = classData.attendance.find((a: any) => a.date === selectedDate || a.date?.split('T')[0] === cleanSelected);
+            const occurrencesOnSameDay = classOccurrences.filter(d => d.split('T')[0] === cleanSelected);
+            const isMultipleOnSameDay = occurrencesOnSameDay.length > 1;
+
+            let record = classData.attendance.find((a: any) => a.date === selectedDate);
+            if (!record && !isMultipleOnSameDay) {
+                record = classData.attendance.find((a: any) => a.date === cleanSelected || a.date?.split('T')[0] === cleanSelected);
+            }
+
             setPresentStudents(record?.presentStudentIds || []);
             setOnlineStudents(record?.onlineStudentIds || []);
             setMakeupStudentIds(record?.repositions?.map((reposition: any) => reposition.studentId) || []);
 
-            const baseDateStr = selectedDate.split('T')[0];
+            const baseDateStr = cleanSelected;
 
-            const log = pedagogicalLogs.find(l => {
-                if (l.dateStr && (l.dateStr === selectedDate || l.dateStr.split('T')[0] === baseDateStr)) return true;
-                const logDate = l.date?.toDate ? l.date.toDate() : (l.date instanceof Date ? l.date : null);
-                if (!logDate) return false;
-                return l.classId === classId && format(logDate, 'yyyy-MM-dd') === baseDateStr;
-            });
+            let log = pedagogicalLogs.find(l => l.classId === classId && l.dateStr === selectedDate);
+            if (!log && !isMultipleOnSameDay) {
+                log = pedagogicalLogs.find(l => {
+                    if (l.classId !== classId) return false;
+                    if (l.dateStr && l.dateStr.split('T')[0] === baseDateStr) return true;
+                    const logDate = l.date?.toDate ? l.date.toDate() : (l.date instanceof Date ? l.date : null);
+                    if (!logDate) return false;
+                    return format(logDate, 'yyyy-MM-dd') === baseDateStr;
+                });
+            }
 
             if (log) {
                 setContentTaught(log.content_taught);
@@ -140,7 +151,7 @@ function PedagogicalLogPageContent() {
                 setPerformance(3);
             }
         }
-    }, [selectedDate, classData, pedagogicalLogs, classId, currentModuleIndex, moduleNames]);
+    }, [selectedDate, classData, pedagogicalLogs, classId, currentModuleIndex, moduleNames, classOccurrences]);
 
     const isMemberCourse = useMemo(() => {
         return isMembershipCourse(courseData);
@@ -302,17 +313,24 @@ function PedagogicalLogPageContent() {
             const timePart = selectedDate.includes('T') ? selectedDate.split('T')[1] : '12:00:00';
             const dateStrWithTime = `${baseDateStr}T${timePart.substring(0, 8)}`; // Garante limite de hh:mm:ss
 
-            const existingLog = pedagogicalLogs.find(l => {
-                if (l.dateStr && l.dateStr === selectedDate) return true;
-                const logDate = l.date?.toDate ? l.date.toDate() : (l.date instanceof Date ? l.date : null);
-                if (!logDate) return false;
-                return l.classId === classId && format(logDate, 'yyyy-MM-dd') === baseDateStr;
-            });
+            const occurrencesOnSameDay = classOccurrences.filter(d => d.split('T')[0] === baseDateStr);
+            const isMultipleOnSameDay = occurrencesOnSameDay.length > 1;
+
+            let existingLog = pedagogicalLogs.find(l => l.classId === classId && l.dateStr === selectedDate);
+            if (!existingLog && !isMultipleOnSameDay) {
+                existingLog = pedagogicalLogs.find(l => {
+                    if (l.classId !== classId) return false;
+                    if (l.dateStr && l.dateStr.split('T')[0] === baseDateStr) return true;
+                    const logDate = l.date?.toDate ? l.date.toDate() : (l.date instanceof Date ? l.date : null);
+                    if (!logDate) return false;
+                    return format(logDate, 'yyyy-MM-dd') === baseDateStr;
+                });
+            }
 
             const logData = {
                 classId,
                 date: Timestamp.fromDate(new Date(dateStrWithTime)),
-                dateStr: selectedDate, // <- Chave única original (com sufixo) mantida para isolar diários no mesmo dia
+                dateStr: selectedDate, // <- Chave única original (com sufixo/horário) mantida para isolar diários no mesmo dia
                 content_taught: contentTaught || "Aula realizada",
                 student_performance: performance,
                 observations,
@@ -347,12 +365,11 @@ function PedagogicalLogPageContent() {
                 ...(repoModuleId !== null && { syllabusId: repoModuleId }),
                 ...(repoModuleIndex !== -1 && { moduleIndex: repoModuleIndex }),
             }));
-            // Bug #3 fix: garantir que removemos o exato mesmo registro que a UI carregou.
-            // Se selectedDate for '2026-10-03T10:30' mas o banco tiver '2026-10-03', o find() na UI 
-            // acha o antigo, mas o filter(a.date !== selectedDate) não removia o antigo, 
-            // criando duplicatas fantasma onde nomes desmarcados voltavam a aparecer.
-            const recordToRemove = existingAttendance.find((a: any) => a.date === selectedDate) 
-                || existingAttendance.find((a: any) => a.date?.split('T')[0] === baseDateStr);
+
+            let recordToRemove = existingAttendance.find((a: any) => a.date === selectedDate);
+            if (!recordToRemove && !isMultipleOnSameDay) {
+                recordToRemove = existingAttendance.find((a: any) => a.date === baseDateStr || a.date?.split('T')[0] === baseDateStr);
+            }
             
             const updatedAttendance = [
                 ...existingAttendance.filter((a: any) => a !== recordToRemove),
