@@ -49,6 +49,8 @@ export interface GcReportSession {
   updatedAt: any;
 }
 
+const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 /**
  * Envia uma mensagem com botões interativos.
  */
@@ -983,6 +985,13 @@ export async function handleGcReportIncomingMessage(
             await wait(1500);
             const visitorNames = (session.expectedVisitors || []).map((v: any) => v.name.substring(0, 50));
             await sendPoll(fromPhone, '📋 Visitantes Esperados — Quem veio?', visitorNames, visitorNames.length);
+            await wait(3000);
+            await sendButton(
+              fromPhone,
+              '👉 Se algum compareceu, marque na enquete acima. Quando terminar (ou caso nenhum tenha comparecido), clique no botão abaixo para avançar:',
+              [{ id: 'exp_vis_done', text: 'Concluir / Nenhum ➡️' }],
+              'Visitantes Esperados'
+            );
           } else {
             await sendText(
               fromPhone,
@@ -992,28 +1001,45 @@ export async function handleGcReportIncomingMessage(
         }
         break;
 
-      case 'EXPECTED_VISITORS_POLL':
-        if (type === 'poll' || type === 'text') {
-          let presentVisitorIds: string[] = [];
+      case 'EXPECTED_VISITORS_POLL': {
+        const latestDoc = await sessionRef.get();
+        const latest = latestDoc.data() as GcReportSession;
 
-          if (type === 'poll') {
-            const options = payload.selectedOptions as string[];
-            const visitorMap = new Map<string, string>();
-            (session.expectedVisitors || []).forEach((v: any) => {
-              visitorMap.set(v.name.substring(0, 50), v.id);
-            });
-            options.forEach(opt => {
-              const id = visitorMap.get(opt);
-              if (id) presentVisitorIds.push(id);
-            });
-          }
+        if (type === 'poll' && payload?.selectedOptions) {
+          const options = payload.selectedOptions as string[];
+          const visitorMap = new Map<string, string>();
+          (latest.expectedVisitors || []).forEach((v: any) => {
+            visitorMap.set(v.name.substring(0, 50).trim().toLowerCase(), v.id);
+          });
 
-          const presentExpectedNames = (session.expectedVisitors || [])
+          const presentVisitorIds: string[] = [];
+          options.forEach(opt => {
+            const cleanOpt = opt.trim().toLowerCase();
+            const id = visitorMap.get(cleanOpt);
+            if (id) presentVisitorIds.push(id);
+          });
+
+          await sessionRef.update({
+            expectedVisitorVotes: presentVisitorIds,
+            updatedAt: now
+          });
+          return true; // Aguarda clique no botão Concluir/Nenhum ou texto de avanço
+        }
+
+        const isAdvance = (type === 'button' && payload?.buttonId === 'exp_vis_done') ||
+          (type === 'text' && (isAdvanceCommand(msg) || ['0', 'nenhum', 'ninguem', 'ninguém', 'nao', 'não', 'nada'].includes(msg)));
+
+        if (isAdvance) {
+          const freshDoc = await sessionRef.get();
+          const freshSession = freshDoc.data() as GcReportSession;
+          const presentVisitorIds: string[] = (freshSession as any).expectedVisitorVotes || [];
+
+          const presentExpectedNames = (freshSession.expectedVisitors || [])
             .filter((v: any) => presentVisitorIds.includes(v.id))
             .map((v: any) => v.name);
 
           await sessionRef.update({
-            'metrics.visitantesPreRegistrados': (session.expectedVisitors || []).map((v: any) => ({
+            'metrics.visitantesPreRegistrados': (freshSession.expectedVisitors || []).map((v: any) => ({
               ...v,
               presente: presentVisitorIds.includes(v.id)
             })),
@@ -1026,8 +1052,17 @@ export async function handleGcReportIncomingMessage(
             fromPhone,
             `👥 *Outros visitantes?*\n\nAlém dos cadastrados, veio algum visitante novo?\n\nDigite os nomes (separados por vírgula) ou envie *0* caso não tenha.`
           );
+        } else if (type === 'text') {
+          // Se o usuário digitou algum texto não padrão (ex: nome de alguém), orienta
+          await sendButton(
+            fromPhone,
+            '👉 Por favor, marque na enquete de visitantes acima ou clique no botão abaixo para avançar:',
+            [{ id: 'exp_vis_done', text: 'Concluir / Nenhum ➡️' }],
+            'Visitantes Esperados'
+          );
         }
         break;
+      }
 
       case 'METRICS_VISITORS':
         if (type === 'text') {
@@ -1203,6 +1238,18 @@ async function resendCurrentStepMessage(to: string, session: GcReportSession) {
     case 'METRICS_LESSON':
       await sendText(to, '📖 *Etapa 2: Tema da Lição*\n\nQual foi o tema ou título da lição ministrada no GC esta semana?');
       break;
+    case 'EXPECTED_VISITORS_POLL': {
+      const visitorNames = (session.expectedVisitors || []).map((v: any) => v.name.substring(0, 50));
+      await sendPoll(to, '📋 Visitantes Esperados — Quem veio?', visitorNames, visitorNames.length);
+      await wait(3000);
+      await sendButton(
+        to,
+        '👉 Se algum compareceu, marque na enquete acima. Quando terminar (ou caso nenhum tenha comparecido), clique no botão abaixo para avançar:',
+        [{ id: 'exp_vis_done', text: 'Concluir / Nenhum ➡️' }],
+        'Visitantes Esperados'
+      );
+      break;
+    }
     case 'METRICS_VISITORS':
       await sendText(to, '👥 *Etapa 3: Visitantes*\n\nDigite os nomes separados por vírgula ou envie 0.');
       break;
