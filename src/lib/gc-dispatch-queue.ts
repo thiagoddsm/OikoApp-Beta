@@ -135,6 +135,12 @@ export async function enqueueGcReportsBatch(options: {
       continue;
     }
 
+    // Evita duplicar no mesmo lote
+    if (processedPhones.has(recipient.phone)) {
+      console.log(`[GC Queue] Responsável ${recipient.name} (${recipient.phone}) já enfileirado neste lote. Pulando GC ${cellName}.`);
+      continue;
+    }
+
     // Verificar se já existe relatório recente (a menos que force === true)
     if (!force) {
       const existingSnap = await db.collection('reuniao_logs')
@@ -151,7 +157,21 @@ export async function enqueueGcReportsBatch(options: {
         console.log(`[GC Queue] Célula ${cellName} já possui relatório recente esta semana. Pulando.`);
         continue;
       }
+
+      // Evitar sobrepor sessão que já está aberta e ativa nas últimas 24h
+      const sessionDoc = await db.collection('gc_report_sessions').doc(recipient.phone).get();
+      if (sessionDoc.exists) {
+        const sData = sessionDoc.data();
+        const sessionUpdated = sData?.updatedAt?.toDate?.() || sData?.createdAt?.toDate?.() || new Date(0);
+        const hoursSince = (Date.now() - sessionUpdated.getTime()) / (1000 * 60 * 60);
+        if (hoursSince < 24) {
+          console.log(`[GC Queue] Célula ${cellName} ignorada: já existe sessão ativa para ${recipient.phone} (${hoursSince.toFixed(1)}h atrás).`);
+          continue;
+        }
+      }
     }
+
+    processedPhones.add(recipient.phone);
 
     // Se o líder já foi enfileirado para outro GC, adiciona um espaçamento extra para não colidir
     const scheduledTime = new Date(now.getTime() + queueIndex * delaySeconds * 1000);

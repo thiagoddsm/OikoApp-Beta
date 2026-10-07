@@ -163,16 +163,31 @@ export async function POST(request: Request) {
         };
     }
     // C. Poll Update (pollUpdateMessage)
-    // Detecta tanto pelo messageType no data como pelo conteúdo do message
-    else if (data.messageType === 'pollUpdateMessage' || msgContent.pollUpdateMessage || msgObject.pollUpdateMessage || msgObject.pollUpdates || msgObject.pollUpdate) {
+    // Detecta tanto pelo messageType no data como pelo conteúdo do message ou evento de pollVote
+    else if (
+        data.messageType === 'pollUpdateMessage' || 
+        msgContent.pollUpdateMessage || 
+        msgObject.pollUpdateMessage || 
+        msgObject.pollUpdates || 
+        msgObject.pollUpdate ||
+        data.pollVote ||
+        msgObject.pollVote
+    ) {
         
         // ─── ESTRATÉGIA PRINCIPAL: Evolution API v2 descriptografa os votos e entrega
-        // em data.pollUpdates como array de { name: string, voters: string[] }.
-        // O estado é ACUMULADO: a cada evento, representa quem votou ATÉ AGORA.
-        // Nomes com voters.length > 0 = votaram. Nomes com voters = [] = não votaram / desmarcaram.
+        // em data.pollVote / msgObject.pollVote.selectedOptions (array de nomes)
+        // ou em data.pollUpdates como array de { name: string, voters: string[] }.
         let options: string[] = [];
         
-        if (Array.isArray(data.pollUpdates) && data.pollUpdates.length > 0) {
+        // 0. Prioridade máxima: Evolution API v2 entrega os votos descriptografados em data.pollVote / msgObject.pollVote
+        if (Array.isArray(data.pollVote?.selectedOptions) && data.pollVote.selectedOptions.length > 0) {
+            options = data.pollVote.selectedOptions.map((o: any) => String(o || '').trim()).filter(Boolean);
+        } else if (Array.isArray(msgObject.pollVote?.selectedOptions) && msgObject.pollVote.selectedOptions.length > 0) {
+            options = msgObject.pollVote.selectedOptions.map((o: any) => String(o || '').trim()).filter(Boolean);
+        }
+        
+        // 1. data.pollUpdates como array de { name: string, voters: string[] }
+        if (options.length === 0 && Array.isArray(data.pollUpdates) && data.pollUpdates.length > 0) {
             options = data.pollUpdates
                 .filter((pu: any) => Array.isArray(pu.voters) && pu.voters.length > 0)
                 .map((pu: any) => String(pu.name || '').trim())
@@ -197,23 +212,25 @@ export async function POST(request: Request) {
         }
 
         if (!Array.isArray(options)) options = [options].filter(Boolean);
-        if (options.length === 0) options = ['Voto registrado'];
         
-        // Nome da enquete
-        const pollUpdateMsg = msgObject.pollUpdateMessage || msgContent.pollUpdateMessage || {};
+        // ID e Nome da enquete
+        const pollUpdateMsg = data.message?.pollUpdateMessage || msgObject.pollUpdateMessage || msgContent.pollUpdateMessage || {};
+        const pollCreationId = data.pollVote?.pollMessageId || 
+                               msgObject.pollVote?.pollMessageId || 
+                               pollUpdateMsg.pollCreationMessageKey?.id || 
+                               stanzaId;
         const pollName = msgContent.pollCreationMessage?.name || msgObject.pollName || 'Enquete';
-        const pollCreationId = pollUpdateMsg.pollCreationMessageKey?.id || stanzaId;
 
         responseType = 'poll';
         payload = {
-            pollName: pollName, // Garante que a propriedade do payload seja exatamente pollName (com minúsculas/maiúsculas consistentes)
+            pollName: pollName, // Garante que a propriedade do payload seja exatamente pollName
             pollId: pollCreationId || pollName,
             selectedOptions: options,
             allPollUpdates: data.pollUpdates || [],
         };
 
         // Ignorar webhooks WAME sem dados legíveis (o payload do voto é criptografado no WAME)
-        if (!raw.event && options.length === 0) {
+        if (!raw.event && options.length === 0 && !data.pollVote && !msgObject.pollVote) {
             console.log('[Webhook DEBUG] Ignorando webhook de poll do WAME (sem opções legíveis), aguardando Evolution API...');
             return NextResponse.json({ success: true, ignored: true, reason: 'wame_poll_ignore' });
         }
