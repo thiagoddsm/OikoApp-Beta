@@ -294,7 +294,7 @@ export default function SupervisorPage() {
   };
 
   // Filtro na aba de Diagnóstico & Simbologias
-  const [diagFilter, setDiagFilter] = useState<'all' | 'ready' | 'attention' | 'alerts'>('all');
+  const [diagFilter, setDiagFilter] = useState<'all' | 'red' | 'yellow' | 'green' | 'ready' | 'attention' | 'alerts'>('all');
 
   // Usuários para contagem de membros por célula no diagnóstico
   const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
@@ -1118,11 +1118,27 @@ export default function SupervisorPage() {
                     </Button>
                     <Button
                       size="sm"
-                      variant={diagFilter === 'ready' ? 'default' : 'outline'}
-                      className={cn("text-xs font-bold h-8 gap-1", diagFilter === 'ready' && "bg-emerald-600 hover:bg-emerald-700 text-white")}
-                      onClick={() => setDiagFilter('ready')}
+                      variant={diagFilter === 'red' ? 'default' : 'outline'}
+                      className={cn("text-xs font-bold h-8 gap-1", diagFilter === 'red' && "bg-red-600 hover:bg-red-700 text-white")}
+                      onClick={() => setDiagFilter('red')}
                     >
-                      <Rocket className="h-3.5 w-3.5" /> Prontas
+                      <span>🔴</span> Vermelhas
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={diagFilter === 'yellow' ? 'default' : 'outline'}
+                      className={cn("text-xs font-bold h-8 gap-1", diagFilter === 'yellow' && "bg-amber-500 hover:bg-amber-600 text-white")}
+                      onClick={() => setDiagFilter('yellow')}
+                    >
+                      <span>🟡</span> Amarelas
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={diagFilter === 'green' ? 'default' : 'outline'}
+                      className={cn("text-xs font-bold h-8 gap-1", diagFilter === 'green' && "bg-emerald-600 hover:bg-emerald-700 text-white")}
+                      onClick={() => setDiagFilter('green')}
+                    >
+                      <span>🟢</span> Verdes
                     </Button>
                     <Button
                       size="sm"
@@ -1158,7 +1174,9 @@ export default function SupervisorPage() {
                         return { cell, mCount, attRate, hasEligibleHost, eligibleHostsCount, evalData };
                       })
                       .filter(({ evalData }) => {
-                        if (diagFilter === 'ready') return evalData.isReadyForMultiplication;
+                        if (diagFilter === 'red') return evalData.trafficLightStatus === 'RED';
+                        if (diagFilter === 'yellow') return evalData.trafficLightStatus === 'YELLOW';
+                        if (diagFilter === 'green') return evalData.trafficLightStatus === 'GREEN';
                         if (diagFilter === 'attention') return evalData.attentionReasons.length > 0;
                         if (diagFilter === 'alerts') return evalData.operationalAlerts.length > 0;
                         return true;
