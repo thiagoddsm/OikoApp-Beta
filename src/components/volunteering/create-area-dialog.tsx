@@ -669,10 +669,10 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
                 <Label className="font-bold text-slate-800 text-xs">Horário de Check-in (Voluntariado)</Label>
                 <p className="text-[10px] text-slate-500 mt-1">Defina o horário de chegada para cada celebração. Se vazio, o robô enviará 1 hora antes do início do culto.</p>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
+              <div className="flex flex-col gap-2 max-h-40 overflow-y-auto pr-1">
                 {events?.map(ev => (
-                  <div key={ev.id} className="flex items-center justify-between gap-2 border rounded-lg p-2 bg-slate-50">
-                    <span className="text-xs font-medium text-slate-700 truncate" title={ev.name}>{ev.name} ({ev.time})</span>
+                  <div key={ev.id} className="flex items-center justify-between gap-3 border rounded-lg p-2.5 bg-slate-50">
+                    <span className="text-[11px] font-medium text-slate-700 leading-tight" title={ev.name}>{ev.name} ({ev.time})</span>
                     <Input 
                       type="time" 
                       value={checkInTimes[ev.name] || ''} 
