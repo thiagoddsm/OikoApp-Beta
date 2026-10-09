@@ -205,7 +205,7 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string | strin
         const minRate = prereqCourse?.minAttendanceApproval || 75;
 
         // Match user by ID, email, or phone
-        const cleanPhone = (p?: string) => (p || '').replace(/\D/g, '').slice(-9);
+        const cleanPhone = (p?: any) => String(p || '').replace(/\D/g, '').slice(-9);
         const reqCleanPhone = cleanPhone(req.phone);
         const reqCleanEmail = (req.email || '').trim().toLowerCase();
 
