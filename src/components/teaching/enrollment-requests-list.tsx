@@ -16,7 +16,9 @@ import {
   Filter, 
   Clock, 
   CheckCircle2, 
-  XCircle 
+  XCircle,
+  AlertCircle,
+  GraduationCap
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -26,10 +28,11 @@ import { cn } from '@/lib/utils';
 
 import { useDoc } from '@/firebase';
 import { sendEnrollmentMessage } from '@/app/actions/whatsapp-actions';
-import { useCoursesData } from "@/hooks/useDomainData";
+import { useCoursesData, useMembersData } from "@/hooks/useDomainData";
 
 export function EnrollmentRequestsList({ courseId }: { courseId?: string | string[] }) {
     const { courses, classes, enrollmentRequests } = useCoursesData();
+    const { users } = useMembersData();
 
     const { approveEnrollmentRequest, updateEnrollmentRequest, deleteEnrollmentRequest, isLoading } = useVolunteering();
     const { toast } = useToast();
@@ -191,6 +194,105 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string | strin
         }
     };
 
+    const getPrerequisiteEvaluation = (req: EnrollmentRequest) => {
+        const targetCourse = courses?.find(c => c.id === req.courseId);
+        if (!targetCourse?.prerequisiteCourseId) {
+            return { status: 'none' as const };
+        }
+
+        const prereqCourse = courses?.find(c => c.id === targetCourse.prerequisiteCourseId);
+        const prereqCourseName = prereqCourse?.name || (prereqCourse as any)?.title || 'Curso anterior';
+        const minRate = prereqCourse?.minAttendanceApproval || 75;
+
+        // Match user by ID, email, or phone
+        const cleanPhone = (p?: string) => (p || '').replace(/\D/g, '').slice(-9);
+        const reqCleanPhone = cleanPhone(req.phone);
+        const reqCleanEmail = (req.email || '').trim().toLowerCase();
+
+        const matchedUser = (users || []).find((u: any) => {
+            if ((req as any).userId && u.id === (req as any).userId) return true;
+            if (req.volunteerId && u.id === req.volunteerId) return true;
+            if (reqCleanEmail && u.email && u.email.trim().toLowerCase() === reqCleanEmail) return true;
+            if (reqCleanPhone && reqCleanPhone.length >= 8 && cleanPhone(u.phone) === reqCleanPhone) return true;
+            return false;
+        });
+
+        if (!matchedUser) {
+            return { status: 'not_found' as const, prereqCourseName };
+        }
+
+        // Check classes of prerequisite course where user is a student
+        const prereqClasses = (classes || []).filter(c => 
+            c.courseId === targetCourse.prerequisiteCourseId && 
+            c.students?.includes(matchedUser.id)
+        );
+
+        if (prereqClasses.length > 0) {
+            // Find most complete / recent class
+            const cls = prereqClasses[prereqClasses.length - 1];
+            const sessions = (cls.attendance || []).filter(a => !a.isRepositionOnly);
+            let presentCount = 0;
+            sessions.forEach(sess => {
+                const inPerson = sess.presentStudentIds?.includes(matchedUser.id);
+                const online = sess.onlineStudentIds?.includes(matchedUser.id);
+                const repos = sess.repositions?.some((r: any) => r.studentId === matchedUser.id);
+                if (inPerson || online || repos) presentCount++;
+            });
+
+            const totalSessions = sessions.length;
+            const rate = totalSessions > 0 ? Math.round((presentCount / totalSessions) * 100) : 0;
+            const isApprovedJourney = matchedUser.journey?.courseStatus?.[targetCourse.prerequisiteCourseId] === 'approved';
+
+            if (cls.status === 'completed' || isApprovedJourney) {
+                if (rate >= minRate || isApprovedJourney) {
+                    return {
+                        status: 'approved' as const,
+                        prereqCourseName,
+                        rate,
+                        minRate,
+                        className: cls.name,
+                        matchedUserName: matchedUser.name
+                    };
+                } else {
+                    return {
+                        status: 'failed' as const,
+                        prereqCourseName,
+                        rate,
+                        minRate,
+                        className: cls.name,
+                        matchedUserName: matchedUser.name
+                    };
+                }
+            } else {
+                return {
+                    status: 'in_progress' as const,
+                    prereqCourseName,
+                    rate,
+                    minRate,
+                    className: cls.name,
+                    matchedUserName: matchedUser.name
+                };
+            }
+        }
+
+        // If no classes found in Firestore, check if user has approved status in journey
+        if (matchedUser.journey?.courseStatus?.[targetCourse.prerequisiteCourseId] === 'approved') {
+            return {
+                status: 'approved' as const,
+                prereqCourseName,
+                rate: 100,
+                minRate,
+                matchedUserName: matchedUser.name
+            };
+        }
+
+        return {
+            status: 'not_enrolled' as const,
+            prereqCourseName,
+            matchedUserName: matchedUser.name
+        };
+    };
+
     if (isLoading) {
         return <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>;
     }
@@ -269,122 +371,193 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string | strin
             {/* Tabela de Solicitações */}
             <div className="rounded-xl border bg-card overflow-hidden shadow-sm">
                 <div className="overflow-x-auto w-full">
-<Table>
-                    <TableHeader className="bg-muted/50">
-                        <TableRow>
-                            <TableHead className="w-[120px]">Data</TableHead>
-                            <TableHead className="min-w-[200px]">Interessado</TableHead>
-                            <TableHead className="min-w-[300px]">Curso e Turma Desejada</TableHead>
-                            <TableHead className="w-[120px]">Status</TableHead>
-                            <TableHead className="text-right w-[180px]">Ações</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {filteredRequests.length === 0 ? (
+                    <Table>
+                        <TableHeader className="bg-muted/50">
                             <TableRow>
-                                <TableCell colSpan={5} className="h-36 text-center text-muted-foreground">
-                                    <div className="flex flex-col items-center justify-center gap-2">
-                                        <Filter className="size-8 text-slate-300 dark:text-slate-700" />
-                                        <p className="text-sm font-medium">Nenhuma solicitação encontrada com os filtros selecionados.</p>
-                                        {(selectedCourseFilter !== 'all' || selectedStatusFilter !== 'all' || searchTerm) && (
-                                            <Button 
-                                                variant="ghost" 
-                                                size="sm" 
-                                                onClick={() => {
-                                                    setSelectedCourseFilter('all');
-                                                    setSelectedStatusFilter('all');
-                                                    setSearchTerm('');
-                                                }}
-                                                className="text-xs text-primary"
-                                            >
-                                                Limpar Filtros
-                                            </Button>
-                                        )}
-                                    </div>
-                                </TableCell>
+                                <TableHead className="w-[120px]">Data</TableHead>
+                                <TableHead className="min-w-[180px]">Interessado</TableHead>
+                                <TableHead className="min-w-[240px]">Curso e Turma Desejada</TableHead>
+                                <TableHead className="min-w-[220px]">Pré-requisito / Histórico</TableHead>
+                                <TableHead className="w-[110px]">Status</TableHead>
+                                <TableHead className="text-right w-[180px]">Ações</TableHead>
                             </TableRow>
-                        ) : (
-                            filteredRequests.map(req => {
-                                const targetCourse = courses.find(c => c.id === req.courseId);
-                                const courseName = targetCourse?.name || (targetCourse as any)?.title || (req as any).courseName || 'Curso não identificado';
-                                const courseClasses = classes.filter(c => c.courseId === req.courseId);
-                                const isProcessing = isActionInProgress === req.id;
-
-                                return (
-                                <TableRow key={req.id} className={req.status === 'pending' ? 'bg-primary/[0.02] hover:bg-primary/[0.04]' : 'hover:bg-muted/50'}>
-                                    {/* Data */}
-                                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap align-middle">
-                                        {req.createdAt ? format(req.createdAt.toDate(), 'dd/MM/yy HH:mm', { locale: ptBR }) : '—'}
-                                    </TableCell>
-
-                                    {/* Interessado */}
-                                    <TableCell className="align-middle">
-                                        <div className="font-bold text-sm text-slate-900 dark:text-slate-100">{req.name}</div>
-                                        <div className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
-                                            {req.phone || 'Sem telefone'}
+                        </TableHeader>
+                        <TableBody>
+                            {filteredRequests.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={6} className="h-36 text-center text-muted-foreground">
+                                        <div className="flex flex-col items-center justify-center gap-2">
+                                            <Filter className="size-8 text-slate-300 dark:text-slate-700" />
+                                            <p className="text-sm font-medium">Nenhuma solicitação encontrada com os filtros selecionados.</p>
+                                            {(selectedCourseFilter !== 'all' || selectedStatusFilter !== 'all' || searchTerm) && (
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="sm" 
+                                                    onClick={() => {
+                                                        setSelectedCourseFilter('all');
+                                                        setSelectedStatusFilter('all');
+                                                        setSearchTerm('');
+                                                    }}
+                                                    className="text-xs text-primary"
+                                                >
+                                                    Limpar Filtros
+                                                </Button>
+                                            )}
                                         </div>
                                     </TableCell>
+                                </TableRow>
+                            ) : (
+                                filteredRequests.map(req => {
+                                    const targetCourse = courses.find(c => c.id === req.courseId);
+                                    const courseName = targetCourse?.name || (targetCourse as any)?.title || (req as any).courseName || 'Curso não identificado';
+                                    const courseClasses = classes.filter(c => c.courseId === req.courseId);
+                                    const isProcessing = isActionInProgress === req.id;
+                                    const prereqEval = getPrerequisiteEvaluation(req);
 
-                                    {/* Curso e Turma Desejada */}
-                                    <TableCell className="align-middle">
-                                        <div className="flex flex-col gap-2 py-1">
-                                            {/* Nome do Curso com Destaque */}
-                                            <div className="flex items-center gap-2">
-                                                <Badge variant="secondary" className="bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/50 dark:text-indigo-300 dark:border-indigo-800 text-xs font-bold px-2.5 py-0.5 flex items-center gap-1.5">
-                                                    <BookOpen className="size-3 shrink-0" />
-                                                    <span>{courseName}</span>
-                                                </Badge>
+                                    return (
+                                    <TableRow key={req.id} className={req.status === 'pending' ? 'bg-primary/[0.02] hover:bg-primary/[0.04]' : 'hover:bg-muted/50'}>
+                                        {/* Data */}
+                                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap align-middle">
+                                            {req.createdAt ? format(req.createdAt.toDate(), 'dd/MM/yy HH:mm', { locale: ptBR }) : '—'}
+                                        </TableCell>
+
+                                        {/* Interessado */}
+                                        <TableCell className="align-middle">
+                                            <div className="font-bold text-sm text-slate-900 dark:text-slate-100">{req.name}</div>
+                                            <div className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                                                {req.phone || 'Sem telefone'}
                                             </div>
+                                        </TableCell>
 
-                                            {/* Seletor de Turma ou Turma Vinculada */}
-                                            {req.status === 'pending' ? (
-                                                <div className="flex items-center gap-1.5">
-                                                    <Select 
-                                                        value={selectedClassMap[req.id] || req.classId || 'null'} 
-                                                        onValueChange={(v) => handleClassSelect(req.id, v)}
-                                                    >
-                                                        <SelectTrigger className="w-full max-w-[280px] h-8 text-xs bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 shadow-sm">
-                                                            <div className="flex items-center gap-1.5 truncate">
-                                                                <Users className="size-3 text-muted-foreground shrink-0" />
-                                                                <SelectValue placeholder="Selecionar turma..." />
-                                                            </div>
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="null" className="text-xs text-muted-foreground">Definir depois</SelectItem>
-                                                            {courseClasses.map(c => (
-                                                                <SelectItem key={c.id} value={c.id} className="text-xs">
-                                                                    {c.name} {c.dayOfWeek ? `(${c.dayOfWeek})` : ''}
-                                                                </SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
+                                        {/* Curso e Turma Desejada */}
+                                        <TableCell className="align-middle">
+                                            <div className="flex flex-col gap-2 py-1">
+                                                {/* Nome do Curso com Destaque */}
+                                                <div className="flex items-center gap-2">
+                                                    <Badge variant="secondary" className="bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/50 dark:text-indigo-300 dark:border-indigo-800 text-xs font-bold px-2.5 py-0.5 flex items-center gap-1.5">
+                                                        <BookOpen className="size-3 shrink-0" />
+                                                        <span>{courseName}</span>
+                                                    </Badge>
                                                 </div>
-                                            ) : (
-                                                <div className="text-xs text-muted-foreground flex items-center gap-1.5">
-                                                    <Users className="size-3" />
-                                                    <span>Turma:</span>
-                                                    <strong className="text-slate-800 dark:text-slate-200">
-                                                        {courseClasses.find(c => c.id === req.classId)?.name || 'Sem turma'}
-                                                    </strong>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </TableCell>
 
-                                    {/* Status */}
-                                    <TableCell className="align-middle">
-                                        <Badge 
-                                            variant={req.status === 'pending' ? 'outline' : req.status === 'approved' ? 'default' : 'destructive'} 
-                                            className={cn(
-                                                "font-black uppercase text-[10px] tracking-wider px-2.5 py-0.5", 
-                                                req.status === 'pending' && "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800",
-                                                req.status === 'approved' && "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300",
-                                                req.status === 'rejected' && "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-300"
-                                            )}
-                                        >
-                                            {req.status === 'pending' ? 'Pendente' : req.status === 'approved' ? 'Aprovado' : 'Reprovado'}
-                                        </Badge>
-                                    </TableCell>
+                                                {/* Seletor de Turma ou Turma Vinculada */}
+                                                {req.status === 'pending' ? (
+                                                    <div className="flex items-center gap-1.5">
+                                                        <Select 
+                                                            value={selectedClassMap[req.id] || req.classId || 'null'} 
+                                                            onValueChange={(v) => handleClassSelect(req.id, v)}
+                                                        >
+                                                            <SelectTrigger className="w-full max-w-[280px] h-8 text-xs bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 shadow-sm">
+                                                                <div className="flex items-center gap-1.5 truncate">
+                                                                    <Users className="size-3 text-muted-foreground shrink-0" />
+                                                                    <SelectValue placeholder="Selecionar turma..." />
+                                                                </div>
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="null" className="text-xs text-muted-foreground">Definir depois</SelectItem>
+                                                                {courseClasses.map(c => (
+                                                                    <SelectItem key={c.id} value={c.id} className="text-xs">
+                                                                        {c.name} {c.dayOfWeek ? `(${c.dayOfWeek})` : ''}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+                                                        <Users className="size-3" />
+                                                        <span>Turma:</span>
+                                                        <strong className="text-slate-800 dark:text-slate-200">
+                                                            {courseClasses.find(c => c.id === req.classId)?.name || 'Sem turma'}
+                                                        </strong>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </TableCell>
+
+                                        {/* Pré-requisito / Histórico */}
+                                        <TableCell className="align-middle">
+                                            {(() => {
+                                                if (prereqEval.status === 'none') {
+                                                    return (
+                                                        <span className="text-xs text-muted-foreground italic flex items-center gap-1">
+                                                            — Sem pré-requisito
+                                                        </span>
+                                                    );
+                                                }
+
+                                                if (prereqEval.status === 'approved') {
+                                                    return (
+                                                        <div className="flex flex-col gap-1 py-1">
+                                                            <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-700 text-xs font-bold px-2 py-0.5 w-fit flex items-center gap-1 shadow-xs">
+                                                                <CheckCircle2 className="size-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                                                <span>Aprovado em {prereqEval.prereqCourseName}</span>
+                                                            </Badge>
+                                                            <span className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium pl-0.5 flex items-center gap-1">
+                                                                Freq: <strong>{prereqEval.rate !== undefined ? `${prereqEval.rate}%` : '100%'}</strong>
+                                                                {prereqEval.className && <span className="text-muted-foreground">({prereqEval.className})</span>}
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                }
+
+                                                if (prereqEval.status === 'in_progress') {
+                                                    return (
+                                                        <div className="flex flex-col gap-1 py-1">
+                                                            <Badge className="bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-700 text-xs font-bold px-2 py-0.5 w-fit flex items-center gap-1 shadow-xs">
+                                                                <Clock className="size-3 text-amber-600 dark:text-amber-400 shrink-0" />
+                                                                <span>Cursando {prereqEval.prereqCourseName}</span>
+                                                            </Badge>
+                                                            <span className="text-[11px] text-amber-700 dark:text-amber-400 font-medium pl-0.5 flex items-center gap-1">
+                                                                Freq. atual: <strong>{prereqEval.rate}%</strong>
+                                                                {prereqEval.className && <span className="text-muted-foreground">({prereqEval.className})</span>}
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                }
+
+                                                if (prereqEval.status === 'failed') {
+                                                    return (
+                                                        <div className="flex flex-col gap-1 py-1">
+                                                            <Badge className="bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-700 text-xs font-bold px-2 py-0.5 w-fit flex items-center gap-1 shadow-xs">
+                                                                <XCircle className="size-3 text-rose-600 dark:text-rose-400 shrink-0" />
+                                                                <span>Reprovado em {prereqEval.prereqCourseName}</span>
+                                                            </Badge>
+                                                            <span className="text-[11px] text-rose-700 dark:text-rose-400 font-medium pl-0.5">
+                                                                Freq: <strong>{prereqEval.rate}%</strong> (Mín: {prereqEval.minRate}%)
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                }
+
+                                                if (prereqEval.status === 'not_enrolled') {
+                                                    return (
+                                                        <div className="flex flex-col gap-0.5 py-1">
+                                                            <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-300 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700 text-xs font-semibold px-2 py-0.5 w-fit flex items-center gap-1">
+                                                                <AlertCircle className="size-3 text-amber-500 shrink-0" />
+                                                                <span>Não cursou {prereqEval.prereqCourseName}</span>
+                                                            </Badge>
+                                                            <span className="text-[10px] text-muted-foreground pl-0.5">
+                                                                Exige aprovação prévia
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                }
+
+                                                // not_found
+                                                return (
+                                                    <div className="flex flex-col gap-0.5 py-1">
+                                                        <Badge variant="outline" className="bg-slate-50 text-slate-500 border-slate-200 text-xs font-medium px-2 py-0.5 w-fit flex items-center gap-1">
+                                                            <Users className="size-3 text-slate-400 shrink-0" />
+                                                            <span>Sem histórico ({prereqEval.prereqCourseName})</span>
+                                                        </Badge>
+                                                        <span className="text-[10px] text-muted-foreground pl-0.5">
+                                                            Primeiro cadastro
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })()}
+                                        </TableCell>
 
                                     {/* Ações */}
                                     <TableCell className="text-right align-middle">
