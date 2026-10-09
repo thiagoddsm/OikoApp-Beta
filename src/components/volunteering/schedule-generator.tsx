@@ -14,6 +14,7 @@ import { Timestamp } from 'firebase/firestore';
 import { useDoc, useFirebase } from '@/firebase';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useMembersData, useEventsData, useVolunteeringServiceData } from "@/hooks/useDomainData";
+import { formatScheduleItemsWithCheckIn } from "@/lib/volunteering-utils";
 
 const months = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -387,15 +388,11 @@ export function ScheduleGenerator() {
                 description: `Enviando confirmação de escala via WhatsApp para ${uniqueVolunteers.length} voluntário(s).`,
             });
 
+            const areaObj = areas.find(a => a.id === selectedAreaId);
+
             for (const volunteer of uniqueVolunteers) {
                 const scheduledItems = skeleton.filter(item => item.volunteerId === volunteer.id);
-                const weekDays = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
-                const formattedItems = scheduledItems.map(item => {
-                    const [d, m, y] = item.date.split('/');
-                    const dateObj = new Date(parseInt(y), parseInt(m) - 1, parseInt(d), 12, 0, 0);
-                    const day = weekDays[dateObj.getDay()];
-                    return `${item.date} (${day}) - ${item.eventName}${item.teamName ? ` [${item.teamName}]` : ''}`;
-                });
+                const formattedItems = formatScheduleItemsWithCheckIn(scheduledItems, areaObj || {}, events);
 
                 try {
                     const token = await currentUser?.getIdToken();

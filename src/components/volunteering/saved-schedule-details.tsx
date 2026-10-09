@@ -15,13 +15,15 @@ import { Label } from '@/components/ui/label';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useToast } from '@/hooks/use-toast';
-import { useMembersData, useVolunteeringServiceData } from "@/hooks/useDomainData";
+import { useMembersData, useEventsData, useVolunteeringServiceData } from "@/hooks/useDomainData";
+import { formatScheduleItemsWithCheckIn } from "@/lib/volunteering-utils";
 
 const weekDays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
 
 export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, monthFilter: string }) {
     const { user: currentUser } = useFirebase();
     const { users } = useMembersData();
+    const { events } = useEventsData();
     const { serviceAreas: areas, teams, savedSchedules } = useVolunteeringServiceData();
 
     const { isLoading: isContextLoading, deleteSchedule, saveSchedule } = useVolunteering();
@@ -265,12 +267,7 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
         let successCount = 0;
         for (const volunteer of volunteers) {
             const scheduledItems = itemsToNotify.filter((item: any) => item.memberIds.includes(volunteer.id));
-            const formattedItems = scheduledItems.map((item: any) => {
-                const day = getDayOfWeek(item.date);
-                return `${item.date} (${day}) - ${item.eventName}${item.teamName ? ` [${item.teamName}]` : ''}`;
-            });
-
-            try {
+            const areaObj = areas.find(a => a.id === areaId);\n            const formattedItems = formatScheduleItemsWithCheckIn(scheduledItems, areaObj || {}, events);\n\n            try {
                 const token = await currentUser?.getIdToken();
                 const response = await fetch('/api/notifications/send-schedule-confirmation', {
                     method: 'POST',
