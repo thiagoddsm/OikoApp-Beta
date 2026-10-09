@@ -602,6 +602,33 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                                                                     >
                                                                         💡 Destaque
                                                                     </Button>
+                                                                    <Button 
+                                                                        type="button"
+                                                                        variant="ghost" 
+                                                                        size="sm" 
+                                                                        className="h-6 px-1.5 text-[9px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100"
+                                                                        onClick={() => insertMarkdown('![Infográfico ou Desenho Explicativo](https://url-da-imagem.png)')}
+                                                                    >
+                                                                        📷 Imagem/Gráfico
+                                                                    </Button>
+                                                                    <Button 
+                                                                        type="button"
+                                                                        variant="ghost" 
+                                                                        size="sm" 
+                                                                        className="h-6 px-1.5 text-[9px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
+                                                                        onClick={() => insertMarkdown('| Conceito | Aplicação Prática |\n|---|---|\n| Fortaleza | Padrão mental a ser quebrado |\n| Verdade | Palavra de Deus que liberta |')}
+                                                                    >
+                                                                        📊 Tabela
+                                                                    </Button>
+                                                                    <Button 
+                                                                        type="button"
+                                                                        variant="ghost" 
+                                                                        size="sm" 
+                                                                        className="h-6 px-1.5 text-[9px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100"
+                                                                        onClick={() => insertMarkdown('⚖️ [!COMPARE]\n### 🛡️ REFÚGIO (DEUS)\n- Proteção\n- Presença\n- Socorro\n---\n### ⛓️ PRISÃO (PADRÃO)\n- Mentira\n- Pecado\n- Controle')}
+                                                                    >
+                                                                        ⚖️ Comparativo
+                                                                    </Button>
                                                                 </div>
                                                             </div>
 

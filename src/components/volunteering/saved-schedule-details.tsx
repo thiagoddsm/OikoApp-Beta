@@ -266,8 +266,11 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
 
         let successCount = 0;
         for (const volunteer of volunteers) {
-            const scheduledItems = itemsToNotify.filter((item: any) => item.memberIds.includes(volunteer.id));
-            const areaObj = areas.find(a => a.id === areaId);\n            const formattedItems = formatScheduleItemsWithCheckIn(scheduledItems, areaObj || {}, events);\n\n            try {
+            const scheduledItems = itemsToNotify.filter((item: any) => item.memberIds?.includes(volunteer.id));
+            const areaObj = areas.find(a => a.id === areaId);
+            const formattedItems = formatScheduleItemsWithCheckIn(scheduledItems, areaObj || {}, events);
+
+            try {
                 const token = await currentUser?.getIdToken();
                 const response = await fetch('/api/notifications/send-schedule-confirmation', {
                     method: 'POST',

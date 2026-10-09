@@ -136,6 +136,86 @@ export function LessonArticleViewer({
         );
       }
 
+      // Markdown Image: ![Alt](url)
+      if (/^!\[(.*?)\]\((.*?)\)$/.test(trimmed)) {
+        const match = trimmed.match(/^!\[(.*?)\]\((.*?)\)$/);
+        if (match) {
+          const caption = match[1];
+          const src = match[2];
+          return (
+            <figure key={bIdx} className="my-6 rounded-2xl overflow-hidden border border-white/10 bg-slate-900 shadow-2xl space-y-2 p-2">
+              <div className="relative w-full max-h-[500px] overflow-hidden rounded-xl flex items-center justify-center bg-black/40">
+                <img 
+                  src={src} 
+                  alt={caption || 'Ilustração do estudo'} 
+                  className="max-h-[480px] w-auto max-w-full object-contain mx-auto rounded-lg hover:scale-105 transition-transform duration-300"
+                  loading="lazy"
+                />
+              </div>
+              {caption && (
+                <figcaption className="text-center text-xs font-medium text-slate-400 italic py-1 px-3">
+                  📷 {caption}
+                </figcaption>
+              )}
+            </figure>
+          );
+        }
+      }
+
+      // Markdown Table: | Col 1 | Col 2 |
+      if (trimmed.includes('|') && trimmed.split('\n').length >= 2 && trimmed.split('\n')[0].includes('|')) {
+        const lines = trimmed.split('\n').map(l => l.trim()).filter(Boolean);
+        const headers = lines[0].split('|').map(c => c.trim()).filter(Boolean);
+        const rows = lines.slice(2).map(l => l.split('|').map(c => c.trim()).filter(Boolean));
+
+        if (headers.length > 0) {
+          return (
+            <div key={bIdx} className="my-6 overflow-x-auto rounded-2xl border border-white/10 bg-slate-900/90 shadow-xl">
+              <table className="w-full text-left text-xs sm:text-sm text-slate-200">
+                <thead className="bg-white/5 border-b border-white/10 text-amber-300 font-bold uppercase tracking-wider text-[10px] sm:text-xs">
+                  <tr>
+                    {headers.map((h, hIdx) => (
+                      <th key={hIdx} className="p-3 sm:p-4">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {rows.map((row, rIdx) => (
+                    <tr key={rIdx} className="hover:bg-white/[0.02] transition-colors">
+                      {row.map((cell, cIdx) => (
+                        <td key={cIdx} className="p-3 sm:p-4 leading-relaxed font-medium">
+                          {renderInlineFormatting(cell)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        }
+      }
+
+      // Comparison Card Box: [!COMPARE] or [!CONTRASTE]
+      if (trimmed.startsWith('[!COMPARE]') || trimmed.startsWith('[!VS]') || trimmed.startsWith('⚖️')) {
+        const cleanContent = trimmed.replace(/^(\[!COMPARE\]|\[!VS\]|⚖️)\s*/, '');
+        const items = cleanContent.split(/---|\nvs\n|\nVS\n/i);
+        return (
+          <div key={bIdx} className="my-6 p-4 sm:p-6 rounded-2xl bg-gradient-to-r from-blue-950/40 via-slate-900 to-rose-950/40 border border-white/10 space-y-4 shadow-xl">
+            <div className="flex items-center gap-2 text-amber-400 font-black text-xs uppercase tracking-widest">
+              <Sparkles className="size-4" /> Quadro Comparativo / Diferenciação
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {items.map((it, itIdx) => (
+                <div key={itIdx} className={cn("p-4 rounded-xl border text-sm leading-relaxed", itIdx === 0 ? "bg-blue-500/10 border-blue-500/30 text-blue-100" : "bg-rose-500/10 border-rose-500/30 text-rose-100")}>
+                  {renderFormattedContent(it.trim())}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      }
+
       // Standard Paragraph
       return (
         <p key={bIdx} className="text-sm sm:text-base md:text-lg text-slate-200 leading-relaxed font-normal">
