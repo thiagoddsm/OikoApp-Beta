@@ -28,12 +28,13 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { theoflixDB, type Course, type Episode } from '@/lib/theoflix-data';
-import { Play, Info, Plus, Lock, Search, Clock, CheckCircle2, PlayCircle, Star, Heart, X, Settings, Loader2, ArrowLeft, CheckCircle, BookCheck, DatabaseZap, Link as LinkIcon, AlertTriangle } from 'lucide-react';
+import { theoflixDB, type Course, type Episode, type ContentType } from '@/lib/theoflix-data';
+import { Play, Info, Plus, Lock, Search, Clock, CheckCircle2, PlayCircle, Star, Heart, X, Settings, Loader2, ArrowLeft, CheckCircle, BookCheck, DatabaseZap, Link as LinkIcon, AlertTriangle, FileQuestion, BookOpen, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFirebase, useCollection, useMemoFirebase, useDoc, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
 import { collection, query, doc, orderBy } from 'firebase/firestore';
 import { TheoflixManager } from '@/components/teaching/theoflix/theoflix-manager';
+import { LessonArticleViewer } from '@/components/teaching/theoflix/lesson-article-viewer';
 import { useToast } from '@/hooks/use-toast';
 import { useVolunteering, VolunteeringProvider } from '@/contexts/volunteering-context';
 import { useCoursesData } from "@/hooks/useDomainData";
@@ -764,26 +765,81 @@ function TheoFlixContent() {
           
           {selectedCourse && (
             <div className="flex flex-col">
-              <div className="relative aspect-video w-full bg-black shrink-0">
-                {isPlaying && currentEpisode?.youtubeId ? (
-                    <div id="theoflix-player" className="w-full h-full"></div>
-                ) : (
-                    <>
-                        <Image src={selectedCourse.image || 'https://picsum.photos/seed/placeholder/800/450'} alt={selectedCourse.title} fill className="object-cover opacity-40 blur-sm" />
-                        <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4 sm:p-8 space-y-4 sm:space-y-6">
-                            <Badge className={cn("text-white font-black text-[10px] sm:text-xs", getColorClasses(levels.find(l => l.level === selectedCourse.level)?.color || 'blue').color)}>
-                                NÍVEL {selectedCourse.level}
+              {/* Header / Top Player Area */}
+              {(() => {
+                const epType: ContentType = currentEpisode?.contentType || 'video';
+                const isHybridBottom = epType === 'hybrid' && (currentEpisode?.videoPosition === 'bottom' || !currentEpisode?.videoPosition);
+                const isTextOnly = epType === 'text';
+
+                // Se for apenas texto ou híbrido com vídeo no final, exibe cabeçalho nobre de leitura no topo
+                if (isTextOnly || isHybridBottom) {
+                  return (
+                    <div className="relative min-h-[220px] sm:min-h-[280px] w-full bg-slate-900 overflow-hidden flex flex-col justify-end p-6 sm:p-10 border-b border-white/10 shrink-0">
+                      <Image 
+                        src={selectedCourse.image || 'https://picsum.photos/seed/placeholder/800/450'} 
+                        alt={selectedCourse.title} 
+                        fill 
+                        className="object-cover opacity-20 blur-md pointer-events-none" 
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/70 to-transparent pointer-events-none" />
+                      
+                      <div className="relative z-10 space-y-3 sm:space-y-4 max-w-3xl">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge className={cn("text-white font-black text-[10px] sm:text-xs", getColorClasses(levels.find(l => l.level === selectedCourse.level)?.color || 'blue').color)}>
+                            NÍVEL {selectedCourse.level}
+                          </Badge>
+                          {isTextOnly ? (
+                            <Badge variant="outline" className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-xs font-bold gap-1">
+                              <BookOpen className="size-3" /> Aula em Texto
                             </Badge>
-                            <h2 className="text-xl sm:text-4xl md:text-6xl font-black text-white uppercase italic tracking-tighter line-clamp-2">
-                                {currentEpisode?.title || selectedCourse.title}
-                            </h2>
-                            <Button className="h-10 sm:h-16 px-6 sm:px-12 font-black text-xs sm:text-xl shadow-2xl" onClick={() => currentEpisode && handlePlayEpisode(currentEpisode)}>
-                                <Play className="mr-2 sm:mr-3 size-4 sm:size-7 fill-current" /> ASSISTIR AGORA
-                            </Button>
+                          ) : (
+                            <Badge variant="outline" className="bg-primary/20 text-primary-foreground border-primary/40 text-xs font-bold gap-1">
+                              <Sparkles className="size-3 text-amber-400" /> Formato Híbrido (Leitura + Vídeo)
+                            </Badge>
+                          )}
+                          <Badge variant="outline" className="bg-slate-800 text-slate-300 border-slate-700 text-xs font-medium gap-1">
+                            <Clock className="size-3" /> ~{currentEpisode?.readingTimeMinutes || 5} min de leitura
+                          </Badge>
                         </div>
-                    </>
-                )}
-              </div>
+
+                        <h2 className="text-xl sm:text-3xl md:text-5xl font-black text-white uppercase italic tracking-tight">
+                          {currentEpisode?.title || selectedCourse.title}
+                        </h2>
+
+                        {currentEpisode?.desc && (
+                          <p className="text-xs sm:text-sm text-slate-300 line-clamp-2">
+                            {currentEpisode.desc}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Padrão: player de vídeo no topo (para 'video' puro ou 'hybrid' com vídeo no topo)
+                return (
+                  <div className="relative aspect-video w-full bg-black shrink-0">
+                    {isPlaying && currentEpisode?.youtubeId ? (
+                        <div id="theoflix-player" className="w-full h-full"></div>
+                    ) : (
+                        <>
+                            <Image src={selectedCourse.image || 'https://picsum.photos/seed/placeholder/800/450'} alt={selectedCourse.title} fill className="object-cover opacity-40 blur-sm" />
+                            <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4 sm:p-8 space-y-4 sm:space-y-6">
+                                <Badge className={cn("text-white font-black text-[10px] sm:text-xs", getColorClasses(levels.find(l => l.level === selectedCourse.level)?.color || 'blue').color)}>
+                                    NÍVEL {selectedCourse.level}
+                                </Badge>
+                                <h2 className="text-xl sm:text-4xl md:text-6xl font-black text-white uppercase italic tracking-tighter line-clamp-2">
+                                    {currentEpisode?.title || selectedCourse.title}
+                                </h2>
+                                <Button className="h-10 sm:h-16 px-6 sm:px-12 font-black text-xs sm:text-xl shadow-2xl" onClick={() => currentEpisode && handlePlayEpisode(currentEpisode)}>
+                                    <Play className="mr-2 sm:mr-3 size-4 sm:size-7 fill-current" /> ASSISTIR AGORA
+                                </Button>
+                            </div>
+                        </>
+                    )}
+                  </div>
+                );
+              })()}
 
               <div className="bg-slate-950 text-slate-100 p-5 sm:p-10 grid grid-cols-1 md:grid-cols-3 gap-8 sm:gap-16 border-t border-white/5">
                 <div className="md:col-span-2 space-y-8 sm:space-y-12">
@@ -816,23 +872,72 @@ function TheoFlixContent() {
                       </div>
                     )}
 
+                    {/* Leitor de Texto / Artigo (se 'text' ou 'hybrid' ou com textContent) */}
+                    {currentEpisode && (currentEpisode.contentType === 'text' || currentEpisode.contentType === 'hybrid' || (currentEpisode.textContent && currentEpisode.textContent.trim().length > 0)) && (
+                      <section className="space-y-4 p-5 sm:p-8 rounded-3xl bg-slate-900/60 border border-white/10 shadow-xl">
+                        <LessonArticleViewer 
+                          title={currentEpisode.title}
+                          textContent={currentEpisode.textContent}
+                          readingTimeMinutes={currentEpisode.readingTimeMinutes}
+                          attachments={currentEpisode.attachments}
+                        />
+
+                        {/* Se for híbrido com vídeo no final da leitura, exibe o player embutido ao término do artigo */}
+                        {currentEpisode.contentType === 'hybrid' && (currentEpisode.videoPosition === 'bottom' || !currentEpisode.videoPosition) && currentEpisode.youtubeId && (
+                          <div className="pt-8 mt-8 border-t border-white/10 space-y-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <PlayCircle className="size-5 text-amber-400" />
+                                <h3 className="text-sm sm:text-base font-black uppercase italic tracking-tight text-white">
+                                  Vídeo Complementar da Lição
+                                </h3>
+                              </div>
+                              <span className="text-xs font-bold text-slate-400 uppercase">{currentEpisode.duration || '45 MIN'}</span>
+                            </div>
+
+                            <div className="relative aspect-video w-full rounded-2xl overflow-hidden bg-black border border-white/10 shadow-2xl">
+                              {isPlaying ? (
+                                <div id="theoflix-player" className="w-full h-full"></div>
+                              ) : (
+                                <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 space-y-4 bg-slate-900/80">
+                                  <h4 className="text-base sm:text-xl font-bold text-white max-w-md">
+                                    Concluiu a leitura? Assista ao vídeo explicativo para fixar o conteúdo.
+                                  </h4>
+                                  <Button 
+                                    className="h-12 px-8 font-black text-sm uppercase shadow-xl"
+                                    onClick={() => handlePlayEpisode(currentEpisode)}
+                                  >
+                                    <Play className="mr-2 size-5 fill-current" /> Assistir Vídeo
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </section>
+                    )}
+
                     <section>
-                        <h3 className="text-[9px] sm:text-xs font-black uppercase text-primary tracking-widest mb-2 sm:mb-4">Sinopse</h3>
+                        <h3 className="text-[9px] sm:text-xs font-black uppercase text-primary tracking-widest mb-2 sm:mb-4">Sinopse do Curso</h3>
                         <p className="text-sm sm:text-lg text-slate-300 font-medium leading-relaxed">{selectedCourse.desc}</p>
                     </section>
 
                     <section className="space-y-4 sm:space-y-6">
-                        <h3 className="text-[9px] sm:text-xs font-black uppercase text-primary tracking-widest">Grade de Aulas</h3>
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-[9px] sm:text-xs font-black uppercase text-primary tracking-widest">Grade de Aulas</h3>
+                          <span className="text-[10px] text-slate-400 font-bold uppercase">{selectedCourse.episodes?.length || 0} Lições</span>
+                        </div>
+
                         <div className="space-y-2 sm:space-y-4">
                              {selectedCourse.episodes?.map((ep, idx) => {
                                 const epKey = ep.youtubeId || ep.title.replace(/\s+/g, '_');
                                 const isCompleted = userProgress[selectedCourse.id]?.[epKey];
+                                const epContentType = ep.contentType || 'video';
 
                                 // Procura se este episódio está associado a alguma aula da ementa física/cadastrada
                                 const matchedLesson = (() => {
                                     if (!selectedCourse) return null;
 
-                                    // 1. Busca o curso físico em 'courses'
                                     const physicalCourse = courses?.find((pc: any) => 
                                         pc.linkedTheoflixId === selectedCourse.id || 
                                         pc.id === selectedCourse.id ||
@@ -841,7 +946,6 @@ function TheoFlixContent() {
                                     
                                     const syllabus = physicalCourse?.syllabus || (selectedCourse as any)?.syllabus || [];
 
-                                    // 1.1 Tenta achar pela ementa explícita vinculada
                                     if (syllabus.length > 0) {
                                         const sIdxExplicit = syllabus.findIndex((mod: any) => 
                                             (mod.theoflixCourseId === selectedCourse.id && mod.theoflixRequiredVideoIds?.includes(idx.toString())) ||
@@ -855,7 +959,6 @@ function TheoFlixContent() {
                                             };
                                         }
 
-                                        // 1.2 Tenta achar por ordem posicional (1-para-1) na ementa
                                         if (syllabus[idx]) {
                                             return {
                                                 num: String(idx + 1).padStart(2, '0'),
@@ -864,7 +967,6 @@ function TheoFlixContent() {
                                         }
                                     }
 
-                                    // 1.3 Fallback padronizado por número da aula
                                     return {
                                         num: String(idx + 1).padStart(2, '0'),
                                         title: ep.title
@@ -886,14 +988,24 @@ function TheoFlixContent() {
                                           )}
                                         </div>
                                         <div className="min-w-0 flex-1 space-y-1">
-                                            {matchedLesson && (
-                                                <div className="flex items-center gap-1.5">
-                                                    <span className="text-[10px] sm:text-xs font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md uppercase tracking-wider inline-flex items-center gap-1">
-                                                        <BookCheck className="size-3 text-emerald-400 shrink-0" />
-                                                        Aula {matchedLesson.num}: {matchedLesson.title}
-                                                    </span>
-                                                </div>
-                                            )}
+                                            <div className="flex flex-wrap items-center gap-1.5">
+                                              {matchedLesson && (
+                                                <span className="text-[10px] sm:text-xs font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md uppercase tracking-wider inline-flex items-center gap-1">
+                                                    <BookCheck className="size-3 text-emerald-400 shrink-0" />
+                                                    Aula {matchedLesson.num}: {matchedLesson.title}
+                                                </span>
+                                              )}
+                                              {epContentType === 'text' && (
+                                                <span className="text-[9px] font-black text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded uppercase inline-flex items-center gap-1">
+                                                  <BookOpen className="size-2.5" /> Texto
+                                                </span>
+                                              )}
+                                              {epContentType === 'hybrid' && (
+                                                <span className="text-[9px] font-black text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded uppercase inline-flex items-center gap-1">
+                                                  <Sparkles className="size-2.5" /> Híbrido
+                                                </span>
+                                              )}
+                                            </div>
                                             <h4 className="font-black text-xs sm:text-lg uppercase italic truncate text-slate-100">{ep.title}</h4>
                                             <span className="text-[8px] sm:text-[10px] text-slate-500 font-bold uppercase block">{ep.duration || '45 MIN'}</span>
                                         </div>
@@ -905,6 +1017,32 @@ function TheoFlixContent() {
                     </section>
                 </div>
                 <div className="space-y-6 sm:space-y-10">
+                     {/* Botão de Avaliação / Quiz Aberto Direto */}
+                     {currentEpisode?.quiz?.enabled && (
+                        <div className="p-5 bg-gradient-to-br from-amber-500/15 via-orange-500/10 to-amber-500/5 rounded-3xl border border-amber-500/30 space-y-3 shadow-xl">
+                            <div className="flex items-center gap-2">
+                                <FileQuestion className="size-5 text-amber-400 shrink-0" />
+                                <div>
+                                  <h4 className="text-xs sm:text-sm font-black text-white uppercase tracking-tight">
+                                    Atividade &amp; Avaliação
+                                  </h4>
+                                  <p className="text-[10px] text-amber-200/80">
+                                    Disponível a qualquer momento, sem bloqueios.
+                                  </p>
+                                </div>
+                            </div>
+                            <Button 
+                              onClick={() => {
+                                setIsQuizOpen(true);
+                                setQuizAnswers(currentEpisode.quiz?.questions?.map(q => q.type === 'essay' ? '' : -1) || []);
+                              }}
+                              className="w-full h-12 font-black bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-xl flex items-center justify-center gap-2 rounded-xl text-xs sm:text-sm tracking-wide uppercase transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+                            >
+                              <FileQuestion className="size-4" /> Responder Avaliação
+                            </Button>
+                        </div>
+                     )}
+
                      {currentLessonMaterial && (
                          <div className="p-4 bg-emerald-950/40 rounded-2xl border border-emerald-500/20 space-y-3 animate-in fade-in duration-300">
                              <div className="flex items-center gap-2">

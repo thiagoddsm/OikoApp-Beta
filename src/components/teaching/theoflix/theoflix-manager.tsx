@@ -801,7 +801,8 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                                                         )}
                                                     </div>
                                                 </Card>
-                                            ))}
+                                                );
+                                            })}
                                             {formCourse.episodes?.length === 0 && (
                                                 <div className="text-center py-12 text-xs text-muted-foreground border-2 border-dashed rounded-2xl bg-muted/5">Nenhuma aula cadastrada.</div>
                                             )}
