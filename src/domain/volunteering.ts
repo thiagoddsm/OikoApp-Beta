@@ -20,6 +20,7 @@ export type AreaOfService = {
   tenantId?: string;
   unifiedCelebrations?: boolean;
   unifiedGroups?: { name: string; eventNames: string[] }[];
+  checkInTimes?: Record<string, string>;
 };
 
 export type Team = {

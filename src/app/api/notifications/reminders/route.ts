@@ -66,7 +66,14 @@ async function handleReminders(request: Request) {
     const areasSnap = await db.collection('areas_of_service').get();
     const areaMap = new Map();
     areasSnap.forEach(d => {
-      areaMap.set(d.id, d.data().name);
+      areaMap.set(d.id, d.data());
+    });
+
+    // 5b. Buscar eventos para tempo padrão
+    const eventsSnap = await db.collection('volunteering_events').get();
+    const eventTimeMap = new Map();
+    eventsSnap.forEach(d => {
+      eventTimeMap.set(d.data().name, d.data().time);
     });
 
     // 6. Buscar números na blacklist
@@ -90,16 +97,32 @@ async function handleReminders(request: Request) {
       areaName: string;
       eventName: string;
       teamName: string | null;
+      checkInTime: string | null;
     }[] = [];
 
     schedulesSnap.forEach(doc => {
       const data = doc.data();
       const areaId = data.areaId;
-      const areaName = areaMap.get(areaId) || 'Serviço';
+      const areaData = areaMap.get(areaId) || {};
+      const areaName = areaData.name || 'Serviço';
+      const checkInTimes = areaData.checkInTimes || {};
       const scheduleList = data.schedule || [];
 
       scheduleList.forEach((item: any) => {
         if (item.date === tomorrowStr && item.memberIds && item.memberIds.length > 0) {
+          
+          let checkInTime = checkInTimes[item.eventName] || null;
+          if (!checkInTime) {
+            const evTime = eventTimeMap.get(item.eventName);
+            if (evTime) {
+              const [h, m] = evTime.split(':').map(Number);
+              const dateObj = new Date();
+              dateObj.setHours(h, m, 0);
+              dateObj.setHours(dateObj.getHours() - 1);
+              checkInTime = `${String(dateObj.getHours()).padStart(2, '0')}:${String(dateObj.getMinutes()).padStart(2, '0')}`;
+            }
+          }
+
           item.memberIds.forEach((mId: string) => {
             const u = userMap.get(mId);
             if (u) {
@@ -111,7 +134,8 @@ async function handleReminders(request: Request) {
                   phone: u.phone,
                   areaName,
                   eventName: item.eventName,
-                  teamName: item.teamName || null
+                  teamName: item.teamName || null,
+                  checkInTime
                 });
               }
             }
@@ -146,9 +170,13 @@ async function handleReminders(request: Request) {
 
       let scheduleText = '';
       if (list.length === 1) {
-        scheduleText = `na área de ${first.areaName}:\n\n• ${first.eventName}${first.teamName ? ` [Equipe ${first.teamName}]` : ''}`;
+        const timeStr = first.checkInTime ? ` (Chegada: ${first.checkInTime})` : '';
+        scheduleText = `na área de ${first.areaName}:\n\n• ${first.eventName}${timeStr}${first.teamName ? ` [Equipe ${first.teamName}]` : ''}`;
       } else {
-        scheduleText = `nas seguintes áreas:\n\n` + list.map(item => `• Área ${item.areaName}: ${item.eventName}${item.teamName ? ` [Equipe ${item.teamName}]` : ''}`).join('\n');
+        scheduleText = `nas seguintes áreas:\n\n` + list.map(item => {
+          const timeStr = item.checkInTime ? ` (Chegada: ${item.checkInTime})` : '';
+          return `• Área ${item.areaName}: ${item.eventName}${timeStr}${item.teamName ? ` [Equipe ${item.teamName}]` : ''}`;
+        }).join('\n');
       }
 
       const message = `Olá, ${capitalizedFirstName}! 🗓️ Passando para lembrar da sua escala de voluntariado amanhã (${tomorrowStr}) ${scheduleText}\n\nContamos com você! Em caso de imprevistos, avise sua liderança o quanto antes.`;

@@ -40,6 +40,7 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
   const [roles, setRoles] = useState<string[]>([]);
   const [newRole, setNewRole] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [checkInTimes, setCheckInTimes] = useState<Record<string, string>>({});
 
   // Estado da Escala Fixa Mensal
   const [fixedPattern, setFixedPattern] = useState<FixedMonthlyPattern>({
@@ -121,6 +122,7 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
       }
 
       setRoles(existingArea?.roles || []);
+      setCheckInTimes(existingArea?.checkInTimes || {});
       setActiveTab('basic');
       setMemberSearch('');
       
@@ -362,7 +364,8 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
       fixedMonthlyPattern: scheduleMode === 'fixed_monthly' ? fixedPattern : undefined,
       roles: areaType === 'worship' ? roles : [],
       unifiedCelebrations: scheduleMode === 'grouped',
-      unifiedGroups: scheduleMode === 'grouped' ? unifiedGroupsMapped : []
+      unifiedGroups: scheduleMode === 'grouped' ? unifiedGroupsMapped : [],
+      checkInTimes: checkInTimes
     };
 
     if (existingArea) {
@@ -659,6 +662,27 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
                 )}
               </div>
             )}
+
+            {/* Check-in Times */}
+            <div className="space-y-3 pt-4 pb-2 border-t border-slate-100">
+              <div>
+                <Label className="font-bold text-slate-800 text-xs">Horário de Check-in (Voluntariado)</Label>
+                <p className="text-[10px] text-slate-500 mt-1">Defina o horário de chegada para cada celebração. Se vazio, o robô enviará 1 hora antes do início do culto.</p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
+                {events?.map(ev => (
+                  <div key={ev.id} className="flex items-center justify-between gap-2 border rounded-lg p-2 bg-slate-50">
+                    <span className="text-xs font-medium text-slate-700 truncate" title={ev.name}>{ev.name} ({ev.time})</span>
+                    <Input 
+                      type="time" 
+                      value={checkInTimes[ev.name] || ''} 
+                      onChange={(e) => setCheckInTimes({...checkInTimes, [ev.name]: e.target.value})} 
+                      className="w-24 h-7 text-xs" 
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
 
             {/* Roles Settings */}
             {areaType === 'worship' && (
