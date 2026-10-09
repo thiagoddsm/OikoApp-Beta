@@ -1181,28 +1181,34 @@ export default function SupervisorPage() {
                         if (diagFilter === 'alerts') return evalData.operationalAlerts.length > 0;
                         return true;
                       })
-                      .map(({ cell, mCount, attRate, hasEligibleHost, eligibleHostsCount, evalData }) => (
-                        <div key={cell.id} className="p-4 rounded-xl border bg-card hover:bg-muted/20 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4">
-                          <div className="space-y-1.5 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <Link href={`/dashboard/gc/cells/${cell.id}`} className="font-black text-base hover:underline hover:text-primary">
-                                {cell.nome}
-                              </Link>
-                              <GcStatusBadges data={evalData} />
-                            </div>
-                            <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1">
-                              <span>Membros: <strong className="text-foreground">{mCount}</strong></span>
-                              <span>&middot;</span>
-                              <span>Frequência: <strong className={attRate >= 50 ? "text-emerald-600 font-bold" : attRate > 0 ? "text-amber-600 font-bold" : "text-slate-400 font-normal"}>{attRate > 0 ? `${attRate}%` : 'Sem dados'}</strong></span>
-                              <span>&middot;</span>
-                              <span>Anfitrião Elegível: <strong className={hasEligibleHost ? "text-emerald-600 font-bold" : "text-rose-600 font-bold"}>{hasEligibleHost ? `Sim (${eligibleHostsCount})` : 'Não'}</strong></span>
-                              <span>&middot;</span>
-                              <span>Líder em Treinamento: <strong className="text-foreground font-bold">{cell.coLideres?.length || cell.coLiderIds?.length || 0}</strong></span>
-                              <span>&middot;</span>
-                              <span>Secretário(a): <strong className="text-foreground font-bold">{cell.secretariaId || (cell as any).secretarioId ? 'Sim' : 'Não'}</strong></span>
-                              <span>&middot;</span>
-                              <span>Multiplicação: <strong className="text-foreground font-bold">{cell.multiplicationDate || 'Não planejada'}</strong></span>
-                            </p>
+                      .map(({ cell, mCount, attRate, hasEligibleHost, eligibleHostsCount, evalData }) => {
+                        const healthFactor = (mCount * (attRate / 100)) / 2;
+                        const factorColor = healthFactor >= 6 ? "text-emerald-600 font-bold" : healthFactor >= 4 ? "text-amber-600 font-bold" : "text-rose-600 font-bold";
+
+                        return (
+                          <div key={cell.id} className="p-4 rounded-xl border bg-card hover:bg-muted/20 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="space-y-1.5 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <Link href={`/dashboard/gc/cells/${cell.id}`} className="font-black text-base hover:underline hover:text-primary">
+                                  {cell.nome}
+                                </Link>
+                                <GcStatusBadges data={evalData} />
+                              </div>
+                              <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1">
+                                <span>Fator Saúde: <strong className={factorColor}>{healthFactor.toFixed(2)}</strong></span>
+                                <span>&middot;</span>
+                                <span>Membros: <strong className="text-foreground">{mCount}</strong></span>
+                                <span>&middot;</span>
+                                <span>Frequência: <strong className={attRate >= 50 ? "text-emerald-600 font-bold" : attRate > 0 ? "text-amber-600 font-bold" : "text-slate-400 font-normal"}>{attRate > 0 ? `${attRate}%` : 'Sem dados'}</strong></span>
+                                <span>&middot;</span>
+                                <span>Anfitrião Elegível: <strong className={hasEligibleHost ? "text-emerald-600 font-bold" : "text-rose-600 font-bold"}>{hasEligibleHost ? `Sim (${eligibleHostsCount})` : 'Não'}</strong></span>
+                                <span>&middot;</span>
+                                <span>Líder em Treinamento: <strong className="text-foreground font-bold">{cell.coLideres?.length || cell.coLiderIds?.length || 0}</strong></span>
+                                <span>&middot;</span>
+                                <span>Secretário(a): <strong className="text-foreground font-bold">{cell.secretariaId || (cell as any).secretarioId ? 'Sim' : 'Não'}</strong></span>
+                                <span>&middot;</span>
+                                <span>Multiplicação: <strong className="text-foreground font-bold">{cell.multiplicationDate || 'Não planejada'}</strong></span>
+                              </p>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
                             <Button size="sm" variant="outline" className="h-8 text-xs font-bold gap-1" asChild>
@@ -1212,7 +1218,8 @@ export default function SupervisorPage() {
                             </Button>
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                   </div>
                 )}
               </CardContent>
