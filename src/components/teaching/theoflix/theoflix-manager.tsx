@@ -43,9 +43,16 @@ import {
     ChevronUp,
     ChevronDown,
     X,
-    Info
+    Info,
+    BookOpen,
+    FileText,
+    Sparkles,
+    Paperclip,
+    Quote,
+    List,
+    Clock
 } from 'lucide-react';
-import { type Course, type Episode } from '@/lib/theoflix-data';
+import { type Course, type Episode, type ContentType } from '@/lib/theoflix-data';
 import { type TheoLevel } from '@/app/dashboard/teaching/theoflix/page';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -224,7 +231,21 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
     };
 
     const handleAddEpisode = () => {
-        setFormCourse(prev => ({ ...prev, episodes: [...(prev.episodes || []), { title: 'Nova Aula', youtubeId: '', duration: '45min' }] }));
+        setFormCourse(prev => ({ 
+            ...prev, 
+            episodes: [
+                ...(prev.episodes || []), 
+                { 
+                    title: 'Nova Aula', 
+                    contentType: 'video' as ContentType,
+                    youtubeId: '', 
+                    duration: '45min',
+                    textContent: '',
+                    videoPosition: 'bottom',
+                    attachments: []
+                }
+            ] 
+        }));
     };
 
     const moveEpisode = (index: number, direction: 'up' | 'down') => {
@@ -365,30 +386,241 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                                             </Button>
                                         </div>
                                         <div className="space-y-4">
-                                            {(formCourse.episodes || []).map((ep, idx) => (
-                                                <Card key={idx} className="p-4 rounded-2xl border-2 bg-muted/5 flex flex-col gap-4 relative group transition-all hover:border-primary/30">
-                                                    <div className="space-y-1.5">
-                                                        <Label className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Título do Vídeo {idx + 1}</Label>
-                                                        <Input className="h-10 text-sm bg-white font-bold" value={ep.title} onChange={e => { const n = [...formCourse.episodes!]; n[idx].title = e.target.value; setFormCourse(p => ({...p, episodes: n})); }} />
+                                             {(formCourse.episodes || []).map((ep, idx) => {
+                                                const currentType: ContentType = ep.contentType || 'video';
+                                                const wordCount = (ep.textContent || '').trim().split(/\s+/).filter(Boolean).length;
+                                                const estimatedMinutes = Math.max(1, Math.ceil(wordCount / 180));
+
+                                                const insertMarkdown = (snippet: string) => {
+                                                    const n = [...formCourse.episodes!];
+                                                    const current = n[idx].textContent || '';
+                                                    n[idx].textContent = current ? `${current}\n\n${snippet}` : snippet;
+                                                    setFormCourse(p => ({...p, episodes: n}));
+                                                };
+
+                                                return (
+                                                <Card key={idx} className="p-4 sm:p-5 rounded-2xl border-2 bg-muted/5 flex flex-col gap-4 relative group transition-all hover:border-primary/30">
+                                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                                        <div className="flex-1 space-y-1">
+                                                            <Label className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">
+                                                                Aula {idx + 1}: Título da Lição
+                                                            </Label>
+                                                            <Input 
+                                                                className="h-10 text-sm bg-white font-bold" 
+                                                                value={ep.title} 
+                                                                onChange={e => { 
+                                                                    const n = [...formCourse.episodes!]; 
+                                                                    n[idx].title = e.target.value; 
+                                                                    setFormCourse(p => ({...p, episodes: n})); 
+                                                                }} 
+                                                                placeholder="Ex: Fundamentos da Fé Cristã"
+                                                            />
+                                                        </div>
                                                     </div>
-                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                        <div className="space-y-1.5">
-                                                            <Label className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">YouTube ID</Label>
-                                                            <div className="flex gap-2">
-                                                                <div className="relative flex-1">
-                                                                    <Youtube className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-red-500" />
-                                                                    <Input className="h-10 text-xs pl-10 bg-white font-mono" value={ep.youtubeId} onChange={e => { const n = [...formCourse.episodes!]; n[idx].youtubeId = e.target.value; setFormCourse(p => ({...p, episodes: n})); }} placeholder="ID do Vídeo" />
+
+                                                    {/* Formato do Conteúdo (ContentType Selector) */}
+                                                    <div className="space-y-1.5 p-3 rounded-xl bg-white border border-slate-200">
+                                                        <Label className="text-[9px] font-black uppercase text-muted-foreground tracking-widest block">
+                                                            Formato do Conteúdo
+                                                        </Label>
+                                                        <div className="grid grid-cols-3 gap-2">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const n = [...formCourse.episodes!];
+                                                                    n[idx].contentType = 'video';
+                                                                    setFormCourse(p => ({...p, episodes: n}));
+                                                                }}
+                                                                className={cn(
+                                                                    "py-2 px-2.5 rounded-lg text-xs font-black uppercase tracking-tight flex items-center justify-center gap-1.5 transition-all border",
+                                                                    currentType === 'video'
+                                                                        ? "bg-primary text-white border-primary shadow-sm"
+                                                                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                                                                )}
+                                                            >
+                                                                <Video className="size-3.5" /> Apenas Vídeo
+                                                            </button>
+
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const n = [...formCourse.episodes!];
+                                                                    n[idx].contentType = 'text';
+                                                                    setFormCourse(p => ({...p, episodes: n}));
+                                                                }}
+                                                                className={cn(
+                                                                    "py-2 px-2.5 rounded-lg text-xs font-black uppercase tracking-tight flex items-center justify-center gap-1.5 transition-all border",
+                                                                    currentType === 'text'
+                                                                        ? "bg-primary text-white border-primary shadow-sm"
+                                                                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                                                                )}
+                                                            >
+                                                                <BookOpen className="size-3.5" /> Apenas Texto
+                                                            </button>
+
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const n = [...formCourse.episodes!];
+                                                                    n[idx].contentType = 'hybrid';
+                                                                    n[idx].videoPosition = n[idx].videoPosition || 'bottom';
+                                                                    setFormCourse(p => ({...p, episodes: n}));
+                                                                }}
+                                                                className={cn(
+                                                                    "py-2 px-2.5 rounded-lg text-xs font-black uppercase tracking-tight flex items-center justify-center gap-1.5 transition-all border",
+                                                                    currentType === 'hybrid'
+                                                                        ? "bg-primary text-white border-primary shadow-sm"
+                                                                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                                                                )}
+                                                            >
+                                                                <Sparkles className="size-3.5" /> Híbrido (Texto + Vídeo)
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Campos para Vídeo (se 'video' ou 'hybrid') */}
+                                                    {currentType !== 'text' && (
+                                                        <div className="space-y-3 p-3 rounded-xl bg-slate-50 border border-dashed">
+                                                            <div className="flex items-center justify-between">
+                                                                <span className="text-[10px] font-black uppercase text-slate-700 tracking-wider flex items-center gap-1.5">
+                                                                    <Youtube className="size-3.5 text-red-500" /> Configuração do Vídeo
+                                                                </span>
+                                                                {currentType === 'hybrid' && (
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-[9px] font-black uppercase text-slate-500">Posição do Vídeo:</span>
+                                                                        <select
+                                                                            value={ep.videoPosition || 'bottom'}
+                                                                            onChange={e => {
+                                                                                const n = [...formCourse.episodes!];
+                                                                                n[idx].videoPosition = e.target.value as 'top' | 'bottom';
+                                                                                setFormCourse(p => ({...p, episodes: n}));
+                                                                            }}
+                                                                            className="text-[9px] font-bold bg-white border border-slate-300 rounded px-2 py-0.5"
+                                                                        >
+                                                                            <option value="bottom">No Final da Leitura (Padrão LMS)</option>
+                                                                            <option value="top">No Topo (Antes do Texto)</option>
+                                                                        </select>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+
+                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                                <div className="space-y-1">
+                                                                    <Label className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">YouTube ID ou URL</Label>
+                                                                    <div className="flex gap-2">
+                                                                        <div className="relative flex-1">
+                                                                            <Youtube className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-red-500" />
+                                                                            <Input 
+                                                                                className="h-9 text-xs pl-10 bg-white font-mono" 
+                                                                                value={ep.youtubeId || ''} 
+                                                                                onChange={e => { 
+                                                                                    const n = [...formCourse.episodes!]; 
+                                                                                    // Auto extract ID if full url pasted
+                                                                                    let val = e.target.value.trim();
+                                                                                    if (val.includes('youtube.com/watch?v=')) {
+                                                                                        val = val.split('v=')[1]?.split('&')[0] || val;
+                                                                                    } else if (val.includes('youtu.be/')) {
+                                                                                        val = val.split('youtu.be/')[1]?.split('?')[0] || val;
+                                                                                    }
+                                                                                    n[idx].youtubeId = val; 
+                                                                                    setFormCourse(p => ({...p, episodes: n})); 
+                                                                                }} 
+                                                                                placeholder="ID do Vídeo (ex: 7wfYIMvS_9g)" 
+                                                                            />
+                                                                        </div>
+                                                                        <Button variant="secondary" size="icon" className="h-9 w-9 shrink-0 shadow-sm" onClick={() => fetchYoutubeMetadata(idx)}>
+                                                                            <Wand2 size={16} />
+                                                                        </Button>
+                                                                    </div>
                                                                 </div>
-                                                                <Button variant="secondary" size="icon" className="h-10 w-10 shrink-0 shadow-sm" onClick={() => fetchYoutubeMetadata(idx)}>
-                                                                    <Wand2 size={18} />
-                                                                </Button>
+                                                                <div className="space-y-1">
+                                                                    <Label className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Duração Estimada</Label>
+                                                                    <Input 
+                                                                        className="h-9 text-xs bg-white" 
+                                                                        value={ep.duration || ''} 
+                                                                        onChange={e => { 
+                                                                            const n = [...formCourse.episodes!]; 
+                                                                            n[idx].duration = e.target.value; 
+                                                                            setFormCourse(p => ({...p, episodes: n})); 
+                                                                        }} 
+                                                                        placeholder="Ex: 45min" 
+                                                                    />
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                        <div className="space-y-1.5">
-                                                            <Label className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Duração</Label>
-                                                            <Input className="h-10 text-sm bg-white" value={ep.duration} onChange={e => { const n = [...formCourse.episodes!]; n[idx].duration = e.target.value; setFormCourse(p => ({...p, episodes: n})); }} placeholder="Ex: 45min" />
+                                                    )}
+
+                                                    {/* Editor de Texto/Artigo (se 'text' ou 'hybrid') */}
+                                                    {currentType !== 'video' && (
+                                                        <div className="space-y-2 p-3 rounded-xl bg-white border border-slate-200">
+                                                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                                                <div className="flex items-center gap-2">
+                                                                    <BookOpen className="size-4 text-primary" />
+                                                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-800">
+                                                                        Conteúdo Escrito da Aula (Artigo)
+                                                                    </span>
+                                                                    <Badge variant="outline" className="text-[9px] font-bold bg-slate-50 text-slate-600 gap-1 py-0 px-2">
+                                                                        <Clock className="size-2.5" /> ~{ep.readingTimeMinutes || estimatedMinutes} min ({wordCount} palavras)
+                                                                    </Badge>
+                                                                </div>
+
+                                                                {/* Helper Toolbar */}
+                                                                <div className="flex items-center gap-1">
+                                                                    <Button 
+                                                                        type="button"
+                                                                        variant="ghost" 
+                                                                        size="sm" 
+                                                                        className="h-6 px-1.5 text-[9px] font-bold text-slate-600 hover:bg-slate-100"
+                                                                        onClick={() => insertMarkdown('# Novo Título')}
+                                                                    >
+                                                                        # Título
+                                                                    </Button>
+                                                                    <Button 
+                                                                        type="button"
+                                                                        variant="ghost" 
+                                                                        size="sm" 
+                                                                        className="h-6 px-1.5 text-[9px] font-bold text-slate-600 hover:bg-slate-100"
+                                                                        onClick={() => insertMarkdown('## Subtítulo')}
+                                                                    >
+                                                                        ## Subtítulo
+                                                                    </Button>
+                                                                    <Button 
+                                                                        type="button"
+                                                                        variant="ghost" 
+                                                                        size="sm" 
+                                                                        className="h-6 px-1.5 text-[9px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100"
+                                                                        onClick={() => insertMarkdown('> "Porque Deus amou o mundo de tal maneira..." (João 3:16)')}
+                                                                    >
+                                                                        <Quote className="size-2.5 mr-1" /> Versículo
+                                                                    </Button>
+                                                                    <Button 
+                                                                        type="button"
+                                                                        variant="ghost" 
+                                                                        size="sm" 
+                                                                        className="h-6 px-1.5 text-[9px] font-bold text-primary bg-primary/5 hover:bg-primary/10"
+                                                                        onClick={() => insertMarkdown('💡 Ponto Principal: ')}
+                                                                    >
+                                                                        💡 Destaque
+                                                                    </Button>
+                                                                </div>
+                                                            </div>
+
+                                                            <Textarea 
+                                                                rows={8}
+                                                                value={ep.textContent || ''}
+                                                                onChange={e => {
+                                                                    const n = [...formCourse.episodes!];
+                                                                    n[idx].textContent = e.target.value;
+                                                                    setFormCourse(p => ({...p, episodes: n}));
+                                                                }}
+                                                                placeholder="Escreva aqui o artigo, reflexão, referências bíblicas e tópicos da aula..."
+                                                                className="text-xs font-mono leading-relaxed"
+                                                            />
+                                                            <p className="text-[9px] text-muted-foreground">
+                                                                Suporta Markdown: <code className="text-primary font-bold"># Título</code>, <code className="text-primary font-bold">## Subtítulo</code>, <code className="text-primary font-bold">&gt; Versículo/Citação</code>, <code className="text-primary font-bold">- Lista</code>, <code className="text-primary font-bold">**negrito**</code>.
+                                                            </p>
                                                         </div>
-                                                    </div>
+                                                    )}
                                                     <div className="absolute -top-3 -right-3 flex gap-1.5">
                                                         <Button 
                                                             variant="ghost" 

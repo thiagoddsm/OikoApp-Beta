@@ -6,6 +6,7 @@ export type AreaType = 'regular' | 'worship';
 export type ServiceGroup = {
   name: string;
   eventIds: string[];
+  checkInTime?: string;
 };
 
 export type AreaOfService = {
@@ -19,7 +20,7 @@ export type AreaOfService = {
   roles?: string[];
   tenantId?: string;
   unifiedCelebrations?: boolean;
-  unifiedGroups?: { name: string; eventNames: string[] }[];
+  unifiedGroups?: { name: string; eventNames: string[]; checkInTime?: string }[];
   checkInTimes?: Record<string, string>;
 };
 

@@ -114,7 +114,19 @@ async function handleReminders(request: Request) {
       scheduleList.forEach((item: any) => {
         if (item.date === tomorrowStr && item.memberIds && item.memberIds.length > 0) {
           
-          let checkInTime = checkInTimes[item.eventName] || null;
+          let checkInTime = null;
+
+          if (unifiedGroups && unifiedGroups.length > 0) {
+            const group = unifiedGroups.find((g: any) => g.eventNames.some((name: string) => item.eventName.toLowerCase().includes(name.toLowerCase())));
+            if (group && group.checkInTime) {
+              checkInTime = group.checkInTime;
+            }
+          }
+
+          if (!checkInTime) {
+            checkInTime = checkInTimes[item.eventName] || null;
+          }
+
           if (!checkInTime) {
             const evTime = eventTimeMap.get(item.eventName);
             if (evTime) {

@@ -350,7 +350,8 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
         .map(e => e.name);
       return {
         name: group.name,
-        eventNames: matchedNames
+        eventNames: matchedNames,
+        checkInTime: group.checkInTime
       };
     });
 
@@ -656,6 +657,18 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
                             })}
                           </div>
                         </div>
+
+                        <div className="space-y-1 pt-2 border-t border-slate-100">
+                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Horário de Check-in:</span>
+                          <div className="flex items-center">
+                            <Input 
+                              type="time" 
+                              value={group.checkInTime || ''} 
+                              onChange={(e) => handleGroupFieldChange(gIdx, 'checkInTime', e.target.value)} 
+                              className="w-32 h-7 text-xs bg-slate-50" 
+                            />
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -664,25 +677,27 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
             )}
 
             {/* Check-in Times */}
-            <div className="space-y-3 pt-4 pb-2 border-t border-slate-100">
-              <div>
-                <Label className="font-bold text-slate-800 text-xs">Horário de Check-in (Voluntariado)</Label>
-                <p className="text-[10px] text-slate-500 mt-1">Defina o horário de chegada para cada celebração. Se vazio, o robô enviará 1 hora antes do início do culto.</p>
+            {scheduleMode !== 'grouped' && (
+              <div className="space-y-3 pt-4 pb-2 border-t border-slate-100">
+                <div>
+                  <Label className="font-bold text-slate-800 text-xs">Horário de Check-in (Voluntariado)</Label>
+                  <p className="text-[10px] text-slate-500 mt-1">Defina o horário de chegada para cada celebração. Se vazio, o robô enviará 1 hora antes do início do culto.</p>
+                </div>
+                <div className="flex flex-col gap-2 max-h-40 overflow-y-auto pr-1">
+                  {events?.map(ev => (
+                    <div key={ev.id} className="flex items-center justify-between gap-3 border rounded-lg p-2.5 bg-slate-50">
+                      <span className="text-[11px] font-medium text-slate-700 leading-tight" title={ev.name}>{ev.name} ({ev.time})</span>
+                      <Input 
+                        type="time" 
+                        value={checkInTimes[ev.name] || ''} 
+                        onChange={(e) => setCheckInTimes({...checkInTimes, [ev.name]: e.target.value})} 
+                        className="w-24 h-7 text-xs" 
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="flex flex-col gap-2 max-h-40 overflow-y-auto pr-1">
-                {events?.map(ev => (
-                  <div key={ev.id} className="flex items-center justify-between gap-3 border rounded-lg p-2.5 bg-slate-50">
-                    <span className="text-[11px] font-medium text-slate-700 leading-tight" title={ev.name}>{ev.name} ({ev.time})</span>
-                    <Input 
-                      type="time" 
-                      value={checkInTimes[ev.name] || ''} 
-                      onChange={(e) => setCheckInTimes({...checkInTimes, [ev.name]: e.target.value})} 
-                      className="w-24 h-7 text-xs" 
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
+            )}
 
             {/* Roles Settings */}
             {areaType === 'worship' && (

@@ -7,11 +7,22 @@ export type Question = {
     essayGabarito?: string;
 };
 
+export type ContentType = 'video' | 'text' | 'hybrid';
+
 export type Episode = {
     title: string;
+    contentType?: ContentType; // 'video' | 'text' | 'hybrid' (default 'video')
     youtubeId?: string;
+    videoPosition?: 'top' | 'bottom'; // Para aulas híbridas: vídeo no início ou no fim do texto (default 'bottom')
+    textContent?: string; // Conteúdo textual/artigo da aula
+    readingTimeMinutes?: number; // Tempo estimado de leitura em minutos
     duration?: string;
     desc?: string;
+    attachments?: {
+        title: string;
+        url: string;
+        type?: 'pdf' | 'link' | 'slides';
+    }[];
     quiz?: {
         enabled: boolean;
         questions: Question[];
