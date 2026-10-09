@@ -94,10 +94,12 @@ async function handleReminders(request: Request) {
       volunteerId: string;
       volunteerName: string;
       phone: string;
+      areaId: string;
       areaName: string;
       eventName: string;
       teamName: string | null;
       checkInTime: string | null;
+      unifiedGroups: { name: string; eventNames: string[] }[];
     }[] = [];
 
     schedulesSnap.forEach(doc => {
@@ -106,6 +108,7 @@ async function handleReminders(request: Request) {
       const areaData = areaMap.get(areaId) || {};
       const areaName = areaData.name || 'Serviço';
       const checkInTimes = areaData.checkInTimes || {};
+      const unifiedGroups = areaData.unifiedGroups || [];
       const scheduleList = data.schedule || [];
 
       scheduleList.forEach((item: any) => {
@@ -132,10 +135,12 @@ async function handleReminders(request: Request) {
                   volunteerId: mId,
                   volunteerName: u.name,
                   phone: u.phone,
+                  areaId,
                   areaName,
                   eventName: item.eventName,
                   teamName: item.teamName || null,
-                  checkInTime
+                  checkInTime,
+                  unifiedGroups
                 });
               }
             }
@@ -173,8 +178,22 @@ async function handleReminders(request: Request) {
         const timeStr = first.checkInTime ? ` (Chegada: ${first.checkInTime})` : '';
         scheduleText = `na área de ${first.areaName}:\n\n• ${first.eventName}${timeStr}${first.teamName ? ` [Equipe ${first.teamName}]` : ''}`;
       } else {
+        const seenGroups = new Set<string>();
         scheduleText = `nas seguintes áreas:\n\n` + list.map(item => {
-          const timeStr = item.checkInTime ? ` (Chegada: ${item.checkInTime})` : '';
+          let timeStr = item.checkInTime ? ` (Chegada: ${item.checkInTime})` : '';
+          
+          if (item.unifiedGroups && item.unifiedGroups.length > 0) {
+            const group = item.unifiedGroups.find(g => g.eventNames.some(name => item.eventName.toLowerCase().includes(name.toLowerCase())));
+            if (group) {
+              const groupKey = `${item.areaId}-${group.name}`;
+              if (seenGroups.has(groupKey)) {
+                timeStr = ''; // Suppress check-in time for subsequent events in the same group
+              } else {
+                seenGroups.add(groupKey);
+              }
+            }
+          }
+          
           return `• Área ${item.areaName}: ${item.eventName}${timeStr}${item.teamName ? ` [Equipe ${item.teamName}]` : ''}`;
         }).join('\n');
       }
