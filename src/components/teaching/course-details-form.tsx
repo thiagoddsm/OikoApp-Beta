@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Loader2, ShieldCheck, Mail, Info, School, PlayCircle, Percent, Lock, UserCheck, CheckCircle2, GraduationCap, BookOpen, Layers, Upload, MessageCircle, Waves } from 'lucide-react';
+import { Loader2, ShieldCheck, Mail, Info, School, PlayCircle, Percent, Lock, UserCheck, CheckCircle2, GraduationCap, BookOpen, Layers, Upload, MessageCircle, Waves, Archive } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -34,7 +34,9 @@ export function CourseDetailsForm({ course }: { course: any }) {
     requiresMemberStatus: false,
     requiresBaptism: false,
     isMembershipPrerequisite: false,
+    grantsMembership: false,
     isBaptismCourse: false,
+    isArchived: false,
     prerequisiteCourseId: '',
     sortOrder: '0',
     imageUrl: '',
@@ -74,7 +76,9 @@ export function CourseDetailsForm({ course }: { course: any }) {
         requiresMemberStatus: course.requiresMemberStatus || false,
         requiresBaptism: course.requiresBaptism || false,
         isMembershipPrerequisite: course.isMembershipPrerequisite || false,
+        grantsMembership: course.grantsMembership ?? course.isMembershipPrerequisite ?? false,
         isBaptismCourse: course.isBaptismCourse || false,
+        isArchived: course.isArchived || false,
         prerequisiteCourseId: course.prerequisiteCourseId || '',
         sortOrder: course.sortOrder?.toString() || '0',
         imageUrl: course.imageUrl || '',
@@ -253,7 +257,9 @@ export function CourseDetailsForm({ course }: { course: any }) {
             requiresMemberStatus: formData.requiresMemberStatus,
             requiresBaptism: formData.requiresBaptism,
             isMembershipPrerequisite: formData.isMembershipPrerequisite,
+            grantsMembership: formData.grantsMembership ?? formData.isMembershipPrerequisite,
             isBaptismCourse: formData.isBaptismCourse,
+            isArchived: formData.isArchived,
             prerequisiteCourseId: formData.prerequisiteCourseId === 'none' ? '' : formData.prerequisiteCourseId,
             sortOrder: Number(formData.sortOrder) || 0,
             imageUrl: formData.imageUrl,
@@ -640,11 +646,14 @@ export function CourseDetailsForm({ course }: { course: any }) {
                               <Label className="text-sm font-bold flex items-center gap-2">
                                   <GraduationCap className="size-3 text-purple-600" /> Curso Obrigatório para Membresia
                               </Label>
-                              <p className="text-[10px] text-muted-foreground italic">Marca este curso como pré-requisito para se tornar Membro IBM (vencido no /conectar).</p>
+                              <p className="text-[10px] text-muted-foreground italic">Marca este curso como pré-requisito oficial para se tornar Membro IBM e concede equivalência.</p>
                           </div>
                           <Switch 
-                            checked={formData.isMembershipPrerequisite} 
-                            onCheckedChange={(v) => handleFieldChange('isMembershipPrerequisite', v)} 
+                            checked={Boolean(formData.grantsMembership || formData.isMembershipPrerequisite)} 
+                            onCheckedChange={(v) => {
+                              handleFieldChange('isMembershipPrerequisite', v);
+                              handleFieldChange('grantsMembership', v);
+                            }} 
                           />
                       </div>
 
@@ -658,6 +667,19 @@ export function CourseDetailsForm({ course }: { course: any }) {
                           <Switch 
                             checked={formData.isBaptismCourse} 
                             onCheckedChange={(v) => handleFieldChange('isBaptismCourse', v)} 
+                          />
+                      </div>
+
+                      <div className="flex items-center justify-between gap-4 pt-3 border-t bg-rose-50/50 p-3 rounded-xl border border-rose-100">
+                          <div className="space-y-0.5">
+                              <Label className="text-sm font-bold flex items-center gap-2 text-rose-800">
+                                  <Archive className="size-3.5 text-rose-600" /> Curso Arquivado (Ocultar do Catálogo Público)
+                              </Label>
+                              <p className="text-[10px] text-rose-700/80 italic">Oculta este curso das opções de novas inscrições públicas. O histórico, certificados e registros dos alunos formados permanecem 100% preservados.</p>
+                          </div>
+                          <Switch 
+                            checked={formData.isArchived} 
+                            onCheckedChange={(v) => handleFieldChange('isArchived', v)} 
                           />
                       </div>
                   </div>

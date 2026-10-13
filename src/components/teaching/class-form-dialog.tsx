@@ -270,6 +270,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId }:
                 extraSessions,
                 scheduleOverrides,
                 registrationDeadline,
+                totalLessonsSnapshot: existingClass?.totalLessonsSnapshot || courses.find(c => c.id === courseId)?.syllabus?.length || 0,
                 dailySlots: dailySlots.length > 1 ? dailySlots : [],
             };
             await updateClass(existingClass.id, classData);
@@ -295,6 +296,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId }:
                     extraSessions,
                     scheduleOverrides,
                     registrationDeadline,
+                    totalLessonsSnapshot: courses.find(c => c.id === courseId)?.syllabus?.length || 0,
                     dailySlots: dailySlots.length > 1 ? dailySlots : [],
                 };
                 await addClass(classData);
@@ -327,6 +329,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId }:
                         extraSessions,
                         scheduleOverrides,
                         registrationDeadline,
+                        totalLessonsSnapshot: courses.find(c => c.id === courseId)?.syllabus?.length || 0,
                         dailySlots: sched.dailySlots.length > 1 ? sched.dailySlots : [],
                     };
                     await addClass(classData);

@@ -155,6 +155,7 @@ export function CloseClassDialog({ open, onOpenChange, classData, courseData }: 
       // 2. Conclui a turma
       await updateClass(classData.id, {
         status: 'completed',
+        totalLessonsSnapshot: classData.totalLessonsSnapshot || courseData?.syllabus?.length || 0,
         endDate: classData.endDate || new Date().toISOString().split('T')[0]
       });
 

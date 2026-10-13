@@ -22,6 +22,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { isMembershipCourse } from '@/lib/teaching/is-membership-course';
 
 export function MemberCourseProgress({ user }: { user: any }) {
     const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
@@ -33,9 +34,28 @@ export function MemberCourseProgress({ user }: { user: any }) {
 
     const manualProgress = user?.journey?.memberCourseProgress || {};
     
-    const memberCourse = useMemo(() => 
-        courses.find(c => c.name.toLowerCase().includes('membro') || c.name.toLowerCase().includes('pertencer')),
-    [courses]);
+    const memberCourse = useMemo(() => {
+        if (!courses || courses.length === 0) return null;
+        
+        // 1. Prioriza o curso de membresia onde o aluno possui matrícula em turma ou já foi aprovado
+        const userClassCourseIds = classes.filter(c => c.students && c.students.includes(user?.id)).map(c => c.courseId);
+        const userApprovedCourseIds = Object.keys(user?.journey?.courseStatus || {}).filter(k => {
+            const st = String(user?.journey?.courseStatus?.[k] || '').toLowerCase();
+            return st === 'approved' || st === 'completed';
+        });
+
+        const studentSpecificCourse = courses.find(c => 
+            isMembershipCourse(c) && (userClassCourseIds.includes(c.id) || userApprovedCourseIds.includes(c.id))
+        );
+        if (studentSpecificCourse) return studentSpecificCourse;
+
+        // 2. Prioriza o curso de membresia ativo (não arquivado)
+        const activeCourse = courses.find(c => isMembershipCourse(c) && !c.isArchived);
+        if (activeCourse) return activeCourse;
+
+        // 3. Fallback
+        return courses.find(c => isMembershipCourse(c)) || null;
+    }, [courses, classes, user]);
 
     const modules = useMemo(() => {
         if (memberCourse?.syllabus && memberCourse.syllabus.length > 0) {

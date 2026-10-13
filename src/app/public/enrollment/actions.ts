@@ -309,7 +309,9 @@ export async function getPublicCatalog() {
             db.collection('strategic_events').get(),
         ]);
 
-        const courses = coursesSnap.docs.map(doc => ({ id: doc.id, ...sanitizeFirestoreData(doc.data()) }));
+        const courses = coursesSnap.docs
+            .map(doc => ({ id: doc.id, ...sanitizeFirestoreData(doc.data()) }))
+            .filter((c: any) => !c.isArchived);
         const classes = classesSnap.docs.map(doc => ({ id: doc.id, ...sanitizeFirestoreData(doc.data()) }));
         const events = eventsSnap.docs.map(doc => ({ id: doc.id, ...sanitizeFirestoreData(doc.data()) }));
         const strategicEvents = strategicEventsSnap.docs.map(doc => ({ id: doc.id, ...sanitizeFirestoreData(doc.data()) }));

@@ -23,6 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from '../ui/textarea';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { journeyColumns } from './journey-status-config';
+import { isMembershipCourse } from '@/lib/teaching/is-membership-course';
 import { EnrollmentDialog } from '../teaching/enrollment-dialog';
 import { sendJourneyAdvanceMessage } from '@/app/actions/whatsapp-actions';
 import { Badge } from '../ui/badge';
@@ -163,7 +164,15 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
             }
 
             const isApprovedInJourney = memberData?.journey?.courseStatus?.[courseId] === 'approved';
-            const isCompleted = isApprovedInJourney || (totalCount > 0 && attendedCount >= totalCount);
+            const isMembershipEquiv = isMembershipCourse(course) && (
+                memberData?.integrationStatus === 'membro' ||
+                memberData?.isMember === true ||
+                Object.keys(memberData?.journey?.courseStatus || {}).some(k => 
+                    isMembershipCourse(courses.find(c => c.id === k)) && 
+                    memberData?.journey?.courseStatus?.[k] === 'approved'
+                )
+            );
+            const isCompleted = isApprovedInJourney || isMembershipEquiv || (totalCount > 0 && attendedCount >= totalCount);
 
             return {
                 id: courseId,

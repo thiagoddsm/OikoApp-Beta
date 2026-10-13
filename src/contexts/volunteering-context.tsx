@@ -170,6 +170,9 @@ export type Course = {
   requiresBaptism?: boolean;
   prerequisiteCourseId?: string;
   simultaneousClasses?: boolean;
+  isArchived?: boolean;
+  grantsMembership?: boolean;
+  isMembershipPrerequisite?: boolean;
   billingMethod?: 'manual' | 'asaas';
 };
 
@@ -249,6 +252,7 @@ export type Class = {
     isRepositionOnly?: boolean;
   }[];
   registrationDeadline?: string;
+  totalLessonsSnapshot?: number;
   attendance?: { 
     date: string; 
     presentStudentIds: string[]; 

@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils';
 import { useDoc } from '@/firebase';
 import { sendEnrollmentMessage } from '@/app/actions/whatsapp-actions';
 import { useCoursesData, useMembersData } from "@/hooks/useDomainData";
+import { isMembershipCourse, hasCompletedMembershipCourse } from '@/lib/teaching/is-membership-course';
 
 export function EnrollmentRequestsList({ courseId }: { courseId?: string | string[] }) {
     const { courses, classes, enrollmentRequests } = useCoursesData();
@@ -282,6 +283,19 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string | strin
                 prereqCourseName,
                 rate: 100,
                 minRate,
+                className: 'Histórico / Jornada',
+                matchedUserName: matchedUser.name
+            };
+        }
+
+        // Equivalência de Membresia (Pertencer 4 aulas vs 12 aulas / Membro oficial)
+        if (prereqCourse && isMembershipCourse(prereqCourse) && hasCompletedMembershipCourse(matchedUser, courses)) {
+            return {
+                status: 'approved' as const,
+                prereqCourseName: `${prereqCourseName} (Membro/Equivalência)`,
+                rate: 100,
+                minRate,
+                className: 'Membresia Oficial / Ciclo Anterior',
                 matchedUserName: matchedUser.name
             };
         }

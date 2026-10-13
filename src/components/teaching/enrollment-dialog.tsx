@@ -23,6 +23,7 @@ import { PlusCircle } from 'lucide-react';
 import { format, parseISO, isAfter } from 'date-fns';
 
 import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
+import { isPrerequisiteSatisfied } from '@/lib/teaching/is-membership-course';
 
 interface EnrollmentDialogProps {
   open: boolean;
@@ -97,10 +98,9 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId, initial
     }
     
     if (course.prerequisiteCourseId) {
-        const isApproved = courseStatus[course.prerequisiteCourseId] === 'approved';
-        if (!isApproved) {
-            const preReqCourse = courses.find(c => c.id === course.prerequisiteCourseId);
-            return `É necessário ter aprovação no curso "${preReqCourse?.name || 'pré-requisito'}" para se matricular.`;
+        const check = isPrerequisiteSatisfied(course, selectedUser, courses);
+        if (!check.satisfied) {
+            return `É necessário ter aprovação no curso "${check.prerequisiteCourseName || 'pré-requisito'}" para se matricular.`;
         }
     }
 

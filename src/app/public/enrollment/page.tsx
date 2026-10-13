@@ -264,6 +264,7 @@ function EnrollmentForm() {
     const filteredCourses = useMemo(() => {
         if (!courses || selectedCategory === 'eventos' || !selectedCategory) return [];
         const result = courses.filter(c => {
+            if (c.isArchived) return false;
             const ministry = c.ministryName?.toLowerCase() || '';
             const min = (c as any).ministry?.toLowerCase() || '';
             const isLumine = (c as any).schoolId === 'lumine' || (c as any).programId === 'lumine' || ministry.includes('lumine') || ministry.includes('ebd') || min.includes('lumine');
