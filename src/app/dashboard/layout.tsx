@@ -36,6 +36,7 @@ import {
   FileText,
   HandHelping,
   Shield,
+  ShieldCheck,
   CalendarClock,
   Music2,
   PlayCircle,
@@ -170,6 +171,7 @@ const menuItems = [
                   { href: "/dashboard/teaching/theoflix", label: "TheoFlix (EAD & Quizzes)", icon: PlayCircle, permissionId: 'teaching_courses' },
                   { href: "/dashboard/teaching/theoflix/reports/watch-history", label: "Histórico TheoFlix (EAD)", icon: Clock, permissionId: 'teaching_courses' },
                   { href: "/dashboard/teaching/theoflix/reports", label: "Respostas dos Quizzes", icon: FileText, permissionId: 'teaching_courses' },
+                  { href: "/dashboard/teaching/courses?tab=requests&subtab=exceptions", label: "Exceções Online", icon: ShieldCheck, permissionId: 'teaching_courses' },
                   { href: "/dashboard/teaching/reposicoes", label: "Fila de Reposições", icon: History, permissionId: 'teaching_courses' },
                 ]
               },

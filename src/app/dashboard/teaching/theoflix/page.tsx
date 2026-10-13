@@ -29,11 +29,14 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { theoflixDB, type Course, type Episode, type ContentType } from '@/lib/theoflix-data';
-import { Play, Info, Plus, Lock, Search, Clock, CheckCircle2, PlayCircle, Star, Heart, X, Settings, Loader2, ArrowLeft, CheckCircle, BookCheck, DatabaseZap, Link as LinkIcon, AlertTriangle, FileQuestion, BookOpen, Sparkles } from 'lucide-react';
+import { Play, Info, Plus, Lock, Search, Clock, CheckCircle2, PlayCircle, Star, Heart, X, Settings, Loader2, ArrowLeft, CheckCircle, BookCheck, DatabaseZap, Link as LinkIcon, AlertTriangle, ShieldCheck, AlertCircle, FileQuestion, BookOpen, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFirebase, useCollection, useMemoFirebase, useDoc, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
 import { collection, query, doc, orderBy } from 'firebase/firestore';
 import { TheoflixManager } from '@/components/teaching/theoflix/theoflix-manager';
+import { OnlineExceptionsRequestsList } from '@/components/teaching/online-exceptions-list';
+import { evaluateStudentAttendance } from '@/lib/teaching/attendance-calculator';
+import { type OnlineException } from '@/contexts/volunteering-context';
 import { LessonArticleViewer } from '@/components/teaching/theoflix/lesson-article-viewer';
 import { useToast } from '@/hooks/use-toast';
 import { useVolunteering, VolunteeringProvider } from '@/contexts/volunteering-context';
@@ -77,7 +80,7 @@ function TheoFlixContent() {
   const { firestore, user } = useFirebase();
     const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
 
-  const { markAttendanceByTheoflix } = useVolunteering();
+  const { markAttendanceByTheoflix, updateClass } = useVolunteering();
   const { toast } = useToast();
   const { data: userData } = useDoc<any>(user ? `users/${user.uid}` : null);
   const isAdmin = userData?.hierarchy?.role === 'admin' || userData?.hierarchy?.role === 'pastor_senior';
@@ -254,6 +257,107 @@ function TheoFlixContent() {
   }, [selectedCourse, courses]);
 
   const coursePolicy = linkedPhysicalCourse?.attendancePolicy;
+  const [isExceptionsModalOpen, setIsExceptionsModalOpen] = useState(false);
+
+  // Contagem de exceções online pendentes para administradores
+  const pendingExceptionsCount = useMemo(() => {
+    if (!classes) return 0;
+    let count = 0;
+    classes.forEach(c => {
+      if (!c.onlineExceptions) return;
+      Object.values(c.onlineExceptions).forEach((ex: any) => {
+        if (ex?.status === 'pending') count++;
+      });
+    });
+    return count;
+  }, [classes]);
+
+  // Aluno logado matriculado na turma física deste curso
+  const studentClass = useMemo(() => {
+    if (!user || !linkedPhysicalCourse || !classes) return null;
+    return classes.find(c => 
+      c.courseId === linkedPhysicalCourse.id && 
+      c.students?.includes(user.uid) && 
+      c.status !== 'completed'
+    ) || classes.find(c => 
+      c.courseId === linkedPhysicalCourse.id && 
+      c.students?.includes(user.uid)
+    );
+  }, [user, linkedPhysicalCourse, classes]);
+
+  const studentAttendanceEval = useMemo(() => {
+    if (!studentClass || !user || !linkedPhysicalCourse) return null;
+    try {
+      return evaluateStudentAttendance({
+        classData: studentClass,
+        courseData: linkedPhysicalCourse,
+        studentId: user.uid,
+        studentUser: userData,
+        courseClasses: classes.filter(c => c.courseId === linkedPhysicalCourse.id)
+      });
+    } catch (e) {
+      return null;
+    }
+  }, [studentClass, user, linkedPhysicalCourse, userData, classes]);
+
+  const existingStudentException = useMemo(() => {
+    if (!studentClass || !user) return null;
+    return studentClass.onlineExceptions?.[user.uid] as OnlineException | undefined;
+  }, [studentClass, user]);
+
+  const [isRequestFormOpen, setIsRequestFormOpen] = useState(false);
+  const [exceptionReason, setExceptionReason] = useState('');
+  const [exceptionNotes, setExceptionNotes] = useState('');
+  const [isSubmittingException, setIsSubmittingException] = useState(false);
+
+  const handleStudentSubmitException = async () => {
+    if (!exceptionReason.trim()) {
+      toast({
+        variant: 'destructive',
+        title: 'Informe o motivo',
+        description: 'Por favor, descreva o motivo da sua solicitação de exceção.'
+      });
+      return;
+    }
+    if (!studentClass || !user) return;
+
+    setIsSubmittingException(true);
+    try {
+      const newEx: OnlineException = {
+        studentId: user.uid,
+        classId: studentClass.id,
+        courseId: studentClass.courseId,
+        reason: exceptionReason.trim(),
+        notes: exceptionNotes.trim() || undefined,
+        status: 'pending',
+        requestedAt: new Date().toISOString(),
+        requestedBy: user.uid
+      };
+
+      // Atualização atômica usando dot notation do Firestore para evitar race conditions
+      await updateClass(studentClass.id, {
+        [`onlineExceptions.${user.uid}`]: newEx
+      });
+
+      toast({
+        title: 'Solicitação Enviada! 📩',
+        description: 'Sua solicitação de exceção foi encaminhada com sucesso para a coordenação.'
+      });
+
+      setIsRequestFormOpen(false);
+      setExceptionReason('');
+      setExceptionNotes('');
+    } catch (e: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao enviar solicitação',
+        description: e.message || 'Ocorreu um erro ao registrar sua solicitação.'
+      });
+    } finally {
+      setIsSubmittingException(false);
+    }
+  };
+
 
   const handlePlayEpisode = (episode: Episode) => {
     if (selectedCourse && coursePolicy && (coursePolicy.mode === 'hybrid' || coursePolicy.mode === 'in_person_only')) {
@@ -586,6 +690,19 @@ function TheoFlixContent() {
                       <Clock className="size-4 text-primary" /> Histórico de Visualizações
                     </Button>
                   </Link>
+                  
+                  <Button 
+                    variant="outline" 
+                    className="rounded-full h-10 gap-2 font-bold text-xs border-amber-500/30 hover:bg-amber-500/10 text-amber-500 transition-colors relative"
+                    onClick={() => setIsExceptionsModalOpen(true)}
+                  >
+                    <ShieldCheck className="size-4 text-amber-500" /> Solicitações de Exceção
+                    {pendingExceptionsCount > 0 && (
+                      <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-[10px] font-black animate-pulse">
+                        {pendingExceptionsCount}
+                      </Badge>
+                    )}
+                  </Button>
                   <Link href="/dashboard/teaching/theoflix/reports">
                     <Button 
                       variant="outline" 
@@ -1238,44 +1355,217 @@ function TheoFlixContent() {
 
       {/* Pop-up de Aviso Flutuante sobre Regras de Frequência Online */}
       <Dialog open={isAttendanceNoticeOpen} onOpenChange={setIsAttendanceNoticeOpen}>
-        <DialogContent className="sm:max-w-md bg-slate-900 border-slate-800 text-slate-100 max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-base font-black text-white flex items-center gap-2">
-              <AlertTriangle className="size-5 text-amber-400" />
-              Aviso sobre Aulas Online &amp; Frequência
-            </DialogTitle>
-            <DialogDescription className="text-xs text-slate-400">
-              {selectedCourse?.title}
-            </DialogDescription>
-          </DialogHeader>
+          <DialogContent className="sm:max-w-lg bg-slate-900 border-slate-800 text-slate-100 max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-base font-black text-white flex items-center gap-2">
+                <AlertTriangle className="size-5 text-amber-400" />
+                Aviso sobre Aulas Online &amp; Frequência
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-400">
+                {selectedCourse?.title} {studentClass ? `• Turma ${studentClass.name}` : ''}
+              </DialogDescription>
+            </DialogHeader>
 
-          <div className="space-y-3 py-2 text-xs text-slate-300">
-            <p>
-              Este curso adota o modelo de ensino <strong className="text-white">{coursePolicy?.mode === 'in_person_only' ? 'Somente Presencial' : 'Híbrido'}</strong>.
-            </p>
-            <div className="p-3 bg-amber-950/40 rounded-xl border border-amber-500/20 text-amber-200 space-y-1">
-              <p className="font-bold text-xs">Regra de Aprovação:</p>
-              <p className="text-[11px] leading-relaxed">
-                {coursePolicy?.mode === 'in_person_only'
-                  ? 'As presenças válidas para aprovação e formatura devem ser cumpridas presencialmente.'
-                  : `Você pode realizar no máximo ${coursePolicy?.online?.maxPercentage ?? 50}% das aulas no formato online (TheoFlix) para fins de formatura. O restante da carga horária deve ser cumprido presencialmente.`}
+            <div className="space-y-4 py-2 text-xs text-slate-300">
+              <p>
+                Este curso adota o modelo de ensino <strong className="text-white">{coursePolicy?.mode === 'in_person_only' ? 'Somente Presencial' : 'Híbrido'}</strong>.
+              </p>
+              <div className="p-3 bg-amber-950/40 rounded-xl border border-amber-500/20 text-amber-200 space-y-1">
+                <p className="font-bold text-xs">Regra de Aprovação:</p>
+                <p className="text-[11px] leading-relaxed">
+                  {coursePolicy?.mode === 'in_person_only'
+                    ? 'As presenças válidas para aprovação e formatura devem ser cumpridas presencialmente.'
+                    : `Você pode realizar no máximo ${coursePolicy?.online?.maxPercentage ?? 50}% das aulas no formato online (TheoFlix) para fins de formatura. O restante da carga horária deve ser cumprido presencialmente.`}
+                </p>
+              </div>
+
+              {/* Se o aluno estiver matriculado em uma turma deste curso */}
+              {studentClass && (
+                <div className="space-y-3 pt-1">
+                  {/* Status da Exceção se já existir */}
+                  {existingStudentException?.status === 'pending' && (
+                    <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-start gap-2.5 text-amber-300">
+                      <Clock className="size-4 shrink-0 mt-0.5 text-amber-400" />
+                      <div>
+                        <p className="font-bold text-xs">Solicitação de Exceção em Análise</p>
+                        <p className="text-[11px] text-amber-300/80 mt-0.5">
+                          Sua solicitação de exceção ("{existingStudentException.reason}") foi enviada e está aguardando avaliação da coordenação.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {existingStudentException?.status === 'approved' && (
+                    <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-start gap-2.5 text-emerald-300">
+                      <ShieldCheck className="size-4 shrink-0 mt-0.5 text-emerald-400" />
+                      <div>
+                        <p className="font-bold text-xs">Exceção Aprovada pela Coordenação! 🎓</p>
+                        <p className="text-[11px] text-emerald-300/80 mt-0.5">
+                          Sua solicitação de frequência online foi aprovada. Suas aulas assistidas no TheoFlix contam normalmente para formatura.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {existingStudentException?.status === 'rejected' && (
+                    <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl flex items-start gap-2.5 text-rose-300">
+                      <AlertCircle className="size-4 shrink-0 mt-0.5 text-rose-400" />
+                      <div>
+                        <p className="font-bold text-xs">Solicitação de Exceção Recusada</p>
+                        <p className="text-[11px] text-rose-300/80 mt-0.5">
+                          {existingStudentException.reviewNotes 
+                            ? `Parecer da coordenação: "${existingStudentException.reviewNotes}"` 
+                            : 'Sua solicitação de exceção não pôde ser aprovada no momento.'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Aluno ainda não solicitou exceção ou foi recusada */}
+                  {(!existingStudentException || existingStudentException.status === 'rejected') && (
+                    <>
+                      {/* Caso 1 (Reativo - Destaque Máximo): Atingiu/Excedeu o limite online */}
+                      {studentAttendanceEval?.status === 'exceeds_online_limit' && (
+                        <div className="p-3 bg-rose-950/40 border border-rose-500/40 rounded-xl space-y-2">
+                          <div className="flex items-start gap-2">
+                            <AlertTriangle className="size-4 text-rose-400 shrink-0 mt-0.5" />
+                            <div>
+                              <p className="font-bold text-xs text-rose-200">
+                                Limite de aulas online atingido ({studentAttendanceEval.onlineRate}% online)
+                              </p>
+                              <p className="text-[11px] text-rose-300/80 mt-0.5 leading-relaxed">
+                                Para que suas próximas aulas no TheoFlix contem para sua formatura, solicite uma exceção de frequência à coordenação.
+                              </p>
+                            </div>
+                          </div>
+                          {!isRequestFormOpen && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => setIsRequestFormOpen(true)}
+                              className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs h-8 gap-1.5"
+                            >
+                              <ShieldCheck className="size-3.5" /> Solicitar Exceção à Coordenação
+                            </Button>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Caso 2 (Proativo - Discreto): Ainda dentro do limite, mas trabalha por escala etc. */}
+                      {studentAttendanceEval?.status !== 'exceeds_online_limit' && !isRequestFormOpen && (
+                        <div className="p-2.5 bg-slate-800/60 border border-slate-700/60 rounded-xl flex items-center justify-between text-[11px]">
+                          <span className="text-slate-300">
+                            Trabalha por escala ou não poderá vir presencialmente?
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setIsRequestFormOpen(true)}
+                            className="font-bold text-amber-400 hover:text-amber-300 underline underline-offset-2 ml-2 shrink-0"
+                          >
+                            Solicitar exceção
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Formulário de Envio de Solicitação Inline */}
+                      {isRequestFormOpen && (
+                        <div className="p-3.5 bg-slate-800/80 border border-amber-500/30 rounded-xl space-y-3 animate-in fade-in-50 duration-200">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-xs text-amber-300 flex items-center gap-1.5">
+                              <ShieldCheck className="size-4 text-amber-400" />
+                              Nova Solicitação de Exceção
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setIsRequestFormOpen(false)}
+                              className="text-[10px] text-slate-400 hover:text-white"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">
+                              Motivo da Solicitação *
+                            </label>
+                            <Input
+                              placeholder="Ex: Trabalho por escala aos domingos, viagem a trabalho, saúde..."
+                              value={exceptionReason}
+                              onChange={e => setExceptionReason(e.target.value)}
+                              className="h-8 text-xs bg-slate-900 border-slate-700 text-white placeholder:text-slate-500"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">
+                              Observações Adicionais (Opcional)
+                            </label>
+                            <Textarea
+                              placeholder="Detalhes sobre sua rotina, horários ou escalas..."
+                              value={exceptionNotes}
+                              onChange={e => setExceptionNotes(e.target.value)}
+                              className="text-xs bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 min-h-[50px]"
+                            />
+                          </div>
+
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={handleStudentSubmitException}
+                            disabled={isSubmittingException || !exceptionReason.trim()}
+                            className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs h-8"
+                          >
+                            {isSubmittingException ? (
+                              <>
+                                <Loader2 className="size-3.5 animate-spin mr-1.5" /> Enviando...
+                              </>
+                            ) : (
+                              'Enviar Solicitação para a Coordenação'
+                            )}
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
+              <p className="text-[11px] text-slate-400 italic">
+                Você tem acesso livre para assistir a todas as aulas online sempre que desejar para estudo e revisão!
               </p>
             </div>
-            <p className="text-[11px] text-slate-400 italic">
-              Você tem acesso livre para assistir a todas as aulas online sempre que desejar para estudo e revisão!
-            </p>
-          </div>
 
-          <DialogFooter className="gap-2">
-            <Button
-              onClick={handleConfirmAttendanceNotice}
-              className="w-full bg-primary hover:bg-primary/90 text-white font-bold text-xs h-10"
-            >
-              Entendido, assistir aula
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter className="gap-2">
+              <Button
+                onClick={handleConfirmAttendanceNotice}
+                className="w-full bg-primary hover:bg-primary/90 text-white font-bold text-xs h-10"
+              >
+                Entendido, assistir aula
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal de Gestão de Solicitações de Exceção para Administradores */}
+        {isAdmin && (
+          <Dialog open={isExceptionsModalOpen} onOpenChange={setIsExceptionsModalOpen}>
+            <DialogContent className="max-w-5xl w-full max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="text-base font-black flex items-center gap-2">
+                  <ShieldCheck className="size-5 text-amber-600" />
+                  Central de Exceções de Frequência Online (TheoFlix)
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground">
+                  Avalie justificativas de alunos e conceda ou recuse exceções de modalidade com 1 clique.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="py-2">
+                <OnlineExceptionsRequestsList />
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
     </div>
   );
 }
