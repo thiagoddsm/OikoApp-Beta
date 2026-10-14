@@ -99,6 +99,11 @@ export function evaluateRepositionRequirement(params: ModuleCompletionParams, ha
   return null;
 }
 
+// Progresso do TheoFlix só gera presença quando não foi marcado como "fora do limite online".
+function isCreditedProgress(v: any): boolean {
+  return !!v && typeof v === 'object' && v.completed === true && v.countsForAttendance !== false;
+}
+
 export function evaluateTheoflixRequirement(params: ModuleCompletionParams): boolean {
   const { studentId, studentEmail, studentJourney, course, modIndex, modules, quizAttempts } = params;
   const moduleTheoflixId = modules[modIndex]?.theoflixCourseId;
@@ -118,7 +123,7 @@ export function evaluateTheoflixRequirement(params: ModuleCompletionParams): boo
   // A. Checar Quizzes Aprovados
   const hasApprovedQuiz = quizAttempts?.some((att: any) => {
     const matchesUser = att.userId === studentId || (att.userEmail && studentEmail && att.userEmail.toLowerCase() === studentEmail.toLowerCase());
-    if (!matchesUser || att.approved === false) return false;
+    if (!matchesUser || att.approved === false || att.countsForAttendance === false) return false;
 
     const attCourseId = (att.courseId || '').toLowerCase().trim();
     const matchesCourse = targetTheoflixIds.some(id => id && (attCourseId === id || id.includes(attCourseId) || attCourseId.includes(id)));
@@ -170,7 +175,7 @@ export function evaluateTheoflixRequirement(params: ModuleCompletionParams): boo
           const isAttDone = attMap?.[vId] === true;
           const isProgDone = progMap && typeof progMap === 'object' && (
             progMap[vId] === true || 
-            progMap[vId]?.completed === true
+            isCreditedProgress(progMap[vId])
           );
           return isAttDone || isProgDone;
         }
@@ -179,8 +184,8 @@ export function evaluateTheoflixRequirement(params: ModuleCompletionParams): boo
         const isAttDone = attMap?.[vId] === true || attMap?.[modNumStr] === true || attMap?.[`module${modNumStr}`] === true;
         const isProgDone = progMap && typeof progMap === 'object' && (
           progMap[vId] === true || 
-          progMap[vId]?.completed === true || 
-          (currentMod?.youtubeId && progMap[currentMod.youtubeId]?.completed === true)
+          isCreditedProgress(progMap[vId]) || 
+          (currentMod?.youtubeId && isCreditedProgress(progMap[currentMod.youtubeId]))
         );
         return isAttDone || isProgDone;
       });
@@ -196,10 +201,10 @@ export function evaluateTheoflixRequirement(params: ModuleCompletionParams): boo
 
     const progMap = studentJourney?.theoflixProgress?.[tId] || studentJourney?.theoflixProgress?.[tId.toLowerCase()];
     if (progMap && typeof progMap === 'object') {
-      if (targetSyllabusId && (progMap[targetSyllabusId] === true || progMap[targetSyllabusId]?.completed === true)) return true;
+      if (targetSyllabusId && (progMap[targetSyllabusId] === true || isCreditedProgress(progMap[targetSyllabusId]))) return true;
       const episodeYoutubeId = (currentMod as any)?.youtubeId;
-      if (episodeYoutubeId && (progMap[episodeYoutubeId] === true || progMap[episodeYoutubeId]?.completed === true)) return true;
-      if (progMap[modIdxStr1] === true || progMap[modIdxStr1]?.completed === true || progMap[`module${modIndex + 1}`] === true) return true;
+      if (episodeYoutubeId && (progMap[episodeYoutubeId] === true || isCreditedProgress(progMap[episodeYoutubeId]))) return true;
+      if (progMap[modIdxStr1] === true || isCreditedProgress(progMap[modIdxStr1]) || progMap[`module${modIndex + 1}`] === true) return true;
     }
     return false;
   });

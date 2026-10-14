@@ -36,6 +36,7 @@ import { collection, query, doc, orderBy } from 'firebase/firestore';
 import { TheoflixManager } from '@/components/teaching/theoflix/theoflix-manager';
 import { OnlineExceptionsRequestsList } from '@/components/teaching/online-exceptions-list';
 import { evaluateStudentAttendance } from '@/lib/teaching/attendance-calculator';
+import { evaluateOnlineCredit } from '@/lib/teaching/online-limit';
 import { type OnlineException } from '@/contexts/volunteering-context';
 import { LessonArticleViewer } from '@/components/teaching/theoflix/lesson-article-viewer';
 import { useToast } from '@/hooks/use-toast';
@@ -310,6 +311,29 @@ function TheoFlixContent() {
   const [exceptionNotes, setExceptionNotes] = useState('');
   const [isSubmittingException, setIsSubmittingException] = useState(false);
 
+  // Decide se a aula que o aluno está concluindo pode gerar presença online
+  const getOnlineCredit = (episodeKey: string) => {
+    if (!user || !selectedCourse) return { allowed: true } as ReturnType<typeof evaluateOnlineCredit>;
+    const prev: any = userProgress?.[selectedCourse.id]?.[episodeKey];
+    const alreadyCredited = prev === true || (!!prev && prev.completed === true && prev.countsForAttendance !== false);
+    return evaluateOnlineCredit({
+      classData: studentClass,
+      courseData: linkedPhysicalCourse,
+      studentId: user.uid,
+      alreadyCredited
+    });
+  };
+
+  const notifyNoCredit = (credit: ReturnType<typeof evaluateOnlineCredit>) => {
+    toast({
+      variant: 'destructive',
+      title: 'Aula assistida, mas SEM presença',
+      description: credit.reason === 'in_person_only'
+        ? 'Este curso exige presença presencial. Solicite uma exceção à coordenação para que as aulas online contem.'
+        : `Você já atingiu o limite de aulas online (${credit.onlineCount} de ${credit.maxAllowed} permitidas). Solicite uma exceção à coordenação para que esta aula conte como presença.`
+    });
+  };
+
   const handleStudentSubmitException = async () => {
     if (!exceptionReason.trim()) {
       toast({
@@ -416,12 +440,15 @@ function TheoFlixContent() {
     const timeSpentSeconds = Math.max(1, Math.round((new Date(nowISO).getTime() - new Date(startTimeISO).getTime()) / 1000));
     const watchedMinutes = Math.max(1, Math.round(timeSpentSeconds / 60));
 
+    const credit = getOnlineCredit(episodeKey);
+
     const progressData = {
       completed: true,
       startedAt: startTimeISO,
       completedAt: nowISO,
       timeSpentSeconds,
-      watchedMinutes
+      watchedMinutes,
+      ...(!credit.allowed && { countsForAttendance: false })
     };
 
     updateDocumentNonBlocking(doc(firestore, 'users', user.uid), {
@@ -432,13 +459,17 @@ function TheoFlixContent() {
       })
     });
 
-    if (episodeIndex > -1) {
+    if (episodeIndex > -1 && credit.allowed) {
         // Fase 1: passar youtubeId para dupla escrita (índice legado + youtubeId estável)
         markAttendanceByTheoflix(user.uid, selectedCourse.id, episodeIndex, lessonNotes, currentEpisode.youtubeId);
     }
     setLessonNotes('');
     setQuizSubmitted(false);
-    toast({ title: "Aula Concluída! 🎉", description: "Seu progresso e anotações foram salvos com sucesso." });
+    if (credit.allowed) {
+        toast({ title: "Aula Concluída! 🎉", description: "Seu progresso e anotações foram salvos com sucesso." });
+    } else {
+        notifyNoCredit(credit);
+    }
   };
 
   const handleQuizSubmit = async () => {
@@ -508,6 +539,7 @@ function TheoFlixContent() {
               const matchedSyllabusId = (currentEpisode as any)?.syllabusId || (currentEpisode as any)?.id;
               const epIdx = selectedCourse.episodes?.findIndex((e: any) => e.youtubeId === currentEpisode.youtubeId || e.title === currentEpisode.title) ?? 0;
               const episodeKey = currentEpisode.youtubeId || currentEpisode.title.replace(/\s+/g, '_');
+              const credit = getOnlineCredit(episodeKey);
 
               addDocumentNonBlocking(collection(firestore, 'theoflix_quiz_attempts'), {
                   userId: user.uid,
@@ -523,6 +555,7 @@ function TheoFlixContent() {
                   score,
                   minScore,
                   approved: true,
+                  countsForAttendance: credit.allowed,
                   answers: quizAnswers,
                   questions: questions.map((q, idx) => ({
                       ...q,
@@ -544,16 +577,18 @@ function TheoFlixContent() {
                       startedAt: startTimeISO,
                       completedAt: nowISO,
                       timeSpentSeconds,
-                      watchedMinutes
+                      watchedMinutes,
+                      ...(!credit.allowed && { countsForAttendance: false })
                   }
               });
 
-              if (epIdx > -1) {
+              if (epIdx > -1 && credit.allowed) {
                   markAttendanceByTheoflix(user.uid, selectedCourse.id, epIdx, lessonNotes, currentEpisode.youtubeId);
               }
 
               try {
-                  const studentClass = classes.find((c: any) => c.students?.includes(user.uid) && (c.courseId === selectedCourse.id || c.courseId === (selectedCourse as any).linkedPhysicalCourseId));
+                  const legacyClass = classes.find((c: any) => c.students?.includes(user.uid) && (c.courseId === selectedCourse.id || c.courseId === (selectedCourse as any).linkedPhysicalCourseId));
+                  const studentClass = credit.allowed ? legacyClass : null;
                   if (studentClass && studentClass.attendance) {
                       const updatedAtt = [...studentClass.attendance];
                       const targetAttIndex = epIdx !== -1 && updatedAtt[epIdx] ? epIdx : 0;
@@ -573,7 +608,7 @@ function TheoFlixContent() {
               }
           }
 
-          toast({ title: "Respostas enviadas!", description: "Sua aula foi marcada como assistida." });
+          toast({ title: "Respostas enviadas!", description: "Suas respostas foram registradas." });
           setTimeout(() => {
               setIsQuizOpen(false);
               handleMarkAsCompleted(true);
