@@ -26,12 +26,8 @@ export function isMembershipCourse(course: any): boolean {
     id === 'pertencer' ||
     id === 'membros' ||
     linkedTheoflixId === 'membros' ||
-    schoolId === 'lumine' ||
-    programId === 'lumine' ||
-    /^(pertencer|curso de membro|curso para novos membros|membros|membresia)/i.test(name) ||
-    ministryName.includes('lumine') ||
-    ministryName.includes('ebd') ||
-    ministry.includes('lumine')
+    name.includes('pertencer') ||
+    /^(pertencer|curso de membro|curso de membros|curso para novos membros|membros|membresia)/i.test(name)
   );
 }
 
