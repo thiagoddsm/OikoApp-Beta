@@ -311,6 +311,9 @@ function TheoFlixContent() {
   const [exceptionNotes, setExceptionNotes] = useState('');
   const [isSubmittingException, setIsSubmittingException] = useState(false);
 
+  // Quando preenchido, o aluno atingiu o limite online e o player fica bloqueado até a exceção ser aprovada
+  const [limitBlock, setLimitBlock] = useState<ReturnType<typeof evaluateOnlineCredit> | null>(null);
+
   // Decide se a aula que o aluno está concluindo pode gerar presença online
   const getOnlineCredit = (episodeKey: string) => {
     if (!user || !selectedCourse) return { allowed: true } as ReturnType<typeof evaluateOnlineCredit>;
@@ -384,6 +387,18 @@ function TheoFlixContent() {
 
 
   const handlePlayEpisode = (episode: Episode) => {
+    // Limite de aulas online atingido (curso híbrido): bloqueia a reprodução até a coordenação aprovar exceção
+    if (selectedCourse && studentClass && coursePolicy?.mode === 'hybrid') {
+      const key = episode.youtubeId || episode.title.replace(/\s+/g, '_');
+      const credit = getOnlineCredit(key);
+      if (!credit.allowed && credit.reason === 'online_limit') {
+        setLimitBlock(credit);
+        setPendingEpisodeToPlay(null);
+        setIsAttendanceNoticeOpen(true);
+        return;
+      }
+    }
+    setLimitBlock(null);
     if (selectedCourse && coursePolicy && (coursePolicy.mode === 'hybrid' || coursePolicy.mode === 'in_person_only')) {
       if (!dismissedNoticeForCourses.has(selectedCourse.id)) {
         setPendingEpisodeToPlay(episode);
@@ -1393,8 +1408,8 @@ function TheoFlixContent() {
           <DialogContent className="sm:max-w-lg bg-slate-900 border-slate-800 text-slate-100 max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-base font-black text-white flex items-center gap-2">
-                <AlertTriangle className="size-5 text-amber-400" />
-                Aviso sobre Aulas Online &amp; Frequência
+                <AlertTriangle className={limitBlock ? "size-5 text-rose-400" : "size-5 text-amber-400"} />
+                {limitBlock ? 'Limite de Aulas Online Atingido' : 'Aviso sobre Aulas Online & Frequência'}
               </DialogTitle>
               <DialogDescription className="text-xs text-slate-400">
                 {selectedCourse?.title} {studentClass ? `• Turma ${studentClass.name}` : ''}
@@ -1459,8 +1474,35 @@ function TheoFlixContent() {
                   {/* Aluno ainda não solicitou exceção ou foi recusada */}
                   {(!existingStudentException || existingStudentException.status === 'rejected') && (
                     <>
+                      {/* Bloqueio: limite de aulas online atingido */}
+                      {limitBlock && (
+                        <div className="p-3 bg-rose-950/40 border border-rose-500/40 rounded-xl space-y-2">
+                          <div className="flex items-start gap-2">
+                            <Lock className="size-4 text-rose-400 shrink-0 mt-0.5" />
+                            <div>
+                              <p className="font-bold text-xs text-rose-200">
+                                Você já usou {limitBlock.onlineCount} de {limitBlock.maxAllowed} aulas online permitidas
+                              </p>
+                              <p className="text-[11px] text-rose-300/80 mt-0.5 leading-relaxed">
+                                Para continuar assistindo e ter presença nas próximas aulas pelo TheoFlix, solicite uma exceção à coordenação. Assim que for aprovada, a aula será liberada.
+                              </p>
+                            </div>
+                          </div>
+                          {!isRequestFormOpen && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => setIsRequestFormOpen(true)}
+                              className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs h-8 gap-1.5"
+                            >
+                              <ShieldCheck className="size-3.5" /> Solicitar Exceção à Coordenação
+                            </Button>
+                          )}
+                        </div>
+                      )}
+
                       {/* Caso 1 (Reativo - Destaque Máximo): Atingiu/Excedeu o limite online */}
-                      {studentAttendanceEval?.status === 'exceeds_online_limit' && (
+                      {!limitBlock && studentAttendanceEval?.status === 'exceeds_online_limit' && (
                         <div className="p-3 bg-rose-950/40 border border-rose-500/40 rounded-xl space-y-2">
                           <div className="flex items-start gap-2">
                             <AlertTriangle className="size-4 text-rose-400 shrink-0 mt-0.5" />
@@ -1487,7 +1529,7 @@ function TheoFlixContent() {
                       )}
 
                       {/* Caso 2 (Proativo - Discreto): Ainda dentro do limite, mas trabalha por escala etc. */}
-                      {studentAttendanceEval?.status !== 'exceeds_online_limit' && !isRequestFormOpen && (
+                      {!limitBlock && studentAttendanceEval?.status !== 'exceeds_online_limit' && !isRequestFormOpen && (
                         <div className="p-2.5 bg-slate-800/60 border border-slate-700/60 rounded-xl flex items-center justify-between text-[11px]">
                           <span className="text-slate-300">
                             Trabalha por escala ou não poderá vir presencialmente?
@@ -1565,18 +1607,30 @@ function TheoFlixContent() {
                 </div>
               )}
 
-              <p className="text-[11px] text-slate-400 italic">
-                Você tem acesso livre para assistir a todas as aulas online sempre que desejar para estudo e revisão!
-              </p>
+              {!limitBlock && (
+                <p className="text-[11px] text-slate-400 italic">
+                  Você tem acesso livre para assistir a todas as aulas online sempre que desejar para estudo e revisão!
+                </p>
+              )}
             </div>
 
             <DialogFooter className="gap-2">
-              <Button
-                onClick={handleConfirmAttendanceNotice}
-                className="w-full bg-primary hover:bg-primary/90 text-white font-bold text-xs h-10"
-              >
-                Entendido, assistir aula
-              </Button>
+              {limitBlock ? (
+                <Button
+                  variant="outline"
+                  onClick={() => setIsAttendanceNoticeOpen(false)}
+                  className="w-full border-slate-700 bg-transparent text-slate-200 hover:bg-slate-800 font-bold text-xs h-10"
+                >
+                  Fechar
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleConfirmAttendanceNotice}
+                  className="w-full bg-primary hover:bg-primary/90 text-white font-bold text-xs h-10"
+                >
+                  Entendido, assistir aula
+                </Button>
+              )}
             </DialogFooter>
           </DialogContent>
         </Dialog>
