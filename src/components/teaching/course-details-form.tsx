@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { useVolunteering } from '@/contexts/volunteering-context';
+import { useVolunteering, getCourseAttendanceMode } from '@/contexts/volunteering-context';
 import { useFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Loader2, ShieldCheck, Mail, Info, School, PlayCircle, Percent, Lock, UserCheck, CheckCircle2, GraduationCap, BookOpen, Layers, Upload, MessageCircle, Waves, Archive } from 'lucide-react';
+import { Loader2, ShieldCheck, Mail, Info, School, PlayCircle, Percent, Lock, UserCheck, CheckCircle2, GraduationCap, BookOpen, Layers, Upload, MessageCircle, Waves, Archive, Sparkles } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -42,6 +42,7 @@ export function CourseDetailsForm({ course }: { course: any }) {
     imageUrl: '',
     whatsappGroupPicture: '',
     simultaneousClasses: false,
+    attendanceMode: getCourseAttendanceMode(course),
     billingMethod: course?.billingMethod || 'manual',
     attendancePolicy: {
       mode: (course?.attendancePolicy?.mode || 'flexible') as 'in_person_only' | 'online_only' | 'hybrid' | 'flexible',
@@ -84,6 +85,7 @@ export function CourseDetailsForm({ course }: { course: any }) {
         imageUrl: course.imageUrl || '',
         whatsappGroupPicture: course.whatsappGroupPicture || '',
         simultaneousClasses: course.simultaneousClasses || false,
+        attendanceMode: getCourseAttendanceMode(course),
         billingMethod: course.billingMethod || 'manual',
         attendancePolicy: {
           mode: (course.attendancePolicy?.mode || 'flexible') as 'in_person_only' | 'online_only' | 'hybrid' | 'flexible',
@@ -265,6 +267,8 @@ export function CourseDetailsForm({ course }: { course: any }) {
             imageUrl: formData.imageUrl,
             whatsappGroupPicture: formData.whatsappGroupPicture,
             simultaneousClasses: formData.simultaneousClasses,
+            attendanceMode: formData.attendanceMode,
+            presencaPresencialModo: formData.attendanceMode,
             billingMethod: formData.billingMethod,
         });
         toast({ title: 'Sucesso!', description: 'As configurações do curso foram atualizadas.'});
@@ -602,6 +606,56 @@ export function CourseDetailsForm({ course }: { course: any }) {
                             onCheckedChange={(v) => handleFieldChange('simultaneousClasses', v)} 
                           />
                       </div>
+                  </div>
+
+                  <div className="space-y-4">
+                      <div className="flex items-center justify-between gap-4">
+                          <div className="space-y-0.5">
+                              <Label className="text-sm font-bold flex items-center gap-2">
+                                  Lançamento de Presença Presencial
+                              </Label>
+                              <p className="text-[10px] text-muted-foreground italic">
+                                Define se a presença dos alunos nas aulas presenciais é lançada manualmente pelo professor ou validada pelo questionário interativo.
+                              </p>
+                          </div>
+                          <Select 
+                            value={formData.attendanceMode} 
+                            onValueChange={(v) => handleFieldChange('attendanceMode', v)}
+                          >
+                            <SelectTrigger className="w-[180px] h-9 text-xs font-semibold bg-white border-slate-200">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="manual" className="text-xs">
+                                📋 Manual (Diário)
+                              </SelectItem>
+                              <SelectItem value="quiz" className="text-xs">
+                                🎮 Via Questionário
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                      </div>
+
+                      {formData.attendanceMode === 'quiz' ? (
+                        <div className="p-3 rounded-lg bg-purple-50 border border-purple-200 text-[11px] text-purple-900 flex items-start gap-2.5">
+                          <Sparkles className="size-4 text-purple-600 mt-0.5 shrink-0" />
+                          <div className="space-y-1">
+                            <span className="font-semibold block">Questionário Gamificado Ativo</span>
+                            <span className="block text-slate-700">A presença dos alunos será registrada automaticamente ao concluírem o questionário da aula. As respostas, reflexões e pontuações de cada aluno ficarão visíveis na aba <strong>Notas</strong> da turma.</span>
+                            <span className="block font-medium text-purple-700 pt-1">
+                              💡 Dica: Você pode criar e editar as perguntas de cada aula diretamente na aba <strong>Ementa</strong> deste curso ou na aba <strong>Questionário</strong> das turmas.
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-3 rounded-lg bg-slate-100 border border-slate-200 text-[11px] text-slate-600 flex items-start gap-2.5">
+                          <CheckCircle2 className="size-4 text-slate-500 mt-0.5 shrink-0" />
+                          <div>
+                            <span className="font-semibold block">Modo Tradicional (Diário de Classe)</span>
+                            <span>O professor realiza a chamada e registra as faltas e presenças manualmente através do Diário de Classe de cada turma.</span>
+                          </div>
+                        </div>
+                      )}
                   </div>
               </div>
           </div>

@@ -1,16 +1,18 @@
 
 'use client';
 import React, { useState, useMemo, useRef, useCallback } from 'react';
-import { useVolunteering, type Class, type User } from '@/contexts/volunteering-context';
+import { useVolunteering, type Class, type User, type Course } from '@/contexts/volunteering-context';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { PlusCircle, Save, Loader2, Trash2, AlertTriangle, Check, X } from 'lucide-react';
+import { PlusCircle, Save, Loader2, Trash2, AlertTriangle, Check, X, GraduationCap, Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useMembersData } from "@/hooks/useDomainData";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ClassQuizAnswersManager } from '@/components/teaching/class-quiz-answers-manager';
 
-export function ClassGradesManager({ classData }: { classData: Class }) {
+export function ClassGradesManager({ classData, courseData }: { classData: Class; courseData?: Course | null }) {
     const { users } = useMembersData();
 
     const { updateClass } = useVolunteering();
@@ -89,93 +91,111 @@ export function ClassGradesManager({ classData }: { classData: Class }) {
     };
 
     return (
-        <div className="space-y-6">
-            <div className="flex items-end gap-2">
-                <div className="flex-1 max-w-xs">
-                    <label className="text-xs font-bold uppercase text-muted-foreground">Nova Avaliação</label>
-                    <Input
-                        placeholder="Ex: Prova 1, Trabalho..."
-                        value={newAssessment}
-                        onChange={e => setNewAssessment(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && handleAddAssessment()}
-                    />
-                </div>
-                <Button onClick={handleAddAssessment} disabled={!newAssessment.trim() || isSaving}>
-                    {isSaving ? <Loader2 className="mr-2 size-4 animate-spin" /> : <PlusCircle className="mr-2 size-4" />}
-                    Criar Coluna
-                </Button>
+        <Tabs defaultValue="evaluations" className="space-y-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b pb-3">
+                <TabsList className="bg-slate-100 p-1">
+                    <TabsTrigger value="evaluations" className="gap-2">
+                        <GraduationCap className="size-4" />
+                        Boletim de Avaliações
+                    </TabsTrigger>
+                    <TabsTrigger value="quiz" className="gap-2">
+                        <Sparkles className="size-4 text-purple-600" />
+                        Respostas do Questionário Interativo
+                    </TabsTrigger>
+                </TabsList>
             </div>
 
-            <div className="rounded-md border bg-background overflow-x-auto">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead className="min-w-[200px]">Aluno</TableHead>
-                            {assessments.map(assessment => (
-                                <TableHead key={assessment} className="text-center min-w-[120px]">
-                                    <div className="flex flex-col items-center gap-1">
-                                        <span className="font-bold text-primary">{assessment}</span>
-                                        {pendingDelete === assessment ? (
-                                            // Inline confirmation — replaces browser confirm()
-                                            <div className="flex items-center gap-1">
-                                                <span className="text-[10px] text-destructive font-semibold">Confirmar?</span>
-                                                <Button variant="ghost" size="icon" className="h-5 w-5 text-destructive" onClick={() => handleRemoveAssessment(assessment)}>
-                                                    <Check className="size-3" />
-                                                </Button>
-                                                <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setPendingDelete(null)}>
-                                                    <X className="size-3" />
-                                                </Button>
-                                            </div>
-                                        ) : (
-                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleRemoveAssessment(assessment)}>
-                                                <Trash2 className="size-3" />
-                                            </Button>
-                                        )}
-                                    </div>
-                                </TableHead>
-                            ))}
-                            <TableHead className="text-center font-bold text-slate-900">Média</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {enrolledStudents.length === 0 ? (
+            <TabsContent value="evaluations" className="space-y-6 mt-0">
+                <div className="flex items-end gap-2">
+                    <div className="flex-1 max-w-xs">
+                        <label className="text-xs font-bold uppercase text-muted-foreground">Nova Avaliação</label>
+                        <Input
+                            placeholder="Ex: Prova 1, Trabalho..."
+                            value={newAssessment}
+                            onChange={e => setNewAssessment(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && handleAddAssessment()}
+                        />
+                    </div>
+                    <Button onClick={handleAddAssessment} disabled={!newAssessment.trim() || isSaving}>
+                        {isSaving ? <Loader2 className="mr-2 size-4 animate-spin" /> : <PlusCircle className="mr-2 size-4" />}
+                        Criar Coluna
+                    </Button>
+                </div>
+
+                <div className="rounded-md border bg-background overflow-x-auto">
+                    <Table>
+                        <TableHeader>
                             <TableRow>
-                                <TableCell colSpan={assessments.length + 2} className="h-24 text-center">Nenhum aluno matriculado.</TableCell>
+                                <TableHead className="min-w-[200px]">Aluno</TableHead>
+                                {assessments.map(assessment => (
+                                    <TableHead key={assessment} className="text-center min-w-[120px]">
+                                        <div className="flex flex-col items-center gap-1">
+                                            <span className="font-bold text-primary">{assessment}</span>
+                                            {pendingDelete === assessment ? (
+                                                <div className="flex items-center gap-1">
+                                                    <span className="text-[10px] text-destructive font-semibold">Confirmar?</span>
+                                                    <Button variant="ghost" size="icon" className="h-5 w-5 text-destructive" onClick={() => handleRemoveAssessment(assessment)}>
+                                                        <Check className="size-3" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setPendingDelete(null)}>
+                                                        <X className="size-3" />
+                                                    </Button>
+                                                </div>
+                                            ) : (
+                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleRemoveAssessment(assessment)}>
+                                                    <Trash2 className="size-3" />
+                                                </Button>
+                                            )}
+                                        </div>
+                                    </TableHead>
+                                ))}
+                                <TableHead className="text-center font-bold text-slate-900">Média</TableHead>
                             </TableRow>
-                        ) : (
-                            enrolledStudents.map(student => {
-                                let totalGrades = 0;
-                                return (
-                                    <TableRow key={student.id}>
-                                        <TableCell className="font-medium">{student.name}</TableCell>
-                                        {assessments.map(assessment => {
-                                            const gradeEntry = localGrades?.find(g => g.studentId === student.id && g.assessmentName === assessment);
-                                            const grade = gradeEntry?.grade || 0;
-                                            totalGrades += grade;
-                                            return (
-                                                <TableCell key={assessment} className="text-center">
-                                                    <Input
-                                                        type="number"
-                                                        step="0.1"
-                                                        min="0"
-                                                        max="10"
-                                                        className="w-20 mx-auto text-center font-bold"
-                                                        value={grade}
-                                                        onChange={e => handleGradeChange(student.id, assessment, e.target.value)}
-                                                    />
-                                                </TableCell>
-                                            );
-                                        })}
-                                        <TableCell className="text-center font-black text-primary">
-                                            {assessments.length > 0 ? (totalGrades / assessments.length).toFixed(1) : '-'}
-                                        </TableCell>
-                                    </TableRow>
-                                );
-                            })
-                        )}
-                    </TableBody>
-                </Table>
-            </div>
-        </div>
+                        </TableHeader>
+                        <TableBody>
+                            {enrolledStudents.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={assessments.length + 2} className="h-24 text-center">Nenhum aluno matriculado.</TableCell>
+                                </TableRow>
+                            ) : (
+                                enrolledStudents.map(student => {
+                                    let totalGrades = 0;
+                                    return (
+                                        <TableRow key={student.id}>
+                                            <TableCell className="font-medium">{student.name}</TableCell>
+                                            {assessments.map(assessment => {
+                                                const gradeEntry = localGrades?.find(g => g.studentId === student.id && g.assessmentName === assessment);
+                                                const grade = gradeEntry?.grade || 0;
+                                                totalGrades += grade;
+                                                return (
+                                                    <TableCell key={assessment} className="text-center">
+                                                        <Input
+                                                            type="number"
+                                                            step="0.1"
+                                                            min="0"
+                                                            max="10"
+                                                            className="w-20 mx-auto text-center font-bold"
+                                                            value={grade}
+                                                            onChange={e => handleGradeChange(student.id, assessment, e.target.value)}
+                                                        />
+                                                    </TableCell>
+                                                );
+                                            })}
+                                            <TableCell className="text-center font-black text-primary">
+                                                {assessments.length > 0 ? (totalGrades / assessments.length).toFixed(1) : '-'}
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
+            </TabsContent>
+
+            <TabsContent value="quiz" className="mt-0">
+                <ClassQuizAnswersManager classData={classData} courseData={courseData} />
+            </TabsContent>
+        </Tabs>
     );
 }

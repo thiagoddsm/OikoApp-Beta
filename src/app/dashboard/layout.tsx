@@ -168,6 +168,7 @@ const menuItems = [
                 label: "Ferramentas", 
                 icon: Wrench,
                 subItems: [
+                  { href: "/dashboard/teaching/questionarios", label: "Questionários Presenciais", icon: Sparkles, permissionId: 'teaching_courses' },
                   { href: "/dashboard/teaching/theoflix", label: "TheoFlix (EAD & Quizzes)", icon: PlayCircle, permissionId: 'teaching_courses' },
                   { href: "/dashboard/teaching/theoflix/reports/watch-history", label: "Histórico TheoFlix (EAD)", icon: Clock, permissionId: 'teaching_courses' },
                   { href: "/dashboard/teaching/theoflix/reports", label: "Respostas dos Quizzes", icon: FileText, permissionId: 'teaching_courses' },

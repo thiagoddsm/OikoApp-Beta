@@ -21,11 +21,14 @@ import {
   ChevronDown,
   ChevronUp,
   Video,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Pencil
 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { useCoursesData } from "@/hooks/useDomainData";
+import { LessonQuizEditorModal } from './lesson-quiz-editor-modal';
 
 type SyllabusModule = {
   id: string;
@@ -35,6 +38,7 @@ type SyllabusModule = {
   theoflixRequiredVideoIds?: string[]; // Specific videos that must be watched to get attendance
   materialName?: string; // Ex: PDF Apostila Aula 1
   materialUrl?: string; // Link direto do arquivo
+  quiz?: any;
 };
 
 interface CourseSyllabusManagerProps {
@@ -49,6 +53,49 @@ export function CourseSyllabusManager({ course }: CourseSyllabusManagerProps) {
   const [modules, setModules] = useState<SyllabusModule[]>(course.syllabus || []);
   const [isSaving, setIsSaving] = useState(false);
   const [editingModuleId, setEditingModuleId] = useState<string | null>(null);
+  const [quizModalOpen, setQuizModalOpen] = useState(false);
+  const [selectedQuizModule, setSelectedQuizModule] = useState<{
+    mod: SyllabusModule;
+    lessonNumber: number;
+  } | null>(null);
+
+  const getModuleQuizCount = (mod: SyllabusModule, lessonNum: number) => {
+    if (mod.quiz && Array.isArray(mod.quiz.questions)) {
+      return mod.quiz.questions.length;
+    }
+    const lq = course?.lessonQuizzes?.[String(lessonNum)] || course?.lessonQuizzes?.[lessonNum];
+    if (lq && Array.isArray(lq.questions)) {
+      return lq.questions.length;
+    }
+    const isApoiar = (course?.id && course.id.toLowerCase().includes('apoiar')) || 
+                     (course?.name && course.name.toLowerCase().includes('apoiar'));
+    if (isApoiar) {
+      if (lessonNum === 1) return 8;
+      if (lessonNum === 2) return 6;
+    }
+    return 0;
+  };
+
+  const handleOpenQuizEditor = (mod: SyllabusModule, lessonNumber: number) => {
+    setSelectedQuizModule({ mod, lessonNumber });
+    setQuizModalOpen(true);
+  };
+
+  const handleQuizSaved = (cleanQuestions: any[], isEnabled: boolean) => {
+    if (!selectedQuizModule) return;
+    setModules(prev => prev.map(m => {
+      if (m.id === selectedQuizModule.mod.id) {
+        return {
+          ...m,
+          quiz: {
+            enabled: isEnabled,
+            questions: cleanQuestions
+          }
+        };
+      }
+      return m;
+    }));
+  };
   
   // Form state for adding/editing
   const [formTitle, setFormTitle] = useState('');
@@ -349,7 +396,22 @@ export function CourseSyllabusManager({ course }: CourseSyllabusManagerProps) {
                       <div className="flex-1 p-5">
                         <div className="flex justify-between items-start mb-2">
                           <h4 className="font-bold text-lg text-slate-900">{mod.title}</h4>
-                          <div className="flex gap-1 transition-opacity">
+                          <div className="flex items-center gap-1.5 transition-opacity">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenQuizEditor(mod, index + 1)}
+                              className="h-8 text-xs font-bold border-purple-200 text-purple-900 bg-purple-50/70 hover:bg-purple-100 shadow-sm"
+                            >
+                              <Pencil className="size-3 mr-1 text-purple-600" />
+                              ✏️ Questionário
+                              <Badge variant="secondary" className="ml-1.5 bg-purple-200 text-purple-950 text-[10px] font-extrabold">
+                                {(() => {
+                                  const count = getModuleQuizCount(mod, index + 1);
+                                  return count > 0 ? `${count} itens` : 'Criar';
+                                })()}
+                              </Badge>
+                            </Button>
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:text-primary hover:bg-primary/10" onClick={() => handleEdit(mod)}>
                               <Edit size={14} />
                             </Button>
@@ -376,6 +438,18 @@ export function CourseSyllabusManager({ course }: CourseSyllabusManagerProps) {
           )}
         </div>
       </div>
+
+      {selectedQuizModule && (
+        <LessonQuizEditorModal
+          open={quizModalOpen}
+          onOpenChange={setQuizModalOpen}
+          course={course}
+          lessonNumber={selectedQuizModule.lessonNumber}
+          lessonTitle={selectedQuizModule.mod.title}
+          syllabusId={selectedQuizModule.mod.id}
+          onSaved={handleQuizSaved}
+        />
+      )}
     </div>
   );
 }

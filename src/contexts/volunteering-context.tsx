@@ -154,6 +154,27 @@ export type RoomReservation = {
   specificDates?: string[];
 };
 
+export type CourseQuizQuestion = {
+  id: number;
+  type: 'multiple_choice' | 'discursive';
+  category?: string;
+  question: string;
+  correct?: string;
+  distractors?: string[];
+  keywords?: string[];
+  feedback?: string;
+  options?: string[];
+  correctIndex?: number;
+  aiActive?: boolean;
+};
+
+export type CourseLessonQuiz = {
+  enabled?: boolean;
+  title?: string;
+  questions: CourseQuizQuestion[];
+  updatedAt?: any;
+};
+
 export type Course = {
   id: string;
   name: string;
@@ -165,16 +186,33 @@ export type Course = {
   linkedTheoflixId?: string;
   minAttendanceApproval?: number;
   attendancePolicy?: CourseAttendancePolicy;
-  syllabus?: { id: string; title: string; description: string; theoflixCourseId?: string }[];
+  syllabus?: { 
+    id: string; 
+    title: string; 
+    description: string; 
+    theoflixCourseId?: string;
+    theoflixRequiredVideoIds?: string[];
+    materialName?: string;
+    materialUrl?: string;
+    quiz?: CourseLessonQuiz;
+  }[];
   requiresMemberStatus?: boolean;
   requiresBaptism?: boolean;
   prerequisiteCourseId?: string;
   simultaneousClasses?: boolean;
+  attendanceMode?: 'manual' | 'quiz';
+  presencaPresencialModo?: 'manual' | 'quiz';
+  lessonQuizzes?: Record<string, CourseLessonQuiz>;
   isArchived?: boolean;
   grantsMembership?: boolean;
   isMembershipPrerequisite?: boolean;
   billingMethod?: 'manual' | 'asaas';
 };
+
+export function getCourseAttendanceMode(course?: Partial<Course> | null): 'manual' | 'quiz' {
+  if (!course) return 'manual';
+  return (course.attendanceMode ?? course.presencaPresencialModo ?? 'manual') as 'manual' | 'quiz';
+}
 
 export type AttendanceModePolicy = 'in_person_only' | 'online_only' | 'hybrid' | 'flexible';
 

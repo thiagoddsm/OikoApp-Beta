@@ -146,7 +146,7 @@ function ClassDetailPageContent() {
                         </TabsContent>
                         
                         <TabsContent value="grades" className="mt-6">
-                             <ClassGradesManager classData={classData} />
+                             <ClassGradesManager classData={classData} courseData={courseData} />
                         </TabsContent>
 
                         <TabsContent value="report" className="mt-6">

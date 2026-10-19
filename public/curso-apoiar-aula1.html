@@ -1,0 +1,2046 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Curso Apoiar • Aula 1: Nós Somos Suporte</title>
+  
+  <!-- Meta Tags & Theme -->
+  <meta name="description" content="Aplicação interativa de treinamento e gamificação de liderança para o Curso Apoiar da Oiko Comunidade.">
+  <meta name="theme-color" content="#2e1065">
+
+  <!-- Google Fonts: Outfit & Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            outfit: ['Outfit', 'sans-serif'],
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          },
+          colors: {
+            deepPurple: '#2e1065',
+            violetDark: '#1e1035',
+            night: '#0f0720',
+            primaryPurple: '#7c3aed',
+            vividPurple: '#c084fc',
+            lightPurple: '#e9d5ff',
+            accentEmerald: '#10b981',
+            accentAmber: '#f59e0b',
+            accentRose: '#f43f5e',
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- FontAwesome 6 Free -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <!-- Firebase Compat v10 SDK via CDN -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: radial-gradient(ellipse at 50% 0%, #2e1065 0%, #1e1035 55%, #0f0720 100%);
+      min-height: 100vh;
+      color: #f8fafc;
+      overflow-x: hidden;
+    }
+
+    h1, h2, h3, h4, .font-heading {
+      font-family: 'Outfit', sans-serif;
+    }
+
+    /* Glassmorphism Classes */
+    .glass-card {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 16px 40px 0 rgba(26, 5, 59, 0.45);
+    }
+
+    .glass-card-hover {
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .glass-card-hover:hover {
+      background: rgba(255, 255, 255, 0.09);
+      border-color: rgba(192, 132, 252, 0.4);
+      transform: translateY(-2px);
+      box-shadow: 0 20px 48px 0 rgba(124, 58, 237, 0.35);
+    }
+
+    .glass-input {
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      backdrop-filter: blur(8px);
+      color: #ffffff;
+    }
+    .glass-input:focus {
+      outline: none;
+      border-color: #c084fc;
+      background: rgba(255, 255, 255, 0.12);
+      box-shadow: 0 0 0 3px rgba(192, 132, 252, 0.25);
+    }
+
+    /* Glow Elements */
+    .glow-purple {
+      box-shadow: 0 0 25px rgba(124, 58, 237, 0.55);
+    }
+    .glow-emerald {
+      box-shadow: 0 0 25px rgba(16, 185, 129, 0.55);
+    }
+
+    /* Canvas Confetti */
+    #confettiCanvas {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    /* Animations */
+    @keyframes pulseSoft {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.03); opacity: 0.92; }
+    }
+    .animate-pulse-soft {
+      animation: pulseSoft 3s ease-in-out infinite;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-8px); }
+      40%, 80% { transform: translateX(8px); }
+    }
+    .animate-shake {
+      animation: shake 0.4s ease-in-out;
+    }
+
+    /* Print Styles */
+    @media print {
+      body {
+        background: #ffffff !important;
+        color: #0f172a !important;
+      }
+      .no-print, #screen-onboarding, #screen-gameplay, #modal-admin, #modal-pin, #confettiCanvas, footer {
+        display: none !important;
+      }
+      #screen-results {
+        display: block !important;
+      }
+      .glass-card {
+        background: #ffffff !important;
+        border: 1px solid #cbd5e1 !important;
+        box-shadow: none !important;
+        color: #0f172a !important;
+      }
+      .text-white, .text-purple-200, .text-slate-300 {
+        color: #1e293b !important;
+      }
+      .print-border {
+        border: 2px solid #7c3aed !important;
+      }
+    }
+  </style>
+</head>
+<body class="selection:bg-purple-500 selection:text-white flex flex-col min-h-screen">
+
+  <!-- Confetti Canvas Nativo -->
+  <canvas id="confettiCanvas"></canvas>
+
+  <!-- Container Geral da Aplicação -->
+  <div class="relative z-10 flex-1 flex flex-col justify-between max-w-4xl mx-auto w-full px-4 sm:px-6 py-6 md:py-8">
+
+    <!-- Top Navigation / Brand Header -->
+    <header class="flex items-center justify-between pb-6 border-b border-white/10 mb-6 no-print">
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-primaryPurple to-vividPurple flex items-center justify-center shadow-lg shadow-purple-900/50">
+          <i class="fa-solid fa-hands-holding-child text-xl text-white"></i>
+        </div>
+        <div>
+          <span class="text-[10px] tracking-widest font-black uppercase text-vividPurple block">Trilho do Discipulado • Oiko</span>
+          <h1 class="text-xl md:text-2xl font-black text-white tracking-tight leading-none">Curso Apoiar</h1>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <!-- Live Cloud Status Pill -->
+        <div id="cloud-status-pill" class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" title="Sincronizado com Firebase">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span class="hidden sm:inline">Nuvem Ativa</span>
+        </div>
+
+        <!-- Som Toggle -->
+        <button id="btn-toggle-sound" class="w-9 h-9 rounded-xl glass-card flex items-center justify-center text-slate-300 hover:text-white hover:border-vividPurple transition-colors" title="Alternar Efeitos Sonoros">
+          <i class="fa-solid fa-volume-high text-sm"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- ========================================================================= -->
+    <!-- TELA 1: ONBOARDING, SELETOR DE AULAS & IDENTIFICAÇÃO DO ALUNO            -->
+    <!-- ========================================================================= -->
+    <main id="screen-onboarding" class="space-y-8 flex-1">
+      
+      <!-- Banner Principal com Identidade -->
+      <section class="glass-card rounded-3xl p-6 sm:p-8 text-center relative overflow-hidden">
+        <div class="absolute -right-12 -top-12 w-48 h-48 bg-primaryPurple/20 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -left-12 -bottom-12 w-48 h-48 bg-vividPurple/20 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-purple-500/20 text-vividPurple border border-purple-400/30 mb-4">
+          <i class="fa-solid fa-shield-halved"></i> Capacitação de Supervisores de GC
+        </div>
+
+        <h2 class="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight mb-3">
+          Jornada do Curso Apoiar
+        </h2>
+        <p class="text-sm sm:text-base text-purple-200/80 max-w-xl mx-auto leading-relaxed mb-6">
+          "Colocar os ombros por baixo da carga dos líderes para que ninguém seja esmagado pelo peso da batalha."
+        </p>
+
+        <!-- Badge Dinâmico do Modo de Presença Atual -->
+        <div id="badge-modo-presenca-container" class="inline-flex flex-col sm:flex-row items-center gap-2 px-4 py-2.5 rounded-2xl border text-xs sm:text-sm font-semibold transition-all">
+          <!-- Renderizado via JS -->
+        </div>
+      </section>
+
+      <!-- Formulário de Identificação do Aluno (Padrão Oiko) -->
+      <section class="glass-card rounded-3xl p-6 sm:p-8 space-y-5">
+        <div class="flex items-center justify-between border-b border-white/10 pb-4">
+          <div class="flex items-center gap-2.5">
+            <i class="fa-solid fa-id-card text-vividPurple text-lg"></i>
+            <div>
+              <h3 class="text-lg font-bold text-white">Identificação do Membro</h3>
+              <p class="text-xs text-purple-200/70">Informe seu e-mail cadastrado na Oiko para carregar seu perfil</p>
+            </div>
+          </div>
+          <button id="btn-google-auth" type="button" class="text-xs font-bold text-slate-300 hover:text-white flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors">
+            <i class="fa-brands fa-google text-red-400"></i>
+            <span class="hidden sm:inline">Conectar com</span> Google
+          </button>
+        </div>
+
+        <!-- Passo 1: Busca por E-mail -->
+        <div id="container-email-search" class="space-y-1.5">
+          <label for="input-student-email" class="text-xs font-bold uppercase tracking-wider text-purple-200">
+            Seu E-mail Cadastrado na Igreja <span class="text-rose-400">*</span>
+          </label>
+          <div class="flex flex-col sm:flex-row gap-2.5">
+            <div class="relative flex-1">
+              <i class="fa-solid fa-envelope absolute left-3.5 top-3.5 text-slate-400 text-sm"></i>
+              <input id="input-student-email" type="email" placeholder="seuemail@exemplo.com" class="glass-input w-full pl-10 pr-4 py-2.5 rounded-xl text-sm font-medium">
+            </div>
+            <button id="btn-verify-email" type="button" class="py-2.5 px-5 rounded-xl bg-gradient-to-r from-primaryPurple to-vividPurple hover:brightness-110 text-white font-extrabold text-xs uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 transition-all shrink-0">
+              <i id="icon-verify-email" class="fa-solid fa-magnifying-glass"></i>
+              <span id="text-verify-email">Localizar Cadastro</span>
+            </button>
+          </div>
+          <p id="error-email" class="text-[11px] text-rose-400 hidden"><i class="fa-solid fa-triangle-exclamation"></i> Digite um e-mail válido para busca.</p>
+        </div>
+
+        <!-- Passo 2A: Membro Confirmado (Card Verde Padrão Oiko com Nome Mascarado, GC e Rede Automáticos) -->
+        <div id="card-member-found" class="p-4 sm:p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between animate-in fade-in hidden">
+          <div class="flex items-center gap-3.5">
+            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-night font-black flex items-center justify-center text-xl shadow-md shadow-emerald-900/30 shrink-0">
+              <i class="fa-solid fa-sparkles"></i>
+            </div>
+            <div class="space-y-1">
+              <div class="flex items-center gap-1.5 text-[10px] font-black uppercase text-emerald-400 tracking-wider">
+                <i class="fa-solid fa-circle-check"></i> Membro Confirmado
+              </div>
+              <h4 id="display-masked-name" class="font-extrabold text-base sm:text-lg text-white tracking-wide">
+                L**** F******
+              </h4>
+              <div id="display-masked-info" class="text-xs text-purple-200/90 flex flex-wrap items-center gap-2 pt-0.5">
+                <!-- Preenchido via JS com badges de GC e Rede -->
+              </div>
+            </div>
+          </div>
+
+          <button id="btn-reset-email" type="button" class="text-xs font-bold text-vividPurple hover:text-white px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors shrink-0">
+            Trocar
+          </button>
+        </div>
+
+        <!-- Passo 2B: Não Encontrado (Banner Informativo + Campos Manuais para Visitantes) -->
+        <div id="card-member-not-found" class="space-y-4 hidden animate-in fade-in">
+          <div class="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-medium flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <i class="fa-solid fa-circle-info text-amber-400 text-sm shrink-0"></i>
+              <span>E-mail não localizado na base de membros. Preencha seus dados para continuar:</span>
+            </div>
+            <button id="btn-change-email" type="button" class="text-xs font-bold underline text-amber-200 ml-2 hover:text-white shrink-0">
+              Alterar
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="space-y-1.5">
+              <label for="input-student-name" class="text-xs font-bold uppercase tracking-wider text-purple-200">
+                Nome Completo do Aluno <span class="text-rose-400">*</span>
+              </label>
+              <div class="relative">
+                <i class="fa-solid fa-user absolute left-3.5 top-3.5 text-slate-400 text-sm"></i>
+                <input id="input-student-name" type="text" placeholder="Ex: Lucas Ferreira" class="glass-input w-full pl-10 pr-4 py-2.5 rounded-xl text-sm font-medium">
+              </div>
+              <p id="error-name" class="text-[11px] text-rose-400 hidden"><i class="fa-solid fa-triangle-exclamation"></i> Por favor, informe seu nome completo.</p>
+            </div>
+
+            <div class="space-y-1.5">
+              <label for="input-student-phone" class="text-xs font-bold uppercase tracking-wider text-purple-200 flex justify-between">
+                <span>WhatsApp / Telefone</span>
+                <span class="text-slate-400 lowercase text-[10px]">(opcional)</span>
+              </label>
+              <div class="relative">
+                <i class="fa-solid fa-phone absolute left-3.5 top-3.5 text-slate-400 text-sm"></i>
+                <input id="input-student-phone" type="tel" placeholder="(21) 99999-9999" class="glass-input w-full pl-10 pr-4 py-2.5 rounded-xl text-sm font-medium">
+              </div>
+            </div>
+          </div>
+
+          <!-- Seletor de Rede exclusivo para novos cadastros -->
+          <div id="container-student-rede" class="space-y-1.5">
+            <label for="select-student-rede" class="text-xs font-bold uppercase tracking-wider text-purple-200">
+              Sua Rede de GC <span class="text-rose-400">*</span>
+            </label>
+            <div class="relative">
+              <i class="fa-solid fa-network-wired absolute left-3.5 top-3.5 text-slate-400 text-sm"></i>
+              <select id="select-student-rede" class="glass-input w-full pl-10 pr-4 py-2.5 rounded-xl text-sm font-medium cursor-pointer">
+                <option value="" class="bg-night text-slate-400">Selecione sua Rede...</option>
+                <option value="Rede Amarela" class="bg-night text-white">Rede Amarela</option>
+                <option value="Rede Verde" class="bg-night text-white">Rede Verde</option>
+                <option value="Rede Vermelha" class="bg-night text-white">Rede Vermelha</option>
+                <option value="Rede Laranja" class="bg-night text-white">Rede Laranja</option>
+                <option value="Rede Azul" class="bg-night text-white">Rede Azul</option>
+                <option value="Rede de Casais" class="bg-night text-white">Rede de Casais</option>
+                <option value="Outra / Liderança Geral" class="bg-night text-white">Outra / Liderança Geral</option>
+              </select>
+            </div>
+            <p id="error-rede" class="text-[11px] text-rose-400 hidden"><i class="fa-solid fa-triangle-exclamation"></i> Selecione sua Rede ministerial.</p>
+          </div>
+        </div>
+
+        <!-- LGPD Badge Oficial Oiko -->
+        <div class="bg-white/5 p-3 rounded-2xl border border-white/10 flex items-center gap-2.5 text-[11px] text-purple-200/80 mt-1">
+          <i class="fa-solid fa-shield-halved text-vividPurple text-sm shrink-0"></i>
+          <span>Ambiente seguro. <strong>Protegido pela LGPD</strong> • Seus dados são confidenciais e para acompanhamento pastoral.</span>
+        </div>
+      </section>
+
+      <!-- Catálogo das 12 Aulas do Curso Apoiar -->
+      <section class="space-y-4">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-graduation-cap text-vividPurple"></i> Módulos do Curso Apoiar
+            </h3>
+            <p class="text-xs text-purple-200/70">12 Aulas de sustentação e mentoria de liderança</p>
+          </div>
+          <span class="text-xs font-black px-2.5 py-1 rounded-lg bg-purple-500/20 text-vividPurple border border-purple-500/30">Ciclo Atual</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5" id="modules-catalog-grid">
+          <!-- Renderizado via JavaScript: Aula 1 ativa e Aulas 2 a 12 bloqueadas com Lock -->
+        </div>
+      </section>
+
+      <!-- Botão de Início Principal -->
+      <div class="pt-2">
+        <button id="btn-start-challenges" class="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-primaryPurple via-purple-600 to-vividPurple text-white font-extrabold text-base sm:text-lg tracking-wide shadow-xl shadow-purple-900/60 hover:shadow-purple-700/80 hover:brightness-110 active:scale-[0.99] transition-all flex items-center justify-center gap-3 group">
+          <span>Iniciar Desafios • Aula 1: Nós Somos Suporte</span>
+          <i class="fa-solid fa-arrow-right group-hover:translate-x-1 transition-transform"></i>
+        </button>
+      </div>
+
+    </main>
+
+    <!-- ========================================================================= -->
+    <!-- TELA 2: ARENA DO GAMEPLAY (8 DESAFIOS SEQUENCIAIS)                         -->
+    <!-- ========================================================================= -->
+    <main id="screen-gameplay" class="space-y-6 flex-1 hidden">
+
+      <!-- Header da Arena: Progresso e XP -->
+      <div class="glass-card rounded-2xl p-4 sm:p-5 space-y-3">
+        <div class="flex items-center justify-between text-xs sm:text-sm">
+          <div class="flex items-center gap-2">
+            <span id="game-challenge-badge" class="font-extrabold text-vividPurple bg-purple-500/20 px-3 py-1 rounded-lg border border-purple-400/30">
+              Desafio 1 de 8
+            </span>
+            <span id="game-category-badge" class="text-slate-300 font-semibold hidden sm:inline">
+              Ponto de Partida
+            </span>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <div class="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-500/20 border border-amber-400/40 text-amber-300 font-black text-sm">
+              <i class="fa-solid fa-bolt"></i>
+              <span id="game-xp-counter">0 XP</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Barra de Progresso Suave -->
+        <div class="w-full h-2.5 bg-black/40 rounded-full overflow-hidden p-0.5 border border-white/10">
+          <div id="game-progress-bar" class="h-full bg-gradient-to-r from-primaryPurple to-vividPurple rounded-full transition-all duration-500" style="width: 12.5%;"></div>
+        </div>
+      </div>
+
+      <!-- Card Central do Desafio -->
+      <div class="glass-card rounded-3xl p-6 sm:p-8 space-y-6 relative overflow-hidden" id="challenge-card-container">
+        
+        <!-- Enunciado e Metadados -->
+        <div class="space-y-2">
+          <div class="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-vividPurple">
+            <i id="challenge-type-icon" class="fa-solid fa-circle-question"></i>
+            <span id="challenge-type-label">Múltipla Escolha</span>
+          </div>
+          <h2 id="challenge-question-title" class="text-xl sm:text-2xl font-black text-white leading-snug">
+            <!-- Título da pergunta injetado via JS -->
+          </h2>
+        </div>
+
+        <!-- Container Dinâmico: Opções de Múltipla Escolha OU Área Discursiva -->
+        <div id="challenge-interaction-area" class="space-y-3">
+          <!-- Injetado dinamicamente via JS -->
+        </div>
+
+        <!-- Box de Feedback Teológico Imediato (Oculto inicialmente) -->
+        <div id="challenge-feedback-box" class="hidden rounded-2xl p-5 border transition-all space-y-4">
+          <div class="flex items-start gap-3">
+            <div id="feedback-icon-container" class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-lg">
+              <!-- Ícone dinâmico -->
+            </div>
+            <div class="space-y-1">
+              <h4 id="feedback-status-title" class="font-extrabold text-base">
+                <!-- Status -->
+              </h4>
+              <p id="feedback-text-content" class="text-sm leading-relaxed text-slate-200">
+                <!-- Feedback pastoral teológico -->
+              </p>
+            </div>
+          </div>
+
+          <div class="flex justify-end pt-2 border-t border-white/10">
+            <button id="btn-next-challenge" class="py-2.5 px-6 rounded-xl bg-gradient-to-r from-primaryPurple to-vividPurple text-white font-extrabold text-sm shadow-lg hover:brightness-110 active:scale-95 transition-all flex items-center gap-2">
+              <span>Próximo Desafio</span>
+              <i class="fa-solid fa-arrow-right text-xs"></i>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+    </main>
+
+    <!-- ========================================================================= -->
+    <!-- TELA 3: RESULTADOS, CONFIRMAÇÃO DE PRESENÇA & PACTO PASTORAL              -->
+    <!-- ========================================================================= -->
+    <main id="screen-results" class="space-y-6 flex-1 hidden">
+
+      <!-- Card Destaque: Confirmação de Presença / Modo de Aula -->
+      <section id="results-attendance-card" class="rounded-3xl p-6 sm:p-7 border relative overflow-hidden transition-all shadow-xl">
+        <!-- Renderizado dinamicamente com base em modoPresenca ('questionario' vs 'manual') -->
+      </section>
+
+      <!-- Placar e Classificação Pastoral -->
+      <section class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        
+        <!-- Card XP Final -->
+        <div class="glass-card rounded-2xl p-5 text-center flex flex-col justify-center items-center space-y-1">
+          <span class="text-xs font-bold uppercase tracking-wider text-purple-200">Total de XP</span>
+          <div class="text-3xl sm:text-4xl font-black text-amber-300 flex items-center gap-1.5">
+            <i class="fa-solid fa-bolt text-2xl text-amber-400"></i>
+            <span id="results-total-xp">0</span>
+          </div>
+          <span class="text-[11px] text-slate-400">Pontuação de Liderança</span>
+        </div>
+
+        <!-- Card Acertos Múltiplos -->
+        <div class="glass-card rounded-2xl p-5 text-center flex flex-col justify-center items-center space-y-1">
+          <span class="text-xs font-bold uppercase tracking-wider text-purple-200">Acertos Teológicos</span>
+          <div class="text-3xl sm:text-4xl font-black text-emerald-400 flex items-center gap-1.5">
+            <i class="fa-solid fa-check-circle text-2xl text-emerald-400"></i>
+            <span id="results-correct-count">6 / 6</span>
+          </div>
+          <span class="text-[11px] text-slate-400">Desafios de Múltipla Escolha</span>
+        </div>
+
+        <!-- Card Classificação Pastoral -->
+        <div class="glass-card rounded-2xl p-5 text-center flex flex-col justify-center items-center space-y-1">
+          <span class="text-xs font-bold uppercase tracking-wider text-purple-200">Classificação</span>
+          <div id="results-badge-rank" class="text-lg sm:text-xl font-extrabold text-vividPurple">
+            <!-- Mestre em Suporte / Guardião / Servo -->
+          </div>
+          <span class="text-[11px] text-slate-400">Perfil de Supervisão</span>
+        </div>
+
+      </section>
+
+      <!-- Suas Resoluções Pastorais Registradas (Desafios 3 e 8) -->
+      <section class="glass-card rounded-3xl p-6 sm:p-7 space-y-5">
+        <div class="flex items-center gap-2.5 border-b border-white/10 pb-3">
+          <i class="fa-solid fa-feather-pointed text-vividPurple text-lg"></i>
+          <h3 class="text-lg font-bold text-white">Suas Resoluções Pastorais Registradas</h3>
+        </div>
+
+        <div class="space-y-4">
+          <!-- Resposta Desafio 3 -->
+          <div class="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2">
+            <span class="text-xs font-extrabold uppercase tracking-wider text-vividPurple flex items-center gap-1.5">
+              <i class="fa-solid fa-comment-dots"></i> Desafio 3: Acolhimento ao Líder em Crise de Quórum
+            </span>
+            <p id="results-answer-d3" class="text-sm italic text-purple-100/90 leading-relaxed pl-3 border-l-2 border-primaryPurple">
+              "..."
+            </p>
+          </div>
+
+          <!-- Resposta Desafio 8 -->
+          <div class="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2">
+            <span class="text-xs font-extrabold uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
+              <i class="fa-solid fa-hand-holding-heart"></i> Desafio 8: Ação Prática de Sustentação Semanal
+            </span>
+            <p id="results-answer-d8" class="text-sm italic text-purple-100/90 leading-relaxed pl-3 border-l-2 border-amber-400">
+              "..."
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Box de Compromisso de Honra Pastoral -->
+      <section class="glass-card rounded-3xl p-6 sm:p-7 text-center space-y-4 border-2 border-primaryPurple/50 relative overflow-hidden bg-gradient-to-b from-purple-900/40 to-transparent">
+        <div class="w-12 h-12 rounded-full bg-vividPurple/20 border border-vividPurple/40 text-vividPurple flex items-center justify-center mx-auto text-xl">
+          <i class="fa-solid fa-hand-fist"></i>
+        </div>
+        <div class="space-y-2">
+          <span class="text-xs font-black uppercase tracking-widest text-vividPurple block">Pacto de Ministério • Oiko Comunidade</span>
+          <h3 class="text-xl sm:text-2xl font-black text-white">Compromisso de Honra do Supervisor</h3>
+          <p class="text-sm sm:text-base italic text-purple-100/90 max-w-xl mx-auto leading-relaxed font-serif">
+            "Não exercerei autoridade por cobrança nem por vaidade. Colocarei meus ombros sob as cargas dos meus líderes para que ninguém seja esmagado pelo peso da batalha."
+          </p>
+        </div>
+      </section>
+
+      <!-- Ações de Encerramento (WhatsApp, Copiar, PDF, Menu) -->
+      <section class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 no-print">
+        
+        <!-- Enviar WhatsApp ao Professor -->
+        <button id="btn-share-whatsapp" class="py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 transition-all">
+          <i class="fa-brands fa-whatsapp text-base"></i>
+          <span>Enviar ao Professor</span>
+        </button>
+
+        <!-- Copiar Resumo -->
+        <button id="btn-copy-summary" class="py-3 px-4 rounded-xl glass-card hover:bg-white/10 text-white font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all">
+          <i class="fa-solid fa-copy text-base text-vividPurple"></i>
+          <span>Copiar Resumo</span>
+        </button>
+
+        <!-- Salvar PDF / Imprimir -->
+        <button id="btn-print-pdf" class="py-3 px-4 rounded-xl glass-card hover:bg-white/10 text-white font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all">
+          <i class="fa-solid fa-file-pdf text-base text-rose-400"></i>
+          <span>Salvar PDF / Imprimir</span>
+        </button>
+
+        <!-- Voltar ao Menu de Aulas -->
+        <button id="btn-back-menu" class="py-3 px-4 rounded-xl bg-primaryPurple hover:bg-purple-600 text-white font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all">
+          <i class="fa-solid fa-book-open text-base"></i>
+          <span>Menu de Aulas</span>
+        </button>
+
+      </section>
+
+    </main>
+
+    <!-- ========================================================================= -->
+    <!-- RODAPÉ & ATALHOS ADMINISTRATIVOS                                          -->
+    <!-- ========================================================================= -->
+    <footer class="mt-10 pt-6 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400 no-print">
+      <div class="flex items-center gap-2">
+        <i class="fa-solid fa-church text-vividPurple"></i>
+        <span>Curso Apoiar • Oiko Comunidade</span>
+      </div>
+
+      <div class="text-[11px] text-purple-200/60">
+        Ambiente de Formação Presencial
+      </div>
+    </footer>
+
+  </div>
+
+
+  <!-- Toast Notification Container Flutuante -->
+  <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none no-print"></div>
+
+  <!-- ========================================================================= -->
+  <!-- SCRIPTS & ARQUITETURA MODULAR (ÁUDIO, CANVASES, DATASERVICE, QUIZ)        -->
+  <!-- ========================================================================= -->
+  <script>
+    /**
+     * =========================================================================
+     * 1. CONFIGURAÇÃO OFICIAL DO FIREBASE (PROJETO OIKOAPP)
+     * =========================================================================
+     */
+    const firebaseConfig = {
+      projectId: "studio-1424813022-71754",
+      appId: "1:989586605112:web:66250f4d31e88166a212cd",
+      storageBucket: "studio-1424813022-71754.firebasestorage.app",
+      apiKey: "AIzaSyAOSAJ0WPPXAxbSMtiq7UZxkjzE6vizVq8",
+      authDomain: "studio-1424813022-71754.firebaseapp.com",
+      messagingSenderId: "989586605112"
+    };
+
+    let db = null;
+    let auth = null;
+    let isFirebaseReady = false;
+
+    try {
+      if (typeof firebase !== 'undefined') {
+        if (!firebase.apps.length) {
+          firebase.initializeApp(firebaseConfig);
+        }
+        db = firebase.firestore();
+        auth = firebase.auth();
+        isFirebaseReady = true;
+        console.log("🔥 Firebase inicializado com sucesso.");
+      }
+    } catch (e) {
+      console.warn("⚠️ Firebase indisponível offline:", e);
+    }
+
+    /**
+     * =========================================================================
+     * 2. SINTETIZADOR DE ÁUDIO NATIVO (WEB AUDIO API)
+     * =========================================================================
+     */
+    class SoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.enabled = true;
+      }
+
+      init() {
+        if (!this.ctx && typeof window !== 'undefined') {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) this.ctx = new AudioCtx();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      playTone(freq, type = 'sine', duration = 0.15, gainVal = 0.2, delay = 0) {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+
+        setTimeout(() => {
+          try {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+
+            gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+
+            osc.start();
+            osc.stop(this.ctx.currentTime + duration);
+          } catch(e) { /* ignore audio quirks */ }
+        }, delay * 1000);
+      }
+
+      // Tríade C5 - E5 - G5 para Acerto
+      playCorrect() {
+        this.playTone(523.25, 'sine', 0.25, 0.25, 0);     // C5
+        this.playTone(659.25, 'sine', 0.25, 0.25, 0.08);  // E5
+        this.playTone(783.99, 'triangle', 0.4, 0.3, 0.16);// G5
+      }
+
+      // Sawtooth descendente para Erro
+      playError() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        try {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(320, this.ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(140, this.ctx.currentTime + 0.35);
+
+          gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.35);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + 0.35);
+        } catch(e) {}
+      }
+
+      // Sucesso Discursivo
+      playDiscursive() {
+        this.playTone(440, 'sine', 0.3, 0.2, 0);      // A4
+        this.playTone(554.37, 'sine', 0.3, 0.2, 0.1); // C#5
+        this.playTone(659.25, 'sine', 0.45, 0.25, 0.2);// E5
+      }
+
+      // Fanfarra Triunfal Final
+      playFanfare() {
+        const notes = [
+          { f: 523.25, d: 0.12, t: 0 },
+          { f: 659.25, d: 0.12, t: 0.12 },
+          { f: 783.99, d: 0.15, t: 0.24 },
+          { f: 1046.5, d: 0.6, t: 0.40 }
+        ];
+        notes.forEach(n => this.playTone(n.f, 'triangle', n.d, 0.3, n.t));
+      }
+
+      // Som de ativação / clique
+      playChime() {
+        this.playTone(659.25, 'sine', 0.15, 0.15, 0);
+      }
+
+      // Módulo bloqueado
+      playLocked() {
+        this.playTone(180, 'square', 0.08, 0.12, 0);
+        this.playTone(140, 'square', 0.08, 0.12, 0.08);
+      }
+    }
+
+    const sound = new SoundEngine();
+
+    /**
+     * =========================================================================
+     * 3. MOTOR DE CONFETES EM CANVAS NATIVO
+     * =========================================================================
+     */
+    class ConfettiEngine {
+      constructor(canvasId) {
+        this.canvas = document.getElementById(canvasId);
+        this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
+        this.particles = [];
+        this.animId = null;
+        this.colors = ['#c084fc', '#7c3aed', '#10b981', '#f59e0b', '#38bdf8', '#ffffff'];
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+      }
+
+      resize() {
+        if (!this.canvas) return;
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+      }
+
+      fire(count = 130) {
+        if (!this.canvas || !this.ctx) return;
+        this.resize();
+        this.particles = [];
+
+        for (let i = 0; i < count; i++) {
+          this.particles.push({
+            x: this.canvas.width * (0.2 + Math.random() * 0.6),
+            y: this.canvas.height * 0.5,
+            vx: (Math.random() - 0.5) * 16,
+            vy: -Math.random() * 18 - 6,
+            size: Math.random() * 8 + 4,
+            color: this.colors[Math.floor(Math.random() * this.colors.length)],
+            rotation: Math.random() * 360,
+            rotationSpeed: (Math.random() - 0.5) * 12,
+            gravity: 0.45,
+            opacity: 1
+          });
+        }
+
+        if (this.animId) cancelAnimationFrame(this.animId);
+        this.loop();
+      }
+
+      loop() {
+        if (!this.ctx) return;
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+        let activeCount = 0;
+        this.particles.forEach(p => {
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vy += p.gravity;
+          p.vx *= 0.985;
+          p.rotation += p.rotationSpeed;
+          p.opacity -= 0.005;
+
+          if (p.opacity > 0 && p.y < this.canvas.height + 20) {
+            activeCount++;
+            this.ctx.save();
+            this.ctx.globalAlpha = Math.max(0, p.opacity);
+            this.ctx.translate(p.x, p.y);
+            this.ctx.rotate((p.rotation * Math.PI) / 180);
+            this.ctx.fillStyle = p.color;
+            this.ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 1.5);
+            this.ctx.restore();
+          }
+        });
+
+        if (activeCount > 0) {
+          this.animId = requestAnimationFrame(() => this.loop());
+        } else {
+          this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        }
+      }
+    }
+
+    const confetti = new ConfettiEngine('confettiCanvas');
+
+    /**
+     * =========================================================================
+     * 4. BANCO DE DADOS DOS 8 DESAFIOS (AULA 1: NÓS SOMOS SUPORTE)
+     * =========================================================================
+     */
+    const CHALLENGES_DATABASE = [
+      {
+        id: 1,
+        type: 'multiple_choice',
+        category: 'Ponto de Partida',
+        question: 'Qual é o contraste cirúrgico entre o papel de um supervisor corporativo e um supervisor de área na igreja?',
+        correct: 'Na empresa, a autoridade é imposta para fiscalizar metas; na igreja, a missão é ser suporte, sustento e amigo da liderança.',
+        distractors: [
+          'Na empresa, a gerência é delegada; na igreja, o supervisor assume todas as células para bater a meta de multiplicação.',
+          'Na empresa, a prestação de contas é facultativa; na igreja, o supervisor audita rigidamente as ofertas e dízimos de cada célula.',
+          'Na empresa, o foco é em pessoas; na igreja local, a prioridade absoluta da supervisão são os relatórios numéricos semanais.'
+        ],
+        feedback: 'Perfeito! No Reino de Deus, o supervisor não opera por auditoria e cobrança fria; sua missão é dar sustento e alívio pastoral a quem está na trincheira.'
+      },
+      {
+        id: 2,
+        type: 'multiple_choice',
+        category: 'Três Missões da Igreja',
+        question: 'A igreja local atua em três movimentos: rumo a Deus (adoração), rumo ao mundo (evangelismo) e rumo aos crentes. Onde a supervisão se encaixa com precisão?',
+        correct: 'Na missão rumo aos crentes (Ef 4:11-12): equipar, sustentar e amparar os santos que realizam o ministério das células.',
+        distractors: [
+          'Exclusivamente na missão rumo a Deus, organizando as escalas litúrgicas do domingo na nave da igreja.',
+          'Apenas na missão rumo ao mundo, através de campanhas de tráfego e marketing de evangelismo de rua.',
+          'Em um quarto movimento burocrático de controle patrimonial e financeiro desvinculado dos santos.'
+        ],
+        feedback: 'Exato! Conforme Efésios 4:11-12, a supervisão encarna a terceira missão: preparar e sustentar os santos para a obra do ministério.'
+      },
+      {
+        id: 3,
+        type: 'discursive',
+        category: 'Prática Pastoral',
+        question: 'Um líder de GC sob sua supervisão te procura numa terça-feira dizendo que apenas 3 pessoas foram à célula e ele pensa em entregar o grupo. Como supervisor facilitador (suporte), qual a sua primeira reação prática com ele?',
+        keywords: ['escuta', 'ouvir', 'orar', 'oração', 'café', 'amigo', 'coração', 'abraço', 'ombro', 'apoiar', 'junto', 'conversar', 'cuidado', 'acolher', 'almoço'],
+        feedback: 'Excelente discernimento! O supervisor facilitador não inicia cobrando números, mas acolhe a dor, ouve com sensibilidade e coloca os ombros sob a carga.'
+      },
+      {
+        id: 4,
+        type: 'multiple_choice',
+        category: 'A Lógica Invertida',
+        question: 'Em Marcos 10:43-44, Jesus afirma: "Não será assim entre vocês. Ao contrário...". Como a estrutura de autoridade do Reino é representada?',
+        correct: 'Como uma pirâmide invertida: a ponta menor (o supervisor) fica na base sustentando os líderes e as ovelhas.',
+        distractors: [
+          'Como uma pirâmide corporativa clássica: o supervisor no topo delegando o peso do trabalho para os líderes abaixo.',
+          'Como um círculo horizontal onde ninguém assume a responsabilidade de sustento e mentoria pastoral.',
+          'Como uma torre de comando militar onde ordens não são questionadas e a cobrança é vertical.'
+        ],
+        feedback: 'Com precisão! No Reino, quem quer ser o maior coloca-se na base como servo, sustentando a carga dos que estão na linha de frente.'
+      },
+      {
+        id: 5,
+        type: 'multiple_choice',
+        category: 'Dinâmica da Casa',
+        question: 'Na dinâmica da casa espiritual (Varanda, Sala e Cozinha), por que a cozinha representa o lugar do líder maduro?',
+        correct: 'Porque tem pouco espaço, não tem sofás confortáveis e faz calor, mas é onde a família é alimentada de verdade.',
+        distractors: [
+          'Porque é o cômodo mais espaçoso da casa onde os visitantes sentam para serem aplaudidos.',
+          'Porque na cozinha fica o cofre e o controle administrativo do patrimônio da igreja.',
+          'Porque é o único lugar climatizado onde os líderes descansam enquanto outros trabalham.'
+        ],
+        feedback: 'Maravilhoso! Quem alimenta toda a casa chegou à cozinha porque amadureceu ministerialmente. Servir nos bastidores sem buscar holofotes é maturidade de Reino.'
+      },
+      {
+        id: 6,
+        type: 'multiple_choice',
+        category: 'Pilar 1: Sensibilidade',
+        question: 'Em Romanos 15:1, Paulo ordena que os fortes devem suportar as debilidades dos fracos. No grego bíblico, o que expressa o termo "Bastazo"?',
+        correct: 'Significa colocar os próprios ombros por baixo da carga pesada para que o irmão não seja esmagado pelo fardo.',
+        distractors: [
+          'Significa advertir o irmão publicamente para que ele crie vergonha e melhore seu desempenho.',
+          'Significa tolerar o fraco com distanciamento sem se envolver diretamente em sua dor.',
+          'Significa substituir o líder e fechar a célula de imediato para não queimar a média da rede.'
+        ],
+        feedback: 'Perfeito! Bastazo é um termo físico e sacrificial: colocar os ombros debaixo do fardo para que o outro respire e continue na corrida.'
+      },
+      {
+        id: 7,
+        type: 'multiple_choice',
+        category: 'Pilar 2 & 3: Encorajamento e GD',
+        question: 'Em Filemom 1:20, Paulo diz a um amigo: "Reanime o meu coração em Cristo!". Por que essa atitude e a reunião de GD são fundamentais para o supervisor?',
+        correct: 'Porque líderes de célula precisam encontrar no supervisor um amigo que previna a solidão, alinhando vida e gestão no GD.',
+        distractors: [
+          'Porque a reunião de GD serve primordialmente para notificar os líderes que não atingiram a meta de multiplicação.',
+          'Porque pastores não têm tempo para amizade com líderes, restando apenas um alinhamento funcional de relatórios.',
+          'Porque o GD é o único momento permitido para que o líder reclame de seus membros perante outros supervisores.'
+        ],
+        feedback: 'Exato! O líder não desabafa com cobranças frias; ele precisa de um amigo que reanime seu coração e um GD focado em comunhão e solução prática de gargalos.'
+      },
+      {
+        id: 8,
+        type: 'discursive',
+        category: 'Pacto Pastoral',
+        question: 'Escreva 1 ação prática de sustentação ("colocar os ombros debaixo da carga") que você se compromete a fazer esta semana por um líder sob sua cobertura:',
+        keywords: ['oração', 'orar', 'café', 'visita', 'mensagem', 'ligar', 'conversar', 'escuta', 'escutar', 'ajudar', 'apoiar', 'cuidado', 'almoço', 'abraçar'],
+        feedback: 'Compromisso gravado com louvor! Essa ação prática transforma a teologia do suporte em alívio vivo para quem está servindo.'
+      }
+    ];
+
+    /**
+     * Catálogo das 12 Aulas
+     */
+    const MODULES_CATALOG = [
+      { id: 1, title: 'Nós Somos Suporte', available: true, desc: 'O supervisor como facilitador, sustento e amigo da liderança de células.' },
+      { id: 2, title: 'Cuidado Pastoral & Escuta', available: false, desc: 'A arte do acolhimento e a prevenção da solidão no ministério.' },
+      { id: 3, title: 'A Dinâmica do GD de Vida', available: false, desc: 'Como estruturar o Grupo de Discipulado sem burocracia.' },
+      { id: 4, title: 'Diagnóstico e Saúde do GC', available: false, desc: 'Identificando e desatando gargalos antes da crise.' },
+      { id: 5, title: 'Formação de Novos Líderes', available: false, desc: 'Trilho de mentoria e delegação prática no grupo.' },
+      { id: 6, title: 'Gestão de Conflitos e Crises', available: false, desc: 'Reconciliação bíblica e preservação da unidade.' },
+      { id: 7, title: 'Alinhamento com a Visão', available: false, desc: 'Conectando o GC com o coração e a missão da igreja.' },
+      { id: 8, title: 'O Intercessor da Área', available: false, desc: 'Combate espiritual e oração diária pelos liderados.' },
+      { id: 9, title: 'Multiplicação Saudável', available: false, desc: 'Gerando novas células sem dividir corações.' },
+      { id: 10, title: 'Planejamento e Alvos de Fé', available: false, desc: 'Metas espirituais centradas no Reino de Deus.' },
+      { id: 11, title: 'Cuidando da Família do Líder', available: false, desc: 'Protegendo o casamento e os filhos da liderança.' },
+      { id: 12, title: 'O Legado do Supervisor', available: false, desc: 'Formando uma geração de guardiões para a cidade.' }
+    ];
+
+    /**
+     * =========================================================================
+     * 5. SERVIÇO CENTRALIZADO DE DADOS (DATASERVICE)
+     * =========================================================================
+     */
+    class DataService {
+      constructor() {
+        const urlParams = new URLSearchParams(window.location.search);
+        this.courseId = urlParams.get('courseId') || 'curso-apoiar';
+        this.classId = urlParams.get('classId') || 'aula-1';
+        this.lessonNumber = parseInt(urlParams.get('lesson') || urlParams.get('aula') || '1', 10);
+        this.sessionDate = urlParams.get('date') || '';
+        this.courseName = urlParams.get('courseName') || urlParams.get('title') || '';
+        this.STORAGE_KEY_ATTENDANCE = `oiko_quiz_attendance_${this.courseId}_${this.classId}_${this.lessonNumber}`;
+        this.STORAGE_KEY_CONFIG = `oiko_quiz_config_${this.courseId}`;
+        this.STORAGE_KEY_STUDENT = 'oiko_apoiar_current_student';
+        this.currentMode = 'questionario'; // 'questionario' | 'manual'
+        this.listeners = [];
+        this.attendanceList = [];
+
+        this.init();
+      }
+
+      init() {
+        // Carrega cache local
+        try {
+          const cachedConfig = localStorage.getItem(this.STORAGE_KEY_CONFIG);
+          if (cachedConfig) {
+            const parsed = JSON.parse(cachedConfig);
+            if (parsed.modoPresenca) this.currentMode = parsed.modoPresenca;
+          }
+          const cachedAttendance = localStorage.getItem(this.STORAGE_KEY_ATTENDANCE);
+          if (cachedAttendance) {
+            this.attendanceList = JSON.parse(cachedAttendance);
+          }
+        } catch(e) {}
+
+        // Listener em Tempo Real do Firestore (Configuração do Curso)
+        if (isFirebaseReady && db) {
+          try {
+            if (this.courseId && this.courseId !== 'curso-apoiar') {
+              db.collection('courses').doc(this.courseId).onSnapshot((doc) => {
+                if (doc.exists) {
+                  const data = doc.data();
+                  const targetMode = (data.attendanceMode === 'manual' || data.presencaPresencialModo === 'manual') 
+                    ? 'manual' 
+                    : 'questionario';
+                  if (targetMode !== this.currentMode) {
+                    this.currentMode = targetMode;
+                    this.notifyListeners('modeChanged', this.currentMode);
+                  }
+                }
+              }, (err) => {
+                console.warn("Course config listener warning:", err);
+              });
+            } else {
+              db.collection('course_settings').doc('curso_apoiar').onSnapshot((doc) => {
+                if (doc.exists) {
+                  const data = doc.data();
+                  if (data.modoPresenca && data.modoPresenca !== this.currentMode) {
+                    this.currentMode = data.modoPresenca;
+                    this.notifyListeners('modeChanged', this.currentMode);
+                  }
+                } else {
+                  db.collection('course_settings').doc('curso_apoiar').set({
+                    modoPresenca: this.currentMode,
+                    courseName: 'Curso Apoiar',
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                  }, { merge: true });
+                }
+              });
+            }
+
+            // Listener em Tempo Real da Lista de Presença da Turma/Aula
+            db.collection('apoiar_presencas')
+              .where('classId', '==', this.classId)
+              .onSnapshot((snapshot) => {
+                const list = [];
+                snapshot.forEach(doc => {
+                  list.push({ id: doc.id, ...doc.data() });
+                });
+                list.sort((a, b) => (b.timestampRaw || 0) - (a.timestampRaw || 0));
+                this.attendanceList = list;
+                localStorage.setItem(this.STORAGE_KEY_ATTENDANCE, JSON.stringify(list));
+                this.notifyListeners('attendanceUpdated', this.attendanceList);
+              }, (err) => {
+                console.warn("Snapshot fallback to local:", err);
+              });
+          } catch(e) {
+            console.warn("Firestore listeners initialization error:", e);
+          }
+        }
+      }
+
+      subscribe(fn) {
+        this.listeners.push(fn);
+      }
+
+      notifyListeners(event, payload) {
+        this.listeners.forEach(fn => {
+          try { fn(event, payload); } catch(e) {}
+        });
+      }
+
+      getModoPresenca() {
+        return this.currentMode;
+      }
+
+      async setModoPresenca(newMode) {
+        this.currentMode = newMode;
+        localStorage.setItem(this.STORAGE_KEY_CONFIG, JSON.stringify({ modoPresenca: newMode }));
+        this.notifyListeners('modeChanged', newMode);
+
+        if (isFirebaseReady && db) {
+          try {
+            if (this.courseId && this.courseId !== 'curso-apoiar') {
+              await db.collection('courses').doc(this.courseId).set({
+                attendanceMode: newMode === 'manual' ? 'manual' : 'quiz',
+                presencaPresencialModo: newMode === 'manual' ? 'manual' : 'quiz',
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+              }, { merge: true });
+            } else {
+              await db.collection('course_settings').doc('curso_apoiar').set({
+                modoPresenca: newMode,
+                courseName: 'Curso Apoiar',
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+              }, { merge: true });
+            }
+          } catch(e) {
+            console.error("Erro ao salvar modo no Firestore:", e);
+          }
+        }
+      }
+
+      async registerAttendance(record) {
+        const fullRecord = {
+          ...record,
+          courseId: this.courseId,
+          classId: this.classId,
+          lessonNumber: this.lessonNumber,
+          sessionDate: this.sessionDate,
+          className: record.className || (this.courseName ? `${this.courseName} • Aula ${this.lessonNumber}` : (this.classId === 'aula-1' ? 'Aula 1: Nós Somos Suporte' : `Turma: ${this.classId}`)),
+          timestampRaw: Date.now(),
+          formattedDate: new Date().toLocaleDateString('pt-BR') + ' às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+          status: 'presente'
+        };
+
+        // Cache local
+        const existingIdx = this.attendanceList.findIndex(a => 
+          (a.email && record.email && a.email.toLowerCase() === record.email.toLowerCase()) ||
+          (a.studentName?.toLowerCase() === record.studentName?.toLowerCase() && a.classId === this.classId)
+        );
+
+        if (existingIdx >= 0) {
+          this.attendanceList[existingIdx] = { ...this.attendanceList[existingIdx], ...fullRecord };
+        } else {
+          this.attendanceList.unshift(fullRecord);
+        }
+
+        try {
+          localStorage.setItem(this.STORAGE_KEY_ATTENDANCE, JSON.stringify(this.attendanceList));
+        } catch(e) {}
+
+        this.notifyListeners('attendanceUpdated', this.attendanceList);
+
+        // Firestore real: grava na coleção genérica da plataforma
+        if (isFirebaseReady && db) {
+          try {
+            const docRef = await db.collection('course_quiz_submissions').add({
+              ...fullRecord,
+              createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            fullRecord.id = docRef.id;
+
+            // Espelha também em apoiar_presencas se for curso-apoiar para compatibilidade legada
+            if (this.courseId === 'curso-apoiar' || this.courseId.includes('apoiar')) {
+              try {
+                await db.collection('apoiar_presencas').doc(docRef.id).set({
+                  ...fullRecord,
+                  createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+              } catch(e) {}
+            }
+          } catch(e) {
+            console.error("Erro ao gravar presença no Firestore:", e);
+          }
+        }
+
+        return fullRecord;
+      }
+
+      async addManualStudent(studentName, rede) {
+        return this.registerAttendance({
+          studentName,
+          rede,
+          xp: 0,
+          metodoPresenca: 'Lançamento Manual',
+          discursiveAnswers: { desafio3: 'Presença lançada pelo professor em sala.', desafio8: 'Presença lançada pelo professor em sala.' }
+        });
+      }
+    }
+
+    const dataService = new DataService();
+
+    /**
+     * =========================================================================
+     * 6. CONTROLADOR DE ESTADO & FLUXO DO QUIZ
+     * =========================================================================
+     */
+    // Funções de máscara padrão Oiko
+    function maskName(name) {
+      if (!name) return '';
+      return name.split(' ').map(p => p.length <= 1 ? p : p[0] + '*'.repeat(p.length - 1)).join(' ');
+    }
+
+    function maskPhone(phone) {
+      if (!phone) return '';
+      const d = String(phone).replace(/\D/g, '');
+      if (d.length < 4) return '****';
+      return `(${d.substring(0, 2)}) *****-${d.slice(-2)}`;
+    }
+
+    const state = {
+      student: {
+        name: '',
+        maskedName: '',
+        userId: null,
+        rede: '',
+        email: '',
+        phone: '',
+        isMemberIdentified: false
+      },
+      currentChallengeIdx: 0,
+      xp: 0,
+      correctCount: 0,
+      discursiveAnswers: {},
+      currentAttempts: 0,
+      selectedOption: null,
+      challengeAnswered: false,
+      savedAttendance: null
+    };
+
+    // Elementos da UI
+    const screens = {
+      onboarding: document.getElementById('screen-onboarding'),
+      gameplay: document.getElementById('screen-gameplay'),
+      results: document.getElementById('screen-results')
+    };
+
+    function showScreen(name) {
+      Object.keys(screens).forEach(k => {
+        if (k === name) {
+          screens[k].classList.remove('hidden');
+        } else {
+          screens[k].classList.add('hidden');
+        }
+      });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      
+      let icon = 'fa-info-circle';
+      let borderCol = 'border-purple-400/30';
+      let textCol = 'text-white';
+      let bgCol = 'bg-night/90';
+
+      if (type === 'error') {
+        icon = 'fa-circle-xmark';
+        borderCol = 'border-rose-500/40';
+        textCol = 'text-rose-200';
+      } else if (type === 'success') {
+        icon = 'fa-circle-check';
+        borderCol = 'border-emerald-500/40';
+        textCol = 'text-emerald-200';
+      } else if (type === 'locked') {
+        icon = 'fa-lock';
+        borderCol = 'border-amber-500/40';
+        textCol = 'text-amber-200';
+      }
+
+      toast.className = `p-4 rounded-2xl glass-card ${bgCol} border ${borderCol} ${textCol} text-xs font-bold shadow-2xl flex items-center gap-3 transition-all duration-300 transform translate-y-4 opacity-0 pointer-events-auto max-w-sm`;
+      toast.innerHTML = `<i class="fa-solid ${icon} text-base shrink-0"></i> <span>${message}</span>`;
+      
+      container.appendChild(toast);
+
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-4', 'opacity-0');
+      });
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 350);
+      }, 4000);
+    }
+
+    /**
+     * Renderização do Catálogo de Módulos (Aulas 1 a 12)
+     */
+    function renderModulesCatalog() {
+      const grid = document.getElementById('modules-catalog-grid');
+      grid.innerHTML = '';
+
+      MODULES_CATALOG.forEach(mod => {
+        const card = document.createElement('div');
+        if (mod.available) {
+          card.className = "glass-card rounded-2xl p-4 border-2 border-primaryPurple/80 shadow-lg shadow-purple-900/30 relative overflow-hidden flex flex-col justify-between";
+          card.innerHTML = `
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  <i class="fa-solid fa-check"></i> Disponível
+                </span>
+                <span class="text-xs font-extrabold text-vividPurple">Aula 01</span>
+              </div>
+              <h4 class="font-extrabold text-sm text-white leading-snug mb-1">${mod.title}</h4>
+              <p class="text-[11px] text-purple-200/80 leading-relaxed">${mod.desc}</p>
+            </div>
+            <div class="mt-3 pt-3 border-t border-white/10 flex items-center justify-between text-xs font-bold text-vividPurple">
+              <span>Iniciar Desafios</span>
+              <i class="fa-solid fa-circle-play text-sm text-emerald-400"></i>
+            </div>
+          `;
+        } else {
+          card.className = "glass-card rounded-2xl p-4 border border-white/5 opacity-50 hover:opacity-80 transition-all cursor-pointer flex flex-col justify-between";
+          card.innerHTML = `
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-white/10 text-slate-400">
+                  <i class="fa-solid fa-lock"></i> Em Breve
+                </span>
+                <span class="text-xs font-bold text-slate-500">Aula ${mod.id < 10 ? '0' + mod.id : mod.id}</span>
+              </div>
+              <h4 class="font-bold text-sm text-slate-300 leading-snug mb-1">${mod.title}</h4>
+              <p class="text-[11px] text-slate-400 leading-relaxed">${mod.desc}</p>
+            </div>
+            <div class="mt-3 pt-3 border-t border-white/5 flex items-center justify-between text-[11px] text-slate-400">
+              <span>Disponível em breve</span>
+              <i class="fa-solid fa-lock text-xs"></i>
+            </div>
+          `;
+
+          card.addEventListener('click', () => {
+            sound.playLocked();
+            showToast(`🔒 A Aula ${mod.id} ("${mod.title}") será liberada nas próximas semanas pelo cronograma do curso.`, 'locked');
+          });
+        }
+        grid.appendChild(card);
+      });
+    }
+
+    /**
+     * Renderização do Badge de Modo de Presença na Tela 1
+     */
+    function updatePresenceModeBadges() {
+      const mode = dataService.getModoPresenca();
+      const container = document.getElementById('badge-modo-presenca-container');
+      
+      if (mode === 'questionario') {
+        container.className = "inline-flex flex-col sm:flex-row items-center gap-2 px-4 py-2.5 rounded-2xl border text-xs sm:text-sm font-semibold bg-emerald-500/10 border-emerald-500/30 text-emerald-300";
+        container.innerHTML = `
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+            <i class="fa-solid fa-bolt text-emerald-400"></i>
+            <span>Presença Automática ao Concluir o Questionário</span>
+          </div>
+          <span class="hidden sm:inline text-emerald-500">•</span>
+          <span class="text-[11px] text-emerald-200/80 font-normal">Finalize todos os desafios para validar sua presença</span>
+        `;
+      } else {
+        container.className = "inline-flex flex-col sm:flex-row items-center gap-2 px-4 py-2.5 rounded-2xl border text-xs sm:text-sm font-semibold bg-amber-500/10 border-amber-500/30 text-amber-300";
+        container.innerHTML = `
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-clipboard-check text-amber-400"></i>
+            <span>Presença Oficial: Lançada pelo Professor</span>
+          </div>
+          <span class="hidden sm:inline text-amber-500">•</span>
+          <span class="text-[11px] text-amber-200/80 font-normal">O questionário vale como fixação e XP</span>
+        `;
+    }
+
+    dataService.subscribe((event) => {
+      if (event === 'modeChanged') {
+        updatePresenceModeBadges();
+      }
+    });
+
+    /**
+     * Embaralhamento de Alternativas (Fisher-Yates)
+     */
+    function shuffleArray(arr) {
+      const copy = [...arr];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    /**
+     * Renderização do Desafio Atual (Tela 2)
+     */
+    function renderChallenge() {
+      const challenge = CHALLENGES_DATABASE[state.currentChallengeIdx];
+      state.currentAttempts = 0;
+      state.selectedOption = null;
+      state.challengeAnswered = false;
+
+      // Badges superiores
+      document.getElementById('game-challenge-badge').textContent = `Desafio ${challenge.id} de 8`;
+      document.getElementById('game-category-badge').textContent = challenge.category;
+      document.getElementById('game-xp-counter').textContent = `${state.xp} XP`;
+      
+      const pct = (challenge.id / 8) * 100;
+      document.getElementById('game-progress-bar').style.width = `${pct}%`;
+
+      // Pergunta
+      document.getElementById('challenge-question-title').textContent = challenge.question;
+      
+      const typeIcon = document.getElementById('challenge-type-icon');
+      const typeLabel = document.getElementById('challenge-type-label');
+      const area = document.getElementById('challenge-interaction-area');
+      const feedbackBox = document.getElementById('challenge-feedback-box');
+      
+      feedbackBox.classList.add('hidden');
+      area.innerHTML = '';
+
+      if (challenge.type === 'multiple_choice') {
+        typeIcon.className = "fa-solid fa-list-ul";
+        typeLabel.textContent = "Múltipla Escolha";
+
+        // Cria as 4 opções e embaralha
+        const allOptions = shuffleArray([
+          { text: challenge.correct, isCorrect: true },
+          ...challenge.distractors.map(t => ({ text: t, isCorrect: false }))
+        ]);
+
+        const letters = ['A', 'B', 'C', 'D'];
+        allOptions.forEach((opt, idx) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = "w-full text-left p-4 rounded-2xl glass-card glass-card-hover border border-white/10 flex items-start gap-3.5 transition-all text-xs sm:text-sm font-medium leading-relaxed group";
+          btn.innerHTML = `
+            <span class="w-6 h-6 rounded-lg bg-white/10 text-white font-extrabold text-xs flex items-center justify-center shrink-0 group-hover:bg-vividPurple group-hover:text-night transition-colors">
+              ${letters[idx]}
+            </span>
+            <span class="flex-1">${opt.text}</span>
+          `;
+
+          btn.addEventListener('click', () => {
+            if (state.challengeAnswered) return;
+            handleMultipleChoiceAnswer(opt, btn, allOptions);
+          });
+
+          area.appendChild(btn);
+        });
+
+      } else {
+        // Discursiva curta
+        typeIcon.className = "fa-solid fa-pen-nib";
+        typeLabel.textContent = "Resolução Discursiva Curta";
+
+        const form = document.createElement('div');
+        form.className = "space-y-4";
+        form.innerHTML = `
+          <div class="space-y-1.5">
+            <textarea id="discursive-textarea" rows="4" placeholder="Escreva sua resposta pastoral com suas próprias palavras..." class="glass-input w-full p-4 rounded-2xl text-sm leading-relaxed"></textarea>
+            <div class="flex items-center justify-between text-[11px] text-purple-200/70 px-1">
+              <span id="char-counter">0 caracteres</span>
+              <span>Dica: seja prático e demonstre cuidado de pastor.</span>
+            </div>
+          </div>
+          <button id="btn-submit-discursive" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-primaryPurple to-vividPurple text-white font-extrabold text-sm shadow-lg hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2">
+            <i class="fa-solid fa-floppy-disk"></i> Gravar Resposta Pastoral
+          </button>
+        `;
+
+        area.appendChild(form);
+
+        const textarea = document.getElementById('discursive-textarea');
+        const counter = document.getElementById('char-counter');
+        const submitBtn = document.getElementById('btn-submit-discursive');
+
+        textarea.addEventListener('input', () => {
+          const len = textarea.value.trim().length;
+          counter.textContent = `${len} caracteres`;
+        });
+
+        submitBtn.addEventListener('click', () => {
+          handleDiscursiveAnswer(textarea.value.trim(), challenge);
+        });
+      }
+    }
+
+    /**
+     * Tratamento de Múltipla Escolha
+     */
+    function handleMultipleChoiceAnswer(selectedOpt, btnSelected, allOptions) {
+      state.challengeAnswered = true;
+      const challenge = CHALLENGES_DATABASE[state.currentChallengeIdx];
+
+      const area = document.getElementById('challenge-interaction-area');
+      const buttons = area.querySelectorAll('button');
+
+      if (selectedOpt.isCorrect) {
+        sound.playCorrect();
+        state.xp += 100;
+        state.correctCount++;
+
+        btnSelected.classList.remove('border-white/10');
+        btnSelected.classList.add('bg-emerald-500/20', 'border-emerald-400', 'text-emerald-100', 'glow-emerald');
+        btnSelected.querySelector('span:first-child').className = "w-6 h-6 rounded-lg bg-emerald-400 text-night font-extrabold text-xs flex items-center justify-center shrink-0";
+        btnSelected.querySelector('span:first-child').innerHTML = `<i class="fa-solid fa-check"></i>`;
+
+        showChallengeFeedback(true, challenge.feedback);
+      } else {
+        sound.playError();
+        state.xp += 25; // XP de incentivo
+
+        btnSelected.classList.remove('border-white/10');
+        btnSelected.classList.add('bg-rose-500/20', 'border-rose-500', 'text-rose-100');
+        btnSelected.querySelector('span:first-child').className = "w-6 h-6 rounded-lg bg-rose-500 text-white font-extrabold text-xs flex items-center justify-center shrink-0";
+        btnSelected.querySelector('span:first-child').innerHTML = `<i class="fa-solid fa-xmark"></i>`;
+
+        // Destaca a correta
+        buttons.forEach(b => {
+          if (b.innerText.includes(challenge.correct)) {
+            b.classList.add('border-emerald-400/80', 'bg-emerald-500/10');
+          }
+        });
+
+        showChallengeFeedback(false, challenge.feedback);
+      }
+
+      document.getElementById('game-xp-counter').textContent = `${state.xp} XP`;
+    }
+
+    /**
+     * Tratamento de Discursiva (com Smart Fallback ≥40 caracteres e 2ª tentativa)
+     */
+    function handleDiscursiveAnswer(text, challenge) {
+      state.currentAttempts++;
+      const lower = text.toLowerCase();
+      const length = text.length;
+
+      // 1. Verificação Primária: Palavras-chave
+      const hasKeywords = challenge.keywords.some(kw => lower.includes(kw));
+      
+      // 2. Fallback Inteligente: Frase mais longa / reflexiva (>= 40 caracteres)
+      const hasReflectiveLength = length >= 40;
+
+      // 3. Fallback de Segurança: Segunda tentativa
+      const isSecondAttempt = state.currentAttempts >= 2 && length >= 15;
+
+      if (length < 15) {
+        sound.playError();
+        showToast("Por favor, elabore um pouco mais sua resposta prática (mínimo de 15 caracteres) para expressar o coração do supervisor.", "error");
+        return;
+      }
+
+      if (hasKeywords || hasReflectiveLength || isSecondAttempt) {
+        // Validação Aprovada!
+        sound.playDiscursive();
+        state.xp += 150;
+        state.challengeAnswered = true;
+
+        state.discursiveAnswers['desafio' + challenge.id] = text;
+        if (challenge.id === 3) state.discursiveAnswers.d3 = text;
+        if (challenge.id === 8) state.discursiveAnswers.d8 = text;
+
+        // Desabilita textarea e botão
+        const textarea = document.getElementById('discursive-textarea');
+        const submitBtn = document.getElementById('btn-submit-discursive');
+        if (textarea) textarea.disabled = true;
+        if (submitBtn) submitBtn.disabled = true;
+
+        showChallengeFeedback(true, challenge.feedback);
+        document.getElementById('game-xp-counter').textContent = `${state.xp} XP`;
+      } else {
+        sound.playError();
+        showToast("Boa tentativa! Procure incluir ações pastorais de acolhimento (ex: escuta, oração, café, visita ou cuidado). Clique novamente para confirmar.", "info");
+      }
+    }
+
+    /**
+     * Exibe o feedback teológico após a resposta
+     */
+    function showChallengeFeedback(isSuccess, text) {
+      const feedbackBox = document.getElementById('challenge-feedback-box');
+      const iconCont = document.getElementById('feedback-icon-container');
+      const title = document.getElementById('feedback-status-title');
+      const desc = document.getElementById('feedback-text-content');
+      const btnNext = document.getElementById('btn-next-challenge');
+
+      feedbackBox.classList.remove('hidden');
+
+      if (isSuccess) {
+        feedbackBox.className = "rounded-2xl p-5 border bg-emerald-500/10 border-emerald-500/30 text-emerald-100 space-y-4";
+        iconCont.className = "w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0";
+        iconCont.innerHTML = `<i class="fa-solid fa-circle-check"></i>`;
+        title.className = "font-extrabold text-base text-emerald-300";
+        title.textContent = "Visão Pastoral Confirmada!";
+      } else {
+        feedbackBox.className = "rounded-2xl p-5 border bg-purple-500/10 border-purple-400/30 text-purple-100 space-y-4";
+        iconCont.className = "w-9 h-9 rounded-xl bg-purple-500/20 text-vividPurple flex items-center justify-center shrink-0";
+        iconCont.innerHTML = `<i class="fa-solid fa-lightbulb"></i>`;
+        title.className = "font-extrabold text-base text-vividPurple";
+        title.textContent = "Alinhamento Pastoral";
+      }
+
+      desc.textContent = text;
+
+      // Se for o último desafio, altera o botão para "Concluir Jornada"
+      if (state.currentChallengeIdx === CHALLENGES_DATABASE.length - 1) {
+        btnNext.innerHTML = `<span>Ver Resultados & Concluir</span> <i class="fa-solid fa-award text-xs"></i>`;
+      } else {
+        btnNext.innerHTML = `<span>Próximo Desafio</span> <i class="fa-solid fa-arrow-right text-xs"></i>`;
+      }
+
+      // Scroll suave até o feedback
+      feedbackBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    /**
+     * Transição para a Tela 3: Resultados e Presença
+     */
+    async function showResultsScreen() {
+      showScreen('results');
+      sound.playFanfare();
+      confetti.fire(150);
+
+      // Placar
+      document.getElementById('results-total-xp').textContent = state.xp;
+      document.getElementById('results-correct-count').textContent = `${state.correctCount} / 6`;
+
+      // Classificação Pastoral
+      const rankBadge = document.getElementById('results-badge-rank');
+      if (state.xp >= 900) {
+        rankBadge.innerHTML = `<span class="text-amber-300 flex items-center justify-center gap-1.5"><i class="fa-solid fa-crown"></i> Mestre em Suporte</span>`;
+      } else if (state.xp >= 600) {
+        rankBadge.innerHTML = `<span class="text-vividPurple flex items-center justify-center gap-1.5"><i class="fa-solid fa-shield-halved"></i> Supervisor Guardião</span>`;
+      } else {
+        rankBadge.innerHTML = `<span class="text-emerald-400 flex items-center justify-center gap-1.5"><i class="fa-solid fa-hands-holding-heart"></i> Supervisor Servo</span>`;
+      }
+
+      // Resoluções Discursivas
+      const ansD3 = state.discursiveAnswers.desafio3 || state.discursiveAnswers.d3 || 'Resposta pastoral gravada com sucesso.';
+      const ansD8 = state.discursiveAnswers.desafio8 || state.discursiveAnswers.d8 || 'Compromisso de ação semanal gravado com sucesso.';
+      document.getElementById('results-answer-d3').textContent = `"${ansD3}"`;
+      document.getElementById('results-answer-d8').textContent = `"${ansD8}"`;
+
+      // Gatilho de Presença
+      const mode = dataService.getModoPresenca();
+      const attendanceCard = document.getElementById('results-attendance-card');
+
+      if (mode === 'questionario') {
+        const displayName = state.student.maskedName || state.student.name;
+
+        // Grava Presença Automática
+        const record = await dataService.registerAttendance({
+          userId: state.student.userId || null,
+          studentName: state.student.name,
+          maskedName: state.student.maskedName || maskName(state.student.name),
+          rede: state.student.rede,
+          email: state.student.email,
+          phone: state.student.phone || '',
+          xp: state.xp,
+          discursiveAnswers: {
+            ...state.discursiveAnswers,
+            desafio3: ansD3,
+            desafio8: ansD8
+          },
+          metodoPresenca: 'Via Questionário'
+        });
+        state.savedAttendance = record;
+
+        attendanceCard.className = "rounded-3xl p-6 sm:p-7 border bg-emerald-500/15 border-emerald-500/40 text-emerald-100 shadow-xl space-y-3";
+        attendanceCard.innerHTML = `
+          <div class="flex items-start gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-2xl shrink-0">
+              <i class="fa-solid fa-circle-check"></i>
+            </div>
+            <div class="space-y-1">
+              <span class="text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-emerald-500/30 text-emerald-300">
+                Presença Oficial Confirmada
+              </span>
+              <h3 class="text-xl sm:text-2xl font-black text-white">Presença Registrada com Sucesso na Aula 1</h3>
+              <p class="text-xs sm:text-sm text-emerald-200/90 leading-relaxed">
+                Parabéns, <strong>${displayName}</strong> (${state.student.rede})! Sua presença foi homologada no sistema via conclusão dos desafios.
+              </p>
+              <div class="text-[11px] text-emerald-300/80 pt-1 flex items-center gap-2">
+                <i class="fa-solid fa-clock"></i> Registrado em: ${record.formattedDate}
+              </div>
+            </div>
+          </div>
+        `;
+      } else {
+        const displayName = state.student.maskedName || state.student.name;
+
+        // Modo Manual: Avisa que a chamada oficial é pelo professor
+        attendanceCard.className = "rounded-3xl p-6 sm:p-7 border bg-amber-500/15 border-amber-500/40 text-amber-100 shadow-xl space-y-3";
+        attendanceCard.innerHTML = `
+          <div class="flex items-start gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-2xl shrink-0">
+              <i class="fa-solid fa-clipboard-user"></i>
+            </div>
+            <div class="space-y-1">
+              <span class="text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-amber-500/30 text-amber-300">
+                Questionário Concluído com Êxito
+              </span>
+              <h3 class="text-xl sm:text-2xl font-black text-white">Desafios da Aula 1 Finalizados!</h3>
+              <p class="text-xs sm:text-sm text-amber-200/90 leading-relaxed">
+                Parabéns, <strong>${displayName}</strong> (${state.student.rede})! Seus <strong>${state.xp} XP</strong> foram computados. Nesta turma, a presença oficial é lançada pelo professor na chamada presencial.
+              </p>
+              <div class="text-[11px] text-amber-300/80 pt-1 flex items-center gap-2">
+                <i class="fa-solid fa-circle-info"></i> Comunique seu líder/professor para garantir seu registro de chamada.
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    /**
+     * =========================================================================
+     * 7. INTEGRAÇÃO E AÇÕES: WHATSAPP, COPIAR, PDF
+     * =========================================================================
+     */
+    function generateSummaryText() {
+      const mode = dataService.getModoPresenca();
+      const statusPresenca = mode === 'questionario' ? '✅ Presença Confirmada (Via Questionário)' : '📋 Questionário Concluído (Aguardando Chamada do Professor)';
+      const timestamp = new Date().toLocaleDateString('pt-BR') + ' às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+      return `*CURSO APOIAR • RELATÓRIO DA AULA 1: NÓS SOMOS SUPORTE*\n` +
+             `------------------------------------------\n` +
+             `👤 *Aluno:* ${state.student.name}\n` +
+             `🌐 *Rede:* ${state.student.rede}\n` +
+             `📅 *Data/Hora:* ${timestamp}\n` +
+             `⚡ *Pontuação:* ${state.xp} XP\n` +
+             `🎯 *Acertos Múltiplos:* ${state.correctCount} / 6\n` +
+             `🛡️ *Status de Presença:* ${statusPresenca}\n\n` +
+             `*RESOLUÇÕES PASTORAIS REGISTRADAS:*\n` +
+             `💬 *Desafio 3 (Líder em Crise):*\n"${state.discursiveAnswers.d3 || 'N/A'}"\n\n` +
+             `🤝 *Desafio 8 (Ação Semanal de Sustentação):*\n"${state.discursiveAnswers.d8 || 'N/A'}"\n\n` +
+             `*COMPROMISSO DE HONRA:*\n` +
+             `"Não exercerei autoridade por cobrança nem por vaidade. Colocarei meus ombros sob as cargas dos meus líderes para que ninguém seja esmagado pelo peso da batalha."\n` +
+             `------------------------------------------\n` +
+             `_Oiko Comunidade • Trilho do Discipulado_`;
+    }
+
+    document.getElementById('btn-share-whatsapp').addEventListener('click', () => {
+      sound.playChime();
+      const text = encodeURIComponent(generateSummaryText());
+      window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
+    });
+
+    document.getElementById('btn-copy-summary').addEventListener('click', () => {
+      sound.playChime();
+      const text = generateSummaryText();
+      navigator.clipboard.writeText(text).then(() => {
+        showToast("Resumo pastoral copiado para a área de transferência!", "success");
+      }).catch(() => {
+        showToast("Não foi possível copiar automaticamente. Use o botão do WhatsApp.", "error");
+      });
+    });
+
+    document.getElementById('btn-print-pdf').addEventListener('click', () => {
+      sound.playChime();
+      window.print();
+    });
+
+    document.getElementById('btn-back-menu').addEventListener('click', () => {
+      sound.playChime();
+      showScreen('onboarding');
+    });
+
+
+    /**
+     * =========================================================================
+     * 8. INICIALIZAÇÃO GERAL E EVENTOS DA TELA 1 (PADRÃO OIKO)
+     * =========================================================================
+     */
+    document.addEventListener('DOMContentLoaded', () => {
+      renderModulesCatalog();
+      updatePresenceModeBadges();
+
+      const emailInput = document.getElementById('input-student-email');
+      const verifyBtn = document.getElementById('btn-verify-email');
+      const iconVerify = document.getElementById('icon-verify-email');
+      const textVerify = document.getElementById('text-verify-email');
+      const errorEmail = document.getElementById('error-email');
+
+      const cardFound = document.getElementById('card-member-found');
+      const displayMaskedName = document.getElementById('display-masked-name');
+      const displayMaskedInfo = document.getElementById('display-masked-info');
+      const btnResetEmail = document.getElementById('btn-reset-email');
+
+      const cardNotFound = document.getElementById('card-member-not-found');
+      const btnChangeEmail = document.getElementById('btn-change-email');
+
+      const nameInput = document.getElementById('input-student-name');
+      const phoneInput = document.getElementById('input-student-phone');
+      const redeSelect = document.getElementById('select-student-rede');
+      const containerEmailSearch = document.getElementById('container-email-search');
+
+      let isSearching = false;
+
+      // Recupera dados salvos do aluno
+      try {
+        const saved = localStorage.getItem(dataService.STORAGE_KEY_STUDENT);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.email) {
+            emailInput.value = parsed.email;
+            if (parsed.isMemberIdentified) {
+              setMemberFoundState(parsed);
+            } else if (parsed.name) {
+              setMemberNotFoundState(parsed);
+            }
+          }
+        }
+      } catch(e) {}
+
+      function setMemberFoundState(data) {
+        const cleanRede = data.rede || 'Rede Geral';
+        const cleanGc = data.gcName || 'Célula Vinculada';
+
+        state.student = {
+          name: data.name || data.realName || '',
+          maskedName: data.maskedName || maskName(data.name || data.realName || ''),
+          userId: data.userId || null,
+          rede: cleanRede,
+          gcName: cleanGc,
+          email: data.email || '',
+          phone: data.phone || data.realPhone || '',
+          isMemberIdentified: true
+        };
+
+        displayMaskedName.textContent = state.student.maskedName;
+        displayMaskedInfo.innerHTML = `
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/10 text-white font-bold text-xs">
+            <i class="fa-solid fa-people-roof text-vividPurple text-[11px]"></i> GC: ${cleanGc}
+          </span>
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 font-bold text-xs border border-emerald-500/30">
+            <i class="fa-solid fa-network-wired text-[11px]"></i> ${cleanRede}
+          </span>
+        `;
+
+        cardFound.classList.remove('hidden');
+        cardNotFound.classList.add('hidden');
+        containerEmailSearch.classList.add('hidden');
+
+        try {
+          localStorage.setItem(dataService.STORAGE_KEY_STUDENT, JSON.stringify(state.student));
+        } catch(e) {}
+      }
+
+      function setMemberNotFoundState(data) {
+        state.student = {
+          name: data.name || '',
+          maskedName: maskName(data.name || ''),
+          userId: null,
+          rede: data.rede || '',
+          email: data.email || '',
+          phone: data.phone || '',
+          isMemberIdentified: false
+        };
+
+        if (data.name) nameInput.value = data.name;
+        if (data.phone) phoneInput.value = data.phone;
+        if (data.rede) redeSelect.value = data.rede;
+
+        cardFound.classList.add('hidden');
+        cardNotFound.classList.remove('hidden');
+      }
+
+      function resetSearch() {
+        cardFound.classList.add('hidden');
+        cardNotFound.classList.add('hidden');
+        containerEmailSearch.classList.remove('hidden');
+        errorEmail.classList.add('hidden');
+        state.student.isMemberIdentified = false;
+        state.student.userId = null;
+        setTimeout(() => emailInput.focus(), 50);
+      }
+
+      if (btnResetEmail) btnResetEmail.addEventListener('click', resetSearch);
+      if (btnChangeEmail) btnChangeEmail.addEventListener('click', resetSearch);
+
+      // Função principal de verificação de e-mail (Padrão Oiko)
+      async function verifyEmail(email) {
+        const clean = (email || '').toLowerCase().trim();
+        if (!clean || !clean.includes('@') || !clean.includes('.')) {
+          errorEmail.classList.remove('hidden');
+          sound.playError();
+          showToast("Digite um e-mail válido para busca.", "error");
+          return;
+        }
+        errorEmail.classList.add('hidden');
+
+        isSearching = true;
+        verifyBtn.disabled = true;
+        if (iconVerify) iconVerify.className = "fa-solid fa-spinner animate-spin";
+        if (textVerify) textVerify.textContent = "Buscando...";
+
+        try {
+          let foundResult = null;
+
+          // 1. Tenta API do Next.js (/api/apoiar/verify-email)
+          try {
+            const resp = await fetch('/api/apoiar/verify-email', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: clean })
+            });
+            if (resp.ok) {
+              const resData = await resp.json();
+              if (resData.found) {
+                foundResult = resData;
+              }
+            }
+          } catch(apiErr) {
+            console.warn("API verify-email fallback:", apiErr);
+          }
+
+          // 2. Fallback direto no Firestore Client (caso offline ou standalone file://)
+          if (!foundResult && isFirebaseReady && db) {
+            try {
+              const snap = await db.collection('users').where('email', '==', clean).limit(1).get();
+              if (!snap.empty) {
+                const uDoc = snap.docs[0];
+                const uData = uDoc.data();
+                foundResult = {
+                  found: true,
+                  userId: uDoc.id,
+                  realName: uData.name || '',
+                  maskedName: maskName(uData.name || ''),
+                  realPhone: uData.phone || '',
+                  maskedPhone: maskPhone(uData.phone || ''),
+                  rede: uData.rede || uData.hierarchy?.rede || ''
+                };
+              }
+            } catch(dbErr) {
+              console.warn("Firestore query fallback:", dbErr);
+            }
+          }
+
+          if (foundResult && foundResult.found) {
+            sound.playCorrect();
+            setMemberFoundState({
+              ...foundResult,
+              email: clean,
+              name: foundResult.realName
+            });
+            showToast(`Olá, ${foundResult.maskedName}! Cadastro localizado com sucesso.`, "success");
+          } else {
+            sound.playChime();
+            setMemberNotFoundState({
+              email: clean,
+              name: '',
+              phone: '',
+              rede: redeSelect.value || ''
+            });
+            showToast("E-mail não localizado na base de membros. Preencha seus dados para continuar.", "info");
+          }
+        } catch(err) {
+          console.error(err);
+          setMemberNotFoundState({ email: clean });
+        } finally {
+          isSearching = false;
+          verifyBtn.disabled = false;
+          if (iconVerify) iconVerify.className = "fa-solid fa-magnifying-glass";
+          if (textVerify) textVerify.textContent = "Localizar Cadastro";
+        }
+      }
+
+      if (verifyBtn) {
+        verifyBtn.addEventListener('click', () => {
+          sound.playChime();
+          verifyEmail(emailInput.value);
+        });
+      }
+
+      if (emailInput) {
+        emailInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            verifyEmail(emailInput.value);
+          }
+        });
+      }
+
+      // Login com Google (Padrão Oiko)
+      document.getElementById('btn-google-auth').addEventListener('click', () => {
+        sound.playChime();
+        if (isFirebaseReady && auth) {
+          try {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider).then((res) => {
+              if (res.user && res.user.email) {
+                emailInput.value = res.user.email;
+                verifyEmail(res.user.email);
+              }
+            }).catch(() => {
+              promptManualGoogle();
+            });
+          } catch(e) {
+            promptManualGoogle();
+          }
+        } else {
+          promptManualGoogle();
+        }
+      });
+
+      function promptManualGoogle() {
+        const email = prompt("Informe seu e-mail cadastrado na igreja:");
+        if (email) {
+          emailInput.value = email;
+          verifyEmail(email);
+        }
+      }
+
+      // Som toggle
+      const btnSound = document.getElementById('btn-toggle-sound');
+      btnSound.addEventListener('click', () => {
+        sound.enabled = !sound.enabled;
+        btnSound.innerHTML = sound.enabled ? `<i class="fa-solid fa-volume-high text-sm"></i>` : `<i class="fa-solid fa-volume-xmark text-sm text-rose-400"></i>`;
+        showToast(sound.enabled ? "Efeitos sonoros ativados." : "Efeitos sonoros desativados.", "info");
+      });
+
+      // Botão Iniciar Desafios
+      document.getElementById('btn-start-challenges').addEventListener('click', () => {
+        const rede = redeSelect.value;
+        let hasError = false;
+
+        // Se o membro ainda não realizou a verificação do e-mail
+        if (!state.student.isMemberIdentified && cardNotFound.classList.contains('hidden')) {
+          const emailVal = emailInput.value.trim();
+          if (emailVal) {
+            verifyEmail(emailVal);
+            return;
+          } else {
+            errorEmail.classList.remove('hidden');
+            sound.playError();
+            showToast("Informe seu e-mail para validar seu cadastro de membro.", "error");
+            return;
+          }
+        }
+
+        // Se o membro já foi identificado, sua Rede e GC já vêm direto do cadastro!
+        if (state.student.isMemberIdentified) {
+          hasError = false;
+        } else {
+          // Apenas para novo/visitante não cadastrado: valida Rede e Nome
+          if (!rede) {
+            document.getElementById('error-rede').classList.remove('hidden');
+            redeSelect.classList.add('border-rose-500');
+            hasError = true;
+          } else {
+            document.getElementById('error-rede').classList.add('hidden');
+            redeSelect.classList.remove('border-rose-500');
+            state.student.rede = rede;
+          }
+
+          const typedName = nameInput.value.trim();
+          if (!typedName || typedName.length < 3) {
+            document.getElementById('error-name').classList.remove('hidden');
+            nameInput.classList.add('border-rose-500');
+            hasError = true;
+          } else {
+            document.getElementById('error-name').classList.add('hidden');
+            nameInput.classList.remove('border-rose-500');
+            state.student.name = typedName;
+            state.student.maskedName = maskName(typedName);
+            state.student.phone = phoneInput ? phoneInput.value.trim() : '';
+          }
+        }
+
+        if (hasError) {
+          sound.playError();
+          showToast("Preencha todos os campos obrigatórios para iniciar os desafios.", "error");
+          return;
+        }
+
+        // Salva dados no state e localStorage
+        try {
+          localStorage.setItem(dataService.STORAGE_KEY_STUDENT, JSON.stringify(state.student));
+        } catch(e) {}
+
+        sound.playChime();
+        state.currentChallengeIdx = 0;
+        state.xp = 0;
+        state.correctCount = 0;
+        state.discursiveAnswers = { d3: '', d8: '' };
+
+        showScreen('gameplay');
+        renderChallenge();
+      });
+
+      // Botão Próximo Desafio
+      document.getElementById('btn-next-challenge').addEventListener('click', () => {
+        sound.playChime();
+        if (state.currentChallengeIdx < CHALLENGES_DATABASE.length - 1) {
+          state.currentChallengeIdx++;
+          renderChallenge();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+          showResultsScreen();
+        }
+      });
+    });
+  </script>
+</body>
+</html>

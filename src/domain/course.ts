@@ -1,3 +1,24 @@
+export type CourseQuizQuestion = {
+  id: number;
+  type: 'multiple_choice' | 'discursive';
+  category?: string;
+  question: string;
+  correct?: string;
+  distractors?: string[];
+  keywords?: string[];
+  feedback?: string;
+  options?: string[];
+  correctIndex?: number;
+  aiActive?: boolean;
+};
+
+export type CourseLessonQuiz = {
+  enabled?: boolean;
+  title?: string;
+  questions: CourseQuizQuestion[];
+  updatedAt?: any;
+};
+
 export type Course = {
   id: string;
   name: string;
@@ -14,16 +35,37 @@ export type Course = {
     inPerson?: { minPercentage?: number; maxPercentage?: number; };
     allowExceptions?: boolean;
   };
-  syllabus?: { id: string; title: string; description: string; theoflixCourseId?: string }[];
+  syllabus?: { 
+    id: string; 
+    title: string; 
+    description: string; 
+    theoflixCourseId?: string;
+    theoflixRequiredVideoIds?: string[];
+    materialName?: string;
+    materialUrl?: string;
+    quiz?: CourseLessonQuiz;
+  }[];
   requiresMemberStatus?: boolean;
   requiresBaptism?: boolean;
   prerequisiteCourseId?: string;
   simultaneousClasses?: boolean;
+  attendanceMode?: 'manual' | 'quiz';
+  presencaPresencialModo?: 'manual' | 'quiz';
+  lessonQuizzes?: Record<string, CourseLessonQuiz>;
   isArchived?: boolean;
   grantsMembership?: boolean;
   isMembershipPrerequisite?: boolean;
   tenantId?: string;
 };
+
+/**
+ * Helper unificado para determinar o modo de presença presencial do curso.
+ * Garante fonte única de verdade com tolerância e compatibilidade entre propriedades legadas e atuais.
+ */
+export function getCourseAttendanceMode(course?: Partial<Course> | null): 'manual' | 'quiz' {
+  if (!course) return 'manual';
+  return (course.attendanceMode ?? course.presencaPresencialModo ?? 'manual') as 'manual' | 'quiz';
+}
 
 export type Class = {
   id: string;
