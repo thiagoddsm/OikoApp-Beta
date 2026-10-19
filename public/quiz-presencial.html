@@ -533,6 +533,22 @@
         </div>
       </section>
 
+      <!-- Banner de Notificação Automática via WhatsApp -->
+      <section id="results-auto-notify-banner" class="glass-card rounded-2xl p-4 border border-emerald-500/30 bg-emerald-500/10 text-emerald-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg no-print">
+        <div class="flex items-center gap-3">
+          <div id="results-auto-notify-icon" class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+            <i class="fa-solid fa-paper-plane animate-pulse text-base"></i>
+          </div>
+          <div>
+            <span class="text-[10px] uppercase font-black tracking-widest text-emerald-300 block">Notificação Automática via WhatsApp</span>
+            <p id="results-auto-notify-text" class="text-xs text-white/90">Avisando o professor e a secretaria sobre a conclusão da aula...</p>
+          </div>
+        </div>
+        <span id="results-auto-notify-badge" class="text-[10px] font-extrabold px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 shrink-0 self-end sm:self-center">
+          Enviando...
+        </span>
+      </section>
+
       <!-- Ações de Encerramento (WhatsApp, Copiar, PDF, Menu) -->
       <section class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 no-print">
         
@@ -1760,11 +1776,12 @@
       const mode = dataService.getModoPresenca();
       const attendanceCard = document.getElementById('results-attendance-card');
 
+      let record = null;
       if (mode === 'questionario') {
         const displayName = state.student.maskedName || state.student.name;
 
         // Grava Presença Automática
-        const record = await dataService.registerAttendance({
+        record = await dataService.registerAttendance({
           userId: state.student.userId || null,
           studentName: state.student.name,
           maskedName: state.student.maskedName || maskName(state.student.name),
@@ -1791,7 +1808,7 @@
               <span class="text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-emerald-500/30 text-emerald-300">
                 Presença Oficial Confirmada
               </span>
-              <h3 class="text-xl sm:text-2xl font-black text-white">Presença Registrada com Sucesso na Aula 1</h3>
+              <h3 class="text-xl sm:text-2xl font-black text-white">Presença Registrada com Sucesso na Aula ${dataService.lessonNumber}</h3>
               <p class="text-xs sm:text-sm text-emerald-200/90 leading-relaxed">
                 Parabéns, <strong>${displayName}</strong> (${state.student.rede})! Sua presença foi homologada no sistema via conclusão dos desafios.
               </p>
@@ -1804,7 +1821,24 @@
       } else {
         const displayName = state.student.maskedName || state.student.name;
 
-        // Modo Manual: Avisa que a chamada oficial é pelo professor
+        // Modo Manual: Também registra o envio das respostas
+        record = await dataService.registerAttendance({
+          userId: state.student.userId || null,
+          studentName: state.student.name,
+          maskedName: state.student.maskedName || maskName(state.student.name),
+          rede: state.student.rede,
+          email: state.student.email,
+          phone: state.student.phone || '',
+          xp: state.xp,
+          discursiveAnswers: {
+            ...state.discursiveAnswers,
+            desafio3: ansD3,
+            desafio8: ansD8
+          },
+          metodoPresenca: 'Questionário Concluído (Modo Manual)'
+        });
+        state.savedAttendance = record;
+
         attendanceCard.className = "rounded-3xl p-6 sm:p-7 border bg-amber-500/15 border-amber-500/40 text-amber-100 shadow-xl space-y-3";
         attendanceCard.innerHTML = `
           <div class="flex items-start gap-4">
@@ -1815,7 +1849,7 @@
               <span class="text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-amber-500/30 text-amber-300">
                 Questionário Concluído com Êxito
               </span>
-              <h3 class="text-xl sm:text-2xl font-black text-white">Desafios da Aula 1 Finalizados!</h3>
+              <h3 class="text-xl sm:text-2xl font-black text-white">Desafios da Aula ${dataService.lessonNumber} Finalizados!</h3>
               <p class="text-xs sm:text-sm text-amber-200/90 leading-relaxed">
                 Parabéns, <strong>${displayName}</strong> (${state.student.rede})! Seus <strong>${state.xp} XP</strong> foram computados. Nesta turma, a presença oficial é lançada pelo professor na chamada presencial.
               </p>
@@ -1825,6 +1859,74 @@
             </div>
           </div>
         `;
+      }
+
+      // Dispara a Notificação Automática via WhatsApp para o Professor e Secretaria
+      triggerAutoWhatsAppNotification(record);
+    }
+
+    /**
+     * Disparo Automático via WhatsApp para o Professor e Secretaria
+     */
+    async function triggerAutoWhatsAppNotification(submissionRecord) {
+      const banner = document.getElementById('results-auto-notify-banner');
+      const icon = document.getElementById('results-auto-notify-icon');
+      const text = document.getElementById('results-auto-notify-text');
+      const badge = document.getElementById('results-auto-notify-badge');
+      if (!banner) return;
+
+      banner.classList.remove('hidden');
+      icon.innerHTML = `<i class="fa-solid fa-paper-plane animate-pulse text-base"></i>`;
+      text.textContent = 'Enviando relatório da aula no WhatsApp do professor e coordenação...';
+      badge.textContent = 'Enviando...';
+      badge.className = 'text-[10px] font-extrabold px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 shrink-0 self-end sm:self-center';
+
+      try {
+        const summaryText = generateSummaryText();
+        const multipleCount = CHALLENGES_DATABASE.filter(c => c.type === 'multiple_choice').length || 6;
+
+        const res = await fetch('/api/teaching/quiz-notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            courseId: dataService.courseId,
+            classId: dataService.classId,
+            lessonNumber: dataService.lessonNumber,
+            sessionDate: dataService.sessionDate,
+            studentName: state.student.name,
+            rede: state.student.rede,
+            studentPhone: state.student.phone || '',
+            xp: state.xp,
+            correctCount: state.correctCount,
+            totalMultiple: multipleCount,
+            discursiveAnswers: state.discursiveAnswers,
+            summaryText: summaryText,
+            submissionId: submissionRecord?.id || null
+          })
+        });
+
+        const data = await res.json();
+        if (data && data.success && data.recipientsSent > 0) {
+          icon.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>`;
+          text.innerHTML = `Relatório pastoral entregue com sucesso via WhatsApp para: <strong>${data.recipientNames.join(', ')}</strong>`;
+          badge.textContent = 'Entregue ✅';
+          badge.className = 'text-[10px] font-extrabold px-3 py-1 rounded-full bg-emerald-500/30 border border-emerald-400/50 text-emerald-200 shrink-0 self-end sm:self-center';
+        } else if (data && data.skipped) {
+          icon.innerHTML = `<i class="fa-solid fa-circle-info text-amber-400 text-lg"></i>`;
+          text.textContent = 'Presença homologada no sistema. Use o botão abaixo caso queira enviar manualmente ao professor.';
+          badge.textContent = 'Modo Manual';
+          badge.className = 'text-[10px] font-extrabold px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-300 shrink-0 self-end sm:self-center';
+        } else {
+          icon.innerHTML = `<i class="fa-solid fa-circle-info text-emerald-400 text-lg"></i>`;
+          text.textContent = 'Questionário finalizado com êxito. Se desejar, confirme o envio com o professor abaixo.';
+          badge.textContent = 'Concluído';
+          badge.className = 'text-[10px] font-extrabold px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 shrink-0 self-end sm:self-center';
+        }
+      } catch (err) {
+        console.warn('[Auto WhatsApp] Erro no envio automático:', err);
+        icon.innerHTML = `<i class="fa-solid fa-circle-info text-amber-400 text-lg"></i>`;
+        text.textContent = 'Presença registrada. Você também pode enviar o resumo ao professor pelo botão abaixo.';
+        badge.textContent = 'Manual';
       }
     }
 
