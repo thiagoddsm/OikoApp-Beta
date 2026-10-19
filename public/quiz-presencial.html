@@ -1838,17 +1838,40 @@
       const statusPresenca = mode === 'questionario' ? '✅ Presença Confirmada (Via Questionário)' : '📋 Questionário Concluído (Aguardando Chamada do Professor)';
       const timestamp = new Date().toLocaleDateString('pt-BR') + ' às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
-      return `*CURSO APOIAR • RELATÓRIO DA AULA 1: NÓS SOMOS SUPORTE*\n` +
+      const courseTitle = (dataService.courseName || 'CURSO APOIAR').toUpperCase();
+      const currentLesson = MODULES_CATALOG.find(m => m.id === dataService.lessonNumber);
+      const lessonTitle = currentLesson ? `AULA ${dataService.lessonNumber}: ${currentLesson.title.toUpperCase()}` : `AULA ${dataService.lessonNumber}`;
+      const totalMultiple = CHALLENGES_DATABASE.filter(c => c.type === 'multiple_choice').length || 6;
+
+      let discursiveSection = '*RESOLUÇÕES PASTORAIS REGISTRADAS:*\n';
+      const discEntries = Object.entries(state.discursiveAnswers || {}).filter(([k, v]) => Boolean(v && v.trim()));
+      
+      if (discEntries.length > 0) {
+        discEntries.forEach(([k, v]) => {
+          if (k === 'd3' || k === 'd8') return; // evita duplicatas se tiver desafio3/desafio8
+          const num = k.replace(/\D/g, '');
+          const challenge = CHALLENGES_DATABASE.find(c => String(c.id) === String(num));
+          const cat = challenge?.category ? ` (${challenge.category})` : '';
+          discursiveSection += `💬 *Desafio ${num || k}${cat}:*\n"${v}"\n\n`;
+        });
+      } else {
+        if (state.discursiveAnswers.d3) {
+          discursiveSection += `💬 *Desafio 3 (Líder em Crise):*\n"${state.discursiveAnswers.d3}"\n\n`;
+        }
+        if (state.discursiveAnswers.d8) {
+          discursiveSection += `🤝 *Desafio 8 (Ação Semanal de Sustentação):*\n"${state.discursiveAnswers.d8}"\n\n`;
+        }
+      }
+
+      return `*${courseTitle} • RELATÓRIO DA ${lessonTitle}*\n` +
              `------------------------------------------\n` +
              `👤 *Aluno:* ${state.student.name}\n` +
              `🌐 *Rede:* ${state.student.rede}\n` +
              `📅 *Data/Hora:* ${timestamp}\n` +
              `⚡ *Pontuação:* ${state.xp} XP\n` +
-             `🎯 *Acertos Múltiplos:* ${state.correctCount} / 6\n` +
+             `🎯 *Acertos Múltiplos:* ${state.correctCount} / ${totalMultiple}\n` +
              `🛡️ *Status de Presença:* ${statusPresenca}\n\n` +
-             `*RESOLUÇÕES PASTORAIS REGISTRADAS:*\n` +
-             `💬 *Desafio 3 (Líder em Crise):*\n"${state.discursiveAnswers.d3 || 'N/A'}"\n\n` +
-             `🤝 *Desafio 8 (Ação Semanal de Sustentação):*\n"${state.discursiveAnswers.d8 || 'N/A'}"\n\n` +
+             discursiveSection +
              `*COMPROMISSO DE HONRA:*\n` +
              `"Não exercerei autoridade por cobrança nem por vaidade. Colocarei meus ombros sob as cargas dos meus líderes para que ninguém seja esmagado pelo peso da batalha."\n` +
              `------------------------------------------\n` +
