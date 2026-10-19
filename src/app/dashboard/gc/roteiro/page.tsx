@@ -46,7 +46,8 @@ import {
   Users,
   FileAudio,
   Trash2,
-  Wand2
+  Wand2,
+  MessageSquare
 } from 'lucide-react';
 import { DEFAULT_GC_ROTEIRO_HTML, DEFAULT_GC_ROTEIRO_TITLE } from '@/lib/constants/default-gc-roteiro';
 import { generateGcRoteiroAction } from './actions';
@@ -85,6 +86,7 @@ export default function GcRoteiroAdminPage() {
   const [audioMimeType, setAudioMimeType] = useState<string>('');
   const [textOutline, setTextOutline] = useState('');
   const [pastoralMessage, setPastoralMessage] = useState('');
+  const [desafioAnterior, setDesafioAnterior] = useState('');
   const [louvores, setLouvores] = useState('Em Teus Braços - Laura Souguellis / Cristo, Nossa Certeza - Soberana Graça');
   const [avisos, setAvisos] = useState('Início do IBM College nesta quinta-feira / Conferência Missão de Casa com Pr. Alvin e Pr. Rafael Abdalla');
   const [perfilGc, setPerfilGc] = useState('Geral');
@@ -287,6 +289,7 @@ export default function GcRoteiroAdminPage() {
         audioMimeType: aiSourceMode === 'audio' ? audioMimeType : undefined,
         textOutline: aiSourceMode === 'text' ? textOutline : undefined,
         pastoralMessage: pastoralMessage.trim() || undefined,
+        desafioAnterior: desafioAnterior.trim() || undefined,
         louvores: louvores.trim() || undefined,
         avisos: avisos.trim() || undefined,
         perfilGc: perfilGc || 'Geral',
@@ -1060,14 +1063,40 @@ export default function GcRoteiroAdminPage() {
 
                 <div className="space-y-1">
                   <Label className="text-xs font-bold flex items-center gap-1">
-                    <Bell className="h-3 w-3 text-amber-600" /> Avisos da Igreja
+                    <History className="h-3 w-3 text-amber-600" /> Desafio da Semana Anterior (Opcional - Momento 3)
                   </Label>
                   <Input
-                    value={avisos}
-                    onChange={(e) => setAvisos(e.target.value)}
-                    placeholder="Ex: Início do IBM College quinta / Conferência Missão de Casa"
+                    value={desafioAnterior}
+                    onChange={(e) => setDesafioAnterior(e.target.value)}
+                    placeholder="Ex: Conversar com um amigo não cristão e orar por ele durante a semana"
                     className="text-xs"
                   />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs font-bold flex items-center gap-1">
+                      <Bell className="h-3 w-3 text-amber-600" /> Avisos da Igreja
+                    </Label>
+                    <Input
+                      value={avisos}
+                      onChange={(e) => setAvisos(e.target.value)}
+                      placeholder="Ex: Início do IBM College quinta / Conferência Missão de Casa"
+                      className="text-xs"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs font-bold flex items-center gap-1">
+                      <MessageSquare className="h-3 w-3 text-amber-600" /> Orientações Pastorais (Opcional)
+                    </Label>
+                    <Input
+                      value={pastoralMessage}
+                      onChange={(e) => setPastoralMessage(e.target.value)}
+                      placeholder="Ex: Focar no acolhimento de novas famílias"
+                      className="text-xs"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
