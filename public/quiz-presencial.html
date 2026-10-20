@@ -1639,24 +1639,84 @@
         }
         const allOptions = shuffleArray(rawOptions);
 
+        let pendingSelection = null;
         const letters = ['A', 'B', 'C', 'D'];
+        const optionButtons = [];
+
         allOptions.forEach((opt, idx) => {
           const btn = document.createElement('button');
           btn.type = 'button';
-          btn.className = "w-full text-left p-4 rounded-2xl glass-card glass-card-hover border border-white/10 flex items-start gap-3.5 transition-all text-xs sm:text-sm font-medium leading-relaxed group";
+          btn.className = "option-choice-btn w-full text-left p-4 rounded-2xl glass-card border border-white/10 flex items-center justify-between gap-3.5 transition-all text-xs sm:text-sm font-medium leading-relaxed cursor-pointer hover:border-white/20";
           btn.innerHTML = `
-            <span class="w-6 h-6 rounded-lg bg-white/10 text-white font-extrabold text-xs flex items-center justify-center shrink-0 group-hover:bg-vividPurple group-hover:text-night transition-colors">
-              ${letters[idx]}
-            </span>
-            <span class="flex-1">${opt.text}</span>
+            <div class="flex items-start gap-3.5 flex-1">
+              <span class="option-badge w-6 h-6 rounded-lg bg-white/10 text-white font-extrabold text-xs flex items-center justify-center shrink-0 transition-all">
+                ${letters[idx]}
+              </span>
+              <span class="option-text text-slate-200 leading-snug flex-1">${opt.text}</span>
+            </div>
+            <div class="option-radio w-5 h-5 rounded-full border border-white/20 flex items-center justify-center shrink-0 text-[10px] text-transparent transition-all">
+              <i class="fa-solid fa-check"></i>
+            </div>
           `;
 
           btn.addEventListener('click', () => {
             if (state.challengeAnswered) return;
-            handleMultipleChoiceAnswer(opt, btn, allOptions);
+            
+            pendingSelection = { opt, btn, idx, allOptions };
+            sound.playChime();
+
+            // Atualiza o estado visual de todos os botões de opção
+            optionButtons.forEach((b, bIdx) => {
+              const bBadge = b.querySelector('.option-badge');
+              const bText = b.querySelector('.option-text');
+              const bRadio = b.querySelector('.option-radio');
+
+              if (bIdx === idx) {
+                // Opção Selecionada pelo usuário
+                b.className = "option-choice-btn w-full text-left p-4 rounded-2xl bg-purple-500/20 border-2 border-vividPurple ring-2 ring-purple-400/40 shadow-lg shadow-purple-950/40 flex items-center justify-between gap-3.5 transition-all text-xs sm:text-sm font-semibold leading-relaxed cursor-pointer";
+                if (bBadge) bBadge.className = "option-badge w-6 h-6 rounded-lg bg-vividPurple text-night font-black text-xs flex items-center justify-center shrink-0 transition-all";
+                if (bText) bText.className = "option-text text-white leading-snug flex-1 font-bold";
+                if (bRadio) bRadio.className = "option-radio w-5 h-5 rounded-full bg-vividPurple border-2 border-vividPurple text-night flex items-center justify-center shrink-0 text-[10px] font-black transition-all";
+              } else {
+                // Outras opções não selecionadas
+                b.className = "option-choice-btn w-full text-left p-4 rounded-2xl glass-card border border-white/10 flex items-center justify-between gap-3.5 transition-all text-xs sm:text-sm font-medium leading-relaxed cursor-pointer hover:border-white/20 opacity-80 hover:opacity-100";
+                if (bBadge) bBadge.className = "option-badge w-6 h-6 rounded-lg bg-white/10 text-white font-extrabold text-xs flex items-center justify-center shrink-0 transition-all";
+                if (bText) bText.className = "option-text text-slate-300 leading-snug flex-1";
+                if (bRadio) bRadio.className = "option-radio w-5 h-5 rounded-full border border-white/20 flex items-center justify-center shrink-0 text-[10px] text-transparent transition-all";
+              }
+            });
+
+            // Ativa o botão de confirmar resposta
+            const confirmBtn = document.getElementById('btn-confirm-multiple-choice');
+            const confirmText = document.getElementById('btn-confirm-choice-text');
+            if (confirmBtn && confirmText) {
+              confirmBtn.disabled = false;
+              confirmBtn.className = "w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-400 hover:brightness-110 active:scale-[0.99] text-slate-950 font-black text-sm sm:text-base tracking-wide shadow-xl shadow-emerald-950/50 flex items-center justify-center gap-2.5 transition-all cursor-pointer ring-2 ring-emerald-400/30";
+              confirmText.innerHTML = `Confirmar Escolha • Opção ${letters[idx]}`;
+            }
           });
 
+          optionButtons.push(btn);
           area.appendChild(btn);
+        });
+
+        // Botão de Confirmação da Escolha
+        const confirmContainer = document.createElement('div');
+        confirmContainer.id = "confirm-selection-container";
+        confirmContainer.className = "pt-3";
+        confirmContainer.innerHTML = `
+          <button id="btn-confirm-multiple-choice" type="button" disabled class="w-full py-3.5 px-6 rounded-2xl bg-white/5 border border-white/10 text-purple-200/50 font-bold text-sm tracking-wide flex items-center justify-center gap-2.5 transition-all opacity-50 cursor-not-allowed">
+            <i class="fa-regular fa-circle-check text-xs"></i>
+            <span id="btn-confirm-choice-text">Selecione uma alternativa acima para confirmar</span>
+          </button>
+        `;
+        area.appendChild(confirmContainer);
+
+        const confirmBtn = confirmContainer.querySelector('#btn-confirm-multiple-choice');
+        confirmBtn.addEventListener('click', () => {
+          if (!pendingSelection || state.challengeAnswered) return;
+          confirmContainer.classList.add('hidden');
+          handleMultipleChoiceAnswer(pendingSelection.opt, pendingSelection.btn, pendingSelection.allOptions);
         });
 
       } else {
@@ -1704,32 +1764,66 @@
       const challenge = CHALLENGES_DATABASE[state.currentChallengeIdx];
 
       const area = document.getElementById('challenge-interaction-area');
-      const buttons = area.querySelectorAll('button');
+      const buttons = area.querySelectorAll('.option-choice-btn');
+
+      // Desativa interação dos botões
+      buttons.forEach(b => {
+        b.disabled = true;
+        b.classList.remove('cursor-pointer', 'hover:border-white/20');
+        b.classList.add('cursor-default');
+      });
 
       if (selectedOpt.isCorrect) {
         sound.playCorrect();
         state.xp += 100;
         state.correctCount++;
 
-        btnSelected.classList.remove('border-white/10');
-        btnSelected.classList.add('bg-emerald-500/20', 'border-emerald-400', 'text-emerald-100', 'glow-emerald');
-        btnSelected.querySelector('span:first-child').className = "w-6 h-6 rounded-lg bg-emerald-400 text-night font-extrabold text-xs flex items-center justify-center shrink-0";
-        btnSelected.querySelector('span:first-child').innerHTML = `<i class="fa-solid fa-check"></i>`;
+        btnSelected.className = "option-choice-btn w-full text-left p-4 rounded-2xl bg-emerald-500/20 border-2 border-emerald-400 text-emerald-100 glow-emerald ring-2 ring-emerald-400/50 flex items-center justify-between gap-3.5 transition-all text-xs sm:text-sm font-bold leading-relaxed";
+        const badge = btnSelected.querySelector('.option-badge');
+        if (badge) {
+          badge.className = "option-badge w-6 h-6 rounded-lg bg-emerald-400 text-night font-black text-xs flex items-center justify-center shrink-0";
+          badge.innerHTML = `<i class="fa-solid fa-check"></i>`;
+        }
+        const radio = btnSelected.querySelector('.option-radio');
+        if (radio) {
+          radio.className = "option-radio w-5 h-5 rounded-full bg-emerald-400 border-2 border-emerald-400 text-night flex items-center justify-center shrink-0 text-[10px] font-black";
+          radio.innerHTML = `<i class="fa-solid fa-check"></i>`;
+        }
 
         showChallengeFeedback(true, challenge.feedback);
       } else {
         sound.playError();
         state.xp += 25; // XP de incentivo
 
-        btnSelected.classList.remove('border-white/10');
-        btnSelected.classList.add('bg-rose-500/20', 'border-rose-500', 'text-rose-100');
-        btnSelected.querySelector('span:first-child').className = "w-6 h-6 rounded-lg bg-rose-500 text-white font-extrabold text-xs flex items-center justify-center shrink-0";
-        btnSelected.querySelector('span:first-child').innerHTML = `<i class="fa-solid fa-xmark"></i>`;
+        btnSelected.className = "option-choice-btn w-full text-left p-4 rounded-2xl bg-rose-500/20 border-2 border-rose-500 text-rose-100 flex items-center justify-between gap-3.5 transition-all text-xs sm:text-sm font-bold leading-relaxed";
+        const badge = btnSelected.querySelector('.option-badge');
+        if (badge) {
+          badge.className = "option-badge w-6 h-6 rounded-lg bg-rose-500 text-white font-black text-xs flex items-center justify-center shrink-0";
+          badge.innerHTML = `<i class="fa-solid fa-xmark"></i>`;
+        }
+        const radio = btnSelected.querySelector('.option-radio');
+        if (radio) {
+          radio.className = "option-radio w-5 h-5 rounded-full bg-rose-500 border-2 border-rose-500 text-white flex items-center justify-center shrink-0 text-[10px] font-black";
+          radio.innerHTML = `<i class="fa-solid fa-xmark"></i>`;
+        }
 
-        // Destaca a correta
-        buttons.forEach(b => {
-          if (b.innerText.includes(challenge.correct)) {
-            b.classList.add('border-emerald-400/80', 'bg-emerald-500/10');
+        // Destaca a alternativa correta
+        buttons.forEach((b, bIdx) => {
+          const opt = allOptions[bIdx];
+          const isThisCorrect = opt ? opt.isCorrect : (challenge.correct && b.innerText.includes(challenge.correct));
+          if (isThisCorrect) {
+            b.classList.remove('border-white/10', 'opacity-80');
+            b.classList.add('border-2', 'border-emerald-400', 'bg-emerald-500/15', 'text-emerald-100');
+            const bBadge = b.querySelector('.option-badge');
+            if (bBadge) {
+              bBadge.className = "option-badge w-6 h-6 rounded-lg bg-emerald-400 text-night font-black text-xs flex items-center justify-center shrink-0";
+              bBadge.innerHTML = `<i class="fa-solid fa-check"></i>`;
+            }
+            const bRadio = b.querySelector('.option-radio');
+            if (bRadio) {
+              bRadio.className = "option-radio w-5 h-5 rounded-full bg-emerald-400 border-2 border-emerald-400 text-night flex items-center justify-center shrink-0 text-[10px] font-black";
+              bRadio.innerHTML = `<i class="fa-solid fa-check"></i>`;
+            }
           }
         });
 
