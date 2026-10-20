@@ -126,6 +126,7 @@ export type VolunteeringEvent = {
 export type ReservationCategory = {
   id: string;
   name: string;
+  color?: string;
 };
 
 export type Room = {

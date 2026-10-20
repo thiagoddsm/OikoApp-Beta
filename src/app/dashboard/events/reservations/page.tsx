@@ -44,10 +44,19 @@ function ReservationsPageContent() {
     const [categoryFilter, setCategoryFilter] = useState<string[]>([]); // [] = todas
     const [ministryFilter, setMinistryFilter] = useState('all');
 
-    const staticCategories = [
-        { id: 'regular', name: 'Regular' },
-        { id: 'eventual', name: 'Eventual' }
-    ];
+    const availableCategories = useMemo(() => {
+        const base = [
+            { id: 'regular', name: 'Regular', color: '#9333ea' },
+            { id: 'eventual', name: 'Eventual', color: '#2563eb' }
+        ];
+        if (Array.isArray(reservationCategories) && reservationCategories.length > 0) {
+            const custom = reservationCategories.filter(
+                c => c.id !== 'regular' && c.id !== 'eventual' && c.name?.toLowerCase() !== 'regular' && c.name?.toLowerCase() !== 'eventual'
+            );
+            return [...base, ...custom];
+        }
+        return base;
+    }, [reservationCategories]);
 
     const handleNewReservation = () => {
         setSelectedReservation(null);
@@ -77,7 +86,7 @@ function ReservationsPageContent() {
     const categoryLabel = categoryFilter.length === 0
         ? 'Todas Categorias'
         : categoryFilter.length === 1
-            ? staticCategories.find(c => c.id === categoryFilter[0])?.name ?? '1 categoria'
+            ? availableCategories.find(c => c.id === categoryFilter[0])?.name ?? '1 categoria'
             : `${categoryFilter.length} categorias`;
 
     return (
@@ -169,7 +178,7 @@ function ReservationsPageContent() {
 
                                         <div className="border-t my-1" />
 
-                                        {staticCategories.map(cat => (
+                                        {availableCategories.map(cat => (
                                             <label
                                                 key={cat.id}
                                                 className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted cursor-pointer transition-colors"
@@ -179,7 +188,13 @@ function ReservationsPageContent() {
                                                     onCheckedChange={() => toggleCategory(cat.id)}
                                                     id={`cat-${cat.id}`}
                                                 />
-                                                <span className="text-sm">{cat.name}</span>
+                                                <span className="text-sm truncate">{cat.name}</span>
+                                                {cat.color && (
+                                                    <span
+                                                        className="ml-auto h-2.5 w-2.5 rounded-full shrink-0"
+                                                        style={{ backgroundColor: cat.color }}
+                                                    />
+                                                )}
                                             </label>
                                         ))}
                                     </div>

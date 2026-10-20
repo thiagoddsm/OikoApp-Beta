@@ -62,14 +62,28 @@ function PublicCalendarContent() {
 
     const hasActiveFilters = searchTerm !== '' || roomFilter !== 'all' || categoryFilter.length > 0;
 
+    const availableCategories = useMemo(() => {
+        const base = [
+            { id: 'regular', name: 'Regular', color: '#9333ea' },
+            { id: 'eventual', name: 'Eventual', color: '#2563eb' }
+        ];
+        if (Array.isArray(reservationCategories) && reservationCategories.length > 0) {
+            const custom = reservationCategories.filter(
+                c => c.id !== 'regular' && c.id !== 'eventual' && c.name?.toLowerCase() !== 'regular' && c.name?.toLowerCase() !== 'eventual'
+            );
+            return [...base, ...custom];
+        }
+        return base;
+    }, [reservationCategories]);
+
     const categoryLabel = categoryFilter.length === 0
         ? 'Todas Categorias'
         : categoryFilter.length === 1
-            ? reservationCategories.find(c => c.id === categoryFilter[0])?.name ?? '1 categoria'
+            ? availableCategories.find(c => c.id === categoryFilter[0])?.name ?? '1 categoria'
             : `${categoryFilter.length} categorias`;
 
     const userMap = useMemo(() => new Map(users?.map(u => [u.id, u.name]) || []), [users]);
-    const categoryMap = useMemo(() => new Map(reservationCategories?.map(c => [c.id, c.name]) || []), [reservationCategories]);
+    const categoryMap = useMemo(() => new Map(availableCategories?.map(c => [c.id, c.name]) || []), [availableCategories]);
 
     const formattedEventTime = useMemo(() => {
         if (!selectedReservation) return '';
@@ -193,7 +207,7 @@ function PublicCalendarContent() {
 
                                                 <div className="border-t my-1" />
 
-                                                {reservationCategories.map(cat => (
+                                                {availableCategories.map(cat => (
                                                     <label
                                                         key={cat.id}
                                                         className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted cursor-pointer transition-colors"
