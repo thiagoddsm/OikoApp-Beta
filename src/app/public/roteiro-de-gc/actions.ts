@@ -2,6 +2,7 @@
 
 import { getAdminDb } from '@/lib/firebase-admin';
 import { DEFAULT_GC_ROTEIRO_HTML, DEFAULT_GC_ROTEIRO_TITLE } from '@/lib/constants/default-gc-roteiro';
+import { enhanceGcRoteiroColors } from '@/lib/gc-roteiro-style';
 
 export interface PublicGcRoteiroData {
   title: string;
@@ -21,7 +22,7 @@ export async function getActiveGcRoteiro(): Promise<PublicGcRoteiroData> {
       return {
         title: data?.title || DEFAULT_GC_ROTEIRO_TITLE,
         date: data?.date || '',
-        htmlContent: data?.htmlContent || DEFAULT_GC_ROTEIRO_HTML,
+        htmlContent: enhanceGcRoteiroColors(data?.htmlContent || DEFAULT_GC_ROTEIRO_HTML),
       };
     }
   } catch (error) {
@@ -32,6 +33,6 @@ export async function getActiveGcRoteiro(): Promise<PublicGcRoteiroData> {
   return {
     title: DEFAULT_GC_ROTEIRO_TITLE,
     date: '',
-    htmlContent: DEFAULT_GC_ROTEIRO_HTML,
+    htmlContent: enhanceGcRoteiroColors(DEFAULT_GC_ROTEIRO_HTML),
   };
 }

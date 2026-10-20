@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { getActiveGcRoteiro, type PublicGcRoteiroData } from './actions';
 import { DEFAULT_GC_ROTEIRO_HTML, DEFAULT_GC_ROTEIRO_TITLE } from '@/lib/constants/default-gc-roteiro';
+import { enhanceGcRoteiroColors } from '@/lib/gc-roteiro-style';
 import { Share2, Copy, Printer, CheckCircle2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -21,9 +22,7 @@ export default function PublicGcRoteiroPage() {
       try {
         const data = await getActiveGcRoteiro();
         if (data && data.htmlContent) {
-          const fixedHtml = data.htmlContent
-            .replace(/max-height:\s*1200px/gi, 'max-height: 15000px')
-            .replace(/max-height:\s*1000px/gi, 'max-height: 15000px');
+          const fixedHtml = enhanceGcRoteiroColors(data.htmlContent);
           setRoteiro({ ...data, htmlContent: fixedHtml });
         }
       } catch (err) {

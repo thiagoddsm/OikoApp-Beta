@@ -47,9 +47,11 @@ import {
   FileAudio,
   Trash2,
   Wand2,
-  MessageSquare
+  MessageSquare,
+  Palette
 } from 'lucide-react';
 import { DEFAULT_GC_ROTEIRO_HTML, DEFAULT_GC_ROTEIRO_TITLE } from '@/lib/constants/default-gc-roteiro';
+import { enhanceGcRoteiroColors } from '@/lib/gc-roteiro-style';
 import { generateGcRoteiroAction } from './actions';
 
 export default function GcRoteiroAdminPage() {
@@ -108,16 +110,15 @@ export default function GcRoteiroAdminPage() {
     if (activeRoteiro) {
       setTitle(activeRoteiro.title || DEFAULT_GC_ROTEIRO_TITLE);
       setReferenceDate(activeRoteiro.date || new Date().toISOString().split('T')[0]);
-      const cleanHtml = (activeRoteiro.htmlContent || DEFAULT_GC_ROTEIRO_HTML)
-        .replace(/max-height:\s*1200px/gi, 'max-height: 15000px')
-        .replace(/max-height:\s*1000px/gi, 'max-height: 15000px');
+      const cleanHtml = enhanceGcRoteiroColors(activeRoteiro.htmlContent || DEFAULT_GC_ROTEIRO_HTML);
       setHtmlContent(cleanHtml);
       latestVisualHtmlRef.current = cleanHtml;
     } else if (!isLoadingActive) {
       setTitle(DEFAULT_GC_ROTEIRO_TITLE);
       setReferenceDate(new Date().toISOString().split('T')[0]);
-      setHtmlContent(DEFAULT_GC_ROTEIRO_HTML);
-      latestVisualHtmlRef.current = DEFAULT_GC_ROTEIRO_HTML;
+      const defaultClean = enhanceGcRoteiroColors(DEFAULT_GC_ROTEIRO_HTML);
+      setHtmlContent(defaultClean);
+      latestVisualHtmlRef.current = defaultClean;
     }
   }, [activeRoteiro, isLoadingActive]);
 
@@ -301,10 +302,11 @@ export default function GcRoteiroAdminPage() {
       clearTimeout(stepTimer3);
 
       if (result.success && result.htmlContent) {
+        const enhancedHtml = enhanceGcRoteiroColors(result.htmlContent);
         setTitle(result.title);
         setReferenceDate(result.date || referenceDate);
-        setHtmlContent(result.htmlContent);
-        latestVisualHtmlRef.current = result.htmlContent;
+        setHtmlContent(enhancedHtml);
+        latestVisualHtmlRef.current = enhancedHtml;
         setHasUnsavedVisualEdits(false);
         setActiveTab('preview');
         setIsAiModalOpen(false);
@@ -375,10 +377,23 @@ export default function GcRoteiroAdminPage() {
     }
   };
 
+  const handleOptimizeColors = () => {
+    const current = hasUnsavedVisualEdits ? extractCleanHtmlFromIframe() : (latestVisualHtmlRef.current || htmlContent);
+    const enhanced = enhanceGcRoteiroColors(current);
+    setHtmlContent(enhanced);
+    latestVisualHtmlRef.current = enhanced;
+    setHasUnsavedVisualEdits(false);
+    toast({
+      title: '🎨 Cores Aprimoradas com Sucesso!',
+      description: 'Contraste WCAG AAA e harmonia editorial da IBM aplicados aos títulos e momentos.',
+    });
+  };
+
   const handleSaveAndPublish = async () => {
     if (!firestore) return;
 
-    const finalHtml = hasUnsavedVisualEdits ? extractCleanHtmlFromIframe() : htmlContent;
+    const rawHtml = hasUnsavedVisualEdits ? extractCleanHtmlFromIframe() : htmlContent;
+    const finalHtml = enhanceGcRoteiroColors(rawHtml);
 
     if (!finalHtml.trim()) {
       toast({
@@ -432,8 +447,9 @@ export default function GcRoteiroAdminPage() {
     if (window.confirm(`Deseja carregar a versão "${item.title}" de ${new Date(item.createdAt?.toDate?.() || item.date).toLocaleDateString('pt-BR')} no editor?`)) {
       setTitle(item.title || '');
       setReferenceDate(item.date || '');
-      setHtmlContent(item.htmlContent || '');
-      latestVisualHtmlRef.current = item.htmlContent || '';
+      const restored = enhanceGcRoteiroColors(item.htmlContent || '');
+      setHtmlContent(restored);
+      latestVisualHtmlRef.current = restored;
       setHasUnsavedVisualEdits(false);
       setActiveTab('preview');
       toast({
@@ -445,7 +461,8 @@ export default function GcRoteiroAdminPage() {
 
   const previewHtml = useMemo(() => {
     if (!htmlContent) return '<p class="p-8 text-center text-gray-500">Nenhum conteúdo inserido.</p>';
-    if (!isVisualEditing) return htmlContent;
+    const styledHtml = enhanceGcRoteiroColors(htmlContent);
+    if (!isVisualEditing) return styledHtml;
 
     const editorInjection = `
       <style id="oiko-visual-editor-style">
@@ -508,10 +525,10 @@ export default function GcRoteiroAdminPage() {
       </script>
     `;
 
-    if (htmlContent.includes('</body>')) {
-      return htmlContent.replace('</body>', `${editorInjection}</body>`);
+    if (styledHtml.includes('</body>')) {
+      return styledHtml.replace('</body>', `${editorInjection}</body>`);
     }
-    return htmlContent + editorInjection;
+    return styledHtml + editorInjection;
   }, [htmlContent, isVisualEditing]);
 
   return (
@@ -636,6 +653,18 @@ export default function GcRoteiroAdminPage() {
                   Edição Visual
                 </Label>
               </div>
+
+              {/* BOTÃO APRIMORAR CORES */}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleOptimizeColors}
+                className="gap-1.5 text-xs font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 border-amber-300 shadow-sm"
+                title="Aprimora contraste, legibilidade dos momentos e harmonia de cores da IBM"
+              >
+                <Palette className="h-3.5 w-3.5 text-amber-600" />
+                Aprimorar Cores
+              </Button>
 
               {/* BOTÃO SALVAR EDIÇÃO VISUAL */}
               {hasUnsavedVisualEdits && (

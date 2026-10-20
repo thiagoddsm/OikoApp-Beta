@@ -1,5 +1,6 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
+import { enhanceGcRoteiroColors } from '@/lib/gc-roteiro-style';
 
 export const GcRoteiroGeneratorInputSchema = z.object({
   audioBase64: z.string().optional(),
@@ -716,20 +717,43 @@ O resultado final deve ser um único arquivo HTML completo, moderno, responsivo,
 - Incluir JavaScript funcional.
 - Terminar com \`</html>\`.
 
-## 11.2. Identidade visual da IBM
+## 11.2. Identidade visual da IBM e Regras Críticas de Contraste (WCAG AAA)
 
 Utilize um design editorial, acolhedor, moderno e sóbrio.
 
-Paleta sugerida:
+Paleta oficial da IBM:
 
-- Fundo: \`#F9F8F5\`.
-- Texto principal: \`#2D3142\`.
-- Verde escuro: \`#244735\`.
-- Âmbar: \`#D99A28\`.
-- Tons de pedra e areia para cartões.
-- Branco para áreas de leitura.
-- Verde-claro suave para as caixas "Verdade do tópico".
-- Azul-petróleo ou tom escuro complementar para cabeçalhos secundários, se necessário.
+- Fundo da página: \`#F9F8F5\` (creme/areia suave e acolhedor).
+- Cartão principal: Branco puro (\`#FFFFFF\`) com borda suave \`border-stone-200\` e sombra sutil.
+- Texto principal: \`#2D3142\` (cinza-chumbo nobre e legível).
+- Verde escuro IBM: \`#244735\`.
+- Âmbar IBM: \`#D99A28\`.
+- Destaques dourados: \`#FDE68A\` ou \`#FEF3C7\`.
+- Tons de pedra e areia para cartões secundários.
+- Verde-claro suave para a caixa "Verdade do Tópico": fundo \`#F0FDF4\` com borda esquerda \`#059669\` e texto \`#064E3B\`.
+
+### REGRA INEGOCIÁVEL DE CONTRASTE:
+- **JAMAIS renderize texto escuro (\`#2D3142\`, cinza ou preto) sobre fundos escuros (\`#244735\`, verde escuro ou preto)!**
+- Se utilizar a faixa com fundo verde escuro (\`#244735\`) nos cabeçalhos dos momentos (Momento 1, Momento 2, etc.):
+  - O título do momento DEVE ter a classe \`text-white\` e estilo explícito \`color: #FFFFFF !important; font-weight: 700;\`.
+  - A marcação de tempo (ex: "10 MIN") DEVE ser em distintivo dourado com alto contraste: \`bg-white/20 text-[#FDE68A] font-bold px-2.5 py-1 rounded-full text-xs\`.
+  - A barra de destaque lateral esquerda DEVE ser âmbar: \`border-l-4 border-[#D99A28]\`.
+- Alternativa recomendada para os cabeçalhos de momentos:
+  - Fundo claro editorial: \`bg-stone-50 border border-stone-200/80 p-3.5 rounded-xl flex items-center justify-between border-l-4 border-[#D99A28]\`.
+  - Título: \`text-stone-900 font-bold text-base sm:text-lg\`.
+  - Badge de tempo: \`bg-amber-100 text-amber-900 font-bold text-xs px-2.5 py-1 rounded-full\`.
+
+### Colunas de "A Palavra no Centro" (Harmonia Cromática):
+- **ENTENDER:** Cartão em fundo azul suave (\`bg-blue-50/50 border border-blue-200/80\`), título com ícone 🧠 em azul escuro (\`text-blue-900 font-bold\`), perguntas em \`text-stone-800\`.
+- **SENTIR:** Cartão em fundo âmbar suave (\`bg-amber-50/50 border border-amber-200/80\`), título com ícone ❤️ em âmbar escuro (\`text-amber-900 font-bold\`), perguntas em \`text-stone-800\`.
+- **AGIR:** Cartão em fundo esmeralda suave (\`bg-emerald-50/50 border border-emerald-200/80\`), título com ícone 👣 em verde escuro (\`text-emerald-900 font-bold\`), perguntas em \`text-stone-800\`.
+- **VERDADE DO TÓPICO:** Fundo \`bg-emerald-50 border-l-4 border-emerald-600 p-4 rounded-r-xl\`, título \`text-emerald-800 font-bold uppercase text-xs\`, frase de síntese em \`text-emerald-950 font-semibold text-sm sm:text-base\`.
+
+### Material de Apoio ao Líder (#apoio):
+- Fundo escuro recolhível: \`bg-stone-900\` ou \`#1A241E\`.
+- Títulos em dourado suave (\`text-amber-300 font-bold\`).
+- Textos e listas em cinza-claro de alto contraste (\`text-stone-200\`).
+- NUNCA colocar texto escuro dentro do apoio.
 
 Use a fonte Inter como principal, com fontes alternativas locais caso a fonte externa não carregue.
 
@@ -1069,6 +1093,9 @@ export async function generateGcRoteiroWithGemini(input: GcRoteiroGeneratorInput
     // Garante que o acordeão não corte o conteúdo por limite de altura
     rawOutput = rawOutput.replace(/max-height:\s*1200px/gi, 'max-height: 15000px');
     rawOutput = rawOutput.replace(/max-height:\s*1000px/gi, 'max-height: 15000px');
+
+    // Aplica correção de contraste WCAG AAA e harmonia cromática oficial da IBM
+    rawOutput = enhanceGcRoteiroColors(rawOutput);
 
     // Extrai o título do HTML
     let extractedTitle = 'Roteiro de GC Semanal';
