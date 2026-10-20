@@ -130,14 +130,14 @@ function ReservationsPageContent() {
                         </div>
 
                         {/* Filtro de Categorias — Multi-select com checkboxes */}
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Categorias</label>
+                        <div className="w-full sm:w-[200px] space-y-1.5 flex flex-col">
+                            <label className="text-[10px] font-black uppercase text-muted-foreground ml-1 block">Categorias</label>
                             <Popover>
                                 <PopoverTrigger asChild>
                                     <Button
                                         variant="outline"
                                         className={cn(
-                                            "bg-background min-w-[180px] justify-between font-normal",
+                                            "bg-background w-full justify-between font-normal",
                                             categoryFilter.length > 0 && "border-primary text-primary"
                                         )}
                                     >
@@ -152,7 +152,7 @@ function ReservationsPageContent() {
                                         </div>
                                     </Button>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-56 p-2" align="start">
+                                <PopoverContent className="w-56 p-2" align="end" collisionPadding={16}>
                                     <div className="space-y-1">
                                         {/* Opção "Todas" */}
                                         <button

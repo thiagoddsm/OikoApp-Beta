@@ -120,14 +120,14 @@ function PublicCalendarContent() {
                     </div>
                 </header>
 
-                <Card className="border-2 shadow-sm bg-white overflow-hidden">
-                    <CardHeader className="bg-slate-50/50 border-b pb-4">
+                <Card className="border-2 shadow-sm bg-white">
+                    <CardHeader className="bg-slate-50/50 border-b pb-4 rounded-t-lg px-4 sm:px-6">
                         <div className="flex flex-col gap-2">
                             <span className="text-xs font-bold uppercase text-muted-foreground">Filtros de Pesquisa</span>
                             {/* Barra de Filtros */}
-                            <div className="flex flex-wrap items-end gap-3">
+                            <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-end gap-3">
                                 <div className="flex-1 min-w-[200px] space-y-1">
-                                    <label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Pesquisar</label>
+                                    <label className="text-[10px] font-black uppercase text-muted-foreground ml-1 block">Pesquisar</label>
                                     <div className="relative">
                                         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                                         <Input 
@@ -139,10 +139,10 @@ function PublicCalendarContent() {
                                     </div>
                                 </div>
 
-                                <div className="w-[180px] space-y-1">
-                                    <label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Ambiente</label>
+                                <div className="w-full sm:w-[180px] md:w-[200px] space-y-1">
+                                    <label className="text-[10px] font-black uppercase text-muted-foreground ml-1 block">Ambiente</label>
                                     <Select value={roomFilter} onValueChange={setRoomFilter}>
-                                        <SelectTrigger className="bg-background">
+                                        <SelectTrigger className="bg-background w-full">
                                             <SelectValue placeholder="Todos Ambientes" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -155,14 +155,14 @@ function PublicCalendarContent() {
                                 </div>
 
                                 {/* Filtro de Categorias */}
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Categorias</label>
+                                <div className="w-full sm:w-[190px] md:w-[210px] space-y-1 flex flex-col">
+                                    <label className="text-[10px] font-black uppercase text-muted-foreground ml-1 block">Categorias</label>
                                     <Popover>
                                         <PopoverTrigger asChild>
                                             <Button
                                                 variant="outline"
                                                 className={cn(
-                                                    "bg-background min-w-[180px] justify-between font-normal",
+                                                    "bg-background w-full justify-between font-normal",
                                                     categoryFilter.length > 0 && "border-primary text-primary"
                                                 )}
                                             >
@@ -177,7 +177,7 @@ function PublicCalendarContent() {
                                                 </div>
                                             </Button>
                                         </PopoverTrigger>
-                                        <PopoverContent className="w-56 p-2" align="start">
+                                        <PopoverContent className="w-56 p-2" align="end" collisionPadding={16}>
                                             <div className="space-y-1">
                                                 <button
                                                     type="button"
@@ -203,7 +203,7 @@ function PublicCalendarContent() {
                                                             onCheckedChange={() => toggleCategory(cat.id)}
                                                             id={`cat-${cat.id}`}
                                                         />
-                                                        <span className="text-sm">{cat.name}</span>
+                                                        <span className="text-sm truncate">{cat.name}</span>
                                                         {(cat as any).color && (
                                                             <span
                                                                 className="ml-auto h-3 w-3 rounded-full shrink-0"
@@ -218,7 +218,7 @@ function PublicCalendarContent() {
                                 </div>
 
                                 {hasActiveFilters && (
-                                    <Button variant="ghost" size="icon" onClick={handleClearFilters} className="h-10 w-10 text-muted-foreground hover:text-destructive" title="Limpar Filtros">
+                                    <Button variant="ghost" size="icon" onClick={handleClearFilters} className="h-10 w-10 text-muted-foreground hover:text-destructive shrink-0 self-end" title="Limpar Filtros">
                                         <X className="size-4" />
                                     </Button>
                                 )}
