@@ -352,6 +352,32 @@
           <span class="text-xs font-black px-2.5 py-1 rounded-lg bg-purple-500/20 text-vividPurple border border-purple-500/30">Ciclo Atual</span>
         </div>
 
+        <!-- Banner de Início Imediato da Aula Selecionada (Posicionado junto à aula para usabilidade intuitiva) -->
+        <div id="selected-lesson-action-banner" class="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-emerald-500/15 via-purple-600/20 to-primaryPurple/30 border-2 border-emerald-400/50 shadow-xl shadow-emerald-950/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all">
+          <div class="flex items-center gap-3.5">
+            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-400 to-teal-400 text-slate-950 font-black flex items-center justify-center text-xl shadow-lg shadow-emerald-950/50 shrink-0">
+              <i class="fa-solid fa-play"></i>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 border border-emerald-400/40 flex items-center gap-1.5 shadow-sm">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <i class="fa-solid fa-check"></i> Aula Pronta Para Iniciar
+                </span>
+                <span id="banner-lesson-tag" class="text-xs font-black text-vividPurple">Aula 01</span>
+              </div>
+              <h4 id="banner-lesson-title" class="text-base sm:text-lg font-extrabold text-white mt-1 leading-snug">
+                Nós Somos Suporte
+              </h4>
+            </div>
+          </div>
+          <button id="btn-start-challenges-banner" type="button" class="py-3.5 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-400 hover:brightness-110 active:scale-95 text-slate-950 font-black text-xs sm:text-sm uppercase tracking-wider shadow-lg shadow-emerald-950/50 flex items-center justify-center gap-2.5 shrink-0 transition-all cursor-pointer">
+            <i class="fa-solid fa-play text-xs"></i>
+            <span class="btn-start-banner-text">Iniciar Desafios • Aula 1</span>
+            <i class="fa-solid fa-arrow-right text-xs"></i>
+          </button>
+        </div>
+
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5" id="modules-catalog-grid">
           <!-- Renderizado via JavaScript: Aula 1 ativa e Aulas 2 a 12 bloqueadas com Lock -->
         </div>
@@ -360,7 +386,7 @@
       <!-- Botão de Início Principal -->
       <div class="pt-2">
         <button id="btn-start-challenges" class="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-primaryPurple via-purple-600 to-vividPurple text-white font-extrabold text-base sm:text-lg tracking-wide shadow-xl shadow-purple-900/60 hover:shadow-purple-700/80 hover:brightness-110 active:scale-[0.99] transition-all flex items-center justify-center gap-3 group">
-          <span>Iniciar Desafios • Aula 1: Nós Somos Suporte</span>
+          <span class="btn-start-full-text">Iniciar Desafios • Aula 1: Nós Somos Suporte</span>
           <i class="fa-solid fa-arrow-right group-hover:translate-x-1 transition-transform"></i>
         </button>
       </div>

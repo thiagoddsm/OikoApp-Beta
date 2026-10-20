@@ -1,7 +1,7 @@
 /**
  * Utilitário de Estilização e Aprimoramento Visual para Roteiros de GC (IBM).
  * Garante contraste WCAG AAA, paleta editorial nobre e elimina problemas de legibilidade
- * (como texto escuro sobre fundo verde escuro).
+ * (como texto escuro sobre fundo verde escuro em .moment-title e cabeçalhos de momentos).
  */
 
 export const IBM_ROTEIRO_THEME_CSS = `
@@ -10,7 +10,10 @@ export const IBM_ROTEIRO_THEME_CSS = `
        IBM GC ROTEIRO — ELEVAÇÃO DE CORES & CONTRASTE (WCAG AAA)
        ======================================================== */
     
-    /* 1. Faixas de Momentos com Fundo Verde Escuro (#244735) */
+    /* 1. Faixas de Momentos (.moment-title, faixas verdes escuras) */
+    .moment-title,
+    .card .moment-title,
+    div.moment-title,
     .bg-\\[\\#244735\\],
     [style*="#244735"],
     [style*="background-color: #244735"],
@@ -22,13 +25,23 @@ export const IBM_ROTEIRO_THEME_CSS = `
     .momento-header-dark {
       background-color: #244735 !important;
       color: #FFFFFF !important;
-      border-left: 4px solid #D99A28 !important;
-      border-radius: 10px !important;
+      border-left: 5px solid #D99A28 !important;
+      border-radius: 8px !important;
       padding: 12px 18px !important;
-      box-shadow: 0 2px 8px rgba(36, 71, 53, 0.12) !important;
+      margin-top: 28px !important;
+      margin-bottom: 18px !important;
+      display: flex !important;
+      justify-content: space-between !important;
+      align-items: center !important;
+      box-shadow: 0 2px 8px rgba(36, 71, 53, 0.15) !important;
     }
 
-    /* Força texto BRANCO PURO para todos os títulos e elementos dentro de faixas verdes escuras */
+    /* FORÇA TEXTO BRANCO PURO NO H3 E FILHOS DE .moment-title (SOBREPÕE .card h3) */
+    .moment-title h1, .moment-title h2, .moment-title h3, .moment-title h4, .moment-title h5,
+    .card .moment-title h1, .card .moment-title h2, .card .moment-title h3, .card .moment-title h4, .card .moment-title h5,
+    div.moment-title h3,
+    .card .moment-title *,
+    .moment-title *,
     .bg-\\[\\#244735\\] h1, .bg-\\[\\#244735\\] h2, .bg-\\[\\#244735\\] h3, .bg-\\[\\#244735\\] h4, .bg-\\[\\#244735\\] h5,
     .bg-\\[\\#244735\\] p, .bg-\\[\\#244735\\] div,
     [style*="#244735"] h1, [style*="#244735"] h2, [style*="#244735"] h3, [style*="#244735"] h4, [style*="#244735"] h5,
@@ -38,9 +51,16 @@ export const IBM_ROTEIRO_THEME_CSS = `
       color: #FFFFFF !important;
       font-weight: 700 !important;
       letter-spacing: -0.01em !important;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+      margin: 0 !important;
+      border: none !important;
     }
 
-    /* Badges de duração (ex: 10 MIN, 25 MIN) dentro de faixas escuras */
+    /* Badges de duração (ex: 5 MIN, 10 MIN, 25 MIN) */
+    .moment-title span,
+    .card .moment-title span,
+    .moment-title span:last-child,
+    .card .moment-title span:last-child,
     .bg-\\[\\#244735\\] .badge-step,
     [style*="#244735"] .badge-step,
     .bg-\\[\\#244735\\] span[class*="rounded"],
@@ -48,12 +68,13 @@ export const IBM_ROTEIRO_THEME_CSS = `
     [style*="#1e3a2b"] span[class*="rounded"] {
       background-color: rgba(255, 255, 255, 0.18) !important;
       color: #FDE68A !important;
-      border: 1px solid rgba(253, 230, 138, 0.35) !important;
+      border: 1px solid rgba(253, 230, 138, 0.4) !important;
       font-weight: 700 !important;
-      font-size: 0.75rem !important;
-      padding: 3px 10px !important;
+      font-size: 0.78rem !important;
+      padding: 3px 12px !important;
       border-radius: 9999px !important;
-      letter-spacing: 0.05em !important;
+      letter-spacing: 0.04em !important;
+      white-space: nowrap !important;
     }
 
     /* 2. Tipografia e Conteúdo dos Momentos */
@@ -112,19 +133,19 @@ export const IBM_ROTEIRO_THEME_CSS = `
     }
 
     /* 5. Material de Apoio ao Líder (#apoio) */
-    #apoio {
+    #apoio, .apoio-lider {
       background-color: #1A241E !important;
       color: #E2E8F0 !important;
       border: 1px solid #2D3E33 !important;
       border-radius: 16px !important;
     }
-    #apoio h2, #apoio h3, #apoio h4 {
+    #apoio h2, #apoio h3, #apoio h4, .apoio-lider h2, .apoio-lider h3, .apoio-lider h4 {
       color: #FDE68A !important;
     }
-    #apoio p, #apoio li {
+    #apoio p, #apoio li, .apoio-lider p, .apoio-lider li {
       color: #CBD5E1 !important;
     }
-    #apoio a {
+    #apoio a, .apoio-lider a {
       color: #93C5FD !important;
     }
   </style>
@@ -133,7 +154,7 @@ export const IBM_ROTEIRO_THEME_CSS = `
 /**
  * Higieniza e aprimora as cores do HTML do roteiro de GC.
  * Garante que a folha de estilo oficial da IBM esteja sempre injetada
- * e corrige atributos inline que possam gerar baixo contraste.
+ * e corrige atributos inline e classes que possam gerar baixo contraste.
  */
 export function enhanceGcRoteiroColors(html: string): string {
   if (!html) return html;
@@ -157,18 +178,54 @@ export function enhanceGcRoteiroColors(html: string): string {
     enhanced = IBM_ROTEIRO_THEME_CSS + '\n' + enhanced;
   }
 
-  // 4. Correção pontual em spans/h3 dentro de faixas com background verde escuro no HTML
-  // Caso o elemento tenha 'text-stone-900', 'text-stone-800', 'text-gray-900' e fundo #244735
+  // 4. Substituição DIRETA no HTML para garantir estilo inline no h3 e no span de .moment-title
+  // Isso resolve definitivamente qualquer herança indesejada de .card h3 { color: var(--text-color); }
+  enhanced = enhanced.replace(
+    /(<div[^>]*?class=["'][^"']*?moment-title[^"']*?["'][^>]*?>)([\s\S]*?)(<\/div>)/gi,
+    (match: string, openDiv: string, content: string, closeDiv: string) => {
+      let fixedContent = content
+        // Força cor branca no h3
+        .replace(/<h3([^>]*)style=["']([^"']*)["']([^>]*)>/gi, (_m: string, p1: string, style: string, p2: string) => {
+          const cleanStyle = style.replace(/color:[^;]+;?/gi, '');
+          return `<h3${p1}style="color: #FFFFFF !important; ${cleanStyle}"${p2}>`;
+        })
+        .replace(/<h3(?![^>]*style=)([^>]*)>/gi, '<h3$1 style="color: #FFFFFF !important;">')
+        // Força cor dourada/âmbar no span de tempo
+        .replace(/<span([^>]*)style=["']([^"']*)["']([^>]*)>/gi, (_m: string, p1: string, style: string, p2: string) => {
+          const cleanStyle = style.replace(/color:[^;]+;?/gi, '').replace(/background[^;]+;?/gi, '');
+          return `<span${p1}style="color: #FDE68A !important; background-color: rgba(255, 255, 255, 0.18) !important; ${cleanStyle}"${p2}>`;
+        })
+        .replace(/<span(?![^>]*style=)([^>]*)>/gi, '<span$1 style="color: #FDE68A !important; background-color: rgba(255, 255, 255, 0.18) !important; border-radius: 9999px; padding: 3px 10px; font-weight: 700; font-size: 0.78rem;">')
+        // Remove classes de texto escuro
+        .replace(/text-stone-\d+/g, 'text-white')
+        .replace(/text-gray-\d+/g, 'text-white')
+        .replace(/text-slate-\d+/g, 'text-white');
+
+      // Garante estilo inline no container .moment-title
+      let fixedOpenDiv = openDiv;
+      if (!fixedOpenDiv.includes('style=')) {
+        fixedOpenDiv = fixedOpenDiv.replace('>', ' style="background-color: #244735 !important; border-left: 5px solid #D99A28 !important; color: #FFFFFF !important;">');
+      } else {
+        fixedOpenDiv = fixedOpenDiv.replace(/style=["']([^"']*)["']/i, (_m: string, s: string) => {
+          const clean = s.replace(/background-color:[^;]+;?/gi, '').replace(/border-left:[^;]+;?/gi, '');
+          return `style="${clean}; background-color: #244735 !important; border-left: 5px solid #D99A28 !important; color: #FFFFFF !important;"`;
+        });
+      }
+
+      return `${fixedOpenDiv}${fixedContent}${closeDiv}`;
+    }
+  );
+
+  // 5. Correção também para faixas com fundo verde escuro sem a classe .moment-title
   enhanced = enhanced.replace(
     /(<div[^>]*?(?:bg-\[\#244735\]|#244735|#1e3a2b)[^>]*?>)([\s\S]*?)(<\/div>)/gi,
-    (match, openTag, content, closeTag) => {
-      // Se não contiver outro <div> dentro (ou seja, é a própria barra de título do momento)
+    (match: string, openTag: string, content: string, closeTag: string) => {
       if (!content.includes('<div')) {
         let fixedContent = content
+          .replace(/<h3(?![^>]*style=)([^>]*)>/gi, '<h3$1 style="color: #FFFFFF !important;">')
           .replace(/text-stone-\d+/g, 'text-white')
           .replace(/text-gray-\d+/g, 'text-white')
-          .replace(/text-slate-\d+/g, 'text-white')
-          .replace(/color:\s*#[0-9a-fA-F]{3,6}/g, 'color: #FFFFFF');
+          .replace(/text-slate-\d+/g, 'text-white');
         return `${openTag}${fixedContent}${closeTag}`;
       }
       return match;
