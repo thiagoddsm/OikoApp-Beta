@@ -1,7 +1,7 @@
 'use server';
 
 import { getAdminDb } from '@/lib/firebase-admin';
-import { Timestamp } from 'firebase-admin/firestore';
+import { Timestamp, FieldPath } from 'firebase-admin/firestore';
 
 /**
  * Converte recursivamente Timestamps do Firestore e objetos nÃ£o-planos em dados primitivos/JSON.
@@ -100,12 +100,13 @@ export async function verifyLeaderAccess(email: string, cellIdParam?: string) {
 
         matchedCells.push({
           id: doc.id,
-          nome: c.nome || c.name || 'CÃ©lula',
+          nome: c.nome || c.name || 'Célula',
           role,
           meetingDay: c.meetingDay || '',
           meetingTime: c.meetingTime || '',
           supervisorId: c.supervisorId || c.areaId || null,
-          liderId: c.liderId || userId
+          liderId: c.liderId || userId,
+          membros: Array.isArray(c.membros) ? c.membros : []
         });
       }
     });
@@ -138,15 +139,15 @@ export async function verifyLeaderAccess(email: string, cellIdParam?: string) {
       }));
     }
 
-    // 3. Buscar membros oficiais da cÃ©lula selecionada (users com hierarchy.celulaId == cellId)
+    // 3. Buscar membros oficiais da célula selecionada (users com hierarchy.celulaId == cellId OU presentes no array cell.membros)
     const membersSnap = await db.collection('users')
       .where('hierarchy.celulaId', '==', targetCell.id)
       .get();
 
-    const members: Array<{ id: string; name: string; photoURL?: string; phone?: string }> = [];
+    const membersMap = new Map<string, { id: string; name: string; photoURL?: string; phone?: string }>();
     membersSnap.forEach(snap => {
       const data = snap.data();
-      members.push({
+      membersMap.set(snap.id, {
         id: snap.id,
         name: data.name || 'Membro',
         photoURL: data.photoURL || '',
@@ -154,6 +155,25 @@ export async function verifyLeaderAccess(email: string, cellIdParam?: string) {
       });
     });
 
+    // Se houver membros no array do documento da célula que não retornaram na query de hierarchy.celulaId, busca-os
+    const missingMemberIds = (targetCell.membros || []).filter((mid: string) => mid && !membersMap.has(mid));
+    if (missingMemberIds.length > 0) {
+      for (let i = 0; i < missingMemberIds.length; i += 30) {
+        const chunk = missingMemberIds.slice(i, i + 30);
+        const chunkSnap = await db.collection('users').where(FieldPath.documentId(), 'in', chunk).get();
+        chunkSnap.forEach(snap => {
+          const data = snap.data();
+          membersMap.set(snap.id, {
+            id: snap.id,
+            name: data.name || 'Membro',
+            photoURL: data.photoURL || '',
+            phone: data.phone || data.phoneNumber || ''
+          });
+        });
+      }
+    }
+
+    const members = Array.from(membersMap.values());
     // Ordenar alfabeticamente
     members.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
 
