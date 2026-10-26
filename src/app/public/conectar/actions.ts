@@ -195,9 +195,17 @@ export async function submitSolicitacao(data: {
       }
     }
 
+    // Preservar status de membro e perfis administrativos / de liderança caso já existam
+    const isAlreadyMember = existingData.integrationStatus === 'membro' || existingData.isMember === true;
+    const existingRole = existingData.hierarchy?.role || existingData.role;
+    const protectedRoles = ['admin', 'pastor_senior', 'pastor', 'lider_rede', 'lider_area', 'lider_gc', 'lider', 'colider', 'secretario', 'secretaria', 'lider_treinamento'];
+    const isProtectedRole = existingRole && protectedRoles.includes(existingRole);
+
     // Determinar situacaoCaminhada inicial
     let newSituacao: SituacaoCaminhada = existingData.situacaoCaminhada || 'VISITANTE';
-    if (data.intentType === 'VISITANDO') {
+    if (isAlreadyMember) {
+      newSituacao = 'MEMBRO';
+    } else if (data.intentType === 'VISITANDO') {
       newSituacao = existingData.situacaoCaminhada || 'VISITANTE';
     } else if (data.intentType === 'MEMBRESIA') {
       newSituacao = existingData.situacaoCaminhada === 'MEMBRO' ? 'MEMBRO' : 'EM_INTEGRACAO';
@@ -219,8 +227,8 @@ export async function submitSolicitacao(data: {
         neighborhood: data.bairro || existingData.address?.neighborhood || '',
       },
       bairro: data.bairro || existingData.bairro || '',
-      situacaoCaminhada: newSituacao,
-      integrationStatus: newSituacao.toLowerCase(),
+      situacaoCaminhada: isAlreadyMember ? (existingData.situacaoCaminhada || 'MEMBRO') : newSituacao,
+      integrationStatus: isAlreadyMember ? (existingData.integrationStatus || 'membro') : newSituacao.toLowerCase(),
       updatedAt: now,
     };
 
@@ -233,12 +241,11 @@ export async function submitSolicitacao(data: {
 
     const intentIsGC = (data.intentType === 'GC' || (data.intentType === 'VISITANDO' && data.decisaoProximoPasso === 'Gostaria de participar de um GC'));
     if (intentIsGC && (data.intentDetails?.celulaId || data.intentDetails?.gcId)) {
-      // Sempre forçar role 'visitante' para quem se inscreve via portal — nunca pular direto para membro.
-      // Só sobe de nível após 4 presenças confirmadas no GC.
+      // Forçar role 'visitante' apenas para novos cadastros — nunca rebaixar administradores ou líderes existentes
       updatedProfile.hierarchy = {
         ...(existingData.hierarchy || {}),
         celulaId: (data.intentDetails?.celulaId || data.intentDetails?.gcId),
-        role: 'visitante'
+        role: isProtectedRole ? existingRole : (isAlreadyMember ? (existingRole || 'membro') : 'visitante')
       };
     }
 
