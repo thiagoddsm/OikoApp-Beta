@@ -59,19 +59,36 @@ export default function PublicGcRoteiroPage() {
 
   const handlePrint = () => {
     try {
-      // Cria uma janela dedicada para impressão perfeita e multi-página (PDF)
+      // Cria uma janela dedicada para salvar em PDF ou imprimir sem o material de apoio ao líder
       const printWindow = window.open('', '_blank');
       if (printWindow) {
-        // Injeta CSS para expandir o conteúdo de apoio e otimizar margens na impressão
+        // Injeta CSS para estritamente OCULTAR o material de apoio ao líder (#apoio) no PDF
         const printOptimizedHtml = roteiro.htmlContent.replace(
           '</head>',
           `  <style>
             @media print {
-              header { display: none !important; }
-              .accordion-content { max-height: none !important; display: block !important; }
-              #toggle-apoio-btn { display: none !important; }
-              body { background-color: #ffffff !important; padding: 0 !important; }
-              main { max-width: 100% !important; padding: 0 !important; }
+              header, nav, #nav, .no-print, .floating-actions, .fixed, #toggleApoio, #toggle-apoio-btn {
+                display: none !important;
+              }
+              #apoio, .apoio-lider, section#apoio, #conteudo-apoio, .accordion-content, .checklist-pos, [id*="apoio"] {
+                display: none !important;
+              }
+              body {
+                background-color: #ffffff !important;
+                color: #1f2937 !important;
+                padding: 0 !important;
+                margin: 0 !important;
+              }
+              main {
+                max-width: 100% !important;
+                padding: 0 !important;
+                margin: 0 !important;
+              }
+              .card, section {
+                box-shadow: none !important;
+                border: 1px solid #e5e7eb !important;
+                page-break-inside: avoid;
+              }
             }
           </style>
         </head>`
@@ -81,7 +98,7 @@ export default function PublicGcRoteiroPage() {
         printWindow.document.write(printOptimizedHtml);
         printWindow.document.close();
 
-        // Aguarda carregar as fontes e estilos do Tailwind antes de abrir o diálogo de impressão
+        // Aguarda renderização para disparar o diálogo de impressão / salvar PDF
         printWindow.onload = () => {
           setTimeout(() => {
             printWindow.focus();
@@ -107,7 +124,7 @@ export default function PublicGcRoteiroPage() {
         }
       }
     } catch (e) {
-      console.error('Erro ao imprimir:', e);
+      console.error('Erro ao imprimir / gerar PDF:', e);
       window.print();
     }
   };
@@ -136,11 +153,11 @@ export default function PublicGcRoteiroPage() {
 
         <button
           onClick={handlePrint}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-stone-900 text-white hover:bg-stone-800 transition-all shadow-sm font-medium"
-          title="Imprimir / Salvar PDF"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-stone-900 text-white hover:bg-stone-800 transition-all shadow-sm font-medium"
+          title="Salvar em PDF ou Imprimir (Sem Material de Apoio ao Líder)"
         >
           <Printer className="h-3.5 w-3.5" />
-          <span>Imprimir</span>
+          <span>Salvar PDF / Imprimir</span>
         </button>
       </div>
 

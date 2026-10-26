@@ -48,7 +48,12 @@ import {
   Trash2,
   Wand2,
   MessageSquare,
-  Palette
+  Palette,
+  Printer,
+  Bold,
+  Italic,
+  Underline,
+  Strikethrough
 } from 'lucide-react';
 import { DEFAULT_GC_ROTEIRO_HTML, DEFAULT_GC_ROTEIRO_TITLE } from '@/lib/constants/default-gc-roteiro';
 import { enhanceGcRoteiroColors } from '@/lib/gc-roteiro-style';
@@ -377,6 +382,78 @@ export default function GcRoteiroAdminPage() {
     }
   };
 
+  const sendFormatCommand = (command: string) => {
+    if (iframeRef.current?.contentWindow) {
+      iframeRef.current.contentWindow.postMessage({ type: 'OIKO_EXEC_FORMAT', command }, '*');
+      setHasUnsavedVisualEdits(true);
+    }
+  };
+
+  const handleExportPdf = () => {
+    const rawHtml = hasUnsavedVisualEdits ? extractCleanHtmlFromIframe() : (latestVisualHtmlRef.current || htmlContent);
+    const finalHtml = enhanceGcRoteiroColors(rawHtml);
+    try {
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        const printOptimizedHtml = finalHtml.replace(
+          '</head>',
+          `  <style>
+            @media print {
+              header, nav, #nav, .no-print, .floating-actions, .fixed, #toggleApoio, #toggle-apoio-btn {
+                display: none !important;
+              }
+              #apoio, .apoio-lider, section#apoio, #conteudo-apoio, .accordion-content, .checklist-pos, [id*="apoio"] {
+                display: none !important;
+              }
+              body {
+                background-color: #ffffff !important;
+                color: #1f2937 !important;
+                padding: 0 !important;
+                margin: 0 !important;
+              }
+              main {
+                max-width: 100% !important;
+                padding: 0 !important;
+                margin: 0 !important;
+              }
+              .card, section {
+                box-shadow: none !important;
+                border: 1px solid #e5e7eb !important;
+                page-break-inside: avoid;
+              }
+            }
+          </style>
+        </head>`
+        );
+
+        printWindow.document.open();
+        printWindow.document.write(printOptimizedHtml);
+        printWindow.document.close();
+
+        printWindow.onload = () => {
+          setTimeout(() => {
+            printWindow.focus();
+            printWindow.print();
+          }, 350);
+        };
+
+        setTimeout(() => {
+          try {
+            printWindow.focus();
+            printWindow.print();
+          } catch {}
+        }, 800);
+      }
+    } catch (err) {
+      console.error('Erro ao gerar PDF:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao abrir impressão',
+        description: 'Permita popups no navegador para exportar o PDF.',
+      });
+    }
+  };
+
   const handleOptimizeColors = () => {
     const current = hasUnsavedVisualEdits ? extractCleanHtmlFromIframe() : (latestVisualHtmlRef.current || htmlContent);
     const enhanced = enhanceGcRoteiroColors(current);
@@ -496,7 +573,7 @@ export default function GcRoteiroAdminPage() {
           }
 
           var debounceTimer = null;
-          document.addEventListener('input', function() {
+          function triggerSync() {
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(function() {
               try {
@@ -520,6 +597,36 @@ export default function GcRoteiroAdminPage() {
                 console.error('[Visual Edit] Erro ao sincronizar:', e);
               }
             }, 100);
+          }
+
+          document.addEventListener('input', triggerSync);
+
+          // Escuta comandos de formatação vindos da barra de ferramentas superior
+          window.addEventListener('message', function(event) {
+            if (event.data && event.data.type === 'OIKO_EXEC_FORMAT' && event.data.command) {
+              document.execCommand(event.data.command, false, null);
+              triggerSync();
+            }
+          });
+
+          // Atalhos de teclado (Ctrl+B para Negrito, Ctrl+I para Itálico, Ctrl+U para Sublinhado)
+          document.addEventListener('keydown', function(event) {
+            if (event.ctrlKey || event.metaKey) {
+              var k = event.key.toLowerCase();
+              if (k === 'b') {
+                event.preventDefault();
+                document.execCommand('bold', false, null);
+                triggerSync();
+              } else if (k === 'i') {
+                event.preventDefault();
+                document.execCommand('italic', false, null);
+                triggerSync();
+              } else if (k === 'u') {
+                event.preventDefault();
+                document.execCommand('underline', false, null);
+                triggerSync();
+              }
+            }
           });
         })();
       </script>
@@ -579,6 +686,17 @@ export default function GcRoteiroAdminPage() {
           >
             <Share2 className="h-3.5 w-3.5" />
             WhatsApp
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportPdf}
+            className="gap-1.5 text-xs font-bold bg-stone-100 hover:bg-stone-200 text-stone-900 border-stone-300 shadow-sm"
+            title="Salva ou imprime o roteiro em PDF sem o Material de Apoio ao Líder"
+          >
+            <Printer className="h-3.5 w-3.5" />
+            Salvar PDF (Sem Apoio)
           </Button>
 
           <Button
@@ -764,6 +882,76 @@ export default function GcRoteiroAdminPage() {
                   ✓ Tudo sincronizado
                 </Badge>
               )}
+            </div>
+          )}
+
+          {/* BARRA DE FORMATAÇÃO VISUAL E WHATSAPP */}
+          {isVisualEditing && (
+            <div className="flex flex-wrap items-center justify-between gap-2 bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 px-3 py-2 rounded-xl text-xs">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mr-1">
+                  Formatação:
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  type="button"
+                  onClick={() => sendFormatCommand('bold')}
+                  className="h-7 w-7 p-0 font-bold border-stone-300"
+                  title="Negrito (Ctrl+B ou *texto*)"
+                >
+                  <Bold className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  type="button"
+                  onClick={() => sendFormatCommand('italic')}
+                  className="h-7 w-7 p-0 italic border-stone-300"
+                  title="Itálico (Ctrl+I ou _texto_)"
+                >
+                  <Italic className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  type="button"
+                  onClick={() => sendFormatCommand('underline')}
+                  className="h-7 w-7 p-0 underline border-stone-300"
+                  title="Sublinhado (Ctrl+U ou _texto_)"
+                >
+                  <Underline className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  type="button"
+                  onClick={() => sendFormatCommand('strikeThrough')}
+                  className="h-7 w-7 p-0 line-through border-stone-300"
+                  title="Tachado (~texto~)"
+                >
+                  <Strikethrough className="h-3.5 w-3.5" />
+                </Button>
+
+                <div className="h-4 w-[1px] bg-stone-300 dark:bg-stone-700 mx-1" />
+
+                <span className="text-[11px] text-stone-600 dark:text-stone-400 font-medium">
+                  Atalhos WhatsApp: <code className="bg-stone-200 dark:bg-stone-800 px-1 py-0.5 rounded font-mono">*negrito*</code>, <code className="bg-stone-200 dark:bg-stone-800 px-1 py-0.5 rounded font-mono">_sublinhado_</code>, <code className="bg-stone-200 dark:bg-stone-800 px-1 py-0.5 rounded font-mono">~tachado~</code>
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  type="button"
+                  onClick={handleExportPdf}
+                  className="h-7 text-xs font-semibold gap-1 text-stone-700 dark:text-stone-300 hover:text-stone-900"
+                >
+                  <Printer className="h-3 w-3" />
+                  Salvar PDF sem Apoio
+                </Button>
+              </div>
             </div>
           )}
 
@@ -1092,14 +1280,17 @@ export default function GcRoteiroAdminPage() {
 
                 <div className="space-y-1">
                   <Label className="text-xs font-bold flex items-center gap-1">
-                    <History className="h-3 w-3 text-amber-600" /> Desafio da Semana Anterior (Opcional - Momento 3)
+                    <History className="h-3 w-3 text-amber-600" /> Desafio da Semana Anterior (Retomado no Momento 1)
                   </Label>
                   <Input
                     value={desafioAnterior}
                     onChange={(e) => setDesafioAnterior(e.target.value)}
-                    placeholder="Ex: Conversar com um amigo não cristão e orar por ele durante a semana"
+                    placeholder="Ex: Separar 15 minutos em 3 dias para ler Efésios no secreto"
                     className="text-xs"
                   />
+                  <p className="text-[11px] text-muted-foreground">
+                    Será inserido logo na abertura do GC (Momento 1 - 5 min) para o grupo compartilhar vitórias e aprendizados.
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
