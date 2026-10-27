@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { getActiveGcRoteiro, type PublicGcRoteiroData } from './actions';
 import { DEFAULT_GC_ROTEIRO_HTML, DEFAULT_GC_ROTEIRO_TITLE } from '@/lib/constants/default-gc-roteiro';
-import { enhanceGcRoteiroColors } from '@/lib/gc-roteiro-style';
+import { enhanceGcRoteiroColors, IBM_ROTEIRO_PRINT_CSS } from '@/lib/gc-roteiro-style';
 import { Share2, Copy, Printer, CheckCircle2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -62,34 +62,11 @@ export default function PublicGcRoteiroPage() {
       // Cria uma janela dedicada para salvar em PDF ou imprimir sem o material de apoio ao líder
       const printWindow = window.open('', '_blank');
       if (printWindow) {
-        // Injeta CSS para estritamente OCULTAR o material de apoio ao líder (#apoio) no PDF
+        // Injeta CSS editorial para salvar em PDF A4 Retrato sem o material de apoio ao líder
         const printOptimizedHtml = roteiro.htmlContent.replace(
           '</head>',
-          `  <style>
-            @media print {
-              header, nav, #nav, .no-print, .floating-actions, .fixed, #toggleApoio, #toggle-apoio-btn {
-                display: none !important;
-              }
-              #apoio, .apoio-lider, section#apoio, #conteudo-apoio, .accordion-content, .checklist-pos, [id*="apoio"] {
-                display: none !important;
-              }
-              body {
-                background-color: #ffffff !important;
-                color: #1f2937 !important;
-                padding: 0 !important;
-                margin: 0 !important;
-              }
-              main {
-                max-width: 100% !important;
-                padding: 0 !important;
-                margin: 0 !important;
-              }
-              .card, section {
-                box-shadow: none !important;
-                border: 1px solid #e5e7eb !important;
-                page-break-inside: avoid;
-              }
-            }
+          `  <style id="ibm-pdf-print-style">
+            ${IBM_ROTEIRO_PRINT_CSS}
           </style>
         </head>`
         );
@@ -97,6 +74,9 @@ export default function PublicGcRoteiroPage() {
         printWindow.document.open();
         printWindow.document.write(printOptimizedHtml);
         printWindow.document.close();
+        if (roteiro.title) {
+          printWindow.document.title = `Roteiro de GC — ${roteiro.title}`;
+        }
 
         // Aguarda renderização para disparar o diálogo de impressão / salvar PDF
         printWindow.onload = () => {

@@ -63,11 +63,20 @@ export const DEFAULT_GC_ROTEIRO_HTML = `<!DOCTYPE html>
             font-size: 1.05rem !important;
             letter-spacing: -0.01em !important;
         }
+        @page {
+            size: A4 portrait;
+            margin: 12mm 14mm 14mm 14mm;
+        }
         @media print {
-            header, nav, #nav, .no-print, .floating-actions, .fixed, #toggleApoio, #toggle-apoio-btn {
+            *, *::before, *::after {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                color-adjust: exact !important;
+            }
+            header, nav, #nav, .header-container, .no-print, .floating-actions, .fixed, #toggleApoio, #toggle-apoio-btn {
                 display: none !important;
             }
-            #apoio, .apoio-lider, section#apoio, #conteudo-apoio, .accordion-content {
+            #apoio, .apoio-lider, section#apoio, #conteudo-apoio, .accordion-content, .checklist-pos, [id*="apoio"] {
                 display: none !important;
             }
             body {
@@ -75,6 +84,7 @@ export const DEFAULT_GC_ROTEIRO_HTML = `<!DOCTYPE html>
                 color: #1F2937 !important;
                 padding: 0 !important;
                 margin: 0 !important;
+                font-size: 10pt !important;
             }
             main, .container {
                 max-width: 100% !important;
@@ -82,10 +92,23 @@ export const DEFAULT_GC_ROTEIRO_HTML = `<!DOCTYPE html>
                 margin: 0 !important;
                 box-shadow: none !important;
             }
-            .card, section {
+            section, .card, #roteiro, section#roteiro {
                 box-shadow: none !important;
-                border: 1px solid #E5E7EB !important;
-                page-break-inside: avoid;
+                border: none !important;
+                background: transparent !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                page-break-inside: auto !important;
+                break-inside: auto !important;
+            }
+            .momento-block, div:has(> .moment-header), div:has(> .moment-title) {
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
+                margin-bottom: 10px !important;
+            }
+            .moment-header, .moment-title {
+                break-after: avoid !important;
+                page-break-after: avoid !important;
             }
         }
     </style>

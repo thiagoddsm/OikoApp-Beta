@@ -1,8 +1,310 @@
 /**
  * Utilitário de Estilização e Aprimoramento Visual para Roteiros de GC (IBM).
  * Garante contraste WCAG AAA, paleta editorial nobre e elimina problemas de legibilidade
- * (como texto escuro sobre fundo verde escuro em .moment-title e cabeçalhos de momentos).
+ * (como texto escuro sobre fundo verde escuro em .moment-title e cabeçalhos de momentos),
+ * além de formatar o documento em padrão editorial impecável para impressão e PDF em A4.
  */
+
+export const IBM_ROTEIRO_PRINT_CSS = `
+  @page {
+    size: A4 portrait;
+    margin: 12mm 14mm 14mm 14mm;
+  }
+
+  @media print {
+    /* 1. Força fidelidade absoluta de cores em todos os motores de impressão */
+    *, *::before, *::after {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      color-adjust: exact !important;
+    }
+
+    /* 2. Oculta estritamente navegação, telas, botões flutuantes e o Material de Apoio ao Líder */
+    header, nav, #nav, .header-container, .no-print, .floating-actions, .fixed,
+    #toggleApoio, #toggle-apoio-btn, #apoio, .apoio-lider, section#apoio,
+    #apoioContent, #conteudo-apoio, .accordion-content, .checklist-pos,
+    [id*="apoio"], [class*="apoio-lider"], .no-pdf {
+      display: none !important;
+      visibility: hidden !important;
+      height: 0 !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+
+    /* 3. Base do Documento: fundo branco limpo, tipografia editorial nítida */
+    html, body {
+      background-color: #FFFFFF !important;
+      color: #1F2937 !important;
+      font-size: 10pt !important;
+      line-height: 1.4 !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      width: 100% !important;
+    }
+
+    main, .container {
+      max-width: 100% !important;
+      width: 100% !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      box-shadow: none !important;
+    }
+
+    /* 4. Resolução da quebra global: o container do roteiro NUNCA evita quebra como bloco único */
+    section, .card, #roteiro, section#roteiro {
+      box-shadow: none !important;
+      border: none !important;
+      background: transparent !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      page-break-inside: auto !important;
+      break-inside: auto !important;
+    }
+
+    /* 5. Cabeçalho / Hero Editorial do Roteiro (Primeira Página) */
+    section:first-of-type,
+    main > section:first-child,
+    .hero-section {
+      padding: 0 0 10px 0 !important;
+      margin-bottom: 12px !important;
+      border-bottom: 2.5px solid #244735 !important;
+      text-align: center !important;
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+    }
+
+    section:first-of-type span[class*="rounded"],
+    main > section:first-child span[class*="rounded"] {
+      background-color: #F5EFE6 !important;
+      color: #8C5D1E !important;
+      border: 1px solid #D99A28 !important;
+      font-size: 7.5pt !important;
+      font-weight: 800 !important;
+      letter-spacing: 0.08em !important;
+      padding: 2px 10px !important;
+      margin-bottom: 4px !important;
+      display: inline-block !important;
+    }
+
+    section:first-of-type h1,
+    main > section:first-child h1,
+    h1 {
+      color: #244735 !important;
+      font-size: 18pt !important;
+      font-weight: 800 !important;
+      line-height: 1.2 !important;
+      margin: 4px 0 4px 0 !important;
+      letter-spacing: -0.02em !important;
+    }
+
+    section:first-of-type p,
+    main > section:first-child p {
+      color: #4B5563 !important;
+      font-size: 9.5pt !important;
+      line-height: 1.35 !important;
+      margin: 0 auto !important;
+      max-width: 100% !important;
+    }
+
+    /* 6. Bloco de Objetivo a ser Alcançado & Textos-Base */
+    .bg-amber-50\\/70,
+    [class*="bg-amber-50"],
+    .card-objetivo {
+      background-color: #FFFDF9 !important;
+      border: 1px solid #EADDC7 !important;
+      border-left: 5px solid #D99A28 !important;
+      border-radius: 8px !important;
+      padding: 10px 14px !important;
+      margin-bottom: 12px !important;
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+    }
+
+    /* 7. Faixas de Momentos (.moment-header, .moment-title) */
+    .moment-header,
+    .moment-title,
+    .bg-\\[\\#244735\\],
+    [style*="#244735"],
+    .momento-header-dark {
+      background-color: #244735 !important;
+      color: #FFFFFF !important;
+      border-left: 5px solid #D99A28 !important;
+      border-radius: 6px !important;
+      padding: 8px 12px !important;
+      margin-top: 14px !important;
+      margin-bottom: 6px !important;
+      display: flex !important;
+      justify-content: space-between !important;
+      align-items: center !important;
+      box-shadow: none !important;
+      break-after: avoid !important;
+      page-break-after: avoid !important;
+    }
+
+    .moment-header h3,
+    .moment-title h3,
+    .moment-header *,
+    .moment-title * {
+      color: #FFFFFF !important;
+      font-weight: 800 !important;
+      font-size: 9.5pt !important;
+      letter-spacing: 0.02em !important;
+      margin: 0 !important;
+      text-shadow: none !important;
+    }
+
+    .badge-step,
+    .moment-header .badge-step,
+    .moment-title .badge-step,
+    .moment-header span:last-child,
+    .moment-title span:last-child {
+      background-color: rgba(255, 255, 255, 0.2) !important;
+      color: #FDE68A !important;
+      border: 1px solid rgba(253, 230, 138, 0.5) !important;
+      font-size: 7.5pt !important;
+      font-weight: 800 !important;
+      padding: 2px 8px !important;
+      border-radius: 9999px !important;
+      white-space: nowrap !important;
+    }
+
+    /* 8. Caixas de Conteúdo dos Momentos */
+    .bg-stone-50,
+    .moment-header + div,
+    .moment-title + div {
+      background-color: #FAF9F6 !important;
+      border: 1px solid #E7E5E4 !important;
+      border-radius: 8px !important;
+      padding: 10px 14px !important;
+      margin-bottom: 8px !important;
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+    }
+
+    /* Agrupamento inteligente para nunca quebrar momento ao meio */
+    .momento-block,
+    div:has(> .moment-header),
+    div:has(> .moment-title) {
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+      margin-bottom: 10px !important;
+    }
+
+    .bg-stone-50 p,
+    .moment-header + div p,
+    .moment-title + div p {
+      color: #1C1917 !important;
+      font-size: 9pt !important;
+      line-height: 1.4 !important;
+    }
+
+    .italic, em, i, .text-stone-500.italic {
+      color: #57534E !important;
+      font-size: 8pt !important;
+      line-height: 1.35 !important;
+    }
+
+    /* 9. Três Colunas de 'A Palavra no Centro' (Entender, Sentir, Agir) */
+    .grid.sm\\:grid-cols-3,
+    [class*="grid-cols-3"],
+    .colunas-palavra {
+      display: grid !important;
+      grid-template-columns: repeat(3, 1fr) !important;
+      gap: 8px !important;
+      margin-top: 6px !important;
+      margin-bottom: 6px !important;
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+    }
+
+    .col-entender, [data-dimensao="entender"] {
+      background-color: #F8FAFC !important;
+      border: 1px solid #CBD5E1 !important;
+      border-top: 3px solid #3B82F6 !important;
+      border-radius: 6px !important;
+      padding: 8px !important;
+      font-size: 8pt !important;
+    }
+
+    .col-sentir, [data-dimensao="sentir"] {
+      background-color: #FFFDF9 !important;
+      border: 1px solid #FCD34D !important;
+      border-top: 3px solid #D99A28 !important;
+      border-radius: 6px !important;
+      padding: 8px !important;
+      font-size: 8pt !important;
+    }
+
+    .col-agir, [data-dimensao="agir"] {
+      background-color: #F6FBF8 !important;
+      border: 1px solid #A7F3D0 !important;
+      border-top: 3px solid #10B981 !important;
+      border-radius: 6px !important;
+      padding: 8px !important;
+      font-size: 8pt !important;
+    }
+
+    /* 10. Destaque 'Verdade do Tópico' */
+    .verdade-topico,
+    [class*="verdade-do-topico"] {
+      background-color: #F0FDF4 !important;
+      border: 1px solid #BBF7D0 !important;
+      border-left: 4px solid #059669 !important;
+      border-radius: 6px !important;
+      padding: 6px 10px !important;
+      margin-top: 6px !important;
+      margin-bottom: 6px !important;
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+    }
+
+    /* 11. Canções de Louvor (Momento 3) */
+    .grid.sm\\:grid-cols-2,
+    [class*="grid-cols-2"] {
+      display: grid !important;
+      grid-template-columns: repeat(2, 1fr) !important;
+      gap: 8px !important;
+    }
+
+    /* 12. Nossos 4 Valores Fundamentais */
+    #valores,
+    .valores-ibm {
+      background: #FBF9F5 !important;
+      border: 1px solid #E8DFD1 !important;
+      border-top: 3px solid #D99A28 !important;
+      border-radius: 8px !important;
+      padding: 10px 14px !important;
+      margin-top: 14px !important;
+      margin-bottom: 10px !important;
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+    }
+
+    #valores div[style*="grid"],
+    .valores-ibm div[style*="grid"] {
+      display: grid !important;
+      grid-template-columns: repeat(4, 1fr) !important;
+      gap: 8px !important;
+    }
+
+    #valores div[style*="grid"] > div,
+    .valores-ibm div[style*="grid"] > div {
+      padding: 6px 8px !important;
+      font-size: 8pt !important;
+    }
+
+    /* 13. Rodapé Editorial */
+    footer {
+      border-top: 1px solid #E5E7EB !important;
+      padding-top: 8px !important;
+      margin-top: 16px !important;
+      text-align: center !important;
+      font-size: 7.5pt !important;
+      color: #78716C !important;
+      break-inside: avoid !important;
+    }
+  }
+`;
 
 export const IBM_ROTEIRO_THEME_CSS = `
   <style id="ibm-roteiro-theme-enhancement">
@@ -10,10 +312,13 @@ export const IBM_ROTEIRO_THEME_CSS = `
        IBM GC ROTEIRO — ELEVAÇÃO DE CORES & CONTRASTE (WCAG AAA)
        ======================================================== */
     
-    /* 1. Faixas de Momentos (.moment-title, faixas verdes escuras) */
+    /* 1. Faixas de Momentos (.moment-title, .moment-header, faixas verdes escuras) */
     .moment-title,
+    .moment-header,
     .card .moment-title,
+    .card .moment-header,
     div.moment-title,
+    div.moment-header,
     .bg-\\[\\#244735\\],
     [style*="#244735"],
     [style*="background-color: #244735"],
@@ -36,12 +341,17 @@ export const IBM_ROTEIRO_THEME_CSS = `
       box-shadow: 0 2px 8px rgba(36, 71, 53, 0.15) !important;
     }
 
-    /* FORÇA TEXTO BRANCO PURO NO H3 E FILHOS DE .moment-title (SOBREPÕE .card h3) */
+    /* FORÇA TEXTO BRANCO PURO NO H3 E FILHOS DE .moment-title E .moment-header (SOBREPÕE .card h3) */
     .moment-title h1, .moment-title h2, .moment-title h3, .moment-title h4, .moment-title h5,
+    .moment-header h1, .moment-header h2, .moment-header h3, .moment-header h4, .moment-header h5,
     .card .moment-title h1, .card .moment-title h2, .card .moment-title h3, .card .moment-title h4, .card .moment-title h5,
+    .card .moment-header h1, .card .moment-header h2, .card .moment-header h3, .card .moment-header h4, .card .moment-header h5,
     div.moment-title h3,
+    div.moment-header h3,
     .card .moment-title *,
+    .card .moment-header *,
     .moment-title *,
+    .moment-header *,
     .bg-\\[\\#244735\\] h1, .bg-\\[\\#244735\\] h2, .bg-\\[\\#244735\\] h3, .bg-\\[\\#244735\\] h4, .bg-\\[\\#244735\\] h5,
     .bg-\\[\\#244735\\] p, .bg-\\[\\#244735\\] div,
     [style*="#244735"] h1, [style*="#244735"] h2, [style*="#244735"] h3, [style*="#244735"] h4, [style*="#244735"] h5,
@@ -58,9 +368,13 @@ export const IBM_ROTEIRO_THEME_CSS = `
 
     /* Badges de duração (ex: 5 MIN, 10 MIN, 25 MIN) */
     .moment-title span,
+    .moment-header span,
     .card .moment-title span,
+    .card .moment-header span,
     .moment-title span:last-child,
+    .moment-header span:last-child,
     .card .moment-title span:last-child,
+    .card .moment-header span:last-child,
     .bg-\\[\\#244735\\] .badge-step,
     [style*="#244735"] .badge-step,
     .bg-\\[\\#244735\\] span[class*="rounded"],
@@ -150,31 +464,7 @@ export const IBM_ROTEIRO_THEME_CSS = `
     }
 
     /* 6. Regras de Impressão e Salvamento em PDF (Sem Material de Apoio ao Líder) */
-    @media print {
-      header, nav, #nav, .header-container, .no-print, .floating-actions, .fixed, #toggleApoio, #toggle-apoio-btn {
-        display: none !important;
-      }
-      #apoio, .apoio-lider, section#apoio, #apoioContent, .checklist-pos, [id*="apoio"] {
-        display: none !important;
-      }
-      body {
-        background-color: #FFFFFF !important;
-        color: #1F2937 !important;
-        padding: 0 !important;
-        margin: 0 !important;
-      }
-      main, .container {
-        max-width: 100% !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        box-shadow: none !important;
-      }
-      .card, section {
-        box-shadow: none !important;
-        border: 1px solid #E5E7EB !important;
-        page-break-inside: avoid;
-      }
-    }
+    ${IBM_ROTEIRO_PRINT_CSS}
   </style>
 `;
 
@@ -194,7 +484,9 @@ export function enhanceGcRoteiroColors(html: string): string {
     .replace(/max-height:\s*1000px/gi, 'max-height: 15000px');
 
   // 2. Remove injeções antigas do tema se já existirem
-  enhanced = enhanced.replace(/<style id="ibm-roteiro-theme-enhancement">[\s\S]*?<\/style>/gi, '');
+  enhanced = enhanced
+    .replace(/<style id="ibm-roteiro-theme-enhancement">[\s\S]*?<\/style>/gi, '')
+    .replace(/<style id="ibm-pdf-print-style">[\s\S]*?<\/style>/gi, '');
 
   // 3. Injeta a folha de estilo IBM no <head>
   if (enhanced.includes('</head>')) {
@@ -205,10 +497,10 @@ export function enhanceGcRoteiroColors(html: string): string {
     enhanced = IBM_ROTEIRO_THEME_CSS + '\n' + enhanced;
   }
 
-  // 4. Substituição DIRETA no HTML para garantir estilo inline no h3 e no span de .moment-title
+  // 4. Substituição DIRETA no HTML para garantir estilo inline no h3 e no span de .moment-title e .moment-header
   // Isso resolve definitivamente qualquer herança indesejada de .card h3 { color: var(--text-color); }
   enhanced = enhanced.replace(
-    /(<div[^>]*?class=["'][^"']*?moment-title[^"']*?["'][^>]*?>)([\s\S]*?)(<\/div>)/gi,
+    /(<div[^>]*?class=["'][^"']*?(?:moment-title|moment-header)[^"']*?["'][^>]*?>)([\s\S]*?)(<\/div>)/gi,
     (match: string, openDiv: string, content: string, closeDiv: string) => {
       let fixedContent = content
         // Força cor branca no h3
@@ -228,7 +520,7 @@ export function enhanceGcRoteiroColors(html: string): string {
         .replace(/text-gray-\d+/g, 'text-white')
         .replace(/text-slate-\d+/g, 'text-white');
 
-      // Garante estilo inline no container .moment-title
+      // Garante estilo inline no container .moment-title / .moment-header
       let fixedOpenDiv = openDiv;
       if (!fixedOpenDiv.includes('style=')) {
         fixedOpenDiv = fixedOpenDiv.replace('>', ' style="background-color: #244735 !important; border-left: 5px solid #D99A28 !important; color: #FFFFFF !important;">');
@@ -240,6 +532,18 @@ export function enhanceGcRoteiroColors(html: string): string {
       }
 
       return `${fixedOpenDiv}${fixedContent}${closeDiv}`;
+    }
+  );
+
+  // 4B. Garante a classe momento-block nos containers dos momentos para quebras perfeitas de página no PDF
+  enhanced = enhanced.replace(
+    /(<div[^>]*class=["'][^"']*?space-y-\d+[^"']*?["'][^>]*?>)([\s\S]*?)(<\/div>)/gi,
+    (match: string, openDiv: string, content: string, closeDiv: string) => {
+      if ((content.includes('moment-header') || content.includes('moment-title')) && !openDiv.includes('momento-block')) {
+        const withClass = openDiv.replace(/class=["']([^"']*)["']/i, 'class="$1 momento-block"');
+        return `${withClass}${content}${closeDiv}`;
+      }
+      return match;
     }
   );
 

@@ -56,7 +56,7 @@ import {
   Strikethrough
 } from 'lucide-react';
 import { DEFAULT_GC_ROTEIRO_HTML, DEFAULT_GC_ROTEIRO_TITLE } from '@/lib/constants/default-gc-roteiro';
-import { enhanceGcRoteiroColors } from '@/lib/gc-roteiro-style';
+import { enhanceGcRoteiroColors, IBM_ROTEIRO_PRINT_CSS } from '@/lib/gc-roteiro-style';
 import { generateGcRoteiroAction } from './actions';
 
 export default function GcRoteiroAdminPage() {
@@ -397,31 +397,8 @@ export default function GcRoteiroAdminPage() {
       if (printWindow) {
         const printOptimizedHtml = finalHtml.replace(
           '</head>',
-          `  <style>
-            @media print {
-              header, nav, #nav, .no-print, .floating-actions, .fixed, #toggleApoio, #toggle-apoio-btn {
-                display: none !important;
-              }
-              #apoio, .apoio-lider, section#apoio, #conteudo-apoio, .accordion-content, .checklist-pos, [id*="apoio"] {
-                display: none !important;
-              }
-              body {
-                background-color: #ffffff !important;
-                color: #1f2937 !important;
-                padding: 0 !important;
-                margin: 0 !important;
-              }
-              main {
-                max-width: 100% !important;
-                padding: 0 !important;
-                margin: 0 !important;
-              }
-              .card, section {
-                box-shadow: none !important;
-                border: 1px solid #e5e7eb !important;
-                page-break-inside: avoid;
-              }
-            }
+          `  <style id="ibm-pdf-print-style">
+            ${IBM_ROTEIRO_PRINT_CSS}
           </style>
         </head>`
         );
@@ -429,6 +406,9 @@ export default function GcRoteiroAdminPage() {
         printWindow.document.open();
         printWindow.document.write(printOptimizedHtml);
         printWindow.document.close();
+        if (title) {
+          printWindow.document.title = `Roteiro de GC — ${title}`;
+        }
 
         printWindow.onload = () => {
           setTimeout(() => {
