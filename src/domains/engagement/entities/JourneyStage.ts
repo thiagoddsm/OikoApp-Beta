@@ -5,4 +5,9 @@ export interface JourneyStage {
   order: number;
   color: string;
   automationsEnabled: boolean;
+  description?: string;
+  profile?: string;
+  characteristic?: string;
+  steps?: string[];
+  stepLinks?: Record<number, string>;
 }

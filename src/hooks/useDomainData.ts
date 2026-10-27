@@ -180,15 +180,19 @@ export function useEngagementData() {
     if (!firestore || !user || !tenantId) return null;
     return query(
       collection(firestore, 'journey_stages'), 
-      where('tenantId', '==', tenantId),
-      orderBy('order', 'asc')
+      where('tenantId', '==', tenantId)
     );
   }, [firestore, user, tenantId]);
 
   const { data: stages, isLoading: ls } = useCollection<JourneyStage>(stagesQ);
 
+  const sortedStages = useMemo(() => {
+    if (!stages) return [];
+    return [...stages].sort((a, b) => (a.order || 0) - (b.order || 0));
+  }, [stages]);
+
   return {
-    journeyStages: stages || [],
+    journeyStages: sortedStages,
     isLoading: ls
   };
 }

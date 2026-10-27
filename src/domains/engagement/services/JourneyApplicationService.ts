@@ -23,14 +23,18 @@ export class JourneyApplicationService {
   }): Promise<void> {
     const { tenantId, memberId, newStageId, oldStageId, reason, actor, source } = params;
 
-    // TODO: Adicionar validações de transição se necessário (ex: verificar se estágio existe)
-
-    // 1. Atualizar o membro no Firestore
-    const memberRef = doc(this.firestore, 'members', memberId);
-    await updateDoc(memberRef, {
+    // 1. Atualizar o membro no Firestore (sincronizando 'users' e 'members')
+    const nowIso = new Date().toISOString();
+    const updatePayload = {
       journeyStageId: newStageId,
-      updatedAt: new Date().toISOString(),
-    });
+      updatedAt: nowIso,
+    };
+
+    const userRef = doc(this.firestore, 'users', memberId);
+    await updateDoc(userRef, updatePayload).catch(() => {});
+
+    const memberRef = doc(this.firestore, 'members', memberId);
+    await updateDoc(memberRef, updatePayload).catch(() => {});
 
     // 2. Gravar a Atividade (Event Sourcing Light) - Isso disparará automações em background
     await this.activityService.logActivity({
