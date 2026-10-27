@@ -96,8 +96,12 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
     
     // Estado para o modal do certificado
     const [selectedCertificate, setSelectedCertificate] = useState<{
+        studentId?: string;
+        courseId?: string;
         studentName: string;
         courseName: string;
+        trackName?: string;
+        workloadHours?: number;
         pdfUrl: string;
     } | null>(null);
 
@@ -778,15 +782,35 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
 
                                                                 {uploadedPdfUrl ? (
                                                                     <button
-                                                                        title="Ver Certificado Uploaded"
+                                                                        title="Ver Certificado Digital"
                                                                         onClick={() => setSelectedCertificate({
+                                                                            studentId: student.id,
+                                                                            courseId,
                                                                             studentName: student.name,
                                                                             courseName: course?.name || 'Curso',
+                                                                            trackName: course?.ministryName || 'Academia Lumine',
+                                                                            workloadHours: (course?.syllabus?.length || 0) * 2,
                                                                             pdfUrl: uploadedPdfUrl
                                                                         })}
                                                                         className="p-1 rounded bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors"
                                                                     >
                                                                         <FileText size={14} />
+                                                                    </button>
+                                                                ) : isApproved ? (
+                                                                    <button
+                                                                        title="Emitir / Ver Certificado Oficial"
+                                                                        onClick={() => setSelectedCertificate({
+                                                                            studentId: student.id,
+                                                                            courseId,
+                                                                            studentName: student.name,
+                                                                            courseName: course?.name || 'Curso',
+                                                                            trackName: course?.ministryName || 'Academia Lumine',
+                                                                            workloadHours: (course?.syllabus?.length || 0) * 2,
+                                                                            pdfUrl: ''
+                                                                        })}
+                                                                        className="p-1 rounded bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors"
+                                                                    >
+                                                                        <Award size={14} />
                                                                     </button>
                                                                 ) : null}
                                                             </div>
@@ -862,8 +886,12 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                     <CertificateView
                         open={!!selectedCertificate}
                         onOpenChange={(open) => !open && setSelectedCertificate(null)}
+                        studentId={selectedCertificate.studentId}
+                        courseId={selectedCertificate.courseId}
                         studentName={selectedCertificate.studentName}
                         courseName={selectedCertificate.courseName}
+                        trackName={selectedCertificate.trackName}
+                        workloadHours={selectedCertificate.workloadHours}
                         pdfUrl={selectedCertificate.pdfUrl}
                     />
                 )}

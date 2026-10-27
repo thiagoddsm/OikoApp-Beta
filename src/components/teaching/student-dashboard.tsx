@@ -644,8 +644,12 @@ export function StudentDashboard() {
   
   // Estado para visualização de certificados
   const [selectedCert, setSelectedCert] = useState<{
+    studentId?: string;
+    courseId?: string;
     studentName: string;
     courseName: string;
+    trackName?: string;
+    workloadHours?: number;
     pdfUrl: string;
   } | null>(null);
 
@@ -898,8 +902,12 @@ export function StudentDashboard() {
                       <Button
                         size="sm"
                         onClick={() => setSelectedCert({
+                          studentId: user.uid,
+                          courseId: course.id,
                           studentName: user.displayName || 'Aluno',
                           courseName: course?.name || 'Curso',
+                          trackName: course?.ministryName || 'Academia Lumine',
+                          workloadHours: (course?.syllabus?.length || 0) * 2,
                           pdfUrl: pdfUrl || ''
                         })}
                         className="w-full text-xs font-black uppercase tracking-wider gap-1.5 shadow-sm"
@@ -919,8 +927,12 @@ export function StudentDashboard() {
         <CertificateView
           open={!!selectedCert}
           onOpenChange={(open) => !open && setSelectedCert(null)}
+          studentId={selectedCert.studentId}
+          courseId={selectedCert.courseId}
           studentName={selectedCert.studentName}
           courseName={selectedCert.courseName}
+          trackName={selectedCert.trackName}
+          workloadHours={selectedCert.workloadHours}
           pdfUrl={selectedCert.pdfUrl}
         />
       )}

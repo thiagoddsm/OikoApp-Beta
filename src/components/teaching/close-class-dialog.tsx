@@ -14,6 +14,7 @@ import { addTimelineEvent } from '@/lib/timeline';
 import { useFirebase } from '@/firebase';
 import { useMembersData } from "@/hooks/useDomainData";
 import { evaluateStudentAttendance } from '@/lib/teaching/attendance-calculator';
+import { generateAndSaveCertificate } from '@/lib/teaching/certificate-generator';
 
 interface CloseClassDialogProps {
   open: boolean;
@@ -26,7 +27,7 @@ export function CloseClassDialog({ open, onOpenChange, classData, courseData }: 
     const { users } = useMembersData();
 
   const { updateClass, updateVolunteer } = useVolunteering();
-  const { firestore, user: currentUser } = useFirebase();
+  const { firestore, storage, user: currentUser } = useFirebase();
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
   const [studentStatuses, setStudentStatuses] = useState<Record<string, 'approved' | 'rejected' | 'none'>>({});
@@ -147,6 +148,24 @@ export function CloseClassDialog({ open, onOpenChange, classData, courseData }: 
             authorId: currentUser?.uid ?? 'system',
             relatedId: courseData.id,
           });
+        }
+
+        // Emissão automática do Certificado Digital oficial
+        if (status === 'approved' && firestore && storage) {
+          try {
+            await generateAndSaveCertificate({
+              studentId: student.id,
+              studentName: student.name || 'Aluno',
+              courseId: courseData.id,
+              courseName: courseData.name,
+              trackName: courseData.ministryName || 'Academia Lumine',
+              workloadHours: (courseData.syllabus?.length || 0) * 2,
+              firestore,
+              storage
+            });
+          } catch (certErr) {
+            console.error(`[CloseClassDialog] Falha ao emitir certificado para ${student.name}:`, certErr);
+          }
         }
       });
 

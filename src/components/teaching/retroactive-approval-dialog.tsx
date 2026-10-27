@@ -13,6 +13,7 @@ import { useVolunteering, type Course } from '@/contexts/volunteering-context';
 import { addTimelineEvent } from '@/lib/timeline';
 import { useFirebase } from '@/firebase';
 import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
+import { generateAndSaveCertificate } from '@/lib/teaching/certificate-generator';
 
 interface RetroactiveApprovalDialogProps {
   open: boolean;
@@ -25,7 +26,7 @@ export function RetroactiveApprovalDialog({ open, onOpenChange, courseId, course
     const { users } = useMembersData();
 
   const { updateVolunteer, isLoading } = useVolunteering();
-  const { firestore, user: currentUser } = useFirebase();
+  const { firestore, storage, user: currentUser } = useFirebase();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
@@ -110,6 +111,25 @@ export function RetroactiveApprovalDialog({ open, onOpenChange, courseId, course
             authorId: currentUser?.uid ?? 'system',
             relatedId: courseId,
           });
+        }
+
+        // 3. Emissão automática do Certificado Digital oficial
+        if (firestore && storage) {
+          try {
+            const userObj = users?.find(u => u.id === userId);
+            await generateAndSaveCertificate({
+              studentId: userId,
+              studentName: userObj?.name || 'Aluno',
+              courseId,
+              courseName,
+              trackName: targetCourse?.ministryName || 'Academia Lumine',
+              workloadHours: (targetCourse?.syllabus?.length || 0) * 2,
+              firestore,
+              storage
+            });
+          } catch (certErr) {
+            console.error(`[RetroactiveApproval] Falha ao emitir certificado para ${userId}:`, certErr);
+          }
         }
       });
 
