@@ -3,6 +3,7 @@ import { Timestamp } from 'firebase/firestore';
 export interface ShapeTop3Item {
   id: string;
   nome: string;
+  name?: string;
   score: number;
   desc?: string;
 }
@@ -23,10 +24,13 @@ export interface ShapeResult {
   telefone?: string;
   dataNascimento?: string;
   estadoCivil?: string;
+  gcId?: string;
   gcInfo?: string;
   formacao?: string;
   profissao?: string;
+  ministryTarget?: string;
   habilidades: string[];
+  disponibilidade?: string[];
   coracao: Record<string, string>;
   perso: Record<string, number>;
   dom: Record<string, number>;
@@ -36,7 +40,10 @@ export interface ShapeResult {
   domScores: Record<string, number>;
   top3: ShapeTop3Item[];
   experiencias?: Record<string, string>;
+  status?: 'in_progress' | 'completed';
+  currentStep?: number;
   createdAt: string; // ISO string após sanitize
+  updatedAt?: string;
   aiAnalysis?: ShapeAiAnalysis | null;
 }
 

@@ -5,7 +5,7 @@ import { ShapeResult, QUADRANTE_META, HABILIDADES_MAP, ShapeQuadrante } from '@/
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Search, LayoutGrid, List, Sparkles, User, Briefcase, Heart, Calendar, RefreshCw } from 'lucide-react';
+import { Search, LayoutGrid, List, Sparkles, User, Briefcase, Heart, Calendar, RefreshCw, CheckCircle2, Clock } from 'lucide-react';
 import { getShapeResults } from '@/app/dashboard/volunteering/molde-de-servo/actions';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -25,7 +25,6 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
   const [search, setSearch] = useState('');
   const [quadranteFilter, setQuadranteFilter] = useState<string>('todos');
   const [domFilter, setDomFilter] = useState<string>('todos');
-  const [habilidadeFilter, setHabilidadeFilter] = useState<string>('todos');
   const [view, setView] = useState<'kanban' | 'list'>('kanban');
   
   const [selectedPerson, setSelectedPerson] = useState<ShapeResult | null>(null);
@@ -44,22 +43,25 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
     }
   };
 
-  
-
   const filteredResults = results.filter(r => {
-    const matchSearch = r.nome.toLowerCase().includes(search.toLowerCase()) || r.email.toLowerCase().includes(search.toLowerCase());
+    const matchSearch = (r.nome || '').toLowerCase().includes(search.toLowerCase()) || (r.email || '').toLowerCase().includes(search.toLowerCase());
     const matchQuadrante = quadranteFilter === 'todos' || r.quadrante === quadranteFilter;
-    const matchDom = domFilter === 'todos' || r.top3?.[0]?.nome === domFilter;
+    const top1Name = r.top3?.[0]?.nome || r.top3?.[0]?.name;
+    const matchDom = domFilter === 'todos' || top1Name === domFilter;
     return matchSearch && matchQuadrante && matchDom;
   });
 
-  
   const HEART_LABELS: Record<string, string> = {
     h1: 'O que me impulsiona',
     h2: 'Quem eu quero alcançar',
     h3: 'Necessidades que amo suprir',
     h4: 'Causa que mais me engaja',
-    h5: 'Maior sonho para o Reino'
+    h5: 'Maior sonho para o Reino',
+    q0: 'O que me impulsiona a servir',
+    q1: 'Quem eu tenho mais paixão por alcançar',
+    q2: 'Necessidades que amo suprir',
+    q3: 'Causa que mais me engaja',
+    q4: 'Maior sonho para o Reino',
   };
 
   const kanbanColumns = Object.keys(QUADRANTE_META) as ShapeQuadrante[];
@@ -86,7 +88,7 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
     }
   };
 
-  const renderInitials = (name: string) => name.substring(0, 2).toUpperCase();
+  const renderInitials = (name: string) => (name || 'U').substring(0, 2).toUpperCase();
 
   return (
     <div className="space-y-6">
@@ -180,7 +182,7 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                       onClick={() => setSelectedPerson(item)}
                     >
                       <CardContent className="p-4 space-y-3">
-                        <div className="flex justify-between items-start">
+                        <div className="flex justify-between items-start gap-2">
                           <div className="flex items-center gap-3">
                             <Avatar className="h-10 w-10">
                               <AvatarFallback className={`${meta.bg} ${meta.color} font-bold`}>
@@ -191,10 +193,20 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                               <p className="font-semibold text-sm line-clamp-1">{item.nome}</p>
                               <p className="text-xs text-muted-foreground flex items-center gap-1">
                                 <Calendar className="w-3 h-3" />
-                                {new Date(item.createdAt).toLocaleDateString('pt-BR')}
+                                {item.createdAt ? new Date(item.createdAt).toLocaleDateString('pt-BR') : '-'}
                               </p>
                             </div>
                           </div>
+
+                          {item.status === 'in_progress' ? (
+                            <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200 shrink-0">
+                              Etapa {item.currentStep || 2}/7
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 shrink-0">
+                              Concluído
+                            </Badge>
+                          )}
                         </div>
 
                         {item.gcInfo && (
@@ -206,7 +218,7 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                         <div className="flex flex-wrap gap-1 mt-2">
                           {item.top3?.map((dom, i) => (
                             <Badge key={i} variant="outline" className="text-[10px] py-0 px-1.5 h-5 bg-slate-50">
-                              {dom.nome}
+                              {dom.nome || dom.name}
                             </Badge>
                           ))}
                         </div>
@@ -244,6 +256,7 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
             <TableHeader>
               <TableRow>
                 <TableHead>Nome</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead>Quadrante</TableHead>
                 <TableHead>Top 1 Dom</TableHead>
                 <TableHead>Habilidades</TableHead>
@@ -259,13 +272,24 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">{item.nome}</TableCell>
                     <TableCell>
+                      {item.status === 'in_progress' ? (
+                        <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
+                          Em andamento ({item.currentStep || 2}/7)
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">
+                          Concluído
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
                       {meta && (
                         <Badge className={`${meta.bg} ${meta.color} hover:${meta.bg} border-none`}>
                           {meta.emoji} {meta.label}
                         </Badge>
                       )}
                     </TableCell>
-                    <TableCell>{item.top3?.[0]?.nome}</TableCell>
+                    <TableCell>{item.top3?.[0]?.nome || item.top3?.[0]?.name || '-'}</TableCell>
                     <TableCell>
                       <div className="flex gap-1 text-lg">
                         {(item.habilidades || []).slice(0, 3).map((habId, i) => {
@@ -280,7 +304,7 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                       </div>
                     </TableCell>
                     <TableCell>{item.gcInfo || '-'}</TableCell>
-                    <TableCell>{new Date(item.createdAt).toLocaleDateString('pt-BR')}</TableCell>
+                    <TableCell>{item.createdAt ? new Date(item.createdAt).toLocaleDateString('pt-BR') : '-'}</TableCell>
                     <TableCell>
                       <Button variant="ghost" size="sm" onClick={() => setSelectedPerson(item)}>
                         Ver
@@ -291,7 +315,7 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
               })}
               {filteredResults.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     Nenhum resultado encontrado.
                   </TableCell>
                 </TableRow>
@@ -306,14 +330,30 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
         {selectedPerson && (
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
+              <div className="flex items-center gap-2 mb-1">
+                {selectedPerson.userId && (
+                  <Badge variant="outline" className="text-[10px] bg-slate-100 text-slate-700">
+                    ID Vinculado: {selectedPerson.userId}
+                  </Badge>
+                )}
+                {selectedPerson.status === 'in_progress' ? (
+                  <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
+                    Em andamento (Etapa {selectedPerson.currentStep || 2} de 7)
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">
+                    Avaliação Concluída
+                  </Badge>
+                )}
+              </div>
               <DialogTitle className="text-2xl">{selectedPerson.nome}</DialogTitle>
               <DialogDescription className="flex flex-wrap gap-x-4 gap-y-2 mt-2">
                 <span><strong>Email:</strong> {selectedPerson.email}</span>
                 {selectedPerson.telefone && <span><strong>Tel:</strong> {selectedPerson.telefone}</span>}
                 {selectedPerson.gcInfo && <span><strong>GC:</strong> {selectedPerson.gcInfo}</span>}
                 {selectedPerson.formacao && <span><strong>Formação:</strong> {selectedPerson.formacao}</span>}
-                  {selectedPerson.profissao && <span><strong>Profissão:</strong> {selectedPerson.profissao}</span>}
-                <span><strong>Data:</strong> {new Date(selectedPerson.createdAt).toLocaleDateString('pt-BR')}</span>
+                {selectedPerson.profissao && <span><strong>Profissão:</strong> {selectedPerson.profissao}</span>}
+                {selectedPerson.createdAt && <span><strong>Data:</strong> {new Date(selectedPerson.createdAt).toLocaleDateString('pt-BR')}</span>}
               </DialogDescription>
             </DialogHeader>
 
@@ -333,7 +373,7 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                       </span>
                     </div>
                     <p className="text-sm font-medium text-slate-600 mt-1">
-                      Organização: {Number(selectedPerson.orgScore).toFixed(1)}/5 | Motivação: {Number(selectedPerson.motScore).toFixed(1)}/5
+                      Organização: {Number(selectedPerson.orgScore || 3).toFixed(1)}/5 | Motivação: {Number(selectedPerson.motScore || 3).toFixed(1)}/5
                     </p>
                     <p className="text-xs text-slate-500 mt-1">
                       * Escala de 1 a 5. <strong>Motivação</strong> mede o foco de Tarefas (1) a Pessoas (5). <strong>Organização</strong> mede de Informal/Espontâneo (1) a Formal/Estruturado (5).
@@ -352,7 +392,7 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                     <Card key={i} className="bg-slate-50">
                       <CardHeader className="p-4 pb-2">
                         <CardTitle className="text-sm font-bold flex justify-between">
-                          {dom.nome}
+                          {dom.nome || dom.name}
                           <Badge variant="secondary">{dom.score}pts</Badge>
                         </CardTitle>
                       </CardHeader>
@@ -382,7 +422,6 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                 </div>
               </section>
 
-              
               {/* Experiências e Disponibilidade */}
               {selectedPerson.experiencias && Object.keys(selectedPerson.experiencias).length > 0 && (
                 <section className="space-y-3">
@@ -413,7 +452,6 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
               )}
 
               {/* Coração */}
-
               {selectedPerson.coracao && Object.keys(selectedPerson.coracao).length > 0 && (
                 <section className="space-y-3">
                   <h3 className="font-semibold text-lg flex items-center gap-2">
@@ -512,6 +550,3 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
     </div>
   );
 }
-
-
-

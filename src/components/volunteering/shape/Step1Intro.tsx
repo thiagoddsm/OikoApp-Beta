@@ -1,23 +1,24 @@
 'use client';
 
 import React, { useState } from 'react';
-import { 
-  User, 
-  Mail, 
-  ArrowRight, 
-  Search, 
-  Loader2, 
-  CheckCircle2, 
-  Sparkles, 
-  Phone, 
-  RotateCcw,
+import {
+  User,
+  Mail,
+  ArrowRight,
+  Search,
+  Loader2,
+  CheckCircle2,
+  Sparkles,
   ShieldCheck,
   Globe,
   Heart,
   Wrench,
   Compass,
   FileText,
-  Quote
+  Quote,
+  AlertCircle,
+  RotateCcw,
+  BookmarkCheck,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -36,17 +37,37 @@ export interface Step1FormData {
   isMemberIdentified: boolean;
 }
 
+export interface SavedShapeProgress {
+  id: string;
+  status: 'in_progress' | 'completed';
+  currentStep: number;
+  abilities: string[];
+  availability: string[];
+  experiences: Record<string, string>;
+  heart: Record<string, string>;
+  personality: Record<string, number>;
+  gifts: Record<string, number>;
+  targetMinistry: string;
+}
+
 interface Step1IntroProps {
   formData: Step1FormData;
   updateFormData: (data: Partial<Step1FormData>) => void;
   onNext: () => void;
+  onRestoreProgress?: (progress: SavedShapeProgress, jumpToStep?: boolean) => void;
 }
 
-export default function Step1Intro({ formData, updateFormData, onNext }: Step1IntroProps) {
+export default function Step1Intro({
+  formData,
+  updateFormData,
+  onNext,
+  onRestoreProgress,
+}: Step1IntroProps) {
   const { toast } = useToast();
   const [emailInput, setEmailInput] = useState(formData.email || '');
   const [isSearching, setIsSearching] = useState(false);
-  const [lookupDone, setLookupDone] = useState(!!formData.isMemberIdentified || !!formData.name);
+  const [lookupDone, setLookupDone] = useState(!!formData.isMemberIdentified && !!formData.userId);
+  const [savedProgress, setSavedProgress] = useState<SavedShapeProgress | null>(null);
   const [foundMember, setFoundMember] = useState<{
     userId: string;
     realName: string;
@@ -55,15 +76,19 @@ export default function Step1Intro({ formData, updateFormData, onNext }: Step1In
     maskedPhone: string;
     gcId: string;
     gcName: string;
-  } | null>(formData.userId ? {
-    userId: formData.userId,
-    realName: formData.name,
-    maskedName: formData.name,
-    realPhone: formData.phone,
-    maskedPhone: formData.phone,
-    gcId: formData.gcId,
-    gcName: formData.gcName,
-  } : null);
+  } | null>(
+    formData.userId
+      ? {
+          userId: formData.userId,
+          realName: formData.name,
+          maskedName: formData.name,
+          realPhone: formData.phone,
+          maskedPhone: formData.phone,
+          gcId: formData.gcId,
+          gcName: formData.gcName,
+        }
+      : null
+  );
 
   const handleSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -71,7 +96,7 @@ export default function Step1Intro({ formData, updateFormData, onNext }: Step1In
       toast({
         variant: 'destructive',
         title: 'E-mail inválido',
-        description: 'Por favor, digite um e-mail válido para busca.',
+        description: 'Por favor, digite o e-mail utilizado na sua inscrição.',
       });
       return;
     }
@@ -100,20 +125,37 @@ export default function Step1Intro({ formData, updateFormData, onNext }: Step1In
           gcName: res.gcName || formData.gcName,
           isMemberIdentified: true,
         });
-        toast({
-          title: `Olá, ${res.maskedName}! 🎉`,
-          description: 'Localizamos seu cadastro de membro com sucesso.',
-        });
+
+        if (res.savedProgress) {
+          setSavedProgress(res.savedProgress);
+          if (onRestoreProgress) {
+            onRestoreProgress(res.savedProgress, false);
+          }
+          toast({
+            title: `Bem-vindo de volta, ${res.maskedName}! 🎉`,
+            description: 'Localizamos seu cadastro e carregamos seu progresso salvo.',
+          });
+        } else {
+          setSavedProgress(null);
+          toast({
+            title: `Olá, ${res.maskedName}! 🎉`,
+            description: 'Localizamos seu cadastro no sistema com sucesso.',
+          });
+        }
       } else {
         setFoundMember(null);
+        setSavedProgress(null);
         updateFormData({
           email: emailInput.toLowerCase().trim(),
+          name: '',
+          phone: '',
           userId: null,
           isMemberIdentified: false,
         });
         toast({
-          title: 'E-mail não cadastrado',
-          description: 'Informe seu nome e WhatsApp para continuar.',
+          variant: 'destructive',
+          title: 'Cadastro não localizado',
+          description: 'Verifique se digitou o mesmo e-mail usado na sua inscrição no curso.',
         });
       }
     } catch (err: any) {
@@ -130,6 +172,7 @@ export default function Step1Intro({ formData, updateFormData, onNext }: Step1In
   const handleResetSearch = () => {
     setLookupDone(false);
     setFoundMember(null);
+    setSavedProgress(null);
     setEmailInput('');
     updateFormData({
       email: '',
@@ -141,15 +184,15 @@ export default function Step1Intro({ formData, updateFormData, onNext }: Step1In
   };
 
   const handleStartDiscovery = () => {
-    if (!formData.email || (!formData.name && !formData.isMemberIdentified)) {
-      if (!lookupDone) {
+    if (!formData.userId || !formData.isMemberIdentified) {
+      if (!lookupDone && emailInput) {
         handleSearch();
         return;
       }
       toast({
         variant: 'destructive',
-        title: 'Identificação necessária',
-        description: 'Preencha seus dados para começar.',
+        title: 'Identificação obrigatória',
+        description: 'Localize seu cadastro de aluno/membro pelo e-mail antes de iniciar.',
       });
       return;
     }
@@ -165,18 +208,18 @@ export default function Step1Intro({ formData, updateFormData, onNext }: Step1In
             1
           </span>
           <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#523A8C]">
-            PASSO 1 DE 5 • INÍCIO
+            PASSO 1 DE 7 • IDENTIFICAÇÃO
           </span>
         </div>
         <span className="text-[11px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-          Etapa 1/5
+          Etapa 1/7
         </span>
       </div>
 
       {/* 2. Hero Card Principal */}
       <div className="bg-white rounded-3xl p-6 border border-slate-150 shadow-sm flex flex-col gap-4">
         <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#EDE8F5] text-[#523A8C] rounded-full text-[11px] font-bold uppercase tracking-wider w-max">
-          ⏱️ ETAPA INICIAL • 15 MIN
+          💾 SALVAMENTO POR ETAPA • 15 MIN
         </div>
 
         <h1 className="text-2xl sm:text-3xl font-black text-[#1E113F] tracking-tight leading-snug">
@@ -187,20 +230,11 @@ export default function Step1Intro({ formData, updateFormData, onNext }: Step1In
           Você foi planejado de forma única pelo Criador. Compreenda claramente seus dons espirituais, paixões e temperamento para servir com alegria genuína e propósito eterno (1 Coríntios 12).
         </p>
 
-        {/* Social Proof / Avatars */}
-        <div className="flex items-center gap-2 pt-1 border-t border-slate-100 mt-1">
-          <div className="flex -space-x-1.5">
-            {['GS', 'MF', 'AL'].map((initials, i) => (
-              <div
-                key={i}
-                className="w-6 h-6 rounded-full bg-[#6750A4] text-white flex items-center justify-center font-bold text-[9px] border-2 border-white ring-1 ring-slate-100"
-              >
-                {initials}
-              </div>
-            ))}
-          </div>
-          <span className="text-[11px] font-bold text-slate-500">
-            +140 servos moldados neste mês
+        {/* Social Proof / Info de Salvamento */}
+        <div className="flex items-center gap-2 pt-2 border-t border-slate-100 mt-1">
+          <BookmarkCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+          <span className="text-[11px] font-bold text-slate-600">
+            Suas respostas são salvas automaticamente a cada etapa concluída!
           </span>
         </div>
       </div>
@@ -245,7 +279,7 @@ export default function Step1Intro({ formData, updateFormData, onNext }: Step1In
                 SPIRITUAL GIFTS
               </span>
               <h4 className="text-xs font-black text-slate-800 leading-tight">
-                Dons Espirituais
+                Dons Espirituais (3 partes)
               </h4>
             </div>
           </div>
@@ -324,22 +358,27 @@ export default function Step1Intro({ formData, updateFormData, onNext }: Step1In
         </div>
       </div>
 
-      {/* 5. Dados do Servo / Identificação */}
+      {/* 5. Dados do Servo / Identificação Obrigatória */}
       <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-150 shadow-sm flex flex-col gap-4">
         <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
           <div className="w-7 h-7 rounded-lg bg-[#EDE8F5] text-[#523A8C] flex items-center justify-center">
             <User className="w-4 h-4" />
           </div>
-          <h3 className="font-extrabold text-sm sm:text-base text-[#1E113F]">
-            Dados do Servo
-          </h3>
+          <div>
+            <h3 className="font-extrabold text-sm sm:text-base text-[#1E113F] leading-tight">
+              Identificação do Aluno / Membro
+            </h3>
+            <p className="text-[11px] text-slate-500">
+              Utilize o mesmo e-mail cadastrado na sua inscrição do curso
+            </p>
+          </div>
         </div>
 
         {!lookupDone ? (
           <form onSubmit={handleSearch} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="email-search-mobile" className="text-xs font-bold text-slate-700">
-                E-mail Principal <span className="text-rose-500">*</span>
+                E-mail Cadastrado <span className="text-rose-500">*</span>
               </Label>
               <div className="relative">
                 <Mail className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
@@ -361,7 +400,7 @@ export default function Step1Intro({ formData, updateFormData, onNext }: Step1In
               className="w-full h-12 rounded-2xl font-bold bg-[#523A8C] hover:bg-[#432E75] text-white shadow-md flex items-center justify-center gap-2 text-sm"
             >
               {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-              <span>Localizar Cadastro</span>
+              <span>Localizar Meu Cadastro</span>
             </Button>
           </form>
         ) : foundMember ? (
@@ -373,7 +412,7 @@ export default function Step1Intro({ formData, updateFormData, onNext }: Step1In
                 </div>
                 <div>
                   <div className="flex items-center gap-1 text-[10px] font-extrabold uppercase text-[#523A8C]">
-                    <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Membro Confirmado
+                    <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Cadastro Vinculado
                   </div>
                   <h4 className="font-extrabold text-sm text-[#1E113F]">
                     {foundMember.maskedName || formData.name}
@@ -392,42 +431,79 @@ export default function Step1Intro({ formData, updateFormData, onNext }: Step1In
                 Trocar
               </button>
             </div>
+
+            {/* Banner de Progresso Salvo (Retomada) */}
+            {savedProgress && (
+              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex flex-col gap-3">
+                <div className="flex items-start gap-2.5">
+                  <BookmarkCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="text-xs font-black text-emerald-950 uppercase tracking-wide">
+                      {savedProgress.status === 'completed'
+                        ? 'Avaliação já concluída anteriormente!'
+                        : `Progresso Salvo Encontrado (Etapa ${savedProgress.currentStep} de 7)`}
+                    </h4>
+                    <p className="text-xs text-emerald-800 mt-0.5 leading-relaxed">
+                      {savedProgress.status === 'completed'
+                        ? 'Suas respostas já estão salvas. Você pode ir direto para o seu Cartão do Servo ou revisar suas respostas.'
+                        : `Você já respondeu ${Object.keys(savedProgress.gifts || {}).length} perguntas de dons e ${savedProgress.abilities?.length || 0} habilidades. Podemos continuar exatamente de onde você parou!`}
+                    </p>
+                  </div>
+                </div>
+
+                {onRestoreProgress && savedProgress.currentStep > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => onRestoreProgress(savedProgress, true)}
+                    className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                  >
+                    <span>
+                      {savedProgress.status === 'completed'
+                        ? 'Ver Meu Cartão do Servo (Resultado)'
+                        : `Continuar da Etapa ${savedProgress.currentStep}`}
+                    </span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={handleStartDiscovery}
+              className="w-full h-13 py-3.5 rounded-2xl font-black text-sm uppercase tracking-wider bg-[#523A8C] hover:bg-[#432E75] active:scale-98 text-white shadow-xl shadow-[#523A8C]/25 transition-all flex items-center justify-center gap-2"
+            >
+              <span>
+                {savedProgress ? 'Revisar desde a Etapa 2' : 'Começar Descoberta Vocacional'}
+              </span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
           </div>
         ) : (
-          <div className="space-y-3.5 animate-in fade-in">
-            <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-800 text-xs font-medium flex items-center justify-between">
-              <span>E-mail não cadastrado. Preencha seus dados:</span>
-              <button type="button" onClick={handleResetSearch} className="font-bold underline text-amber-900 ml-2">
-                Alterar
-              </button>
+          <div className="space-y-4 animate-in fade-in">
+            <div className="p-4 bg-rose-50 rounded-2xl border border-rose-200 text-rose-900 space-y-2">
+              <div className="flex items-center gap-2 font-extrabold text-xs text-rose-700 uppercase tracking-wide">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>Cadastro Prévio Necessário</span>
+              </div>
+              <p className="text-xs leading-relaxed text-rose-800">
+                Não encontramos nenhum aluno ou membro cadastrado com o e-mail{' '}
+                <strong>{emailInput}</strong>.
+              </p>
+              <p className="text-[11px] text-rose-700/90 leading-relaxed">
+                Para preencher o Molde de Servo, é imprescindível estar inscrito no curso / cadastrado no sistema da igreja. Verifique se digitou o e-mail corretamente ou tente outro e-mail que você utiliza.
+              </p>
             </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-700">
-                Nome Completo <span className="text-rose-500">*</span>
-              </Label>
-              <Input
-                required
-                placeholder="Ex: Ana Clara Silva"
-                value={formData.name}
-                onChange={(e) => updateFormData({ name: e.target.value })}
-                className="h-11 rounded-xl bg-slate-50 border-slate-200 text-sm"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-700">
-                WhatsApp <span className="text-rose-500">*</span>
-              </Label>
-              <Input
-                required
-                type="tel"
-                placeholder="(21) 99999-9999"
-                value={formData.phone}
-                onChange={(e) => updateFormData({ phone: e.target.value })}
-                className="h-11 rounded-xl bg-slate-50 border-slate-200 text-sm"
-              />
-            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleResetSearch}
+              className="w-full h-11 rounded-2xl font-bold text-xs border-slate-300 text-slate-700 flex items-center justify-center gap-2"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Tentar Outro E-mail</span>
+            </Button>
           </div>
         )}
 
@@ -435,19 +511,9 @@ export default function Step1Intro({ formData, updateFormData, onNext }: Step1In
         <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 flex items-center gap-2.5 text-[11px] text-slate-500 mt-1">
           <ShieldCheck className="w-4 h-4 text-[#523A8C] shrink-0" />
           <span>
-            Ambiente seguro. <strong>Protegido pela LGPD</strong> • Seus dados são confidenciais e para pastoreio.
+            Ambiente seguro. <strong>Protegido pela LGPD</strong> • Seus dados são vinculados ao seu cadastro pastoral.
           </span>
         </div>
-
-        {/* CTA Começar Descoberta Vocacional */}
-        <button
-          type="button"
-          onClick={handleStartDiscovery}
-          className="w-full h-13 py-3.5 rounded-2xl font-black text-sm uppercase tracking-wider bg-[#523A8C] hover:bg-[#432E75] active:scale-98 text-white shadow-xl shadow-[#523A8C]/25 transition-all flex items-center justify-center gap-2 mt-2"
-        >
-          <span>Começar Descoberta Vocacional</span>
-          <ArrowRight className="w-4 h-4" />
-        </button>
       </div>
     </div>
   );
