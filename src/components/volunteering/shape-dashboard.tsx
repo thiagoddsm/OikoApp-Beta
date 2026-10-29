@@ -1,11 +1,29 @@
 'use client';
 
 import { useState } from 'react';
-import { ShapeResult, QUADRANTE_META, HABILIDADES_MAP, ShapeQuadrante } from '@/types/shape';
+import {
+  ShapeResult,
+  QUADRANTE_META,
+  HABILIDADES_MAP,
+  ShapeQuadrante,
+  calculateShapeCompletion,
+} from '@/types/shape';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Search, LayoutGrid, List, Sparkles, User, Briefcase, Heart, Calendar, RefreshCw, CheckCircle2, Clock } from 'lucide-react';
+import {
+  Search,
+  LayoutGrid,
+  List,
+  Sparkles,
+  User,
+  Briefcase,
+  Heart,
+  Calendar,
+  RefreshCw,
+  CheckCircle2,
+  Clock,
+} from 'lucide-react';
 import { getShapeResults } from '@/app/dashboard/volunteering/molde-de-servo/actions';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -89,6 +107,8 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
   };
 
   const renderInitials = (name: string) => (name || 'U').substring(0, 2).toUpperCase();
+
+  const selectedCompletion = selectedPerson ? calculateShapeCompletion(selectedPerson) : null;
 
   return (
     <div className="space-y-6">
@@ -175,68 +195,96 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                 </div>
                 
                 <div className="space-y-3">
-                  {colItems.map(item => (
-                    <Card 
-                      key={item.id} 
-                      className="cursor-pointer hover:shadow-md transition-all hover:border-slate-300"
-                      onClick={() => setSelectedPerson(item)}
-                    >
-                      <CardContent className="p-4 space-y-3">
-                        <div className="flex justify-between items-start gap-2">
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-10 w-10">
-                              <AvatarFallback className={`${meta.bg} ${meta.color} font-bold`}>
-                                {renderInitials(item.nome)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <p className="font-semibold text-sm line-clamp-1">{item.nome}</p>
-                              <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                <Calendar className="w-3 h-3" />
-                                {item.createdAt ? new Date(item.createdAt).toLocaleDateString('pt-BR') : '-'}
-                              </p>
+                  {colItems.map(item => {
+                    const comp = calculateShapeCompletion(item);
+                    const pct = item.completionPercentage ?? comp.percentage;
+                    const hasGifts = comp.giftsAnswered > 0 || (item.top3?.[0]?.score ?? 0) > 0;
+
+                    return (
+                      <Card 
+                        key={item.id} 
+                        className="cursor-pointer hover:shadow-md transition-all hover:border-slate-300"
+                        onClick={() => setSelectedPerson(item)}
+                      >
+                        <CardContent className="p-4 space-y-3">
+                          <div className="flex justify-between items-start gap-2">
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-10 w-10">
+                                <AvatarFallback className={`${meta.bg} ${meta.color} font-bold`}>
+                                  {renderInitials(item.nome)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="font-semibold text-sm line-clamp-1">{item.nome}</p>
+                                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                  <Calendar className="w-3 h-3" />
+                                  {item.createdAt ? new Date(item.createdAt).toLocaleDateString('pt-BR') : '-'}
+                                </p>
+                              </div>
+                            </div>
+
+                            {item.status === 'in_progress' ? (
+                              <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200 shrink-0 font-bold">
+                                {pct}% • Etapa {item.currentStep || 2}/7
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 shrink-0 font-bold">
+                                100% Concluído
+                              </Badge>
+                            )}
+                          </div>
+
+                          {/* Mini barra de progresso do card */}
+                          <div className="space-y-1">
+                            <div className="flex justify-between items-center text-[10px] text-slate-500">
+                              <span>Preenchimento</span>
+                              <span className="font-bold text-slate-700">{pct}%</span>
+                            </div>
+                            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all ${
+                                  pct >= 100 ? 'bg-emerald-500' : pct >= 70 ? 'bg-indigo-500' : 'bg-amber-500'
+                                }`}
+                                style={{ width: `${pct}%` }}
+                              />
                             </div>
                           </div>
 
-                          {item.status === 'in_progress' ? (
-                            <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200 shrink-0">
-                              Etapa {item.currentStep || 2}/7
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 shrink-0">
-                              Concluído
-                            </Badge>
+                          {item.gcInfo && (
+                            <div className="text-xs text-slate-500">
+                              <strong>GC:</strong> {item.gcInfo}
+                            </div>
                           )}
-                        </div>
 
-                        {item.gcInfo && (
-                          <div className="text-xs text-slate-500">
-                            <strong>GC:</strong> {item.gcInfo}
-                          </div>
-                        )}
-
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {item.top3?.map((dom, i) => (
-                            <Badge key={i} variant="outline" className="text-[10px] py-0 px-1.5 h-5 bg-slate-50">
-                              {dom.nome || dom.name}
-                            </Badge>
-                          ))}
-                        </div>
-
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {(item.habilidades || []).slice(0, 3).map((habId, i) => {
-                            const oldHab = HABILIDADES_MAP[habId];
-                            const label = oldHab ? `${oldHab.icon} ${oldHab.nome}` : habId;
-                            return (
-                              <Badge key={i} variant="secondary" className="text-[10px] py-0 px-1.5 h-5 bg-slate-100 text-slate-600 truncate max-w-full">
-                                {label}
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {hasGifts ? (
+                              item.top3?.map((dom, i) => (
+                                <Badge key={i} variant="outline" className="text-[10px] py-0 px-1.5 h-5 bg-slate-50">
+                                  {dom.nome || dom.name}
+                                </Badge>
+                              ))
+                            ) : (
+                              <Badge variant="outline" className="text-[10px] py-0 px-1.5 h-5 bg-slate-50 text-slate-400 border-dashed">
+                                Dons pendentes ({comp.giftsAnswered}/133)
                               </Badge>
-                            );
-                          })}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                            )}
+                          </div>
+
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {(item.habilidades || []).slice(0, 3).map((habId, i) => {
+                              const oldHab = HABILIDADES_MAP[habId];
+                              const label = oldHab ? `${oldHab.icon} ${oldHab.nome}` : habId;
+                              return (
+                                <Badge key={i} variant="secondary" className="text-[10px] py-0 px-1.5 h-5 bg-slate-100 text-slate-600 truncate max-w-full">
+                                  {label}
+                                </Badge>
+                              );
+                            })}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                   {colItems.length === 0 && (
                     <div className="text-center text-sm text-slate-400 py-8 border-2 border-dashed rounded-xl border-slate-200">
                       Nenhum resultado
@@ -256,7 +304,7 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
             <TableHeader>
               <TableRow>
                 <TableHead>Nome</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Progresso / Status</TableHead>
                 <TableHead>Quadrante</TableHead>
                 <TableHead>Top 1 Dom</TableHead>
                 <TableHead>Habilidades</TableHead>
@@ -268,19 +316,33 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
             <TableBody>
               {filteredResults.map(item => {
                 const meta = QUADRANTE_META[item.quadrante];
+                const comp = calculateShapeCompletion(item);
+                const pct = item.completionPercentage ?? comp.percentage;
+                const hasGifts = comp.giftsAnswered > 0 || (item.top3?.[0]?.score ?? 0) > 0;
+
                 return (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">{item.nome}</TableCell>
                     <TableCell>
-                      {item.status === 'in_progress' ? (
-                        <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
-                          Em andamento ({item.currentStep || 2}/7)
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">
-                          Concluído
-                        </Badge>
-                      )}
+                      <div className="flex flex-col gap-1 min-w-[130px]">
+                        {item.status === 'in_progress' ? (
+                          <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200 w-fit font-bold">
+                            {pct}% • Etapa {item.currentStep || 2}/7
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 w-fit font-bold">
+                            100% Concluído
+                          </Badge>
+                        )}
+                        <div className="w-28 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${
+                              pct >= 100 ? 'bg-emerald-500' : pct >= 70 ? 'bg-indigo-500' : 'bg-amber-500'
+                            }`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
                     </TableCell>
                     <TableCell>
                       {meta && (
@@ -289,7 +351,11 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                         </Badge>
                       )}
                     </TableCell>
-                    <TableCell>{item.top3?.[0]?.nome || item.top3?.[0]?.name || '-'}</TableCell>
+                    <TableCell>
+                      {hasGifts ? (item.top3?.[0]?.nome || item.top3?.[0]?.name || '-') : (
+                        <span className="text-xs text-slate-400 italic">Pendente ({comp.giftsAnswered}/133)</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <div className="flex gap-1 text-lg">
                         {(item.habilidades || []).slice(0, 3).map((habId, i) => {
@@ -327,22 +393,22 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
 
       {/* Dialog Detalhes */}
       <Dialog open={!!selectedPerson} onOpenChange={(open) => !open && setSelectedPerson(null)}>
-        {selectedPerson && (
+        {selectedPerson && selectedCompletion && (
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex flex-wrap items-center gap-2 mb-1">
                 {selectedPerson.userId && (
                   <Badge variant="outline" className="text-[10px] bg-slate-100 text-slate-700">
                     ID Vinculado: {selectedPerson.userId}
                   </Badge>
                 )}
                 {selectedPerson.status === 'in_progress' ? (
-                  <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
-                    Em andamento (Etapa {selectedPerson.currentStep || 2} de 7)
+                  <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200 font-bold">
+                    Em andamento (Etapa {selectedPerson.currentStep || 2} de 7 • {selectedPerson.completionPercentage ?? selectedCompletion.percentage}% preenchido)
                   </Badge>
                 ) : (
-                  <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">
-                    Avaliação Concluída
+                  <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 font-bold">
+                    100% Concluído
                   </Badge>
                 )}
               </div>
@@ -358,7 +424,81 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
             </DialogHeader>
 
             <div className="space-y-6 mt-4">
-              
+              {/* Card de Progresso do Preenchimento (%) */}
+              <section className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-slate-700">
+                    Progresso do Formulário S.H.A.P.E.
+                  </span>
+                  <span className="text-sm font-black text-indigo-700">
+                    {selectedPerson.completionPercentage ?? selectedCompletion.percentage}% preenchido
+                  </span>
+                </div>
+                <div className="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-300 ${
+                      (selectedPerson.completionPercentage ?? selectedCompletion.percentage) >= 100
+                        ? 'bg-emerald-500'
+                        : (selectedPerson.completionPercentage ?? selectedCompletion.percentage) >= 70
+                        ? 'bg-indigo-600'
+                        : 'bg-amber-500'
+                    }`}
+                    style={{ width: `${selectedPerson.completionPercentage ?? selectedCompletion.percentage}%` }}
+                  />
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                  <div className="bg-white border border-slate-200/80 rounded-lg p-2.5 flex items-center gap-2">
+                    {selectedCompletion.heartDone ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    ) : (
+                      <Clock className="w-4 h-4 text-amber-500 shrink-0" />
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold text-slate-700 truncate">Coração (Aula 1)</p>
+                      <p className="text-[10px] text-slate-500">{selectedCompletion.heartAnswered}/5 questões</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-white border border-slate-200/80 rounded-lg p-2.5 flex items-center gap-2">
+                    {selectedCompletion.giftsDone ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    ) : (
+                      <Clock className="w-4 h-4 text-amber-500 shrink-0" />
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold text-slate-700 truncate">Dons (Aula 1)</p>
+                      <p className="text-[10px] text-slate-500">{selectedCompletion.giftsAnswered}/133 questões</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-white border border-slate-200/80 rounded-lg p-2.5 flex items-center gap-2">
+                    {selectedCompletion.persoDone ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    ) : (
+                      <Clock className="w-4 h-4 text-amber-500 shrink-0" />
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold text-slate-700 truncate">Personalidade (Aula 2)</p>
+                      <p className="text-[10px] text-slate-500">
+                        {selectedCompletion.persoDone ? 'Respondido' : `${selectedCompletion.persoAnswered}/6 escalas`}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-white border border-slate-200/80 rounded-lg p-2.5 flex items-center gap-2">
+                    {selectedCompletion.abilitiesDone ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    ) : (
+                      <Clock className="w-4 h-4 text-amber-500 shrink-0" />
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold text-slate-700 truncate">Habilidades (Aula 2)</p>
+                      <p className="text-[10px] text-slate-500">{selectedCompletion.abilitiesCount} selecionadas</p>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
               {/* Personalidade */}
               <section className="space-y-3">
                 <h3 className="font-semibold text-lg flex items-center gap-2">
@@ -366,11 +506,18 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                 </h3>
                 {QUADRANTE_META[selectedPerson.quadrante] && (
                   <div className={`p-4 rounded-xl border ${QUADRANTE_META[selectedPerson.quadrante].bg} ${QUADRANTE_META[selectedPerson.quadrante].border}`}>
-                    <div className="flex items-center gap-2 font-medium mb-2">
-                      <span className="text-2xl">{QUADRANTE_META[selectedPerson.quadrante].emoji}</span>
-                      <span className={`text-lg ${QUADRANTE_META[selectedPerson.quadrante].color}`}>
-                        {QUADRANTE_META[selectedPerson.quadrante].label}
-                      </span>
+                    <div className="flex items-center justify-between gap-2 font-medium mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl">{QUADRANTE_META[selectedPerson.quadrante].emoji}</span>
+                        <span className={`text-lg ${QUADRANTE_META[selectedPerson.quadrante].color}`}>
+                          {QUADRANTE_META[selectedPerson.quadrante].label}
+                        </span>
+                      </div>
+                      {!selectedCompletion.persoDone && (
+                        <Badge variant="outline" className="text-[10px] bg-white/80 text-amber-700 border-amber-200">
+                          Aguardando Aula 2 (Valor padrão 3.0)
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-sm font-medium text-slate-600 mt-1">
                       Organização: {Number(selectedPerson.orgScore || 3).toFixed(1)}/5 | Motivação: {Number(selectedPerson.motScore || 3).toFixed(1)}/5
@@ -387,21 +534,27 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                 <h3 className="font-semibold text-lg flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-slate-500" /> Top 3 Dons Espirituais
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {selectedPerson.top3?.map((dom, i) => (
-                    <Card key={i} className="bg-slate-50">
-                      <CardHeader className="p-4 pb-2">
-                        <CardTitle className="text-sm font-bold flex justify-between">
-                          {dom.nome || dom.name}
-                          <Badge variant="secondary">{dom.score}pts</Badge>
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="p-4 pt-0 text-xs text-slate-500">
-                        {dom.desc || 'Sem descrição.'}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                {selectedCompletion.giftsAnswered === 0 && (selectedPerson.top3?.[0]?.score ?? 0) === 0 ? (
+                  <div className="p-4 rounded-xl border border-dashed border-slate-200 bg-slate-50 text-center text-sm text-slate-500">
+                    Inventário de Dons Espirituais ainda não respondido ({selectedCompletion.giftsAnswered}/133 questões). Os dons serão calculados quando o aluno avançar pelas etapas 3, 4 e 5 da Aula 1.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {selectedPerson.top3?.map((dom, i) => (
+                      <Card key={i} className="bg-slate-50">
+                        <CardHeader className="p-4 pb-2">
+                          <CardTitle className="text-sm font-bold flex justify-between">
+                            {dom.nome || dom.name}
+                            <Badge variant="secondary">{dom.score}pts</Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-4 pt-0 text-xs text-slate-500">
+                          {dom.desc || 'Sem descrição.'}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
               </section>
 
               {/* Habilidades */}
@@ -409,17 +562,21 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                 <h3 className="font-semibold text-lg flex items-center gap-2">
                   <Briefcase className="w-5 h-5 text-slate-500" /> Habilidades Profissionais
                 </h3>
-                <div className="flex flex-wrap gap-2">
-                  {(selectedPerson.habilidades || []).map((habId, i) => {
-                    const oldHab = HABILIDADES_MAP[habId];
-                    const label = oldHab ? `${oldHab.icon} ${oldHab.nome}` : habId;
-                    return (
-                      <Badge key={i} variant="outline" className="px-3 py-1.5 text-sm bg-white">
-                        {label}
-                      </Badge>
-                    );
-                  })}
-                </div>
+                {(selectedPerson.habilidades || []).length === 0 ? (
+                  <p className="text-xs text-slate-400 italic">Nenhuma habilidade selecionada ainda (etapa da Aula 2).</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {(selectedPerson.habilidades || []).map((habId, i) => {
+                      const oldHab = HABILIDADES_MAP[habId];
+                      const label = oldHab ? `${oldHab.icon} ${oldHab.nome}` : habId;
+                      return (
+                        <Badge key={i} variant="outline" className="px-3 py-1.5 text-sm bg-white">
+                          {label}
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                )}
               </section>
 
               {/* Experiências e Disponibilidade */}

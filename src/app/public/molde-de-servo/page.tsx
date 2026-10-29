@@ -6,29 +6,31 @@ import Step2Abilities from '@/components/volunteering/shape/Step2Abilities';
 import Step3Heart from '@/components/volunteering/shape/Step3Heart';
 import Step4Gifts, { GIFT_PARTS_RANGES } from '@/components/volunteering/shape/Step4Gifts';
 import Step5Result from '@/components/volunteering/shape/Step5Result';
-import { ArrowLeft, ArrowRight, User, Loader2, Save } from 'lucide-react';
+import { ArrowLeft, ArrowRight, User, Loader2, Save, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { SHAPE_DATA } from '@/lib/shape-complete-data';
+import { calculateShapeCompletion } from '@/types/shape';
 import { saveShapeStepProgress } from './actions';
 
 const TOTAL_STEPS = 7;
 
 const STEP_SUBTITLES: Record<number, string> = {
   1: 'Identificação do Aluno',
-  2: 'Habilidades & Disponibilidade',
-  3: 'Coração & Personalidade',
-  4: 'Inventário de Dons (Parte 1 de 3)',
-  5: 'Inventário de Dons (Parte 2 de 3)',
-  6: 'Inventário de Dons (Parte 3 de 3)',
-  7: 'Cartão do Servo • Resultado',
+  2: '📘 Aula 1 • Coração & Sonho Ministerial',
+  3: '📘 Aula 1 • Dons Espirituais (Parte 1 de 3)',
+  4: '📘 Aula 1 • Dons Espirituais (Parte 2 de 3)',
+  5: '📘 Aula 1 • Dons Espirituais (Parte 3 de 3)',
+  6: '📗 Aula 2 • Personalidade & Habilidades',
+  7: '✨ Cartão do Servo • Resultado',
 };
 
 export default function MoldeDeServoPage() {
   const { toast } = useToast();
   const [step, setStep] = useState(1);
   const [isSavingStep, setIsSavingStep] = useState(false);
+  const [aula1CompletedBanner, setAula1CompletedBanner] = useState(false);
 
-  // Step 1: Identificação (vinculada obrigatoriamente a um userId)
+  // Passo 1: Identificação (vinculada obrigatoriamente a um userId)
   const [formData, setFormData] = useState<Step1FormData>({
     email: '',
     name: '',
@@ -40,17 +42,29 @@ export default function MoldeDeServoPage() {
     isMemberIdentified: false,
   });
 
-  // Step 2: Habilidades & Experiências
+  // Passo 2 (Aula 1): Coração & Sonho Ministerial
+  const [heartAnswers, setHeartAnswers] = useState<Record<string, string>>({});
+
+  // Passos 3, 4 e 5 (Aula 1): Dons Espirituais (133 questões divididas em 3 páginas)
+  const [giftAnswers, setGiftAnswers] = useState<Record<string, number>>({});
+
+  // Passo 6 (Aula 2): Personalidade & Habilidades
+  const [personalityAnswers, setPersonalityAnswers] = useState<Record<string, number>>({});
   const [selectedAbilities, setSelectedAbilities] = useState<string[]>([]);
   const [experiences, setExperiences] = useState<Record<string, string>>({});
   const [availability, setAvailability] = useState<string[]>([]);
 
-  // Step 3: Coração & Personalidade
-  const [heartAnswers, setHeartAnswers] = useState<Record<string, string>>({});
-  const [personalityAnswers, setPersonalityAnswers] = useState<Record<string, number>>({});
-
-  // Steps 4, 5 e 6: Dons Espirituais (133 questões divididas em 3 páginas)
-  const [giftAnswers, setGiftAnswers] = useState<Record<string, number>>({});
+  const completionInfo = calculateShapeCompletion({
+    coracao: heartAnswers,
+    dom: giftAnswers,
+    perso: personalityAnswers,
+    habilidades: selectedAbilities,
+    experiencias: {
+      ...experiences,
+      availability: availability.join(', '),
+    },
+    status: step === 7 ? 'completed' : 'in_progress',
+  });
 
   const updateFormData = (data: Partial<Step1FormData>) => {
     setFormData((prev) => ({ ...prev, ...data }));
@@ -158,7 +172,7 @@ export default function MoldeDeServoPage() {
   const handleNext = async () => {
     if (isSavingStep) return;
 
-    // Validação Step 1: Obrigatório possuir userId do sistema
+    // Passo 1: Identificação obrigatória com userId do sistema
     if (step === 1) {
       if (!formData.userId || !formData.isMemberIdentified) {
         toast({
@@ -173,22 +187,13 @@ export default function MoldeDeServoPage() {
       return;
     }
 
-    // Validação e Salvamento Step 2: Habilidades & Disponibilidade
+    // Passo 2 (Aula 1): Coração & Sonho Ministerial
     if (step === 2) {
-      if (selectedAbilities.length === 0) {
-        toast({
-          variant: 'destructive',
-          title: 'Selecione suas habilidades',
-          description: 'Por favor, selecione pelo menos 1 habilidade para salvar e continuar.',
-        });
-        return;
-      }
-
       const ok = await persistCurrentProgress(3, false);
       if (ok) {
         toast({
-          title: 'Etapa salva! 💾',
-          description: 'Suas habilidades e disponibilidade foram salvas com sucesso.',
+          title: 'Coração & Sonho Ministerial salvos! 💾',
+          description: 'Agora vamos para a Parte 1 do Inventário de Dons Espirituais.',
         });
         setStep(3);
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -196,35 +201,21 @@ export default function MoldeDeServoPage() {
       return;
     }
 
-    // Validação e Salvamento Step 3: Coração & Personalidade
-    if (step === 3) {
-      const ok = await persistCurrentProgress(4, false);
-      if (ok) {
-        toast({
-          title: 'Etapa salva! 💾',
-          description: 'Suas respostas de Coração e Personalidade foram salvas.',
-        });
-        setStep(4);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
-      return;
-    }
-
-    // Validação e Salvamento Steps 4, 5 e 6: Dons Espirituais (Partes 1, 2 e 3)
-    if (step === 4 || step === 5 || step === 6) {
-      const partNum = (step - 3) as 1 | 2 | 3;
+    // Passos 3, 4 e 5 (Aula 1): Dons Espirituais (Partes 1, 2 e 3)
+    if (step === 3 || step === 4 || step === 5) {
+      const partNum = (step - 2) as 1 | 2 | 3;
       const range = GIFT_PARTS_RANGES[partNum];
       const partQuestions = SHAPE_DATA.giftQuestions.slice(range.start, range.end);
       const unansweredInPart = partQuestions.filter((q) => giftAnswers[q.id] === undefined);
 
       if (unansweredInPart.length > 0) {
-        // Mesmo faltando perguntas na página, salvamos o rascunho atual para não perder nada!
+        // Salva o rascunho atual mesmo que faltem perguntas na página
         await persistCurrentProgress(step, false);
 
         toast({
           variant: 'destructive',
           title: `Faltam ${unansweredInPart.length} questões nesta página`,
-          description: `Suas respostas já marcadas foram salvas! Responda as questões restantes desta parte para avançar.`,
+          description: 'Suas respostas já marcadas foram salvas! Responda as questões restantes desta parte para avançar.',
         });
 
         const firstMissingEl = document.getElementById(`gift-question-${unansweredInPart[0].id}`);
@@ -234,20 +225,47 @@ export default function MoldeDeServoPage() {
         return;
       }
 
-      const isFinalGiftPart = step === 6;
+      const isEndOfAula1 = step === 5;
       const nextStepNum = step + 1;
-      const ok = await persistCurrentProgress(nextStepNum, isFinalGiftPart);
+      const ok = await persistCurrentProgress(nextStepNum, false);
 
       if (ok) {
-        toast({
-          title: isFinalGiftPart
-            ? 'Molde de Servo concluído! 🎉'
-            : `Parte ${partNum} de 3 salva com sucesso! 💾`,
-          description: isFinalGiftPart
-            ? 'Seu Cartão do Servo foi gerado e vinculado ao seu perfil.'
-            : 'Progresso gravado. Vamos para a próxima parte dos dons!',
-        });
+        if (isEndOfAula1) {
+          setAula1CompletedBanner(true);
+          toast({
+            title: 'Etapa da Aula 1 concluída e salva! 🎉',
+            description: 'Seus Dons e Coração foram salvos (70% concluído). Você pode parar por aqui hoje ou seguir para a Aula 2!',
+          });
+        } else {
+          toast({
+            title: `Parte ${partNum} de 3 salva com sucesso! 💾`,
+            description: 'Progresso gravado. Vamos para a próxima página de dons!',
+          });
+        }
         setStep(nextStepNum);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      return;
+    }
+
+    // Passo 6 (Aula 2): Personalidade & Habilidades -> Finaliza o Molde de Servo (100%)
+    if (step === 6) {
+      if (selectedAbilities.length === 0) {
+        toast({
+          variant: 'destructive',
+          title: 'Selecione suas habilidades',
+          description: 'Por favor, selecione pelo menos 1 habilidade prática na seção 2 antes de gerar seu Cartão do Servo.',
+        });
+        return;
+      }
+
+      const ok = await persistCurrentProgress(7, true);
+      if (ok) {
+        toast({
+          title: 'Molde de Servo 100% concluído! 🎉',
+          description: 'Seu Cartão do Servo foi gerado e salvo no seu perfil.',
+        });
+        setStep(7);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
       return;
@@ -262,12 +280,12 @@ export default function MoldeDeServoPage() {
 
   const getNextButtonLabel = () => {
     if (isSavingStep) return 'Salvando...';
-    if (step === 1) return 'Avançar';
-    if (step === 2) return 'Salvar Habilidades e Avançar';
-    if (step === 3) return 'Salvar Coração e Avançar';
-    if (step === 4) return 'Salvar Parte 1 e Avançar';
-    if (step === 5) return 'Salvar Parte 2 e Avançar';
-    if (step === 6) return 'Finalizar e Gerar Cartão';
+    if (step === 1) return 'Avançar para Aula 1';
+    if (step === 2) return 'Salvar Coração e Ir para Dons';
+    if (step === 3) return 'Salvar Parte 1 e Avançar';
+    if (step === 4) return 'Salvar Parte 2 e Avançar';
+    if (step === 5) return 'Salvar e Concluir Aula 1';
+    if (step === 6) return 'Finalizar Aula 2 e Gerar Cartão';
     return 'Avançar';
   };
 
@@ -305,16 +323,16 @@ export default function MoldeDeServoPage() {
           </div>
         </div>
 
-        {/* Barra de Progresso Superior com indicador "Passo X de 7" */}
-        <div className="w-full bg-slate-100 relative h-1">
+        {/* Barra de Progresso Superior */}
+        <div className="w-full bg-slate-100 relative h-1.5">
           <div
             className="h-full bg-[#6750A4] transition-all duration-300 ease-out"
-            style={{ width: `${(step / TOTAL_STEPS) * 100}%` }}
+            style={{ width: `${Math.max(completionInfo.percentage, Math.round((step / TOTAL_STEPS) * 100))}%` }}
           />
         </div>
         <div className="max-w-md md:max-w-4xl mx-auto px-4 py-1 flex items-center justify-between">
           <span className="text-[10px] font-medium text-emerald-700">
-            {formData.userId ? '✓ Vinculado ao seu cadastro' : 'Identifique-se para iniciar'}
+            {formData.userId ? `✓ Vinculado • ${completionInfo.percentage}% preenchido` : 'Identifique-se para iniciar'}
           </span>
           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
             Passo {step} de {TOTAL_STEPS}
@@ -325,6 +343,23 @@ export default function MoldeDeServoPage() {
       {/* Conteúdo Principal Adaptado ao Mobile & Desktop */}
       <main className="flex-1 w-full pt-20 sm:pt-24 pb-28">
         <div className="max-w-md md:max-w-3xl mx-auto px-4 sm:px-6">
+          {/* Checkpoint Banner quando acaba de concluir a Aula 1 (Passo 5 -> 6) */}
+          {step === 6 && aula1CompletedBanner && (
+            <div className="mb-6 bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-4 sm:p-5 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <h3 className="text-sm font-extrabold text-emerald-950">
+                    Parabéns! Você concluiu a etapa da Aula 1 (70% do formulário salvo)
+                  </h3>
+                  <p className="text-xs text-emerald-800 leading-relaxed">
+                    Suas respostas de <strong>Coração</strong> e os seus <strong>Dons Espirituais</strong> já estão salvos no seu perfil. Se a sua <strong>Aula 2</strong> for em outro dia, você já pode fechar esta página tranquilamente — quando voltar, basta digitar seu e-mail para continuar direto daqui!
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {step === 1 && (
             <Step1Intro
               formData={formData}
@@ -334,6 +369,33 @@ export default function MoldeDeServoPage() {
             />
           )}
           {step === 2 && (
+            <Step3Heart
+              heartAnswers={heartAnswers}
+              onHeartChange={handleHeartChange}
+            />
+          )}
+          {step === 3 && (
+            <Step4Gifts
+              partNumber={1}
+              giftAnswers={giftAnswers}
+              onGiftAnswer={handleGiftAnswer}
+            />
+          )}
+          {step === 4 && (
+            <Step4Gifts
+              partNumber={2}
+              giftAnswers={giftAnswers}
+              onGiftAnswer={handleGiftAnswer}
+            />
+          )}
+          {step === 5 && (
+            <Step4Gifts
+              partNumber={3}
+              giftAnswers={giftAnswers}
+              onGiftAnswer={handleGiftAnswer}
+            />
+          )}
+          {step === 6 && (
             <Step2Abilities
               selectedAbilities={selectedAbilities}
               onToggleAbility={handleToggleAbility}
@@ -341,35 +403,9 @@ export default function MoldeDeServoPage() {
               onExperienceChange={handleExperienceChange}
               availability={availability}
               onToggleAvailability={handleToggleAvailability}
-            />
-          )}
-          {step === 3 && (
-            <Step3Heart
-              heartAnswers={heartAnswers}
-              onHeartChange={handleHeartChange}
               personalityAnswers={personalityAnswers}
               onPersonalityChange={handlePersonalityChange}
-            />
-          )}
-          {step === 4 && (
-            <Step4Gifts
-              partNumber={1}
               giftAnswers={giftAnswers}
-              onGiftAnswer={handleGiftAnswer}
-            />
-          )}
-          {step === 5 && (
-            <Step4Gifts
-              partNumber={2}
-              giftAnswers={giftAnswers}
-              onGiftAnswer={handleGiftAnswer}
-            />
-          )}
-          {step === 6 && (
-            <Step4Gifts
-              partNumber={3}
-              giftAnswers={giftAnswers}
-              onGiftAnswer={handleGiftAnswer}
             />
           )}
           {step === 7 && (

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { CheckCircle2, Layers, Lightbulb, BookmarkCheck } from 'lucide-react';
+import { CheckCircle2, Lightbulb, BookmarkCheck, Sparkles } from 'lucide-react';
 import { SHAPE_DATA } from '@/lib/shape-complete-data';
 
 interface Step4GiftsProps {
@@ -18,9 +18,9 @@ const SCALE_OPTIONS = [
 ];
 
 export const GIFT_PARTS_RANGES: Record<1 | 2 | 3, { start: number; end: number; stepNum: number; title: string }> = {
-  1: { start: 0, end: 45, stepNum: 4, title: 'Inventário de Dons (Parte 1 de 3)' },
-  2: { start: 45, end: 90, stepNum: 5, title: 'Inventário de Dons (Parte 2 de 3)' },
-  3: { start: 90, end: 133, stepNum: 6, title: 'Inventário de Dons (Parte 3 de 3)' },
+  1: { start: 0, end: 45, stepNum: 3, title: 'Inventário de Dons (Parte 1 de 3)' },
+  2: { start: 45, end: 90, stepNum: 4, title: 'Inventário de Dons (Parte 2 de 3)' },
+  3: { start: 90, end: 133, stepNum: 5, title: 'Inventário de Dons (Parte 3 de 3)' },
 };
 
 export default function Step4Gifts({
@@ -65,7 +65,7 @@ export default function Step4Gifts({
       <div className="bg-white rounded-2xl p-4 border border-slate-150 shadow-sm flex flex-col gap-2.5 sticky top-[76px] z-30">
         <div className="flex items-center justify-between text-xs">
           <span className="font-extrabold text-[#523A8C] uppercase tracking-wider text-[10px]">
-            • Passo {range.stepNum} de 7 • {range.title}
+            📘 Aula 1 • Passo {range.stepNum} de 7 • {range.title}
           </span>
           <span className="font-bold text-slate-600 text-[10px]">
             Página: {partAnsweredCount}/{partTotal} • Total: {totalAnsweredCount}/{totalQuestions}
@@ -177,18 +177,18 @@ export default function Step4Gifts({
       {/* 4. Aviso de Salvamento ao final da Parte */}
       <div className="p-4 bg-[#EDE8F5]/60 rounded-2xl border border-[#523A8C]/15 flex items-start gap-3 mt-1">
         <div className="w-8 h-8 rounded-xl bg-[#523A8C] text-white flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
-          <BookmarkCheck className="w-4 h-4" />
+          {partNumber < 3 ? <BookmarkCheck className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
         </div>
         <div className="flex flex-col">
           <h4 className="text-xs font-black text-[#1E113F]">
             {partNumber < 3
               ? `Fim da Parte ${partNumber} de 3 (Questões ${range.start + 1} a ${range.end})`
-              : 'Fim da Parte 3 de 3 • Pronto para Gerar seu Cartão!'}
+              : 'Fim da Parte 3 de 3 • Conclusão da Etapa da Aula 1!'}
           </h4>
           <p className="text-[11px] text-slate-600 mt-0.5 leading-relaxed">
             {partNumber < 3
               ? 'Ao clicar em "Salvar e Avançar" na barra inferior, todas as suas respostas até aqui serão gravadas com segurança no seu cadastro.'
-              : 'Ao clicar em "Salvar e Ver Resultado", seu diagnóstico completo será gravado e seu Cartão do Servo será emitido.'}
+              : 'Ao clicar em "Salvar e Concluir Aula 1", seus Dons Espirituais ficarão gravados! Você poderá parar por aqui até a Aula 2 ou prosseguir se já estiver na Aula 2.'}
           </p>
         </div>
       </div>

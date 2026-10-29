@@ -41,6 +41,7 @@ export interface SavedShapeProgress {
   id: string;
   status: 'in_progress' | 'completed';
   currentStep: number;
+  completionPercentage?: number;
   abilities: string[];
   availability: string[];
   experiences: Record<string, string>;
@@ -133,7 +134,7 @@ export default function Step1Intro({
           }
           toast({
             title: `Bem-vindo de volta, ${res.maskedName}! 🎉`,
-            description: 'Localizamos seu cadastro e carregamos seu progresso salvo.',
+            description: `Progresso de ${res.savedProgress.completionPercentage ?? 0}% carregado com sucesso.`,
           });
         } else {
           setSavedProgress(null);
@@ -219,7 +220,7 @@ export default function Step1Intro({
       {/* 2. Hero Card Principal */}
       <div className="bg-white rounded-3xl p-6 border border-slate-150 shadow-sm flex flex-col gap-4">
         <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#EDE8F5] text-[#523A8C] rounded-full text-[11px] font-bold uppercase tracking-wider w-max">
-          💾 SALVAMENTO POR ETAPA • 15 MIN
+          📘 AULA 1 & 📗 AULA 2 • SALVAMENTO POR ETAPA
         </div>
 
         <h1 className="text-2xl sm:text-3xl font-black text-[#1E113F] tracking-tight leading-snug">
@@ -227,14 +228,13 @@ export default function Step1Intro({
         </h1>
 
         <p className="text-slate-600 text-xs sm:text-sm leading-relaxed">
-          Você foi planejado de forma única pelo Criador. Compreenda claramente seus dons espirituais, paixões e temperamento para servir com alegria genuína e propósito eterno (1 Coríntios 12).
+          Você foi planejado de forma única pelo Criador. Na <strong>Aula 1</strong> mapeamos seu Coração e seus Dons Espirituais; na <strong>Aula 2</strong> alinhamos sua Personalidade e Habilidades para gerar seu Cartão do Servo.
         </p>
 
-        {/* Social Proof / Info de Salvamento */}
         <div className="flex items-center gap-2 pt-2 border-t border-slate-100 mt-1">
           <BookmarkCheck className="w-4 h-4 text-emerald-600 shrink-0" />
           <span className="text-[11px] font-bold text-slate-600">
-            Suas respostas são salvas automaticamente a cada etapa concluída!
+            Suas respostas são salvas a cada avanço — você pode concluir a Aula 1 hoje e retomar na Aula 2!
           </span>
         </div>
       </div>
@@ -254,107 +254,97 @@ export default function Step1Intro({
         </div>
       </div>
 
-      {/* 4. Jornada S.H.A.P.E. (5 Pilares de Alinhamento) */}
+      {/* 4. Jornada S.H.A.P.E. (Ordem das Aulas) */}
       <div className="flex flex-col gap-2.5">
         <div className="flex items-center justify-between px-1">
           <span className="text-xs font-black uppercase text-[#1E113F] tracking-wide">
-            Jornada S.H.A.P.E.
+            Roteiro por Aula
           </span>
           <span className="text-[11px] font-bold text-[#523A8C]">
-            5 Pilares de Alinhamento
+            5 Pilares S.H.A.P.E.
           </span>
         </div>
 
         <div className="grid grid-cols-2 gap-2.5">
-          {/* S */}
-          <div className="bg-white p-3.5 rounded-2xl border border-slate-150 shadow-sm flex flex-col justify-between h-24">
-            <div className="flex items-center justify-between">
-              <span className="w-6 h-6 rounded-lg bg-[#EDE8F5] text-[#523A8C] flex items-center justify-center font-black text-xs">
-                S
-              </span>
-              <Globe className="w-4 h-4 text-[#523A8C]/60" />
-            </div>
-            <div>
-              <span className="text-[9px] font-extrabold uppercase text-slate-400 tracking-wider block">
-                SPIRITUAL GIFTS
-              </span>
-              <h4 className="text-xs font-black text-slate-800 leading-tight">
-                Dons Espirituais (3 partes)
-              </h4>
-            </div>
-          </div>
-
-          {/* H */}
+          {/* H - Aula 1 */}
           <div className="bg-white p-3.5 rounded-2xl border border-slate-150 shadow-sm flex flex-col justify-between h-24">
             <div className="flex items-center justify-between">
               <span className="w-6 h-6 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center font-black text-xs">
                 H
               </span>
-              <Heart className="w-4 h-4 text-rose-500/60" />
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700">
+                Aula 1 • Passo 2
+              </span>
             </div>
             <div>
               <span className="text-[9px] font-extrabold uppercase text-slate-400 tracking-wider block">
                 HEART
               </span>
               <h4 className="text-xs font-black text-slate-800 leading-tight">
-                Coração & Paixão
+                Coração & Sonho
               </h4>
             </div>
           </div>
 
-          {/* A */}
+          {/* S - Aula 1 */}
           <div className="bg-white p-3.5 rounded-2xl border border-slate-150 shadow-sm flex flex-col justify-between h-24">
             <div className="flex items-center justify-between">
-              <span className="w-6 h-6 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-black text-xs">
-                A
+              <span className="w-6 h-6 rounded-lg bg-[#EDE8F5] text-[#523A8C] flex items-center justify-center font-black text-xs">
+                S
               </span>
-              <Wrench className="w-4 h-4 text-amber-500/60" />
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700">
+                Aula 1 • Passos 3–5
+              </span>
             </div>
             <div>
               <span className="text-[9px] font-extrabold uppercase text-slate-400 tracking-wider block">
-                ABILITIES
+                SPIRITUAL GIFTS
               </span>
               <h4 className="text-xs font-black text-slate-800 leading-tight">
-                Habilidades Naturais
+                Inventário de Dons (3 partes)
               </h4>
             </div>
           </div>
 
-          {/* P */}
+          {/* P - Aula 2 */}
           <div className="bg-white p-3.5 rounded-2xl border border-slate-150 shadow-sm flex flex-col justify-between h-24">
             <div className="flex items-center justify-between">
               <span className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-black text-xs">
                 P
               </span>
-              <Compass className="w-4 h-4 text-blue-500/60" />
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700">
+                Aula 2 • Passo 6
+              </span>
             </div>
             <div>
               <span className="text-[9px] font-extrabold uppercase text-slate-400 tracking-wider block">
                 PERSONALITY
               </span>
               <h4 className="text-xs font-black text-slate-800 leading-tight">
-                Personalidade
+                Os 4 Quadrantes
               </h4>
             </div>
           </div>
-        </div>
 
-        {/* E */}
-        <div className="bg-white p-3.5 rounded-2xl border border-slate-150 shadow-sm flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-black text-xs">
-              E
-            </span>
+          {/* A & E - Aula 2 */}
+          <div className="bg-white p-3.5 rounded-2xl border border-slate-150 shadow-sm flex flex-col justify-between h-24">
+            <div className="flex items-center justify-between">
+              <span className="w-6 h-6 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-black text-xs">
+                A+E
+              </span>
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700">
+                Aula 2 • Passo 6
+              </span>
+            </div>
             <div>
               <span className="text-[9px] font-extrabold uppercase text-slate-400 tracking-wider block">
-                EXPERIENCES
+                ABILITIES & EXP
               </span>
               <h4 className="text-xs font-black text-slate-800 leading-tight">
-                Experiências de Vida
+                Habilidades & Rotina
               </h4>
             </div>
           </div>
-          <FileText className="w-4 h-4 text-emerald-500/60" />
         </div>
       </div>
 
@@ -432,24 +422,40 @@ export default function Step1Intro({
               </button>
             </div>
 
-            {/* Banner de Progresso Salvo (Retomada) */}
+            {/* Banner de Progresso Salvo (Retomada com % de preenchimento) */}
             {savedProgress && (
               <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex flex-col gap-3">
-                <div className="flex items-start gap-2.5">
-                  <BookmarkCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-                  <div>
-                    <h4 className="text-xs font-black text-emerald-950 uppercase tracking-wide">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <BookmarkCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span className="text-xs font-black text-emerald-950 uppercase tracking-wide">
                       {savedProgress.status === 'completed'
-                        ? 'Avaliação já concluída anteriormente!'
-                        : `Progresso Salvo Encontrado (Etapa ${savedProgress.currentStep} de 7)`}
-                    </h4>
-                    <p className="text-xs text-emerald-800 mt-0.5 leading-relaxed">
-                      {savedProgress.status === 'completed'
-                        ? 'Suas respostas já estão salvas. Você pode ir direto para o seu Cartão do Servo ou revisar suas respostas.'
-                        : `Você já respondeu ${Object.keys(savedProgress.gifts || {}).length} perguntas de dons e ${savedProgress.abilities?.length || 0} habilidades. Podemos continuar exatamente de onde você parou!`}
-                    </p>
+                        ? 'Avaliação 100% Concluída!'
+                        : savedProgress.currentStep >= 6
+                        ? 'Aula 1 Concluída! Pronto para a Aula 2'
+                        : `Progresso Salvo (Etapa ${savedProgress.currentStep} de 7)`}
+                    </span>
                   </div>
+                  <span className="text-xs font-black text-emerald-700 bg-white px-2.5 py-0.5 rounded-full border border-emerald-200">
+                    {savedProgress.completionPercentage ?? 0}% preenchido
+                  </span>
                 </div>
+
+                {/* Barra de Progresso Salvo */}
+                <div className="w-full bg-emerald-200/60 h-2 rounded-full overflow-hidden">
+                  <div
+                    className="bg-emerald-600 h-full rounded-full transition-all duration-300"
+                    style={{ width: `${savedProgress.completionPercentage ?? 0}%` }}
+                  />
+                </div>
+
+                <p className="text-xs text-emerald-800 leading-relaxed">
+                  {savedProgress.status === 'completed'
+                    ? 'Suas respostas já estão salvas. Você pode visualizar seu Cartão do Servo ou revisar suas respostas.'
+                    : savedProgress.currentStep >= 6
+                    ? 'Você já concluiu o Coração e os 133 itens do Inventário de Dons (Aula 1). Agora você pode avançar direto para Personalidade & Habilidades (Aula 2)!'
+                    : `Você já respondeu ${Object.keys(savedProgress.gifts || {}).length}/133 questões de dons. Continue exatamente de onde parou!`}
+                </p>
 
                 {onRestoreProgress && savedProgress.currentStep > 1 && (
                   <button
@@ -460,6 +466,8 @@ export default function Step1Intro({
                     <span>
                       {savedProgress.status === 'completed'
                         ? 'Ver Meu Cartão do Servo (Resultado)'
+                        : savedProgress.currentStep >= 6
+                        ? 'Ir direto para a Aula 2 (Passo 6: Personalidade & Habilidades)'
                         : `Continuar da Etapa ${savedProgress.currentStep}`}
                     </span>
                     <ArrowRight className="w-3.5 h-3.5" />
@@ -474,7 +482,7 @@ export default function Step1Intro({
               className="w-full h-13 py-3.5 rounded-2xl font-black text-sm uppercase tracking-wider bg-[#523A8C] hover:bg-[#432E75] active:scale-98 text-white shadow-xl shadow-[#523A8C]/25 transition-all flex items-center justify-center gap-2"
             >
               <span>
-                {savedProgress ? 'Revisar desde a Etapa 2' : 'Começar Descoberta Vocacional'}
+                {savedProgress ? 'Revisar desde a Aula 1 (Passo 2)' : 'Iniciar Aula 1 (Coração & Dons)'}
               </span>
               <ArrowRight className="w-4 h-4" />
             </button>

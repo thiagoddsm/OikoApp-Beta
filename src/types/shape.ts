@@ -1,5 +1,3 @@
-import { Timestamp } from 'firebase/firestore';
-
 export interface ShapeTop3Item {
   id: string;
   nome: string;
@@ -42,9 +40,53 @@ export interface ShapeResult {
   experiencias?: Record<string, string>;
   status?: 'in_progress' | 'completed';
   currentStep?: number;
+  completionPercentage?: number;
   createdAt: string; // ISO string após sanitize
   updatedAt?: string;
   aiAnalysis?: ShapeAiAnalysis | null;
+}
+
+export function calculateShapeCompletion(data: {
+  coracao?: Record<string, string>;
+  dom?: Record<string, number>;
+  perso?: Record<string, number>;
+  habilidades?: string[];
+  disponibilidade?: string[];
+  experiencias?: Record<string, string>;
+  status?: string;
+}) {
+  const heartAnswered = Object.values(data.coracao || {}).filter(
+    (v) => typeof v === 'string' && v.trim().length > 0
+  ).length;
+  const giftsAnswered = Object.keys(data.dom || {}).length;
+  const persoAnswered = Object.keys(data.perso || {}).length;
+  const abilitiesCount = (data.habilidades || []).length;
+  const hasAvailOrExp =
+    (data.disponibilidade && data.disponibilidade.length > 0) ||
+    Object.values(data.experiencias || {}).some((v) => typeof v === 'string' && v.trim().length > 0);
+
+  // Pesos: Coração (15%) + Dons (55%) = 70% na Aula 1
+  // Personalidade (15%) + Habilidades/Disponibilidade (15%) = 30% na Aula 2
+  const heartScore = Math.min(heartAnswered / 5, 1) * 15;
+  const giftsScore = Math.min(giftsAnswered / 133, 1) * 55;
+  const persoScore = Math.min(persoAnswered / 6, 1) * 15;
+  const abilitiesScore = (abilitiesCount > 0 ? 10 : 0) + (hasAvailOrExp ? 5 : 0);
+
+  const rawPercent = Math.round(heartScore + giftsScore + persoScore + abilitiesScore);
+  const percentage = data.status === 'completed' ? 100 : Math.min(rawPercent, 99);
+
+  return {
+    percentage,
+    heartAnswered,
+    heartTotal: 5,
+    giftsAnswered,
+    giftsTotal: 133,
+    persoAnswered,
+    persoTotal: 6,
+    abilitiesCount,
+    aula1Completed: giftsAnswered >= 133,
+    aula2Completed: data.status === 'completed' || (persoAnswered >= 6 && abilitiesCount > 0),
+  };
 }
 
 export type ShapeQuadrante = 'Tarefas / Formal' | 'Tarefas / Informal' | 'Pessoas / Formal' | 'Pessoas / Informal';

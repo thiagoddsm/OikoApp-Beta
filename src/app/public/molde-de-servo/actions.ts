@@ -4,6 +4,7 @@ import { getAdminDb } from '@/lib/firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
 import { getPublicGCs as getEnrollmentPublicGCs } from '@/app/public/enrollment/actions';
 import { SHAPE_DATA } from '@/lib/shape-complete-data';
+import { calculateShapeCompletion } from '@/types/shape';
 
 export async function getPublicGCs() {
   return getEnrollmentPublicGCs();
@@ -71,12 +72,32 @@ export async function lookupMemberByEmail(email: string) {
     // Verifica se já existe progresso salvo para este userId
     let savedProgress: any = null;
     const directDoc = await db.collection('shape_results').doc(userId).get();
+    let existingDocData: any = null;
+    let existingDocId = userId;
+
     if (directDoc.exists) {
-      const d = sanitizeFirestoreData(directDoc.data());
+      existingDocData = sanitizeFirestoreData(directDoc.data());
+    } else {
+      const existingQuery = await db
+        .collection('shape_results')
+        .where('userId', '==', userId)
+        .limit(1)
+        .get();
+      if (!existingQuery.empty) {
+        const docSnap = existingQuery.docs[0];
+        existingDocId = docSnap.id;
+        existingDocData = sanitizeFirestoreData(docSnap.data());
+      }
+    }
+
+    if (existingDocData) {
+      const d = existingDocData;
+      const completion = calculateShapeCompletion(d);
       savedProgress = {
-        id: directDoc.id,
+        id: existingDocId,
         status: d.status || 'in_progress',
         currentStep: d.currentStep || 2,
+        completionPercentage: d.completionPercentage ?? completion.percentage,
         abilities: d.habilidades || [],
         availability:
           d.disponibilidade ||
@@ -89,32 +110,6 @@ export async function lookupMemberByEmail(email: string) {
         gifts: d.dom || {},
         targetMinistry: d.ministryTarget || '',
       };
-    } else {
-      const existingQuery = await db
-        .collection('shape_results')
-        .where('userId', '==', userId)
-        .limit(1)
-        .get();
-      if (!existingQuery.empty) {
-        const docSnap = existingQuery.docs[0];
-        const d = sanitizeFirestoreData(docSnap.data());
-        savedProgress = {
-          id: docSnap.id,
-          status: d.status || 'in_progress',
-          currentStep: d.currentStep || 2,
-          abilities: d.habilidades || [],
-          availability:
-            d.disponibilidade ||
-            (d.experiencias?.availability
-              ? String(d.experiencias.availability).split(', ').filter(Boolean)
-              : []),
-          experiences: d.experiencias || {},
-          heart: d.coracao || {},
-          personality: d.perso || {},
-          gifts: d.dom || {},
-          targetMinistry: d.ministryTarget || '',
-        };
-      }
     }
 
     return {
@@ -245,6 +240,16 @@ export async function saveShapeStepProgress(data: SaveShapeStepPayload) {
         : {}),
     };
 
+    const completion = calculateShapeCompletion({
+      coracao: data.heart,
+      dom: data.gifts,
+      perso: data.personality,
+      habilidades: data.abilities,
+      disponibilidade: data.availability,
+      experiencias: experiencesWithAvail,
+      status: data.status,
+    });
+
     const docRef = db.collection('shape_results').doc(data.userId);
     const existingSnap = await docRef.get();
 
@@ -270,6 +275,7 @@ export async function saveShapeStepProgress(data: SaveShapeStepPayload) {
       top3: metrics.top3,
       currentStep: data.currentStep,
       status: data.status,
+      completionPercentage: completion.percentage,
       updatedAt: now,
     };
 
@@ -285,6 +291,7 @@ export async function saveShapeStepProgress(data: SaveShapeStepPayload) {
       {
         shapeStatus: data.status,
         shapeCurrentStep: data.currentStep,
+        shapeCompletionPercentage: completion.percentage,
         shapeQuadrante: metrics.quadrante,
         shapeTopGifts: metrics.top3.map((g) => g.nome),
         shapeUpdatedAt: now,
@@ -296,6 +303,7 @@ export async function saveShapeStepProgress(data: SaveShapeStepPayload) {
       success: true,
       id: data.userId,
       metrics,
+      completionPercentage: completion.percentage,
     };
   } catch (e: any) {
     console.error('Erro ao salvar progresso do Molde de Servo:', e);
