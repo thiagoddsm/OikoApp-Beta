@@ -1,3 +1,5 @@
+import { SHAPE_DATA } from '@/lib/shape-complete-data';
+
 export interface ShapeTop3Item {
   id: string;
   nome: string;
@@ -69,7 +71,7 @@ export function calculateShapeCompletion(data: {
   // Personalidade (15%) + Habilidades/Disponibilidade (15%) = 30% na Aula 2
   const heartScore = Math.min(heartAnswered / 5, 1) * 15;
   const giftsScore = Math.min(giftsAnswered / 133, 1) * 55;
-  const persoScore = Math.min(persoAnswered / 6, 1) * 15;
+  const persoScore = Math.min(persoAnswered / 14, 1) * 15;
   const abilitiesScore = (abilitiesCount > 0 ? 10 : 0) + (hasAvailOrExp ? 5 : 0);
 
   const rawPercent = Math.round(heartScore + giftsScore + persoScore + abilitiesScore);
@@ -79,13 +81,70 @@ export function calculateShapeCompletion(data: {
     percentage,
     heartAnswered,
     heartTotal: 5,
+    heartDone: heartAnswered >= 5,
     giftsAnswered,
     giftsTotal: 133,
+    giftsDone: giftsAnswered >= 133,
     persoAnswered,
-    persoTotal: 6,
+    persoTotal: 14,
+    persoDone: persoAnswered >= 14,
     abilitiesCount,
+    abilitiesDone: abilitiesCount > 0,
     aula1Completed: giftsAnswered >= 133,
-    aula2Completed: data.status === 'completed' || (persoAnswered >= 6 && abilitiesCount > 0),
+    aula2Completed: data.status === 'completed' || (persoAnswered >= 14 && abilitiesCount > 0),
+  };
+}
+
+export function calculateShapeMetrics(
+  personality: Record<string, number> = {},
+  gifts: Record<string, number> = {}
+) {
+  let orgSum = 0;
+  let motSum = 0;
+
+  SHAPE_DATA.personality.eixo_org.items.forEach((item) => {
+    orgSum += personality[item.id] !== undefined ? personality[item.id] : 3;
+  });
+
+  SHAPE_DATA.personality.eixo_mot.items.forEach((item) => {
+    motSum += personality[item.id] !== undefined ? personality[item.id] : 3;
+  });
+
+  const orgScore = Number((orgSum / SHAPE_DATA.personality.eixo_org.items.length).toFixed(2));
+  const motScore = Number((motSum / SHAPE_DATA.personality.eixo_mot.items.length).toFixed(2));
+
+  const orgResult = orgScore >= 3.0 ? 'Formal' : 'Informal';
+  const motResult = motScore >= 3.0 ? 'Pessoas' : 'Tarefas';
+  const quadrante = `${motResult} / ${orgResult}`;
+
+  const domScores: Record<string, number> = {};
+  SHAPE_DATA.gifts.forEach((g) => {
+    domScores[g.id] = 0;
+  });
+
+  SHAPE_DATA.giftQuestions.forEach((q) => {
+    const val = gifts[q.id];
+    if (val !== undefined) {
+      domScores[q.domId] = (domScores[q.domId] || 0) + val;
+    }
+  });
+
+  const sortedGifts = SHAPE_DATA.gifts
+    .map((g) => ({
+      id: g.id,
+      nome: g.name,
+      name: g.name,
+      score: domScores[g.id] || 0,
+      desc: g.desc,
+    }))
+    .sort((a, b) => b.score - a.score);
+
+  return {
+    orgScore,
+    motScore,
+    quadrante,
+    domScores,
+    top3: sortedGifts.slice(0, 3),
   };
 }
 

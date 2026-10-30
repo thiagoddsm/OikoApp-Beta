@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   ShapeResult,
   QUADRANTE_META,
@@ -23,13 +23,24 @@ import {
   RefreshCw,
   CheckCircle2,
   Clock,
+  Compass,
+  Settings,
+  Plus,
+  Trash2,
+  Check,
+  Save,
 } from 'lucide-react';
-import { getShapeResults } from '@/app/dashboard/volunteering/molde-de-servo/actions';
+import {
+  getShapeResults,
+  getMinistrySuggestions,
+  updateMinistrySuggestions,
+} from '@/app/dashboard/volunteering/molde-de-servo/actions';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useToast } from '@/hooks/use-toast';
 
 const DONS = [
   'Administração', 'Apostolado', 'Artesanato', 'Comunicação Criativa', 'Discernimento',
@@ -39,6 +50,7 @@ const DONS = [
 ];
 
 export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult[] }) {
+  const { toast } = useToast();
   const [results, setResults] = useState<ShapeResult[]>(initialResults);
   const [search, setSearch] = useState('');
   const [quadranteFilter, setQuadranteFilter] = useState<string>('todos');
@@ -49,6 +61,18 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Modal de edição de áreas sugeridas ("Onde Deus está te chamando para servir")
+  const [isMinistryConfigOpen, setIsMinistryConfigOpen] = useState(false);
+  const [ministryList, setMinistryList] = useState<string[]>([]);
+  const [newMinistryInput, setNewMinistryInput] = useState('');
+  const [isSavingMinistries, setIsSavingMinistries] = useState(false);
+
+  useEffect(() => {
+    getMinistrySuggestions().then((list) => {
+      if (list && list.length > 0) setMinistryList(list);
+    });
+  }, []);
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
@@ -58,6 +82,53 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
       console.error('Erro ao atualizar:', e);
     } finally {
       setIsRefreshing(false);
+    }
+  };
+
+  const handleAddMinistry = () => {
+    const trimmed = newMinistryInput.trim();
+    if (!trimmed) return;
+    if (ministryList.some((m) => m.toLowerCase() === trimmed.toLowerCase())) {
+      toast({
+        variant: 'destructive',
+        title: 'Área já cadastrada',
+        description: 'Essa opção já consta na lista de sugestões.',
+      });
+      return;
+    }
+    setMinistryList((prev) => [...prev, trimmed]);
+    setNewMinistryInput('');
+  };
+
+  const handleRemoveMinistry = (indexToRemove: number) => {
+    setMinistryList((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+  };
+
+  const handleSaveMinistries = async () => {
+    setIsSavingMinistries(true);
+    try {
+      const res = await updateMinistrySuggestions(ministryList);
+      if (res.success) {
+        toast({
+          title: 'Áreas atualizadas com sucesso! 🎉',
+          description: 'As novas opções já estão disponíveis para os alunos no Molde de Servo.',
+        });
+        setIsMinistryConfigOpen(false);
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Erro ao salvar',
+          description: res.error || 'Não foi possível salvar as alterações.',
+        });
+      }
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro de conexão',
+        description: 'Tente novamente.',
+      });
+    } finally {
+      setIsSavingMinistries(false);
     }
   };
 
@@ -112,6 +183,32 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
 
   return (
     <div className="space-y-6">
+      {/* Top Banner & Botão de Configuração das Áreas */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+        <div className="flex items-center gap-2.5">
+          <div className="w-10 h-10 rounded-xl bg-[#EDE8F5] text-[#523A8C] flex items-center justify-center shrink-0">
+            <Compass className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-sm font-extrabold text-slate-900 leading-tight">
+              Áreas de Chamado Ministerial
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Defina as opções exibidas para o aluno em "Onde você sente que Deus está te chamando para servir?"
+            </p>
+          </div>
+        </div>
+
+        <Button
+          type="button"
+          onClick={() => setIsMinistryConfigOpen(true)}
+          className="bg-[#523A8C] hover:bg-[#432E75] text-white text-xs font-bold rounded-xl h-9 gap-1.5 shadow-sm"
+        >
+          <Settings className="w-3.5 h-3.5" />
+          <span>Editar Áreas de Serviço</span>
+        </Button>
+      </div>
+
       {/* Filters */}
       <div className="flex flex-col md:flex-row gap-4 items-center bg-white p-4 rounded-xl shadow-sm border border-slate-100">
         <div className="relative flex-1 w-full">
@@ -256,11 +353,18 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                             </div>
                           )}
 
+                          {item.ministryTarget && (
+                            <div className="text-xs text-[#523A8C] font-semibold flex items-center gap-1">
+                              <Compass className="w-3 h-3 shrink-0" />
+                              <span className="truncate">Área: {item.ministryTarget}</span>
+                            </div>
+                          )}
+
                           <div className="flex flex-wrap gap-1 mt-2">
                             {hasGifts ? (
                               item.top3?.map((dom, i) => (
                                 <Badge key={i} variant="outline" className="text-[10px] py-0 px-1.5 h-5 bg-slate-50">
-                                  {dom.nome || dom.name}
+                                  {dom.nome || dom.name} ({dom.score}pts)
                                 </Badge>
                               ))
                             ) : (
@@ -307,6 +411,7 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                 <TableHead>Progresso / Status</TableHead>
                 <TableHead>Quadrante</TableHead>
                 <TableHead>Top 1 Dom</TableHead>
+                <TableHead>Área Sentida</TableHead>
                 <TableHead>Habilidades</TableHead>
                 <TableHead>GC</TableHead>
                 <TableHead>Data</TableHead>
@@ -352,8 +457,21 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                       )}
                     </TableCell>
                     <TableCell>
-                      {hasGifts ? (item.top3?.[0]?.nome || item.top3?.[0]?.name || '-') : (
+                      {hasGifts ? (
+                        <span className="font-semibold text-xs">
+                          {item.top3?.[0]?.nome || item.top3?.[0]?.name} ({item.top3?.[0]?.score}pts)
+                        </span>
+                      ) : (
                         <span className="text-xs text-slate-400 italic">Pendente ({comp.giftsAnswered}/133)</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {item.ministryTarget ? (
+                        <Badge variant="secondary" className="text-[10px] bg-purple-50 text-[#523A8C] border-purple-200 font-bold">
+                          {item.ministryTarget}
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-slate-400">-</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -381,7 +499,7 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
               })}
               {filteredResults.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     Nenhum resultado encontrado.
                   </TableCell>
                 </TableRow>
@@ -391,7 +509,7 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
         </div>
       )}
 
-      {/* Dialog Detalhes */}
+      {/* Dialog Detalhes do Aluno */}
       <Dialog open={!!selectedPerson} onOpenChange={(open) => !open && setSelectedPerson(null)}>
         {selectedPerson && selectedCompletion && (
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -480,7 +598,7 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                     <div className="min-w-0">
                       <p className="text-[10px] font-bold text-slate-700 truncate">Personalidade (Aula 2)</p>
                       <p className="text-[10px] text-slate-500">
-                        {selectedCompletion.persoDone ? 'Respondido' : `${selectedCompletion.persoAnswered}/6 escalas`}
+                        {selectedCompletion.persoDone ? 'Respondido' : `${selectedCompletion.persoAnswered}/14 escalas`}
                       </p>
                     </div>
                   </div>
@@ -499,6 +617,28 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                 </div>
               </section>
 
+              {/* Área Sentida / Chamado de Serviço */}
+              {selectedPerson.ministryTarget && (
+                <section className="p-4 bg-purple-50/70 rounded-xl border border-purple-200 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-[#523A8C] text-white flex items-center justify-center shrink-0">
+                      <Compass className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-extrabold uppercase text-[#523A8C] tracking-wider block">
+                        Onde sente que Deus está chamando para servir
+                      </span>
+                      <p className="text-sm font-extrabold text-[#1E113F] mt-0.5">
+                        {selectedPerson.ministryTarget}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="bg-white text-[#523A8C] border-purple-200 text-xs font-bold">
+                    Indicação do Membro
+                  </Badge>
+                </section>
+              )}
+
               {/* Personalidade */}
               <section className="space-y-3">
                 <h3 className="font-semibold text-lg flex items-center gap-2">
@@ -515,7 +655,7 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                       </div>
                       {!selectedCompletion.persoDone && (
                         <Badge variant="outline" className="text-[10px] bg-white/80 text-amber-700 border-amber-200">
-                          Aguardando Aula 2 (Valor padrão 3.0)
+                          Aguardando Aula 2
                         </Badge>
                       )}
                     </div>
@@ -703,6 +843,100 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
             </div>
           </DialogContent>
         )}
+      </Dialog>
+
+      {/* Modal de Configuração de Sugestões de Ministérios */}
+      <Dialog open={isMinistryConfigOpen} onOpenChange={setIsMinistryConfigOpen}>
+        <DialogContent className="max-w-md sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black text-slate-900 flex items-center gap-2">
+              <Compass className="w-5 h-5 text-[#523A8C]" />
+              Editar Áreas de Serviço Sugeridas
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Essas são as opções de botões rápidos que aparecem no Cartão do Servo do aluno na pergunta:
+              <br />
+              <strong className="text-slate-700">"Onde você sente que Deus está te chamando para servir?"</strong>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Input para adicionar nova opção */}
+            <div className="flex gap-2">
+              <Input
+                placeholder="Ex: Diaconia, Segurança, Teatro..."
+                value={newMinistryInput}
+                onChange={(e) => setNewMinistryInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddMinistry();
+                  }
+                }}
+                className="h-10 text-xs rounded-xl"
+              />
+              <Button
+                type="button"
+                onClick={handleAddMinistry}
+                className="bg-[#523A8C] hover:bg-[#432E75] text-white text-xs font-bold rounded-xl h-10 px-4 shrink-0 gap-1.5"
+              >
+                <Plus className="w-4 h-4" /> Adicionar
+              </Button>
+            </div>
+
+            {/* Lista das opções atuais */}
+            <div className="max-h-64 overflow-y-auto space-y-1.5 pr-1">
+              {ministryList.map((item, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between p-2.5 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 transition-colors"
+                >
+                  <span className="text-xs font-bold text-slate-800">{item}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveMinistry(idx)}
+                    className="p-1 text-slate-400 hover:text-red-600 rounded-lg hover:bg-white transition-colors"
+                    title="Remover"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+              {ministryList.length === 0 && (
+                <p className="text-xs text-center text-slate-400 py-4 italic">
+                  Nenhuma sugestão cadastrada.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsMinistryConfigOpen(false)}
+              disabled={isSavingMinistries}
+              className="text-xs rounded-xl"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSaveMinistries}
+              disabled={isSavingMinistries}
+              className="bg-[#523A8C] hover:bg-[#432E75] text-white text-xs font-bold rounded-xl gap-1.5"
+            >
+              {isSavingMinistries ? (
+                <span>Salvando...</span>
+              ) : (
+                <>
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Salvar Alterações</span>
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
     </div>
   );

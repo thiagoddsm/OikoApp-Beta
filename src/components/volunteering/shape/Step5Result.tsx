@@ -26,7 +26,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { SHAPE_DATA } from '@/lib/shape-complete-data';
-import { submitShapeAssessment } from '@/app/public/molde-de-servo/actions';
+import { submitShapeAssessment, getMinistrySuggestions } from '@/app/public/molde-de-servo/actions';
 import { Step1FormData } from './Step1Intro';
 
 interface Step5ResultProps {
@@ -60,18 +60,6 @@ const BIBLICAL_REFERENCES: Record<string, string> = {
   'Sabedoria': 'Tiago 1:5',
 };
 
-const MINISTRY_SUGGESTIONS = [
-  'Louvor & Adoração',
-  'Ensino & Discipulado',
-  'Crianças (OikoKids)',
-  'Acolhimento & Recepção',
-  'Mídia, Som & Produção',
-  'Ação Social & Misericórdia',
-  'Liderança de GC',
-  'Intercessão & Oração',
-  'Gestão & Apoio',
-];
-
 export default function Step5Result({
   formData,
   selectedAbilities = [],
@@ -85,6 +73,26 @@ export default function Step5Result({
   const [isSaving, setIsSaving] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [directedMinistry, setDirectedMinistry] = useState('');
+  const [ministrySuggestions, setMinistrySuggestions] = useState<string[]>([
+    'Louvor & Adoração',
+    'Ensino & Discipulado',
+    'Crianças (OikoKids)',
+    'Acolhimento & Recepção',
+    'Mídia, Som & Produção',
+    'Ação Social & Misericórdia',
+    'Liderança de GC',
+    'Intercessão & Oração',
+    'Gestão & Apoio',
+  ]);
+
+  // Carrega opções dinâmicas de ministérios configuradas pelo pastor
+  useEffect(() => {
+    getMinistrySuggestions().then((sugs) => {
+      if (sugs && sugs.length > 0) {
+        setMinistrySuggestions(sugs);
+      }
+    });
+  }, []);
 
   // 1. CÁLCULO DOS DONS
   const { topGifts, allGiftScores } = useMemo(() => {
@@ -138,20 +146,20 @@ export default function Step5Result({
     let icon = Sparkles;
 
     if (motResult === 'Tarefas' && orgResult === 'Formal') {
-      title = 'Executor Metódico';
-      desc = 'Facilidade natural para desenhar processos claros, organizar escalas com precisão e garantir que cada detalhe logístico sustente o ambiente de adoração.';
+      title = 'Tarefa / Formal';
+      desc = 'Prefere saber exatamente os alvos e como realizar a tarefa com processos claros.';
       icon = Layers;
     } else if (motResult === 'Tarefas' && orgResult === 'Informal') {
-      title = 'Resolutivo Dinâmico';
-      desc = 'Pragmático, rápido e adaptável. Brilha resolvendo problemas na hora e montando estruturas práticas sob medida.';
+      title = 'Tarefa / Informal';
+      desc = 'Prefere cumprir uma ampla variedade de responsabilidades com flexibilidade.';
       icon = Zap;
     } else if (motResult === 'Pessoas' && orgResult === 'Formal') {
-      title = 'Cuidado Estável';
-      desc = 'Pastoral, acolhedor e fiel aos processos. Excelente no discipulado contínuo, consolidação 1 a 1 e acompanhamento paciente.';
+      title = 'Pessoas / Formal';
+      desc = 'Prefere interagir com pessoas em situações e ambientes mais estáveis e definidos.';
       icon = Heart;
     } else {
-      title = 'Conector Espontâneo';
-      desc = 'Extrovertido, inspirador e criativo. Perfeito para integração, quebra-gelo, dinâmicas de grupo e recepção vibrante.';
+      title = 'Pessoas / Informal';
+      desc = 'Prefere responder e relacionar-se com as pessoas de forma espontânea.';
       icon = Sparkles;
     }
 
@@ -464,7 +472,7 @@ _Avaliação concluída no OikoApp • Conectando dons e propósitos no Reino!_`
           </p>
 
           <div className="flex flex-wrap gap-1.5">
-            {MINISTRY_SUGGESTIONS.map((sug) => {
+            {ministrySuggestions.map((sug) => {
               const isSelected = directedMinistry === sug;
               return (
                 <button

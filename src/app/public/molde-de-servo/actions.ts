@@ -4,7 +4,7 @@ import { getAdminDb } from '@/lib/firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
 import { getPublicGCs as getEnrollmentPublicGCs } from '@/app/public/enrollment/actions';
 import { SHAPE_DATA } from '@/lib/shape-complete-data';
-import { calculateShapeCompletion } from '@/types/shape';
+import { calculateShapeCompletion, calculateShapeMetrics } from '@/types/shape';
 
 export async function getPublicGCs() {
   return getEnrollmentPublicGCs();
@@ -22,6 +22,38 @@ function sanitizeFirestoreData(data: any): any {
     return r;
   }
   return data;
+}
+
+export const DEFAULT_MINISTRY_SUGGESTIONS = [
+  'Louvor & Adoração',
+  'Ensino & Discipulado',
+  'Crianças (OikoKids)',
+  'Acolhimento & Recepção',
+  'Mídia, Som & Produção',
+  'Ação Social & Misericórdia',
+  'Liderança de GC',
+  'Intercessão & Oração',
+  'Gestão & Apoio',
+];
+
+/**
+ * Obtém as opções de ministérios / áreas de vocação configuradas
+ */
+export async function getMinistrySuggestions(): Promise<string[]> {
+  try {
+    const db = getAdminDb();
+    const doc = await db.collection('app_config').doc('shape_settings').get();
+    if (doc.exists) {
+      const data = doc.data();
+      if (Array.isArray(data?.ministrySuggestions) && data.ministrySuggestions.length > 0) {
+        return data.ministrySuggestions;
+      }
+    }
+    return DEFAULT_MINISTRY_SUGGESTIONS;
+  } catch (e) {
+    console.error('Erro ao buscar sugestões de ministérios:', e);
+    return DEFAULT_MINISTRY_SUGGESTIONS;
+  }
 }
 
 /**
@@ -127,59 +159,6 @@ export async function lookupMemberByEmail(email: string) {
     console.error('Erro ao buscar membro por e-mail no Molde de Servo:', error);
     return { found: false, error: 'Falha ao consultar base de membros.' };
   }
-}
-
-function calculateShapeMetrics(
-  personality: Record<string, number> = {},
-  gifts: Record<string, number> = {}
-) {
-  let orgSum = 0;
-  let motSum = 0;
-
-  SHAPE_DATA.personality.eixo_org.items.forEach((item) => {
-    orgSum += personality[item.id] !== undefined ? personality[item.id] : 3;
-  });
-
-  SHAPE_DATA.personality.eixo_mot.items.forEach((item) => {
-    motSum += personality[item.id] !== undefined ? personality[item.id] : 3;
-  });
-
-  const orgScore = Number((orgSum / SHAPE_DATA.personality.eixo_org.items.length).toFixed(2));
-  const motScore = Number((motSum / SHAPE_DATA.personality.eixo_mot.items.length).toFixed(2));
-
-  const orgResult = orgScore >= 3.0 ? 'Formal' : 'Informal';
-  const motResult = motScore >= 3.0 ? 'Pessoas' : 'Tarefas';
-  const quadrante = `${motResult} / ${orgResult}`;
-
-  const domScores: Record<string, number> = {};
-  SHAPE_DATA.gifts.forEach((g) => {
-    domScores[g.id] = 0;
-  });
-
-  SHAPE_DATA.giftQuestions.forEach((q) => {
-    const val = gifts[q.id];
-    if (val !== undefined) {
-      domScores[q.domId] = (domScores[q.domId] || 0) + val;
-    }
-  });
-
-  const sortedGifts = SHAPE_DATA.gifts
-    .map((g) => ({
-      id: g.id,
-      nome: g.name,
-      name: g.name,
-      score: domScores[g.id] || 0,
-      desc: g.desc,
-    }))
-    .sort((a, b) => b.score - a.score);
-
-  return {
-    orgScore,
-    motScore,
-    quadrante,
-    domScores,
-    top3: sortedGifts.slice(0, 3),
-  };
 }
 
 export interface SaveShapeStepPayload {
@@ -315,7 +294,7 @@ export async function saveShapeStepProgress(data: SaveShapeStepPayload) {
 }
 
 /**
- * Mantido por compatibilidade com chamadas finais do Step5Result
+ * Chamada para submissão final do Step5Result (Cartão do Servo)
  */
 export async function submitShapeAssessment(data: {
   userId?: string | null;

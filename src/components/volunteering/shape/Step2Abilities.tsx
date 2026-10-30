@@ -86,12 +86,17 @@ const CATEGORY_META: Record<
   },
 };
 
-const AVAILABILITY_OPTIONS = [
-  'Domingo Manhã',
-  'Domingo Noite',
+const WEEKDAYS = [
+  'Segunda-feira',
+  'Terça-feira',
   'Quarta-feira',
-  'Sábados',
+  'Quinta-feira',
+  'Sexta-feira',
+  'Sábado',
+  'Domingo',
 ];
+
+const PERIODS = ['Manhã', 'Tarde', 'Noite'];
 
 export default function Step2Abilities({
   selectedAbilities = [],
@@ -131,7 +136,7 @@ export default function Step2Abilities({
   }, [giftAnswers]);
 
   // Cálculo do Feedback Imediato da Personalidade (Os 4 Quadrantes da Aula 2)
-  const { quadTitle, quadDesc, motLabel, orgLabel, quadrantName } = useMemo(() => {
+  const { quadTitle, quadDesc, motLabel, orgLabel, quadrantName, orgScore, motScore } = useMemo(() => {
     let orgSum = 0;
     let motSum = 0;
 
@@ -153,31 +158,49 @@ export default function Step2Abilities({
     let desc = '';
 
     if (motRes === 'Tarefas' && orgRes === 'Formal') {
-      title = '🎯 Executor Metódico (Tarefas / Formal)';
-      desc =
-        'Focado em processos, analítico e busca excelência organizando tarefas com início, meio e fim.';
+      title = '🎯 Tarefa / Formal';
+      desc = 'Prefere saber exatamente os alvos e como realizar a tarefa com processos claros.';
     } else if (motRes === 'Tarefas' && orgRes === 'Informal') {
-      title = '⚡ Resolutivo Dinâmico (Tarefas / Informal)';
-      desc =
-        'Pragmático, ágil e adaptável. Brilha resolvendo problemas na hora e montando estruturas práticas.';
+      title = '⚡ Tarefa / Informal';
+      desc = 'Prefere cumprir uma ampla variedade de responsabilidades com flexibilidade.';
     } else if (motRes === 'Pessoas' && orgRes === 'Formal') {
-      title = '❤️ Facilitador Acolhedor & Estruturado (Pessoas / Formal)';
-      desc =
-        'Harmoniza processos organizados com profundo cuidado pessoal. Traz segurança metodológica com foco nas pessoas.';
+      title = '❤️ Pessoas / Formal';
+      desc = 'Prefere interagir com pessoas em situações e ambientes mais estáveis e definidos.';
     } else {
-      title = '🤝 Conector Espontâneo (Pessoas / Informal)';
-      desc =
-        'Extrovertido, inspirador e criativo. Perfeito para integração, quebra-gelo e acolhimento vibrante.';
+      title = '🤝 Pessoas / Informal';
+      desc = 'Prefere responder e relacionar-se com as pessoas de forma espontânea.';
     }
 
     return {
       quadTitle: title,
       quadDesc: desc,
       quadrantName: `${motRes} / ${orgRes}`,
-      motLabel: motRes === 'Pessoas' ? 'Relações & Pessoas' : 'Foco em Tarefas',
-      orgLabel: orgRes === 'Formal' ? 'Formal & Estruturado' : 'Informal & Flexível',
+      orgScore: Number(orgAvg.toFixed(1)),
+      motScore: Number(motAvg.toFixed(1)),
+      motLabel: motRes === 'Pessoas' ? 'Foco em Pessoas' : 'Foco em Tarefas',
+      orgLabel: orgRes === 'Formal' ? 'Formal / Estruturado' : 'Informal / Espontâneo',
     };
   }, [personalityAnswers]);
+
+  // Manipulação da matriz de disponibilidade
+  const currentAvailabilityList = useMemo(() => {
+    const raw = experiences['availability'] || '';
+    const fromExp = raw.split(',').map((s) => s.trim()).filter(Boolean);
+    return Array.from(new Set([...availability, ...fromExp]));
+  }, [experiences, availability]);
+
+  const toggleSlot = (day: string, period: string) => {
+    const slot = `${day} - ${period}`;
+    if (onToggleAvailability) onToggleAvailability(slot);
+
+    let next: string[];
+    if (currentAvailabilityList.includes(slot)) {
+      next = currentAvailabilityList.filter((s) => s !== slot);
+    } else {
+      next = [...currentAvailabilityList, slot];
+    }
+    onExperienceChange('availability', next.join(', '));
+  };
 
   return (
     <div className="flex flex-col gap-5 pb-4">
@@ -247,75 +270,74 @@ export default function Step2Abilities({
       {/* =========================================================
           PARTE A DA AULA 2: PERSONALIDADE VOCACIONAL (2 EIXOS)
          ========================================================= */}
-      <div className="flex flex-col gap-3 pt-1">
+      <div className="flex flex-col gap-4 pt-1">
         <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-2">
             <Sliders className="w-4 h-4 text-[#523A8C]" />
-            <h2 className="text-sm font-extrabold text-[#1E113F]">
-              1. Personalidade Vocacional (Os 4 Quadrantes)
+            <h2 className="text-sm sm:text-base font-extrabold text-[#1E113F]">
+              Personalidade Vocacional
             </h2>
           </div>
-          <span className="text-[11px] font-bold text-slate-400">2 Eixos</span>
+          <span className="text-[11px] font-bold text-slate-400">2 Escalas • 14 Questões</span>
         </div>
 
-        {/* EIXO 1: COMO ME ORGANIZO (INFORMAL vs FORMAL) */}
-        <div className="p-4 bg-white rounded-2xl border border-slate-150 shadow-sm flex flex-col gap-3">
-          <div>
+        {/* 1. ESCALA DE ORGANIZAÇÃO (ESCALA O) */}
+        <div className="p-4 sm:p-5 bg-white rounded-2xl border border-slate-150 shadow-sm flex flex-col gap-3.5">
+          <div className="border-b border-slate-100 pb-3">
             <span className="text-[10px] font-black uppercase text-[#523A8C] tracking-wider">
-              EIXO 1 • ESTRUTURA
+              1. ESCALA DE ORGANIZAÇÃO (ESCALA O)
             </span>
-            <h3 className="text-sm font-extrabold text-slate-900">
-              Como me organizo? (Informal vs. Formal)
+            <h3 className="text-sm font-extrabold text-slate-900 mt-0.5">
+              Como eu gostaria de me organizar?
             </h3>
-            <p className="text-[11px] text-slate-500 mt-0.5">
-              Defina seu ritmo entre adaptabilidade espontânea e segurança em rotinas estruturadas.
+            <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+              Avalia a tendência entre um estilo <strong>Informal (1)</strong> e um estilo <strong>Formal (5)</strong>.
             </p>
           </div>
 
-          <div className="flex items-center justify-between text-[11px] font-bold text-slate-600 px-1 pt-1">
-            <span className="text-[#523A8C]">✓ Informal / Espontâneo</span>
-            <span>Formal / Estruturado 📅</span>
-          </div>
-
-          <div className="space-y-3 pt-1">
-            {SHAPE_DATA.personality.eixo_org.items.slice(0, 3).map((item) => {
+          <div className="space-y-3.5 pt-1">
+            {SHAPE_DATA.personality.eixo_org.items.map((item, idx) => {
               const currentVal = personalityAnswers[item.id] ?? 3;
-              const scalePills = [
-                { val: 1, label: 'Fluido' },
-                { val: 2, label: '-' },
-                { val: 3, label: 'Misto' },
-                { val: 4, label: '-' },
-                { val: 5, label: 'Método' },
-              ];
-
               return (
                 <div
                   key={item.id}
-                  className="p-3 bg-slate-50/70 rounded-xl border border-slate-100 flex flex-col gap-2"
+                  className="p-3.5 bg-slate-50/80 rounded-xl border border-slate-100 flex flex-col gap-2.5"
                 >
-                  <span className="text-[11px] font-bold text-slate-700">{item.ctx}</span>
-                  <div className="grid grid-cols-5 gap-1.5">
-                    {scalePills.map((p) => {
-                      const isSelected = currentVal === p.val;
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-slate-800">
+                      <span className="text-[#523A8C] font-black mr-1">{idx + 1}.</span> {item.ctx}
+                    </span>
+                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-white border border-slate-200 text-[#523A8C] shrink-0">
+                      Nota: {currentVal}
+                    </span>
+                  </div>
+
+                  {/* Legenda Esquerda vs Direita */}
+                  <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600 px-1">
+                    <span className="text-slate-700 text-left max-w-[45%]">
+                      {item.esq} <span className="text-slate-400 font-normal">(1)</span>
+                    </span>
+                    <span className="text-slate-700 text-right max-w-[45%]">
+                      <span className="text-slate-400 font-normal">(5)</span> {item.dir}
+                    </span>
+                  </div>
+
+                  {/* 5 Botões de Escolha */}
+                  <div className="grid grid-cols-5 gap-1.5 pt-0.5">
+                    {[1, 2, 3, 4, 5].map((val) => {
+                      const isSelected = currentVal === val;
                       return (
                         <button
                           type="button"
-                          key={p.val}
-                          onClick={() => onPersonalityChange && onPersonalityChange(item.id, p.val)}
-                          className={`py-2 rounded-xl text-xs font-bold transition-all flex flex-col items-center justify-center ${
+                          key={val}
+                          onClick={() => onPersonalityChange && onPersonalityChange(item.id, val)}
+                          className={`py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center ${
                             isSelected
-                              ? 'bg-[#523A8C] text-white shadow-sm'
-                              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                              ? 'bg-[#523A8C] text-white shadow-md shadow-[#523A8C]/25 ring-2 ring-[#523A8C]'
+                              : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300'
                           }`}
                         >
-                          <span className="text-xs font-black">{p.val}</span>
-                          <span
-                            className={`text-[9px] ${
-                              isSelected ? 'text-white/80' : 'text-slate-400'
-                            }`}
-                          >
-                            {p.label}
-                          </span>
+                          {val}
                         </button>
                       );
                     })}
@@ -326,64 +348,63 @@ export default function Step2Abilities({
           </div>
         </div>
 
-        {/* EIXO 2: COMO ME MOTIVO (TAREFAS vs PESSOAS) */}
-        <div className="p-4 bg-white rounded-2xl border border-slate-150 shadow-sm flex flex-col gap-3">
-          <div>
+        {/* 2. ESCALA DE MOTIVAÇÃO (ESCALA E) */}
+        <div className="p-4 sm:p-5 bg-white rounded-2xl border border-slate-150 shadow-sm flex flex-col gap-3.5">
+          <div className="border-b border-slate-100 pb-3">
             <span className="text-[10px] font-black uppercase text-[#523A8C] tracking-wider">
-              EIXO 2 • FOCO
+              2. ESCALA DE MOTIVAÇÃO (ESCALA E)
             </span>
-            <h3 className="text-sm font-extrabold text-slate-900">
-              Como me motivo? (Tarefas vs. Pessoas)
+            <h3 className="text-sm font-extrabold text-slate-900 mt-0.5">
+              Como me motivo?
             </h3>
-            <p className="text-[11px] text-slate-500 mt-0.5">
-              Sua energia cresce na realização de metas concretas ou no cuidado e relações interpessoais?
+            <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+              Avalia a motivação principal entre <strong>Foco em Tarefas (1)</strong> e <strong>Foco em Pessoas (5)</strong>.
             </p>
           </div>
 
-          <div className="flex items-center justify-between text-[11px] font-bold text-slate-600 px-1 pt-1">
-            <span className="text-amber-600">⚡ Tarefas</span>
-            <span className="text-[#523A8C]">Pessoas 👥</span>
-          </div>
-
-          <div className="space-y-3 pt-1">
-            {SHAPE_DATA.personality.eixo_mot.items.slice(0, 3).map((item) => {
+          <div className="space-y-3.5 pt-1">
+            {SHAPE_DATA.personality.eixo_mot.items.map((item, idx) => {
               const currentVal = personalityAnswers[item.id] ?? 3;
-              const scalePills = [
-                { val: 1, label: 'Execução' },
-                { val: 2, label: '-' },
-                { val: 3, label: 'Equilíbrio' },
-                { val: 4, label: '-' },
-                { val: 5, label: 'Vínculos' },
-              ];
-
               return (
                 <div
                   key={item.id}
-                  className="p-3 bg-slate-50/70 rounded-xl border border-slate-100 flex flex-col gap-2"
+                  className="p-3.5 bg-slate-50/80 rounded-xl border border-slate-100 flex flex-col gap-2.5"
                 >
-                  <span className="text-[11px] font-bold text-slate-700">{item.ctx}</span>
-                  <div className="grid grid-cols-5 gap-1.5">
-                    {scalePills.map((p) => {
-                      const isSelected = currentVal === p.val;
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-slate-800">
+                      <span className="text-[#523A8C] font-black mr-1">{idx + 1}.</span> {item.ctx}
+                    </span>
+                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-white border border-slate-200 text-[#523A8C] shrink-0">
+                      Nota: {currentVal}
+                    </span>
+                  </div>
+
+                  {/* Legenda Esquerda vs Direita */}
+                  <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600 px-1">
+                    <span className="text-slate-700 text-left max-w-[45%]">
+                      {item.esq} <span className="text-slate-400 font-normal">(1)</span>
+                    </span>
+                    <span className="text-slate-700 text-right max-w-[45%]">
+                      <span className="text-slate-400 font-normal">(5)</span> {item.dir}
+                    </span>
+                  </div>
+
+                  {/* 5 Botões de Escolha */}
+                  <div className="grid grid-cols-5 gap-1.5 pt-0.5">
+                    {[1, 2, 3, 4, 5].map((val) => {
+                      const isSelected = currentVal === val;
                       return (
                         <button
                           type="button"
-                          key={p.val}
-                          onClick={() => onPersonalityChange && onPersonalityChange(item.id, p.val)}
-                          className={`py-2 rounded-xl text-xs font-bold transition-all flex flex-col items-center justify-center ${
+                          key={val}
+                          onClick={() => onPersonalityChange && onPersonalityChange(item.id, val)}
+                          className={`py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center ${
                             isSelected
-                              ? 'bg-[#523A8C] text-white shadow-sm'
-                              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                              ? 'bg-[#523A8C] text-white shadow-md shadow-[#523A8C]/25 ring-2 ring-[#523A8C]'
+                              : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300'
                           }`}
                         >
-                          <span className="text-xs font-black">{p.val}</span>
-                          <span
-                            className={`text-[9px] ${
-                              isSelected ? 'text-white/80' : 'text-slate-400'
-                            }`}
-                          >
-                            {p.label}
-                          </span>
+                          {val}
                         </button>
                       );
                     })}
@@ -394,28 +415,87 @@ export default function Step2Abilities({
           </div>
         </div>
 
-        {/* SÍNTESE IMEDIATA DO QUADRANTE */}
-        <div className="p-4 bg-[#EDE8F5]/70 rounded-2xl border border-[#523A8C]/20 flex flex-col gap-2">
+        {/* RESULTADO E ENCAIXE NOS QUADRANTES */}
+        <div className="p-5 bg-gradient-to-br from-[#EDE8F5] to-white rounded-2xl border border-[#523A8C]/30 shadow-sm flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 text-[10px] font-black uppercase text-[#523A8C] tracking-wider">
-              <span className="w-2 h-2 rounded-full bg-[#523A8C]" />
-              SEU QUADRANTE DE PERSONALIDADE
+              <span className="w-2.5 h-2.5 rounded-full bg-[#523A8C]" />
+              RESULTADO E ENCAIXE NOS QUADRANTES
             </div>
-            <span className="text-[10px] font-bold text-[#523A8C] bg-white px-2.5 py-0.5 rounded-full border border-[#523A8C]/20">
+            <span className="text-xs font-black text-[#523A8C] bg-white px-2.5 py-1 rounded-full border border-[#523A8C]/30 shadow-xs">
               {quadrantName}
             </span>
           </div>
 
-          <h4 className="font-extrabold text-sm text-[#1E113F]">{quadTitle}</h4>
-          <p className="text-xs text-slate-600 leading-relaxed">{quadDesc}</p>
+          <p className="text-xs text-slate-600 leading-relaxed">
+            O cruzamento das pontuações das duas escalas define a posição do aluno em um dos <strong>Quatro Quadrantes da Personalidade</strong>:
+          </p>
 
-          <div className="grid grid-cols-2 gap-2 pt-1">
-            <div className="bg-white p-2 rounded-xl border border-slate-200 text-[10px] font-bold text-slate-700 flex items-center gap-1.5">
-              <span>📅</span> {orgLabel}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+            <div
+              className={`p-3 rounded-xl border text-left transition-all ${
+                quadrantName === 'Tarefas / Formal'
+                  ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-300 shadow-xs'
+                  : 'bg-white/80 border-slate-200 opacity-75'
+              }`}
+            >
+              <h4 className="text-xs font-extrabold text-blue-900 flex items-center gap-1.5">
+                <span>🎯</span> Tarefa / Formal
+              </h4>
+              <p className="text-[11px] text-blue-950/80 mt-1 leading-snug">
+                Prefere saber exatamente os alvos e como realizar a tarefa com processos claros.
+              </p>
             </div>
-            <div className="bg-white p-2 rounded-xl border border-slate-200 text-[10px] font-bold text-slate-700 flex items-center gap-1.5">
-              <span>👥</span> {motLabel}
+
+            <div
+              className={`p-3 rounded-xl border text-left transition-all ${
+                quadrantName === 'Tarefas / Informal'
+                  ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-300 shadow-xs'
+                  : 'bg-white/80 border-slate-200 opacity-75'
+              }`}
+            >
+              <h4 className="text-xs font-extrabold text-amber-900 flex items-center gap-1.5">
+                <span>⚡</span> Tarefa / Informal
+              </h4>
+              <p className="text-[11px] text-amber-950/80 mt-1 leading-snug">
+                Prefere cumprir uma ampla variedade de responsabilidades com flexibilidade.
+              </p>
             </div>
+
+            <div
+              className={`p-3 rounded-xl border text-left transition-all ${
+                quadrantName === 'Pessoas / Formal'
+                  ? 'bg-rose-50 border-rose-400 ring-2 ring-rose-300 shadow-xs'
+                  : 'bg-white/80 border-slate-200 opacity-75'
+              }`}
+            >
+              <h4 className="text-xs font-extrabold text-rose-900 flex items-center gap-1.5">
+                <span>❤️</span> Pessoas / Formal
+              </h4>
+              <p className="text-[11px] text-rose-950/80 mt-1 leading-snug">
+                Prefere interagir com pessoas em situações e ambientes mais estáveis e definidos.
+              </p>
+            </div>
+
+            <div
+              className={`p-3 rounded-xl border text-left transition-all ${
+                quadrantName === 'Pessoas / Informal'
+                  ? 'bg-emerald-50 border-emerald-400 ring-2 ring-emerald-300 shadow-xs'
+                  : 'bg-white/80 border-slate-200 opacity-75'
+              }`}
+            >
+              <h4 className="text-xs font-extrabold text-emerald-900 flex items-center gap-1.5">
+                <span>🤝</span> Pessoas / Informal
+              </h4>
+              <p className="text-[11px] text-emerald-950/80 mt-1 leading-snug">
+                Prefere responder e relacionar-se com as pessoas de forma espontânea.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 pt-1 border-t border-slate-200/60">
+            <span>Organização: <strong>{orgScore}/5.0</strong> ({orgLabel})</span>
+            <span>Motivação: <strong>{motScore}/5.0</strong> ({motLabel})</span>
           </div>
         </div>
       </div>
@@ -449,50 +529,48 @@ export default function Step2Abilities({
             };
             const Icon = meta.icon;
             const isOpen = !!openCategories[cat.area];
-            const selectedInThisCategory = cat.items.filter((item) =>
-              selectedAbilities.includes(item)
-            ).length;
+            const selectedInCat = cat.items.filter((item) => selectedAbilities.includes(item));
 
             return (
               <div
                 key={cat.area}
-                className="bg-white rounded-2xl border border-slate-150 shadow-sm overflow-hidden transition-all"
+                className="bg-white rounded-2xl border border-slate-150 shadow-sm overflow-hidden"
               >
                 <button
                   type="button"
                   onClick={() => toggleCategory(cat.area)}
-                  className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-50/80 transition-colors"
+                  className="w-full p-4 flex items-center justify-between gap-3 text-left hover:bg-slate-50/50 transition-colors"
                 >
                   <div className="flex items-center gap-3">
                     <div
-                      className={`w-9 h-9 rounded-xl ${meta.bg} ${meta.color} flex items-center justify-center shrink-0`}
+                      className={`w-10 h-10 rounded-xl ${meta.bg} ${meta.color} flex items-center justify-center shrink-0`}
                     >
                       <Icon className="w-5 h-5" />
                     </div>
                     <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-extrabold text-[#1E113F]">{cat.area}</h3>
-                        {selectedInThisCategory > 0 && (
-                          <span className="w-4 h-4 rounded-full bg-[#523A8C] text-white text-[9px] font-bold flex items-center justify-center">
-                            {selectedInThisCategory}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-slate-500 line-clamp-1">{meta.subtitle}</p>
+                      <h3 className="font-extrabold text-xs sm:text-sm text-slate-900 leading-tight">
+                        {cat.area}
+                      </h3>
+                      <p className="text-[11px] text-slate-500 mt-0.5">{meta.subtitle}</p>
                     </div>
                   </div>
 
-                  <div className="p-1 rounded-lg text-slate-400">
+                  <div className="flex items-center gap-2">
+                    {selectedInCat.length > 0 && (
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-[#EDE8F5] text-[#523A8C]">
+                        {selectedInCat.length}
+                      </span>
+                    )}
                     {isOpen ? (
-                      <ChevronUp className="w-4 h-4" />
+                      <ChevronUp className="w-4 h-4 text-slate-400" />
                     ) : (
-                      <ChevronDown className="w-4 h-4" />
+                      <ChevronDown className="w-4 h-4 text-slate-400" />
                     )}
                   </div>
                 </button>
 
                 {isOpen && (
-                  <div className="p-4 pt-1 border-t border-slate-100 flex flex-col gap-2 animate-in fade-in duration-200">
+                  <div className="p-4 pt-1 border-t border-slate-100 flex flex-wrap gap-2">
                     {cat.items.map((item) => {
                       const isSelected = selectedAbilities.includes(item);
                       return (
@@ -500,26 +578,18 @@ export default function Step2Abilities({
                           type="button"
                           key={item}
                           onClick={() => onToggleAbility(item)}
-                          className={`flex items-center justify-between text-left p-2.5 sm:p-3 rounded-xl border text-xs sm:text-sm font-medium transition-all ${
+                          className={`text-xs font-bold px-3 py-2 rounded-xl border transition-all text-left flex items-center gap-1.5 ${
                             isSelected
-                              ? 'bg-[#523A8C] text-white border-[#523A8C] shadow-sm font-bold'
-                              : 'bg-slate-50/70 hover:bg-slate-100/80 border-slate-200/80 text-slate-700'
+                              ? 'bg-[#523A8C] text-white border-[#523A8C] shadow-sm'
+                              : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
                           }`}
                         >
-                          <span className="pr-2">{item}</span>
-                          <div
-                            className={`w-5 h-5 rounded-lg flex items-center justify-center shrink-0 transition-all ${
-                              isSelected
-                                ? 'bg-white/25 text-white'
-                                : 'bg-white border border-slate-200 text-slate-400'
-                            }`}
-                          >
-                            {isSelected ? (
-                              <Check className="w-3.5 h-3.5 stroke-[3]" />
-                            ) : (
-                              <Plus className="w-3.5 h-3.5" />
-                            )}
-                          </div>
+                          {isSelected ? (
+                            <Check className="w-3.5 h-3.5 stroke-[3]" />
+                          ) : (
+                            <Plus className="w-3.5 h-3.5 text-slate-400" />
+                          )}
+                          <span>{item}</span>
                         </button>
                       );
                     })}
@@ -531,14 +601,16 @@ export default function Step2Abilities({
         </div>
       </div>
 
-      {/* 5. Experiência de Vida & Disponibilidade */}
+      {/* =========================================================
+          PARTE C DA AULA 2: EXPERIÊNCIAS & DISPONIBILIDADE
+         ========================================================= */}
       <div className="flex flex-col gap-3 pt-4 border-t border-slate-200 mt-2">
-        <h2 className="text-sm font-extrabold text-[#1E113F]">
-          3. Experiência de Vida & Disponibilidade
-        </h2>
-        <p className="text-xs text-slate-500 -mt-1 mb-1">
-          Conte-nos um pouco sobre a sua rotina e bagagem pessoal.
-        </p>
+        <div className="flex items-center gap-2 px-1">
+          <Briefcase className="w-4 h-4 text-[#523A8C]" />
+          <h2 className="text-sm font-extrabold text-[#1E113F]">
+            3. Experiência de Vida & Disponibilidade
+          </h2>
+        </div>
 
         {/* Formação e Atuação Profissional */}
         <div className="bg-white p-4 rounded-2xl border border-slate-150 shadow-sm flex flex-col gap-2">
@@ -579,54 +651,69 @@ export default function Step2Abilities({
           />
         </div>
 
-        {/* Disponibilidade Semanal de Serviço */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-150 shadow-sm flex flex-col gap-2.5">
-          <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-[#523A8C]" />
-            <span className="text-xs font-bold text-slate-800">
-              Disponibilidade Semanal de Serviço
+        {/* Disponibilidade Semanal de Serviço (Matriz Dias da Semana x 3 Turnos) */}
+        <div className="bg-white p-4 rounded-2xl border border-slate-150 shadow-sm flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-[#523A8C]" />
+              <span className="text-xs font-bold text-slate-800">
+                Disponibilidade Semanal de Serviço
+              </span>
+            </div>
+            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-[#EDE8F5] text-[#523A8C]">
+              {currentAvailabilityList.length} horário{currentAvailabilityList.length !== 1 ? 's' : ''}
             </span>
           </div>
           <p className="text-[11px] text-slate-500">
-            Selecione os momentos em que seu coração e agenda estão livres para servir:
+            Marque os dias da semana e os turnos em que sua agenda está livre para servir:
           </p>
 
-          <div className="grid grid-cols-2 gap-2 pt-1">
-            {AVAILABILITY_OPTIONS.map((slot) => {
-              const isChecked =
-                (experiences['availability'] || '').includes(slot) || availability.includes(slot);
-              return (
-                <button
-                  type="button"
-                  key={slot}
-                  onClick={() => {
-                    if (onToggleAvailability) onToggleAvailability(slot);
-                    const cur = (experiences['availability'] || '')
-                      .split(',')
-                      .map((s) => s.trim())
-                      .filter(Boolean);
-                    const next = cur.includes(slot)
-                      ? cur.filter((s) => s !== slot)
-                      : [...cur, slot];
-                    onExperienceChange('availability', next.join(', '));
-                  }}
-                  className={`p-2.5 rounded-xl border text-xs font-bold flex items-center gap-2 text-left transition-all ${
-                    isChecked
-                      ? 'bg-[#EDE8F5] text-[#523A8C] border-[#523A8C]/40 shadow-sm'
-                      : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'
-                  }`}
-                >
-                  <div
-                    className={`w-4 h-4 rounded flex items-center justify-center text-[10px] shrink-0 ${
-                      isChecked ? 'bg-[#523A8C] text-white' : 'border border-slate-300 bg-white'
-                    }`}
-                  >
-                    {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
-                  </div>
-                  <span className="truncate">{slot}</span>
-                </button>
-              );
-            })}
+          <div className="overflow-x-auto -mx-1 px-1">
+            <table className="w-full text-xs text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200">
+                  <th className="py-2 px-2 text-[11px] font-extrabold text-slate-700">Dia da Semana</th>
+                  {PERIODS.map((p) => (
+                    <th key={p} className="py-2 px-2 text-center text-[11px] font-extrabold text-slate-700">
+                      {p}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {WEEKDAYS.map((day) => (
+                  <tr key={day} className="hover:bg-slate-50/70 transition-colors">
+                    <td className="py-2.5 px-2 font-bold text-slate-800 text-xs">
+                      {day}
+                    </td>
+                    {PERIODS.map((period) => {
+                      const slotKey = `${day} - ${period}`;
+                      const isChecked = currentAvailabilityList.includes(slotKey);
+                      return (
+                        <td key={period} className="py-2.5 px-2 text-center">
+                          <button
+                            type="button"
+                            onClick={() => toggleSlot(day, period)}
+                            className={`w-full py-1.5 px-2 rounded-lg text-[11px] font-bold border transition-all flex items-center justify-center gap-1 ${
+                              isChecked
+                                ? 'bg-[#523A8C] text-white border-[#523A8C] shadow-xs'
+                                : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'
+                            }`}
+                          >
+                            {isChecked ? (
+                              <Check className="w-3.5 h-3.5 stroke-[3]" />
+                            ) : (
+                              <span className="text-[10px] text-slate-400">+</span>
+                            )}
+                            <span className="hidden sm:inline">{period}</span>
+                          </button>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
 
