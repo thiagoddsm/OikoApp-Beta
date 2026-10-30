@@ -155,6 +155,37 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
 
   const kanbanColumns = Object.keys(QUADRANTE_META) as ShapeQuadrante[];
 
+  const formatAiAnalysis = (ai: any) => {
+    if (!ai) return null;
+    let { resumoServidor = '', areasRecomendadas = [], alertas = [], proximosPassos = [], generatedAt } = ai;
+
+    // Se o resumoServidor veio com JSON bruto embutido, extrai os campos automaticamente
+    if ((areasRecomendadas.length === 0 || proximosPassos.length === 0) && resumoServidor.includes('{')) {
+      const firstBrace = resumoServidor.indexOf('{');
+      const lastBrace = resumoServidor.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace !== -1) {
+        try {
+          const jsonStr = resumoServidor.substring(firstBrace, lastBrace + 1);
+          const parsed = JSON.parse(jsonStr);
+          if (parsed.resumoServidor) resumoServidor = parsed.resumoServidor;
+          if (Array.isArray(parsed.areasRecomendadas) && parsed.areasRecomendadas.length > 0) {
+            areasRecomendadas = parsed.areasRecomendadas;
+          }
+          if (Array.isArray(parsed.alertas) && parsed.alertas.length > 0) {
+            alertas = parsed.alertas;
+          }
+          if (Array.isArray(parsed.proximosPassos) && parsed.proximosPassos.length > 0) {
+            proximosPassos = parsed.proximosPassos;
+          }
+        } catch (e) {
+          console.error('Erro ao normalizar JSON da IA:', e);
+        }
+      }
+    }
+
+    return { resumoServidor, areasRecomendadas, alertas, proximosPassos, generatedAt };
+  };
+
   const handleGenerateAI = async () => {
     if (!selectedPerson) return;
     setIsAnalyzing(true);
@@ -180,6 +211,7 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
   const renderInitials = (name: string) => (name || 'U').substring(0, 2).toUpperCase();
 
   const selectedCompletion = selectedPerson ? calculateShapeCompletion(selectedPerson) : null;
+  const activeAiAnalysis = selectedPerson ? formatAiAnalysis(selectedPerson.aiAnalysis) : null;
 
   return (
     <div className="space-y-6">
@@ -771,7 +803,7 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                   <Sparkles className="w-5 h-5 text-indigo-500" /> Análise por IA
                 </h3>
                 
-                {!selectedPerson.aiAnalysis ? (
+                {!activeAiAnalysis ? (
                   <div className="bg-indigo-50 border border-indigo-100 p-6 rounded-xl text-center space-y-4">
                     <p className="text-indigo-800 text-sm">
                       Gere uma análise personalizada de recomendações de serviço para este membro, baseada em todo o seu perfil S.H.A.P.E.
@@ -791,12 +823,12 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                         <CardTitle className="text-sm text-indigo-800 flex justify-between items-center">
                           Resumo do Servidor
                           <span className="text-xs font-normal text-indigo-400">
-                            Gerado em {new Date(selectedPerson.aiAnalysis.generatedAt).toLocaleString('pt-BR')}
+                            Gerado em {new Date(activeAiAnalysis.generatedAt).toLocaleString('pt-BR')}
                           </span>
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="p-4 text-sm text-slate-700 whitespace-pre-wrap">
-                        {selectedPerson.aiAnalysis.resumoServidor}
+                        {activeAiAnalysis.resumoServidor}
                       </CardContent>
                     </Card>
 
@@ -807,7 +839,7 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                         </CardHeader>
                         <CardContent>
                           <ul className="list-disc pl-4 space-y-1 text-sm text-slate-600">
-                            {selectedPerson.aiAnalysis.areasRecomendadas.map((area, i) => <li key={i}>{area}</li>)}
+                            {activeAiAnalysis.areasRecomendadas.map((area: string, i: number) => <li key={i}>{area}</li>)}
                           </ul>
                         </CardContent>
                       </Card>
@@ -818,20 +850,20 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                         </CardHeader>
                         <CardContent>
                           <ul className="list-disc pl-4 space-y-1 text-sm text-slate-600">
-                            {selectedPerson.aiAnalysis.proximosPassos.map((passo, i) => <li key={i}>{passo}</li>)}
+                            {activeAiAnalysis.proximosPassos.map((passo: string, i: number) => <li key={i}>{passo}</li>)}
                           </ul>
                         </CardContent>
                       </Card>
                     </div>
                     
-                    {selectedPerson.aiAnalysis.alertas.length > 0 && (
+                    {activeAiAnalysis.alertas.length > 0 && (
                       <Card className="border-amber-200">
                         <CardHeader className="bg-amber-50 pb-2">
                           <CardTitle className="text-sm text-amber-800">Alertas / Pontos de Atenção</CardTitle>
                         </CardHeader>
                         <CardContent className="p-4 text-sm text-amber-900">
                           <ul className="list-disc pl-4 space-y-1">
-                            {selectedPerson.aiAnalysis.alertas.map((alerta, i) => <li key={i}>{alerta}</li>)}
+                            {activeAiAnalysis.alertas.map((alerta: string, i: number) => <li key={i}>{alerta}</li>)}
                           </ul>
                         </CardContent>
                       </Card>

@@ -41,8 +41,16 @@ Responda em JSON válido com esta estrutura exata:
 
     let analysis: any;
     try {
-      const text = response.text.replace(/```json\n?|```\n?/g, '').trim();
-      analysis = JSON.parse(text);
+      const text = response.text || '';
+      const firstBrace = text.indexOf('{');
+      const lastBrace = text.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace !== -1) {
+        const jsonStr = text.substring(firstBrace, lastBrace + 1);
+        analysis = JSON.parse(jsonStr);
+      } else {
+        const cleanedText = text.replace(/```json\n?|```\n?/g, '').trim();
+        analysis = JSON.parse(cleanedText);
+      }
     } catch {
       analysis = { resumoServidor: response.text, areasRecomendadas: [], alertas: [], proximosPassos: [] };
     }

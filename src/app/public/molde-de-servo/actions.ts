@@ -24,7 +24,7 @@ function sanitizeFirestoreData(data: any): any {
   return data;
 }
 
-export const DEFAULT_MINISTRY_SUGGESTIONS = [
+const DEFAULT_MINISTRY_SUGGESTIONS = [
   'Louvor & Adoração',
   'Ensino & Discipulado',
   'Crianças (OikoKids)',
