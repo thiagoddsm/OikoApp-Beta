@@ -8,8 +8,8 @@ import DiscProfileBadge from './disc/DiscProfileBadge';
 import { calculateDisc, DISC_TOTAL, type DiscLetter } from '@/lib/disc';
 
 interface Step6DiscProps {
-  discAnswers: Record<string, DiscLetter | string>;
-  onDiscAnswer: (questionId: string, letter: DiscLetter) => void;
+  discAnswers: Record<string, DiscLetter[]>;
+  onDiscAnswer: (questionId: string, order: DiscLetter[]) => void;
   /** quadrante do formato antigo (se o aluno já respondeu as escalas O/E) */
   legacyQuadrante?: string;
 }
@@ -31,11 +31,12 @@ export default function Step6Disc({ discAnswers, onDiscAnswer, legacyQuadrante }
 
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl sm:text-3xl font-black text-[#1E113F] tracking-tight">
-          Seu Perfil Comportamental
+          Seu Perfil Comportamental (DISC)
         </h1>
         <p className="text-slate-600 text-xs sm:text-sm leading-relaxed">
-          Para cada situação, escolha a alternativa que <strong>mais</strong> parece com você{' '}
-          <strong>naturalmente</strong>, não como você gostaria de ser. Não há resposta certa ou errada.
+          Para cada situação, <strong>ordene as 4 alternativas por ordem de prioridade</strong>: do que{' '}
+          <strong>mais</strong> se parece com você no serviço ministerial (1º lugar • 4 pts) até o que{' '}
+          <strong>menos</strong> se parece (4º lugar • 1 pt).
         </p>
       </div>
 
@@ -77,7 +78,6 @@ export default function Step6Disc({ discAnswers, onDiscAnswer, legacyQuadrante }
             scores={result.discScores}
             primary={result.discPrimary}
             secondary={result.discSecondary}
-            total={DISC_TOTAL}
           />
           <p className="text-[11px] text-slate-500">
             Clique em “Salvar e Ir para Habilidades” para guardar. Seu Cartão do Servo completo vem no final.

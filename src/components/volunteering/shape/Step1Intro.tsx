@@ -25,6 +25,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { lookupMemberByEmail } from '@/app/public/molde-de-servo/actions';
 import { useToast } from '@/hooks/use-toast';
+import type { DiscLetter } from '@/lib/disc-questions';
 
 export interface Step1FormData {
   email: string;
@@ -48,7 +49,7 @@ export interface SavedShapeProgress {
   heart: Record<string, string>;
   personality: Record<string, number>;
   gifts: Record<string, number>;
-  discAnswers?: Record<string, string>;
+  discAnswers?: Record<string, DiscLetter[]> | Record<string, string>;
   discScores?: Record<string, number>;
   discPrimary?: string;
   discSecondary?: string;

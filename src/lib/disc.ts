@@ -6,6 +6,11 @@ export { DISC_VERSION };
 export const DISC_LETTERS: DiscLetter[] = ['D', 'I', 'S', 'C'];
 export const DISC_TOTAL = DISC_QUESTIONS.length;
 
+/** Pesos por posição no ranking de cada questão: 1º (4pts), 2º (3pts), 3º (2pts), 4º (1pt) */
+export const DISC_RANK_POINTS = [4, 3, 2, 1] as const;
+/** Total máximo de pontos no inventário (12 perguntas x 10 pontos) */
+export const DISC_TOTAL_POINTS = DISC_TOTAL * 10; // 120 pontos
+
 export type DiscScores = Record<DiscLetter, number>;
 export type DiscStrength = 'marked' | 'defined' | 'blended';
 
@@ -18,7 +23,7 @@ export const QUADRANT_BY_DISC: Record<DiscLetter, string> = {
 };
 
 export interface DiscResult {
-  discAnswers: Record<string, DiscLetter>;
+  discAnswers: Record<string, DiscLetter[]>;
   discScores: DiscScores;
   discAnsweredCount: number;
   discComplete: boolean;
@@ -33,22 +38,53 @@ export interface DiscResult {
   quadrante: string | null;
 }
 
-/** Mantém somente respostas de perguntas e letras válidas */
-export function sanitizeDiscAnswers(raw: unknown): Record<string, DiscLetter> {
-  const out: Record<string, DiscLetter> = {};
+/** Garante que uma lista de letras contenha as 4 dimensões D, I, S, C sem repetições */
+export function normalizeDiscOrder(letters: unknown): DiscLetter[] {
+  const result: DiscLetter[] = [];
+  const seen = new Set<DiscLetter>();
+
+  if (Array.isArray(letters)) {
+    for (const item of letters) {
+      if ((item === 'D' || item === 'I' || item === 'S' || item === 'C') && !seen.has(item)) {
+        result.push(item);
+        seen.add(item);
+      }
+    }
+  } else if (typeof letters === 'string' && (letters === 'D' || letters === 'I' || letters === 'S' || letters === 'C')) {
+    result.push(letters);
+    seen.add(letters);
+  }
+
+  // Completa as que faltarem com as outras dimensões
+  for (const l of DISC_LETTERS) {
+    if (!seen.has(l)) {
+      result.push(l);
+      seen.add(l);
+    }
+  }
+
+  return result.slice(0, 4);
+}
+
+/** Mantém somente respostas de perguntas e rankings de letras válidos */
+export function sanitizeDiscAnswers(raw: unknown): Record<string, DiscLetter[]> {
+  const out: Record<string, DiscLetter[]> = {};
   if (!raw || typeof raw !== 'object') return out;
   const ids = new Set(DISC_QUESTIONS.map((q) => q.id));
+
   for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
-    if (ids.has(k) && (v === 'D' || v === 'I' || v === 'S' || v === 'C')) out[k] = v;
+    if (!ids.has(k) || !v) continue;
+    out[k] = normalizeDiscOrder(v);
   }
+
   return out;
 }
 
 /**
- * Regras:
- *  1) maior pontuação;
- *  2) desempate: maior pontuação no bloco "sob pressão" (Q10–Q12);
- *  3) último recurso: ordem fixa D > I > S > C (apenas para ser determinístico; marca discTie).
+ * Cálculo por ordenação de prioridades (pesos 4, 3, 2, 1):
+ *  1) soma ponderada das 12 perguntas (total de 120 pontos);
+ *  2) desempate: soma ponderada no bloco "sob pressão" (Q10–Q12);
+ *  3) último recurso: ordem fixa D > I > S > C (marca discTie).
  */
 export function calculateDisc(rawAnswers: unknown): DiscResult {
   const discAnswers = sanitizeDiscAnswers(rawAnswers);
@@ -56,10 +92,16 @@ export function calculateDisc(rawAnswers: unknown): DiscResult {
   const pressure: DiscScores = { D: 0, I: 0, S: 0, C: 0 };
 
   for (const q of DISC_QUESTIONS) {
-    const l = discAnswers[q.id];
-    if (!l) continue;
-    scores[l]++;
-    if (q.tiebreaker) pressure[l]++;
+    const ranking = discAnswers[q.id];
+    if (!ranking || ranking.length < 4) continue;
+
+    ranking.forEach((letter, idx) => {
+      const pts = DISC_RANK_POINTS[idx] ?? 0;
+      scores[letter] += pts;
+      if (q.tiebreaker) {
+        pressure[letter] += pts;
+      }
+    });
   }
 
   const count = Object.keys(discAnswers).length;
@@ -94,7 +136,8 @@ export function calculateDisc(rawAnswers: unknown): DiscResult {
   const tie = sameRank(p, s) || (secondary !== null && sameRank(s, t));
 
   const gap = scores[p] - scores[s];
-  const strength: DiscStrength = gap >= 5 ? 'marked' : gap <= 1 ? 'blended' : 'defined';
+  // No sistema de 120 pontos (média 30 por dimensão), gap >= 8 é muito marcado e gap <= 2 é combinado
+  const strength: DiscStrength = gap >= 8 ? 'marked' : gap <= 2 ? 'blended' : 'defined';
 
   return {
     ...base,

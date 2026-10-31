@@ -5,7 +5,7 @@ import { Timestamp } from 'firebase-admin/firestore';
 import { getPublicGCs as getEnrollmentPublicGCs } from '@/app/public/enrollment/actions';
 import { SHAPE_DATA } from '@/lib/shape-complete-data';
 import { calculateShapeCompletion, calculateShapeMetrics } from '@/types/shape';
-import { sanitizeDiscAnswers, DISC_VERSION } from '@/lib/disc';
+import { sanitizeDiscAnswers, DISC_VERSION, type DiscLetter } from '@/lib/disc';
 
 export async function getPublicGCs() {
   return getEnrollmentPublicGCs();
@@ -180,8 +180,8 @@ export interface SaveShapeStepPayload {
   heart?: Record<string, string>;
   /** LEGADO (escalas O/E): apenas repassado para preservar registros antigos */
   personality?: Record<string, number>;
-  /** DISC: { Q1: 'D', Q2: 'S', ... } */
-  discAnswers?: Record<string, string>;
+  /** DISC: { Q1: ['D', 'I', 'S', 'C'], Q2: ... } */
+  discAnswers?: Record<string, DiscLetter[]> | Record<string, string>;
   gifts?: Record<string, number>;
   experiences?: Record<string, string>;
   currentStep: number;
@@ -345,7 +345,7 @@ export async function submitShapeAssessment(data: {
   availability?: string[];
   heart?: Record<string, string>;
   personality?: Record<string, number>;
-  discAnswers?: Record<string, string>;
+  discAnswers?: Record<string, DiscLetter[]> | Record<string, string>;
   gifts?: Record<string, number>;
   experiences?: Record<string, string>;
   quadrant?: string;

@@ -35,7 +35,7 @@ interface Step5ResultProps {
   experiences: Record<string, string>;
   heartAnswers: Record<string, string>;
   personalityAnswers?: Record<string, number>;
-  discAnswers?: Record<string, DiscLetter | string>;
+  discAnswers?: Record<string, DiscLetter[]> | Record<string, any>;
   giftAnswers: Record<string, number>;
   onRetakeDisc?: () => void;
 }
@@ -370,7 +370,6 @@ _Avaliação concluída no OikoApp • Conectando dons e propósitos no Reino!_`
                   scores={discResult.discScores}
                   primary={discResult.discPrimary}
                   secondary={discResult.discSecondary}
-                  total={DISC_TOTAL}
                 />
               </div>
             </div>

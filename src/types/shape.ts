@@ -57,7 +57,7 @@ export interface ShapeResult {
   currentStep?: number;
   completionPercentage?: number;
   /** DISC */
-  discAnswers?: Record<string, DiscLetter>;
+  discAnswers?: Record<string, DiscLetter[]> | Record<string, string>;
   discScores?: DiscScores;
   discPrimary?: DiscLetter | null;
   discSecondary?: DiscLetter | null;
@@ -80,7 +80,7 @@ export function calculateShapeCompletion(data: {
   coracao?: Record<string, string>;
   dom?: Record<string, number>;
   perso?: Record<string, number>;
-  discAnswers?: Record<string, string>;
+  discAnswers?: Record<string, DiscLetter[]> | Record<string, string>;
   habilidades?: string[];
   disponibilidade?: string[];
   experiencias?: Record<string, string>;
@@ -143,7 +143,7 @@ export function calculateShapeCompletion(data: {
 export function calculateShapeMetrics(
   personality: Record<string, number> = {},
   gifts: Record<string, number> = {},
-  discAnswersRaw?: Record<string, string>
+  discAnswersRaw?: Record<string, DiscLetter[]> | Record<string, string>
 ) {
   const disc = calculateDisc(discAnswersRaw);
 

@@ -11,7 +11,7 @@ import { ArrowLeft, ArrowRight, User, Loader2, Save, CheckCircle2 } from 'lucide
 import { useToast } from '@/hooks/use-toast';
 import { SHAPE_DATA } from '@/lib/shape-complete-data';
 import { calculateShapeCompletion } from '@/types/shape';
-import { DISC_TOTAL, type DiscLetter } from '@/lib/disc';
+import { DISC_TOTAL, sanitizeDiscAnswers, type DiscLetter } from '@/lib/disc';
 import { DISC_QUESTIONS } from '@/lib/disc-questions';
 import { saveShapeStepProgress } from './actions';
 
@@ -53,7 +53,7 @@ export default function MoldeDeServoPage() {
   const [giftAnswers, setGiftAnswers] = useState<Record<string, number>>({});
 
   // Passo 6 (Aula 2 - 6A): Perfil DISC
-  const [discAnswers, setDiscAnswers] = useState<Record<string, DiscLetter>>({});
+  const [discAnswers, setDiscAnswers] = useState<Record<string, DiscLetter[]>>({});
   const [legacyQuadrante, setLegacyQuadrante] = useState<string>('');
 
   // Passo 7 (Aula 2 - 6B): Habilidades & Disponibilidade
@@ -87,7 +87,7 @@ export default function MoldeDeServoPage() {
     if (progress.experiences) setExperiences(progress.experiences);
     if (progress.heart) setHeartAnswers(progress.heart);
     if (progress.personality) setPersonalityAnswers(progress.personality);
-    if (progress.discAnswers) setDiscAnswers(progress.discAnswers as Record<string, DiscLetter>);
+    if (progress.discAnswers) setDiscAnswers(sanitizeDiscAnswers(progress.discAnswers));
     if (progress.legacyQuadrante) setLegacyQuadrante(progress.legacyQuadrante);
     if (progress.gifts) setGiftAnswers(progress.gifts);
     if (progress.targetMinistry) {
@@ -121,8 +121,8 @@ export default function MoldeDeServoPage() {
     setHeartAnswers((prev) => ({ ...prev, [`q${index}`]: value }));
   };
 
-  const handleDiscAnswer = (questionId: string, letter: DiscLetter) => {
-    setDiscAnswers((prev) => ({ ...prev, [questionId]: letter }));
+  const handleDiscAnswer = (questionId: string, order: DiscLetter[]) => {
+    setDiscAnswers((prev) => ({ ...prev, [questionId]: order }));
   };
 
   const handleGiftAnswer = (questionId: string, value: number) => {
@@ -264,14 +264,14 @@ export default function MoldeDeServoPage() {
 
     // Passo 6 (Aula 2 - 6A): Perfil DISC
     if (step === 6) {
-      const unansweredDisc = DISC_QUESTIONS.filter((q) => !discAnswers[q.id]);
+      const unansweredDisc = DISC_QUESTIONS.filter((q) => !discAnswers[q.id] || discAnswers[q.id].length < 4);
       if (unansweredDisc.length > 0) {
         await persistCurrentProgress(step, false);
 
         toast({
           variant: 'destructive',
-          title: `Faltam ${unansweredDisc.length} questões do Perfil DISC`,
-          description: 'Suas respostas marcadas foram salvas! Responda as restantes para avançar.',
+          title: `Faltam ${unansweredDisc.length} questões para ordenar no Perfil DISC`,
+          description: 'Suas ordens já definidas foram salvas! Ordene as questões restantes para avançar.',
         });
 
         const firstMissing = document.getElementById(`disc-question-${unansweredDisc[0].id}`);
