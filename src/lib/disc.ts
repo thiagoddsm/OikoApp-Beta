@@ -30,6 +30,9 @@ export interface DiscResult {
   /** Só é definido com 12/12 respondidas */
   discPrimary: DiscLetter | null;
   discSecondary: DiscLetter | null;
+  /** Ponto Cego / Fator com menor pontuação nos 120 pontos */
+  discLowest: DiscLetter | null;
+  discLowestScore: number | null;
   /** ex.: "DI" */
   discProfile: string;
   /** true se a ordem de primário/secundário foi decidida apenas pela ordem fixa */
@@ -114,6 +117,8 @@ export function calculateDisc(rawAnswers: unknown): DiscResult {
     discComplete: complete,
     discPrimary: null,
     discSecondary: null,
+    discLowest: null,
+    discLowestScore: null,
     discProfile: '',
     discTie: false,
     discStrength: null,
@@ -128,7 +133,7 @@ export function calculateDisc(rawAnswers: unknown): DiscResult {
       DISC_LETTERS.indexOf(a) - DISC_LETTERS.indexOf(b)
   );
 
-  const [p, s, t] = ranked;
+  const [p, s, t, lowest] = ranked;
   const sameRank = (x: DiscLetter, y: DiscLetter) =>
     scores[x] === scores[y] && pressure[x] === pressure[y];
 
@@ -143,6 +148,8 @@ export function calculateDisc(rawAnswers: unknown): DiscResult {
     ...base,
     discPrimary: p,
     discSecondary: secondary,
+    discLowest: lowest,
+    discLowestScore: scores[lowest],
     discProfile: p + (secondary ?? ''),
     discTie: tie,
     discStrength: strength,

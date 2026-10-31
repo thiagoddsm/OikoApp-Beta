@@ -8,8 +8,9 @@ import {
   ShapeQuadrante,
   calculateShapeCompletion,
 } from '@/types/shape';
-import { DISC_META, DiscMetaItem } from '@/lib/disc-meta';
+import { DISC_META, DISC_BLINDSPOT_META, DiscMetaItem } from '@/lib/disc-meta';
 import { DiscLetter } from '@/lib/disc-questions';
+import { calculateMinistryFit, MinistryFitResult } from '@/lib/ministry-benchmarks';
 import DiscBarChart from '@/components/volunteering/shape/disc/DiscBarChart';
 import DiscProfileBadge from '@/components/volunteering/shape/disc/DiscProfileBadge';
 import { Input } from '@/components/ui/input';
@@ -36,6 +37,12 @@ import {
   MessageSquare,
   AlertTriangle,
   ShieldAlert,
+  Users,
+  BarChart3,
+  TrendingUp,
+  HelpCircle,
+  FileQuestion,
+  ArrowRight,
 } from 'lucide-react';
 import {
   getShapeResults,
@@ -135,7 +142,11 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
   const [search, setSearch] = useState('');
   const [discFilter, setDiscFilter] = useState<string>('todos');
   const [domFilter, setDomFilter] = useState<string>('todos');
-  const [view, setView] = useState<'kanban' | 'list'>('kanban');
+  const [view, setView] = useState<'kanban' | 'list' | 'teams'>('kanban');
+
+  // Estados do Raio-X de Equipes (Team Analytics)
+  const [teamFilterType, setTeamFilterType] = useState<'ministry' | 'gc'>('ministry');
+  const [selectedTeamName, setSelectedTeamName] = useState<string>('todos');
   
   const [selectedPerson, setSelectedPerson] = useState<ShapeResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -221,6 +232,15 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
     return matchSearch && matchDisc && matchDom;
   });
 
+  // Equipes disponíveis (Ministérios e GCs) para o Team Analytics
+  const availableMinistries = Array.from(
+    new Set(results.map((r) => r.ministryTarget).filter((m): m is string => !!m && m.trim().length > 0))
+  ).sort();
+
+  const availableGCs = Array.from(
+    new Set(results.map((r) => r.gcInfo).filter((g): g is string => !!g && g.trim().length > 0))
+  ).sort();
+
   const HEART_LABELS: Record<string, string> = {
     h1: 'O que me impulsiona',
     h2: 'Quem eu quero alcançar',
@@ -244,6 +264,7 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
       comoComunicar = [],
       comoGerenciar = [],
       evitar = [],
+      perguntasEntrevista = [],
       alertas = [],
       proximosPassos = [],
       generatedAt,
@@ -270,6 +291,9 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
           if (Array.isArray(parsed.evitar) && parsed.evitar.length > 0) {
             evitar = parsed.evitar;
           }
+          if (Array.isArray(parsed.perguntasEntrevista) && parsed.perguntasEntrevista.length > 0) {
+            perguntasEntrevista = parsed.perguntasEntrevista;
+          }
           if (Array.isArray(parsed.alertas) && parsed.alertas.length > 0) {
             alertas = parsed.alertas;
           }
@@ -288,6 +312,7 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
       comoComunicar: Array.isArray(comoComunicar) ? comoComunicar : [],
       comoGerenciar: Array.isArray(comoGerenciar) ? comoGerenciar : [],
       evitar: Array.isArray(evitar) ? evitar : [],
+      perguntasEntrevista: Array.isArray(perguntasEntrevista) ? perguntasEntrevista : [],
       alertas: Array.isArray(alertas) ? alertas : [],
       proximosPassos: Array.isArray(proximosPassos) ? proximosPassos : [],
       generatedAt,
@@ -398,20 +423,30 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
           <span>Atualizar</span>
         </Button>
 
-        <div className="flex bg-slate-100 p-1 rounded-lg">
+        <div className="flex bg-slate-100 p-1 rounded-xl">
           <Button 
             variant={view === 'kanban' ? 'default' : 'ghost'} 
             size="sm" 
             onClick={() => setView('kanban')}
+            className="text-xs font-bold"
           >
-            <LayoutGrid className="w-4 h-4 mr-2" /> Kanban
+            <LayoutGrid className="w-3.5 h-3.5 mr-1.5" /> Kanban
           </Button>
           <Button 
             variant={view === 'list' ? 'default' : 'ghost'} 
             size="sm" 
             onClick={() => setView('list')}
+            className="text-xs font-bold"
           >
-            <List className="w-4 h-4 mr-2" /> Lista
+            <List className="w-3.5 h-3.5 mr-1.5" /> Lista
+          </Button>
+          <Button 
+            variant={view === 'teams' ? 'default' : 'ghost'} 
+            size="sm" 
+            onClick={() => setView('teams')}
+            className="text-xs font-bold"
+          >
+            <BarChart3 className="w-3.5 h-3.5 mr-1.5" /> Raio-X de Equipes
           </Button>
         </div>
       </div>
@@ -690,6 +725,383 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
         </div>
       )}
 
+      {/* View Raio-X de Equipes (Team Analytics) */}
+      {view === 'teams' && (() => {
+        const teamMembers = results.filter((r) => {
+          if (teamFilterType === 'ministry') {
+            return selectedTeamName === 'todos' ? !!r.ministryTarget : r.ministryTarget === selectedTeamName;
+          } else {
+            return selectedTeamName === 'todos' ? !!r.gcInfo : r.gcInfo === selectedTeamName;
+          }
+        });
+
+        const total = teamMembers.length;
+        const countD = teamMembers.filter((r) => r.discPrimary === 'D').length;
+        const countI = teamMembers.filter((r) => r.discPrimary === 'I').length;
+        const countS = teamMembers.filter((r) => r.discPrimary === 'S').length;
+        const countC = teamMembers.filter((r) => r.discPrimary === 'C').length;
+        const countSemDisc = teamMembers.filter((r) => !r.discPrimary).length;
+
+        const pctD = total > 0 ? Math.round((countD / total) * 100) : 0;
+        const pctI = total > 0 ? Math.round((countI / total) * 100) : 0;
+        const pctS = total > 0 ? Math.round((countS / total) * 100) : 0;
+        const pctC = total > 0 ? Math.round((countC / total) * 100) : 0;
+
+        // Mapa de Dons Coletivos da Equipe
+        const giftCountMap: Record<string, { name: string; count: number; totalScore: number }> = {};
+        teamMembers.forEach((m) => {
+          (m.top3 || []).forEach((g) => {
+            const name = g.nome || g.name || g.id;
+            if (!name) return;
+            if (!giftCountMap[name]) giftCountMap[name] = { name, count: 0, totalScore: 0 };
+            giftCountMap[name].count += 1;
+            giftCountMap[name].totalScore += g.score || 0;
+          });
+        });
+
+        const topTeamGifts = Object.values(giftCountMap).sort((a, b) => b.count - a.count || b.totalScore - a.totalScore).slice(0, 4);
+
+        // Diagnóstico Inteligente de Balanceamento
+        const diagnostics: Array<{ type: 'warning' | 'alert' | 'success'; title: string; desc: string }> = [];
+
+        if (total >= 2) {
+          if (pctD >= 40) {
+            diagnostics.push({
+              type: 'warning',
+              title: 'Atenção à Disputa de Comando (D alto)',
+              desc: `${pctD}% do time possui perfil Executor (D). É crucial definir claramente os papéis e quem lidera cada frente para evitar sobreposição de autoridade.`,
+            });
+          } else if (countD === 0 && total >= 3) {
+            diagnostics.push({
+              type: 'alert',
+              title: 'Falta de Impulso Executor (Sem D)',
+              desc: 'Não há voluntários com perfil D primário. O time pode ter facilidade em sonhar e acolher, mas enfrentar lentidão na tomada de decisões difíceis e execução sob pressão.',
+            });
+          }
+
+          if (pctI >= 45) {
+            diagnostics.push({
+              type: 'warning',
+              title: 'Energia Social Alta (I alto)',
+              desc: `${pctI}% do time possui perfil Comunicador (I). Ambiente caloroso e excelente para contato com pessoas, mas atenção para não dispersar prazos e reuniões.`,
+            });
+          }
+
+          if (countS === 0 && total >= 3) {
+            diagnostics.push({
+              type: 'alert',
+              title: 'Carência de Cuidador e Constância (Sem S)',
+              desc: 'Nenhum membro possui perfil S como dominante. Há risco de sobrecarga em tarefas rotineiras de bastidores e falta de acompanhamento de longo prazo.',
+            });
+          }
+
+          if (countC === 0 && total >= 3) {
+            diagnostics.push({
+              type: 'alert',
+              title: 'Carência de Detalhe e Processos (Sem C)',
+              desc: 'O time é muito voltado a pessoas e ação, mas carece de perfil analítico para checagem de regras, checklists e relatórios.',
+            });
+          }
+
+          if (diagnostics.length === 0) {
+            diagnostics.push({
+              type: 'success',
+              title: 'Equipe Bem Balanceada e Complementar',
+              desc: 'Esta equipe possui uma distribuição saudável entre iniciativa, comunicação, sustentação e qualidade técnica.',
+            });
+          }
+        }
+
+        return (
+          <div className="space-y-6">
+            {/* Header e Seletores do Raio-X */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-[#EDE8F5] text-[#523A8C] flex items-center justify-center font-bold">
+                    <BarChart3 className="w-4 h-4" />
+                  </div>
+                  <h3 className="text-base font-extrabold text-slate-900">
+                    Raio-X Coletivo de Equipes & Ministérios
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Analise o balanceamento comportamental, riscos de atrito e abundância de dons em cada equipe.
+                </p>
+              </div>
+
+              {/* Controles de Filtro de Time */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex bg-slate-100 p-1 rounded-xl text-xs font-bold">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTeamFilterType('ministry');
+                      setSelectedTeamName('todos');
+                    }}
+                    className={`px-3 py-1.5 rounded-lg transition-all ${
+                      teamFilterType === 'ministry'
+                        ? 'bg-white text-[#523A8C] shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Por Ministério
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTeamFilterType('gc');
+                      setSelectedTeamName('todos');
+                    }}
+                    className={`px-3 py-1.5 rounded-lg transition-all ${
+                      teamFilterType === 'gc'
+                        ? 'bg-white text-[#523A8C] shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Por GC (Pequeno Grupo)
+                  </button>
+                </div>
+
+                <Select value={selectedTeamName} onValueChange={setSelectedTeamName}>
+                  <SelectTrigger className="w-[200px] h-9 text-xs rounded-xl font-bold">
+                    <SelectValue placeholder="Selecione o grupo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">
+                      {teamFilterType === 'ministry' ? 'Todos os Ministérios' : 'Todos os GCs'}
+                    </SelectItem>
+                    {(teamFilterType === 'ministry' ? availableMinistries : availableGCs).map((name) => (
+                      <SelectItem key={name} value={name}>
+                        {name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {total === 0 ? (
+              <div className="bg-white p-12 rounded-2xl border-2 border-dashed border-slate-200 text-center space-y-2">
+                <Users className="w-8 h-8 text-slate-300 mx-auto" />
+                <h4 className="text-sm font-bold text-slate-700">Nenhum voluntário encontrado neste grupo</h4>
+                <p className="text-xs text-slate-400">
+                  Os voluntários são vinculados a este painel conforme selecionam sua área em "Onde sente que Deus está te chamando para servir".
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Grid Superior: Distribuição DISC e Diagnóstico */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                  {/* Card 1: Distribuição Comportamental da Equipe */}
+                  <Card className="lg:col-span-1 rounded-2xl border-slate-200 shadow-sm">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-sm font-bold flex items-center gap-2">
+                          <TrendingUp className="w-4 h-4 text-[#523A8C]" /> Distribuição DISC do Time
+                        </CardTitle>
+                        <Badge variant="secondary" className="font-extrabold text-xs">
+                          {total} {total === 1 ? 'servo' : 'servos'}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="space-y-2.5">
+                        {/* D */}
+                        <div className="space-y-1">
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="font-extrabold text-red-700 flex items-center gap-1.5">
+                              🔴 D • Dominância (Executor)
+                            </span>
+                            <span className="font-black text-slate-700">
+                              {countD} ({pctD}%)
+                            </span>
+                          </div>
+                          <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-red-500 rounded-full transition-all" style={{ width: `${pctD}%` }} />
+                          </div>
+                        </div>
+
+                        {/* I */}
+                        <div className="space-y-1">
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="font-extrabold text-amber-700 flex items-center gap-1.5">
+                              🟡 I • Influência (Comunicador)
+                            </span>
+                            <span className="font-black text-slate-700">
+                              {countI} ({pctI}%)
+                            </span>
+                          </div>
+                          <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-amber-400 rounded-full transition-all" style={{ width: `${pctI}%` }} />
+                          </div>
+                        </div>
+
+                        {/* S */}
+                        <div className="space-y-1">
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="font-extrabold text-emerald-700 flex items-center gap-1.5">
+                              🟢 S • Estabilidade (Cuidador)
+                            </span>
+                            <span className="font-black text-slate-700">
+                              {countS} ({pctS}%)
+                            </span>
+                          </div>
+                          <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${pctS}%` }} />
+                          </div>
+                        </div>
+
+                        {/* C */}
+                        <div className="space-y-1">
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="font-extrabold text-blue-700 flex items-center gap-1.5">
+                              🔵 C • Conformidade (Analítico)
+                            </span>
+                            <span className="font-black text-slate-700">
+                              {countC} ({pctC}%)
+                            </span>
+                          </div>
+                          <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${pctC}%` }} />
+                          </div>
+                        </div>
+                      </div>
+
+                      {countSemDisc > 0 && (
+                        <p className="text-[11px] text-slate-400 italic pt-1 border-t border-slate-100">
+                          * {countSemDisc} {countSemDisc === 1 ? 'membro ainda não realizou' : 'membros ainda não realizaram'} o DISC nesta equipe.
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Card 2: Diagnóstico Inteligente de Balanceamento */}
+                  <Card className="lg:col-span-2 rounded-2xl border-slate-200 shadow-sm flex flex-col justify-between">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-900">
+                        <AlertTriangle className="w-4 h-4 text-amber-600" /> Diagnóstico Pastoral de Dinâmica de Equipe
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3 flex-1">
+                      {diagnostics.map((diag, i) => (
+                        <div
+                          key={i}
+                          className={`p-3.5 rounded-xl border flex items-start gap-2.5 ${
+                            diag.type === 'warning'
+                              ? 'bg-amber-50/70 border-amber-200 text-amber-950'
+                              : diag.type === 'alert'
+                              ? 'bg-blue-50/70 border-blue-200 text-blue-950'
+                              : 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
+                          }`}
+                        >
+                          <span className="text-base shrink-0 mt-0.5">
+                            {diag.type === 'warning' ? '⚠️' : diag.type === 'alert' ? 'ℹ️' : '✨'}
+                          </span>
+                          <div className="space-y-0.5 min-w-0">
+                            <h5 className="font-black text-xs">{diag.title}</h5>
+                            <p className="text-xs leading-relaxed opacity-90">{diag.desc}</p>
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Forças de Dons da Equipe */}
+                      <div className="pt-2 border-t border-slate-100 space-y-2">
+                        <span className="text-xs font-extrabold text-slate-700 block">
+                          Dons Espirituais Mais Abundantes no Grupo:
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {topTeamGifts.map((tg, idx) => (
+                            <Badge
+                              key={idx}
+                              variant="outline"
+                              className="bg-slate-50 border-slate-200 text-slate-800 text-xs py-1 px-2.5 gap-1.5 font-bold"
+                            >
+                              <Sparkles className="w-3 h-3 text-[#523A8C]" />
+                              <span>{tg.name}</span>
+                              <span className="text-[10px] text-slate-400">({tg.count} membros)</span>
+                            </Badge>
+                          ))}
+                          {topTeamGifts.length === 0 && (
+                            <span className="text-xs text-slate-400 italic">Dons pendentes de preenchimento.</span>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Tabela dos Voluntários da Equipe */}
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                  <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                    <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                      <Users className="w-4 h-4 text-[#523A8C]" /> Membros do Grupo ({teamMembers.length})
+                    </h4>
+                  </div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Servo(a)</TableHead>
+                        <TableHead>Perfil DISC</TableHead>
+                        <TableHead>Dom Principal</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {teamMembers.map((m) => (
+                        <TableRow key={m.id}>
+                          <TableCell className="font-bold text-xs sm:text-sm">
+                            <div className="flex items-center gap-2.5">
+                              <Avatar className="h-8 w-8">
+                                <AvatarFallback className="bg-slate-100 text-[#523A8C] font-black text-xs">
+                                  {renderInitials(m.nome)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="leading-tight">{m.nome}</p>
+                                <p className="text-[10px] text-slate-400">{m.email}</p>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {m.discPrimary ? (
+                              <DiscProfileBadge primary={m.discPrimary as any} secondary={m.discSecondary as any} />
+                            ) : (
+                              <span className="text-xs text-slate-400 italic">Sem DISC</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-xs font-semibold text-slate-700">
+                            {m.top3?.[0]?.nome || m.top3?.[0]?.name || '-'}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="outline"
+                              className={`text-[10px] font-bold ${
+                                m.status === 'completed'
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  : 'bg-amber-50 text-amber-700 border-amber-200'
+                              }`}
+                            >
+                              {m.status === 'completed' ? '100% Concluído' : 'Em andamento'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Button variant="ghost" size="sm" onClick={() => setSelectedPerson(m)} className="text-xs font-bold">
+                              Ver Ficha
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Dialog Detalhes do Aluno */}
       <Dialog open={!!selectedPerson} onOpenChange={(open) => !open && setSelectedPerson(null)}>
         {selectedPerson && selectedCompletion && (
@@ -881,10 +1293,35 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                     {/* Gráfico de barras DISC */}
                     <div className="pt-2">
                       <span className="text-xs font-bold text-slate-700 block mb-2">
-                        Pontuação nas 4 Dimensões (Total 12 perguntas):
+                        Pontuação nas 4 Dimensões (Total 12 perguntas • 120 pts):
                       </span>
                       <DiscBarChart scores={selectedPerson.discScores as any} />
                     </div>
+
+                    {/* Mapeamento de Ponto Cego (Vulnerabilidade DISC) */}
+                    {selectedPerson.discLowest && DISC_BLINDSPOT_META[selectedPerson.discLowest] && (
+                      <div className="p-3.5 bg-rose-50/70 border border-rose-200 rounded-xl space-y-1.5 mt-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-extrabold uppercase text-rose-800 flex items-center gap-1.5">
+                            <ShieldAlert className="w-3.5 h-3.5 text-rose-600" /> Ponto Cego / Menor Afinidade: {selectedPerson.discLowest} ({selectedPerson.discLowestScore ?? 'Baixo'} pts)
+                          </span>
+                          <Badge variant="outline" className="text-[9px] bg-white text-rose-700 border-rose-300 font-bold">
+                            Atenção Pastoral
+                          </Badge>
+                        </div>
+                        <h5 className="text-xs font-bold text-rose-950">
+                          {DISC_BLINDSPOT_META[selectedPerson.discLowest].title}
+                        </h5>
+                        <p className="text-xs text-rose-900/90 leading-relaxed">
+                          <strong>O que evitar delegar: </strong>
+                          {DISC_BLINDSPOT_META[selectedPerson.discLowest].avoidDelegating}
+                        </p>
+                        <p className="text-[11px] text-rose-800/80 italic">
+                          <strong>Dupla complementar recomendada: </strong>
+                          {DISC_BLINDSPOT_META[selectedPerson.discLowest].idealPartner}
+                        </p>
+                      </div>
+                    )}
 
                     {selectedPerson.quadrante && QUADRANTE_META[selectedPerson.quadrante] && (
                       <p className="text-[11px] text-slate-400 pt-1 border-t border-slate-100">
@@ -918,6 +1355,68 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                   </div>
                 )}
               </section>
+
+              {/* Match Score Vocacional por Lógica Fuzzy (IA Simbólica) */}
+              {selectedPerson.discScores && (() => {
+                const ministryFits = calculateMinistryFit(selectedPerson.discScores, selectedPerson.top3 || []).slice(0, 3);
+                return (
+                  <section className="space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                      <h3 className="font-semibold text-lg flex items-center gap-2 text-slate-900">
+                        <Compass className="w-5 h-5 text-[#523A8C]" /> Áreas de Maior Aderência (Fuzzy Match)
+                      </h3>
+                      <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full w-fit">
+                        Cálculo Simbólico (DISC + Dons)
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      {ministryFits.map((fit, idx) => (
+                        <Card key={idx} className="rounded-2xl border-slate-200 overflow-hidden shadow-xs hover:border-[#523A8C]/30 transition-all">
+                          <CardHeader className="p-3.5 pb-2 bg-slate-50 border-b border-slate-100">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xl">{fit.benchmark.icon}</span>
+                              <Badge className="bg-[#523A8C] text-white text-[10px] font-black">
+                                {fit.fitPercentage}% Fit
+                              </Badge>
+                            </div>
+                            <CardTitle className="text-xs font-bold text-slate-900 mt-1 leading-snug">
+                              {fit.benchmark.name}
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="p-3.5 space-y-2">
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-[10px] text-slate-500">
+                                <span>Aderência Comportamental</span>
+                                <span className="font-bold text-slate-700">{fit.discFitPercentage}%</span>
+                              </div>
+                              <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${fit.discFitPercentage}%` }} />
+                              </div>
+                            </div>
+
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-[10px] text-slate-500">
+                                <span>Aderência de Dons</span>
+                                <span className="font-bold text-slate-700">{fit.giftsFitPercentage}%</span>
+                              </div>
+                              <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${fit.giftsFitPercentage}%` }} />
+                              </div>
+                            </div>
+
+                            {fit.reasons.length > 0 && (
+                              <p className="text-[10px] text-slate-500 italic pt-1 border-t border-slate-100">
+                                "{fit.reasons[0]}"
+                              </p>
+                            )}
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </section>
+                );
+              })()}
 
               {/* Dons */}
               <section className="space-y-3">
@@ -1146,6 +1645,42 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                           <ul className="list-disc pl-4 space-y-1">
                             {activeAiAnalysis.alertas.map((alerta: string, i: number) => <li key={i}>{alerta}</li>)}
                           </ul>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Roteiro Sugerido para Entrevista Pastoral */}
+                    {activeAiAnalysis.perguntasEntrevista && activeAiAnalysis.perguntasEntrevista.length > 0 && (
+                      <Card className="border-indigo-200 bg-gradient-to-br from-indigo-50/50 to-purple-50/30">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm text-indigo-900 flex items-center gap-1.5 font-bold">
+                            <MessageSquare className="w-4 h-4 text-indigo-600" /> Roteiro Sugerido para Entrevista Pastoral
+                          </CardTitle>
+                          <p className="text-xs text-indigo-700/80">
+                            3 perguntas personalizadas cruzando Dons, Paixões e Perfil Comportamental para aprofundar no bate-papo de alinhamento:
+                          </p>
+                        </CardHeader>
+                        <CardContent className="space-y-3 pt-1">
+                          {activeAiAnalysis.perguntasEntrevista.map((item: any, i: number) => (
+                            <div key={i} className="p-3 bg-white rounded-lg border border-indigo-100 shadow-sm space-y-1.5">
+                              <div className="flex items-center gap-2">
+                                <span className="w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                                  {i + 1}
+                                </span>
+                                <Badge variant="outline" className="text-[10px] bg-indigo-50/80 text-indigo-700 border-indigo-200 font-semibold">
+                                  {item.topico || `Pergunta ${i + 1}`}
+                                </Badge>
+                              </div>
+                              <p className="text-xs sm:text-sm font-medium text-slate-800 italic pl-7">
+                                "{item.pergunta}"
+                              </p>
+                              {item.objetivoPastoral && (
+                                <p className="text-[11px] text-slate-500 pl-7 flex items-center gap-1">
+                                  <span className="font-semibold text-indigo-600">🎯 Objetivo:</span> {item.objetivoPastoral}
+                                </p>
+                              )}
+                            </div>
+                          ))}
                         </CardContent>
                       </Card>
                     )}

@@ -16,6 +16,73 @@ export interface DiscMetaItem {
   border: string;
 }
 
+export interface DiscBlindspotItem {
+  letter: DiscLetter;
+  title: string;
+  summary: string;
+  avoidDelegating: string;
+  riskUnderStress: string;
+  idealPartner: string;
+  badgeBg: string;
+  badgeText: string;
+  borderColor: string;
+}
+
+export const DISC_BLINDSPOT_META: Record<DiscLetter, DiscBlindspotItem> = {
+  D: {
+    letter: 'D',
+    title: 'Baixa Assertividade e Dificuldade de Confronto',
+    summary:
+      'Tende a hesitar em tomar decisões difíceis, assumir comandos sob pressão ou confrontar pessoas diretamente quando necessário.',
+    avoidDelegating:
+      'Evite colocá-lo para gerenciar conflitos acalorados, demissões/desligamentos ministeriais ou cobranças duras de metas e prazos.',
+    riskUnderStress: 'Pode se calar, recuar diante de oposições e acumular sobrecarga para não desagradar.',
+    idealPartner: 'Faz excelente dupla com alguém de perfil D (Executor) que assuma a frente firme das decisões difíceis.',
+    badgeBg: 'bg-red-50',
+    badgeText: 'text-red-800',
+    borderColor: 'border-red-200',
+  },
+  I: {
+    letter: 'I',
+    title: 'Reserva Social e Fadiga por Exposição Excessiva',
+    summary:
+      'Gasta muita energia em ambientes de networking constante, recepção de multidões ou quando precisa animar pessoas ativamente.',
+    avoidDelegating:
+      'Evite delegar funções de mestre de cerimônias, acolhimento de novos visitantes na porta ou mobilização espontânea de grandes grupos.',
+    riskUnderStress: 'Pode se isolar, parecer distante ou perder a energia rapidamente em eventos muito barulhentos e sociais.',
+    idealPartner: 'Faz excelente dupla com alguém de perfil I (Comunicador) que cuide do palco e da conexão interpessoal.',
+    badgeBg: 'bg-amber-50',
+    badgeText: 'text-amber-800',
+    borderColor: 'border-amber-200',
+  },
+  S: {
+    letter: 'S',
+    title: 'Inquietação com Rotina e Dificuldade em Processos Longos',
+    summary:
+      'Fica entediado com facilidade em tarefas repetitivas, rotinas de bastidores lentas ou ministérios que exigem paciência de longo prazo.',
+    avoidDelegating:
+      'Evite delegar serviços de manutenção contínua, aconselhamentos longos e pacientes, ou tarefas que exijam permanência na mesma função por horas.',
+    riskUnderStress: 'Fica impaciente, busca mudanças repentinas sem necessidade e pode abandonar tarefas pela metade.',
+    idealPartner: 'Faz excelente dupla com alguém de perfil S (Cuidador) que garanta a constância, o ritmo calmo e a sustentação contínua.',
+    badgeBg: 'bg-emerald-50',
+    badgeText: 'text-emerald-800',
+    borderColor: 'border-emerald-200',
+  },
+  C: {
+    letter: 'C',
+    title: 'Baixa Afinidade Burocrática e Risco em Detalhes Rígidos',
+    summary:
+      'Drena energia rapidamente com relatórios minuciosos, conferência de planilhas, regras complexas ou auditorias detalhadas.',
+    avoidDelegating:
+      'Evite delegar tarefas de fechamento financeiro, preenchimento burocrático estrito de relatórios ou funções técnicas sem checklist prévio.',
+    riskUnderStress: 'Pode cometer erros por desatenção a detalhes técnicos ou tentar burlar processos para terminar mais rápido.',
+    idealPartner: 'Faz excelente dupla com alguém de perfil C (Analítico) que revise os detalhes, organize os checklists e garanta a conformidade.',
+    badgeBg: 'bg-blue-50',
+    badgeText: 'text-blue-800',
+    borderColor: 'border-blue-200',
+  },
+};
+
 export const DISC_META: Record<DiscLetter, DiscMetaItem> = {
   D: {
     letter: 'D',

@@ -277,6 +277,8 @@ export async function saveShapeStepProgress(data: SaveShapeStepPayload) {
       payload.discVersion = DISC_VERSION;
       payload.discPrimary = disc.discPrimary;
       payload.discSecondary = disc.discSecondary;
+      payload.discLowest = disc.discLowest;
+      payload.discLowestScore = disc.discLowestScore;
       payload.discProfile = disc.discProfile;
       payload.discTie = disc.discTie;
       payload.discStrength = disc.discStrength;

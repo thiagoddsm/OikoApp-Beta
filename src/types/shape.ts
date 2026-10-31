@@ -15,6 +15,12 @@ export interface ShapeTop3Item {
   desc?: string;
 }
 
+export interface ShapeInterviewQuestion {
+  topico: string;
+  pergunta: string;
+  objetivoPastoral?: string;
+}
+
 export interface ShapeAiAnalysis {
   resumoServidor: string;
   areasRecomendadas: string[];
@@ -24,6 +30,7 @@ export interface ShapeAiAnalysis {
   comoComunicar?: string[];
   comoGerenciar?: string[];
   evitar?: string[];
+  perguntasEntrevista?: ShapeInterviewQuestion[];
   generatedAt: string; // ISO string após sanitize
 }
 
@@ -61,6 +68,8 @@ export interface ShapeResult {
   discScores?: DiscScores;
   discPrimary?: DiscLetter | null;
   discSecondary?: DiscLetter | null;
+  discLowest?: DiscLetter | null;
+  discLowestScore?: number | null;
   discProfile?: string;
   discTie?: boolean;
   discStrength?: DiscStrength | null;

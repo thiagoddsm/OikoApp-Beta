@@ -25,7 +25,8 @@ import { SHAPE_DATA } from '@/lib/shape-complete-data';
 import { submitShapeAssessment, getMinistrySuggestions } from '@/app/public/molde-de-servo/actions';
 import { Step1FormData } from './Step1Intro';
 import { calculateDisc, DISC_TOTAL, type DiscLetter } from '@/lib/disc';
-import { DISC_META } from '@/lib/disc-meta';
+import { DISC_META, DISC_BLINDSPOT_META } from '@/lib/disc-meta';
+import { calculateMinistryFit } from '@/lib/ministry-benchmarks';
 import DiscBarChart from './disc/DiscBarChart';
 import DiscProfileBadge from './disc/DiscProfileBadge';
 
@@ -129,6 +130,15 @@ export default function Step5Result({
   // 2. CÁLCULO DISC (OU FALLBACK LEGADO)
   const discResult = useMemo(() => calculateDisc(discAnswers), [discAnswers]);
   const hasDisc = discResult.discComplete && !!discResult.discPrimary;
+
+  // 2b. CÁLCULO DE ADERÊNCIA VOCACIONAL (MATCH SCORE FUZZY)
+  const ministryFits = useMemo(() => {
+    if (!hasDisc) return [];
+    return calculateMinistryFit(
+      discResult.discScores,
+      topGifts
+    ).slice(0, 3);
+  }, [hasDisc, discResult.discScores, topGifts]);
 
   // Fallback legado (apenas se não tiver DISC completo mas tiver as escalas O/E antigas)
   const legacyFallback = useMemo(() => {
@@ -372,6 +382,13 @@ _Avaliação concluída no OikoApp • Conectando dons e propósitos no Reino!_`
                   secondary={discResult.discSecondary}
                 />
               </div>
+
+              {discResult.discLowest && DISC_BLINDSPOT_META[discResult.discLowest] && (
+                <div className="pt-2 border-t border-slate-200/60 text-[11px] text-slate-600 flex items-start gap-1.5">
+                  <span className="font-bold text-amber-700 shrink-0">⚠️ Ponto de Atenção:</span>
+                  <span>{DISC_BLINDSPOT_META[discResult.discLowest].avoidDelegating}</span>
+                </div>
+              )}
             </div>
           ) : legacyFallback ? (
             <div className="p-4 bg-slate-50/90 rounded-2xl border border-slate-150 flex flex-col gap-2">
@@ -448,6 +465,67 @@ _Avaliação concluída no OikoApp • Conectando dons e propósitos no Reino!_`
               })}
             </div>
           </div>
+
+          {/* Top 3 Áreas de Maior Aderência (Match Score Fuzzy) */}
+          {ministryFits.length > 0 && (
+            <div className="p-4 bg-gradient-to-br from-indigo-50/70 via-purple-50/40 to-slate-50 rounded-2xl border border-indigo-150 flex flex-col gap-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                  <span className="text-[10px] font-extrabold uppercase text-indigo-950 tracking-wider">
+                    Áreas com Maior Sinergia Vocacional
+                  </span>
+                </div>
+                <span className="text-[9px] font-bold text-indigo-700 bg-indigo-100/80 px-2 py-0.5 rounded-full">
+                  DISC + Dons
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                {ministryFits.map((fit, idx) => {
+                  const isTop1 = idx === 0;
+                  return (
+                    <div
+                      key={fit.benchmark.id}
+                      className="p-2.5 bg-white/95 rounded-xl border border-indigo-100/80 shadow-xs flex flex-col gap-1.5"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 ${
+                              isTop1 ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600'
+                            }`}
+                          >
+                            {idx + 1}º
+                          </span>
+                          <span className="text-xs font-bold text-slate-800">
+                            {fit.benchmark.name}
+                          </span>
+                        </div>
+                        <span className="text-xs font-black text-indigo-700">
+                          {fit.fitPercentage}% Fit
+                        </span>
+                      </div>
+
+                      <div className="w-full h-1.5 bg-slate-150 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 transition-all"
+                          style={{ width: `${fit.fitPercentage}%` }}
+                        />
+                      </div>
+
+                      {fit.matchedGifts.length > 0 && (
+                        <div className="flex items-center gap-1 text-[10px] text-slate-500 truncate">
+                          <span className="font-semibold text-slate-600">Dons em sinergia:</span>
+                          <span className="truncate">{fit.matchedGifts.join(', ')}</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Habilidades Validadas */}
           {selectedAbilities.length > 0 && (
