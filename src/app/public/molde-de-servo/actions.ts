@@ -284,11 +284,11 @@ export async function saveShapeStepProgress(data: SaveShapeStepPayload) {
       payload.discStrength = disc.discStrength;
     }
 
-    // Quadrante: derivado do DISC (quando completo) ou mantido do legado (escalas O/E)
+    // Merge: grava sempre o quadrante clássico e as escalas O/E quando existirem
     if (metrics.quadrante) {
       payload.quadrante = metrics.quadrante;
     }
-    if (disc.discAnsweredCount === 0 && data.personality && Object.keys(data.personality).length > 0) {
+    if (data.personality && Object.keys(data.personality).length > 0) {
       payload.perso = data.personality;
       payload.orgScore = metrics.orgScore;
       payload.motScore = metrics.motScore;
@@ -375,7 +375,7 @@ export async function submitShapeAssessment(data: {
     discAnswers: data.discAnswers,
     gifts: data.gifts,
     experiences: data.experiences,
-    currentStep: 8,
+    currentStep: 9,
     status: 'completed',
   });
 }

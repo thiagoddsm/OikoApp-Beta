@@ -108,18 +108,21 @@ export function calculateShapeCompletion(data: {
     Object.values(data.experiencias || {}).some((v) => typeof v === 'string' && v.trim().length > 0);
 
   // Pesos: Coração (15%) + Dons (55%) = 70% na Aula 1
-  // DISC (15%) + Habilidades/Disponibilidade (15%) = 30% na Aula 2
+  // Aula 2: Escalas Clássicas (10%) + DISC (10%) + Habilidades/Disponibilidade (10%) = 30%
   const heartScore = Math.min(heartAnswered / 5, 1) * 15;
   const giftsScore = Math.min(giftsAnswered / 133, 1) * 55;
-  const persoScore =
-    Math.max(Math.min(discAnswered / DISC_TOTAL, 1), legacyPersoDone ? 1 : 0) * 15;
-  const abilitiesScore = (abilitiesCount > 0 ? 10 : 0) + (hasAvailOrExp ? 5 : 0);
+  const classicPersoAnswered = Object.keys(data.perso || {}).length;
+  const classicPersoDone = classicPersoAnswered >= 14;
+  const classicPersoScore = Math.min(classicPersoAnswered / 14, 1) * 10;
+  const discScore = Math.min(discAnswered / DISC_TOTAL, 1) * 10;
+  const abilitiesScore = (abilitiesCount > 0 ? 7 : 0) + (hasAvailOrExp ? 3 : 0);
 
-  const rawPercent = Math.round(heartScore + giftsScore + persoScore + abilitiesScore);
+  // Se for legado já completo, garante 100%
+  const rawPercent = Math.round(heartScore + giftsScore + classicPersoScore + discScore + abilitiesScore);
   const percentage = data.status === 'completed' ? 100 : Math.min(rawPercent, 99);
 
   const discDone = discAnswered >= DISC_TOTAL;
-  const persoDone = discDone || legacyPersoDone;
+  const persoDone = classicPersoDone && discDone;
 
   return {
     percentage,
@@ -132,22 +135,25 @@ export function calculateShapeCompletion(data: {
     discAnswered,
     discTotal: DISC_TOTAL,
     discDone,
+    classicPersoAnswered,
+    classicPersoTotal: 14,
+    classicPersoDone,
     legacyPersoDone,
-    /** pilar P concluído (DISC ou legado) */
-    persoAnswered: discDone ? discAnswered : legacyPersoAnswered,
-    persoTotal: discDone || !legacyPersoDone ? DISC_TOTAL : 14,
-    persoDone,
+    /** pilar P concluído */
+    persoAnswered: discAnswered + classicPersoAnswered,
+    persoTotal: DISC_TOTAL + 14,
+    persoDone: discDone || legacyPersoDone,
     abilitiesCount,
     abilitiesDone: abilitiesCount > 0,
     aula1Completed: giftsAnswered >= 133,
-    aula2Completed: data.status === 'completed' || (persoDone && abilitiesCount > 0),
+    aula2Completed: data.status === 'completed' || ((discDone || legacyPersoDone) && abilitiesCount > 0),
   };
 }
 
 /**
- * Métricas de personalidade + dons.
- *  - Se houver respostas DISC → usa DISC (e deriva o quadrante a partir do perfil primário).
- *  - Caso contrário, mantém o cálculo LEGADO (escalas O/E) somente se houver respostas legadas.
+ * Métricas de personalidade + dons (Merge: Escalas Clássicas + DISC).
+ *  - Calcula sempre orgScore, motScore e quadrante clássico quando houver respostas em personality.
+ *  - Calcula sempre disc quando houver discAnswers.
  */
 export function calculateShapeMetrics(
   personality: Record<string, number> = {},
@@ -158,9 +164,9 @@ export function calculateShapeMetrics(
 
   let orgScore: number | null = null;
   let motScore: number | null = null;
-  let quadrante: string | null = disc.quadrante;
+  let quadrante: string | null = null;
 
-  if (disc.discAnsweredCount === 0 && Object.keys(personality).length > 0) {
+  if (Object.keys(personality).length > 0) {
     let orgSum = 0;
     let motSum = 0;
     SHAPE_DATA.personality.eixo_org.items.forEach((item) => {
@@ -172,6 +178,8 @@ export function calculateShapeMetrics(
     orgScore = Number((orgSum / SHAPE_DATA.personality.eixo_org.items.length).toFixed(2));
     motScore = Number((motSum / SHAPE_DATA.personality.eixo_mot.items.length).toFixed(2));
     quadrante = `${motScore >= 3.0 ? 'Pessoas' : 'Tarefas'} / ${orgScore >= 3.0 ? 'Formal' : 'Informal'}`;
+  } else if (disc.quadrante) {
+    quadrante = disc.quadrante;
   }
 
   const domScores: Record<string, number> = {};

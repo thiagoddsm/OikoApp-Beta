@@ -7,6 +7,7 @@ import Step3Heart from '@/components/volunteering/shape/Step3Heart';
 import Step4Gifts, { GIFT_PARTS_RANGES } from '@/components/volunteering/shape/Step4Gifts';
 import Step5Result from '@/components/volunteering/shape/Step5Result';
 import Step6Disc from '@/components/volunteering/shape/Step6Disc';
+import Step6PersonalityScales from '@/components/volunteering/shape/Step6PersonalityScales';
 import { ArrowLeft, ArrowRight, User, Loader2, Save, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { SHAPE_DATA } from '@/lib/shape-complete-data';
@@ -15,7 +16,7 @@ import { DISC_TOTAL, sanitizeDiscAnswers, type DiscLetter } from '@/lib/disc';
 import { DISC_QUESTIONS } from '@/lib/disc-questions';
 import { saveShapeStepProgress } from './actions';
 
-const TOTAL_STEPS = 8;
+const TOTAL_STEPS = 9;
 
 const STEP_SUBTITLES: Record<number, string> = {
   1: 'Identificação do Aluno',
@@ -23,9 +24,10 @@ const STEP_SUBTITLES: Record<number, string> = {
   3: '📘 Aula 1 • Dons Espirituais (Parte 1 de 3)',
   4: '📘 Aula 1 • Dons Espirituais (Parte 2 de 3)',
   5: '📘 Aula 1 • Dons Espirituais (Parte 3 de 3)',
-  6: '📗 Aula 2 • Perfil DISC (Parte A)',
-  7: '📗 Aula 2 • Habilidades & Disponibilidade (Parte B)',
-  8: '✨ Cartão do Servo • Resultado',
+  6: '📗 Aula 2 • Personalidade Clássica (Parte A)',
+  7: '📗 Aula 2 • Estilo DISC (Parte B)',
+  8: '📗 Aula 2 • Habilidades & Disponibilidade (Parte C)',
+  9: '✨ Cartão do Servo • Resultado',
 };
 
 export default function MoldeDeServoPage() {
@@ -119,6 +121,10 @@ export default function MoldeDeServoPage() {
 
   const handleHeartChange = (index: number, value: string) => {
     setHeartAnswers((prev) => ({ ...prev, [`q${index}`]: value }));
+  };
+
+  const handlePersonalityChange = (id: string, value: number) => {
+    setPersonalityAnswers((prev) => ({ ...prev, [id]: value }));
   };
 
   const handleDiscAnswer = (questionId: string, order: DiscLetter[]) => {
@@ -262,8 +268,44 @@ export default function MoldeDeServoPage() {
       return;
     }
 
-    // Passo 6 (Aula 2 - 6A): Perfil DISC
+    // Passo 6 (Aula 2 - 6A): Personalidade Clássica (14 Escalas)
     if (step === 6) {
+      const allScaleKeys = [
+        ...SHAPE_DATA.personality.eixo_org.items.map((i) => i.id),
+        ...SHAPE_DATA.personality.eixo_mot.items.map((i) => i.id),
+      ];
+      const unansweredScales = allScaleKeys.filter((k) => personalityAnswers[k] === undefined);
+
+      if (unansweredScales.length > 0) {
+        await persistCurrentProgress(step, false);
+
+        toast({
+          variant: 'destructive',
+          title: `Faltam ${unansweredScales.length} questões na Preferência de Ambiente`,
+          description: 'Suas notas já marcadas foram salvas! Responda as restantes para avançar.',
+        });
+
+        const firstMissing = document.getElementById(`scale-question-${unansweredScales[0]}`);
+        if (firstMissing) {
+          firstMissing.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        return;
+      }
+
+      const ok = await persistCurrentProgress(7, false);
+      if (ok) {
+        toast({
+          title: 'Preferência de Ambiente salva! 💾',
+          description: 'Agora vamos para o teste comportamental DISC (80% concluído).',
+        });
+        setStep(7);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      return;
+    }
+
+    // Passo 7 (Aula 2 - 6B): Perfil DISC (12 Perguntas Ipsativas)
+    if (step === 7) {
       const unansweredDisc = DISC_QUESTIONS.filter((q) => !discAnswers[q.id] || discAnswers[q.id].length < 4);
       if (unansweredDisc.length > 0) {
         await persistCurrentProgress(step, false);
@@ -281,20 +323,20 @@ export default function MoldeDeServoPage() {
         return;
       }
 
-      const ok = await persistCurrentProgress(7, false);
+      const ok = await persistCurrentProgress(8, false);
       if (ok) {
         toast({
           title: 'Perfil DISC salvo com sucesso! 💾',
-          description: 'Agora vamos registrar suas Habilidades e Disponibilidade para gerar seu cartão (85% concluído).',
+          description: 'Agora vamos registrar suas Habilidades e Disponibilidade para gerar seu cartão (90% concluído).',
         });
-        setStep(7);
+        setStep(8);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
       return;
     }
 
-    // Passo 7 (Aula 2 - 6B): Habilidades & Disponibilidade -> Finaliza o Molde de Servo (100%)
-    if (step === 7) {
+    // Passo 8 (Aula 2 - 6C): Habilidades & Disponibilidade -> Finaliza o Molde de Servo (100%)
+    if (step === 8) {
       if (selectedAbilities.length === 0) {
         toast({
           variant: 'destructive',
@@ -304,13 +346,13 @@ export default function MoldeDeServoPage() {
         return;
       }
 
-      const ok = await persistCurrentProgress(8, true);
+      const ok = await persistCurrentProgress(9, true);
       if (ok) {
         toast({
           title: 'Molde de Servo 100% concluído! 🎉',
           description: 'Seu Cartão do Servo foi gerado e salvo no seu perfil.',
         });
-        setStep(8);
+        setStep(9);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
       return;
@@ -330,8 +372,9 @@ export default function MoldeDeServoPage() {
     if (step === 3) return 'Salvar Parte 1 e Avançar';
     if (step === 4) return 'Salvar Parte 2 e Avançar';
     if (step === 5) return 'Salvar e Concluir Aula 1';
-    if (step === 6) return 'Salvar DISC e Ir para Habilidades';
-    if (step === 7) return 'Finalizar Aula 2 e Gerar Cartão';
+    if (step === 6) return 'Salvar Escalas e Ir para o DISC';
+    if (step === 7) return 'Salvar DISC e Ir para Habilidades';
+    if (step === 8) return 'Finalizar Aula 2 e Gerar Cartão';
     return 'Avançar';
   };
 
@@ -442,13 +485,19 @@ export default function MoldeDeServoPage() {
             />
           )}
           {step === 6 && (
+            <Step6PersonalityScales
+              answers={personalityAnswers}
+              onChange={handlePersonalityChange}
+            />
+          )}
+          {step === 7 && (
             <Step6Disc
               discAnswers={discAnswers}
               onDiscAnswer={handleDiscAnswer}
               legacyQuadrante={legacyQuadrante}
             />
           )}
-          {step === 7 && (
+          {step === 8 && (
             <Step2Abilities
               selectedAbilities={selectedAbilities}
               onToggleAbility={handleToggleAbility}
@@ -459,7 +508,7 @@ export default function MoldeDeServoPage() {
               giftAnswers={giftAnswers}
             />
           )}
-          {step === 8 && (
+          {step === 9 && (
             <Step5Result
               formData={formData}
               selectedAbilities={selectedAbilities}
@@ -469,7 +518,7 @@ export default function MoldeDeServoPage() {
               discAnswers={discAnswers}
               giftAnswers={giftAnswers}
               onRetakeDisc={() => {
-                setStep(6);
+                setStep(7);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
             />

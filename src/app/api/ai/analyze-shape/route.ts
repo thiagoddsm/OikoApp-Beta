@@ -38,11 +38,12 @@ IMPORTANTE: Não se limite a áreas que existam formalmente. Baseie-se nos dons,
 
 Perfil do Voluntário:
 - Nome: ${shapeData.nome}
-- Perfil Comportamental DISC:
-  * Perfil Primário: ${shapeData.discPrimary || 'Não avaliado via DISC'}
-  * Perfil Secundário: ${shapeData.discSecondary || 'Não avaliado'}
-  * Pontuações DISC: ${shapeData.discScores ? JSON.stringify(shapeData.discScores) : 'Sem pontuação'}
-  * Quadrante (Legado/Referência): ${shapeData.quadrante || 'Não informado'}${blindspotInfo}
+- Perfil Integrado de Atuação (Merge: Ambiente + Instinto de Ação):
+  * Preferência de Ambiente de Trabalho (Quadrante Clássico): ${shapeData.quadrante || 'Não informado'} ${shapeData.orgScore ? `(Organização: ${shapeData.orgScore}/5.0 | Motivação: ${shapeData.motScore}/5.0)` : ''}
+  * Instinto Comportamental Natural (DISC):
+    - Perfil Primário: ${shapeData.discPrimary || 'Não avaliado via DISC'}
+    - Perfil Secundário: ${shapeData.discSecondary || 'Não avaliado'}
+    - Distribuição (D, I, S, C): ${shapeData.discScores ? JSON.stringify(shapeData.discScores) : 'Sem pontuação'}${blindspotInfo}
 - Top 3 Dons Espirituais: ${shapeData.top3?.map((d: any) => (d.nome || d.name) + ' (' + d.score + 'pts)').join(', ') || 'Não avaliados'}
 - Área onde sente chamado para servir: ${shapeData.ministryTarget || 'Não especificada'}${fuzzyMatchesText}
 - Profissão/Formação: ${shapeData.profissao || shapeData.formacao || 'Não informado'}
@@ -51,6 +52,10 @@ Perfil do Voluntário:
 ${Object.entries(shapeData.coracao || {}).map(([k, v]) => `  ${k}: ${v}`).join('\n') || '  Não preenchido'}
 - Experiências e Disponibilidade:
 ${Object.entries(shapeData.experiencias || {}).map(([k, v]) => `  ${k}: ${v}`).join('\n') || '  Não preenchido'}
+
+DIRETRIZ ESPECIAL - ANÁLISE COMBINADA (AMBIENTE + INSTINTO):
+O voluntário possui preferência de ambiente de trabalho focada no Quadrante [${shapeData.quadrante || 'Geral'}] e seu comportamento natural DISC é [${shapeData.discPrimary || 'N/A'}${shapeData.discSecondary ? ' + ' + shapeData.discSecondary : ''}].
+No campo 'resumoServidor', faça uma análise combinada explicando como essa preferência de ambiente de trabalho (formalidade vs flexibilidade, foco em pessoas vs tarefas) interage com seu instinto comportamental de ação e decisão (DISC). Mostre como esse equilíbrio gera o estilo único de servir desta pessoa.
 
 Responda OBRIGATORIAMENTE em JSON válido com esta estrutura exata:
 {

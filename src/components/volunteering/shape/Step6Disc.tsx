@@ -21,8 +21,8 @@ export default function Step6Disc({ discAnswers, onDiscAnswer, legacyQuadrante }
     <div className="flex flex-col gap-5 pb-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <span className="px-3 py-1 bg-emerald-100 text-emerald-900 rounded-full text-[10px] font-black uppercase tracking-wider">
-          📗 Aula 2 • Parte A • Passo 6 de 8 • Perfil DISC
+        <span className="px-3 py-1 bg-purple-100 text-[#523A8C] rounded-full text-[10px] font-black uppercase tracking-wider">
+          📗 Aula 2 • Parte B • Passo 7 de 9 • Estilo DISC
         </span>
         <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-full text-[10px] font-bold">
           {result.discAnsweredCount}/{DISC_TOTAL}
@@ -31,7 +31,7 @@ export default function Step6Disc({ discAnswers, onDiscAnswer, legacyQuadrante }
 
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl sm:text-3xl font-black text-[#1E113F] tracking-tight">
-          Seu Perfil Comportamental (DISC)
+          Seu Estilo de Ação e Reação (DISC) ⚡
         </h1>
         <p className="text-slate-600 text-xs sm:text-sm leading-relaxed">
           Para cada situação, <strong>ordene as 4 alternativas por ordem de prioridade</strong>: do que{' '}

@@ -140,9 +140,9 @@ export default function Step5Result({
     ).slice(0, 3);
   }, [hasDisc, discResult.discScores, topGifts]);
 
-  // Fallback legado (apenas se não tiver DISC completo mas tiver as escalas O/E antigas)
-  const legacyFallback = useMemo(() => {
-    if (hasDisc) return null;
+  // 2c. CÁLCULO DAS ESCALAS CLÁSSICAS (PREFERÊNCIA DE AMBIENTE)
+  const classicPersonality = useMemo(() => {
+    if (!personalityAnswers || Object.keys(personalityAnswers).length === 0) return null;
     let orgSum = 0;
     let motSum = 0;
 
@@ -189,8 +189,10 @@ export default function Step5Result({
       quadIcon: icon,
       orgLabel: orgResult,
       motLabel: motResult,
+      orgScore: Number(orgAverage.toFixed(1)),
+      motScore: Number(motAverage.toFixed(1)),
     };
-  }, [hasDisc, personalityAnswers]);
+  }, [personalityAnswers]);
 
   // 3. SALVAR AUTOMATICAMENTE NO BANCO
   useEffect(() => {
@@ -213,7 +215,7 @@ export default function Step5Result({
           personality: personalityAnswers,
           discAnswers: discResult.discAnswers,
           gifts: allGiftScores,
-          quadrant: discResult.quadrante || legacyFallback?.quadrant || '',
+          quadrant: classicPersonality?.quadrant || discResult.quadrante || '',
           topGifts,
         });
 
@@ -241,18 +243,19 @@ export default function Step5Result({
     const ministryLine = directedMinistry ? `\n🌱 *Área de Direcionamento Sentida:* ${directedMinistry}` : '';
     
     let discSection = '';
+    if (classicPersonality) {
+      discSection += `🏛️ *PREFERÊNCIA DE AMBIENTE (QUADRANTE):*
+${classicPersonality.quadTitle} (${classicPersonality.motLabel} + ${classicPersonality.orgLabel})
+_${classicPersonality.quadDesc}_\n\n`;
+    }
     if (hasDisc && discResult.discPrimary) {
       const p = DISC_META[discResult.discPrimary];
       const s = discResult.discSecondary ? DISC_META[discResult.discSecondary] : null;
       const sText = s ? ` + ${s.name} (${s.letter})` : '';
-      discSection = `🧠 *PERFIL COMPORTAMENTAL (DISC):*
+      discSection += `⚡ *ESTILO DE AÇÃO E REAÇÃO (DISC):*
 ${p.name} (${p.letter})${sText}
 D: ${discResult.discScores.D} | I: ${discResult.discScores.I} | S: ${discResult.discScores.S} | C: ${discResult.discScores.C}
 _${p.description}_`;
-    } else if (legacyFallback) {
-      discSection = `🧠 *TEMPERAMENTO OPERACIONAL (LEGADO):*
-${legacyFallback.quadTitle} (${legacyFallback.motLabel} + ${legacyFallback.orgLabel})
-_${legacyFallback.quadDesc}_`;
     }
 
     return `*MOLDE DE SERVO (S.H.A.P.E.) — IGREJA BATISTA DA MANHÃ* 🏛️
@@ -267,7 +270,7 @@ ${discSection}
 🛠️ *HABILIDADES:* ${abilitiesList}
 
 _Avaliação concluída no OikoApp • Conectando dons e propósitos no Reino!_`;
-  }, [formData, topGifts, hasDisc, discResult, legacyFallback, selectedAbilities, directedMinistry]);
+  }, [formData, topGifts, hasDisc, discResult, classicPersonality, selectedAbilities, directedMinistry]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(whatsappSummaryText);
@@ -346,12 +349,57 @@ _Avaliação concluída no OikoApp • Conectando dons e propósitos no Reino!_`
 
         {/* Corpo do Cartão */}
         <div className="p-5 sm:p-6 flex flex-col gap-5">
-          {/* Perfil Comportamental (DISC ou Legado) */}
-          {hasDisc && discResult.discPrimary ? (
+          {/* 1. Preferência de Ambiente (Quadrante Clássico) */}
+          {classicPersonality && (
+            <div className="p-4 bg-slate-50/90 rounded-2xl border border-slate-150 flex flex-col gap-2.5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-[9px] font-extrabold uppercase text-[#523A8C] tracking-wider block -mb-0.5">
+                    Preferência de Ambiente (Quadrante)
+                  </span>
+                  <h3 className="font-extrabold text-sm text-[#1E113F]">
+                    {classicPersonality.quadTitle}
+                  </h3>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-700">
+                    {classicPersonality.motLabel} + {classicPersonality.orgLabel}
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                {classicPersonality.quadDesc}
+              </p>
+
+              {/* Convite para membros legados que ainda não possuem o DISC */}
+              {!hasDisc && onRetakeDisc && (
+                <div className="mt-1 p-2.5 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <p className="text-[10px] text-amber-900 leading-tight">
+                      Adicionamos uma nova análise comportamental. Complete seu DISC em apenas 3 minutos!
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onRetakeDisc}
+                    className="text-[10px] font-extrabold text-[#523A8C] bg-white px-2 py-1 rounded-lg border border-amber-300 hover:bg-amber-100/50 shrink-0 shadow-xs"
+                  >
+                    Fazer DISC
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 2. Estilo de Ação e Reação (DISC) */}
+          {hasDisc && discResult.discPrimary && (
             <div className="p-4 bg-slate-50/90 rounded-2xl border border-slate-150 flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <span className="text-[9px] font-extrabold uppercase text-slate-400 tracking-wider">
-                  Perfil Comportamental (DISC)
+                  Estilo de Ação e Reação (DISC)
                 </span>
                 {onRetakeDisc && (
                   <button
@@ -359,7 +407,7 @@ _Avaliação concluída no OikoApp • Conectando dons e propósitos no Reino!_`
                     onClick={onRetakeDisc}
                     className="text-[10px] font-bold text-[#523A8C] hover:underline flex items-center gap-1"
                   >
-                    <RotateCcw className="w-3 h-3" /> Refazer
+                    <RotateCcw className="w-3 h-3" /> Refazer DISC
                   </button>
                 )}
               </div>
@@ -390,39 +438,7 @@ _Avaliação concluída no OikoApp • Conectando dons e propósitos no Reino!_`
                 </div>
               )}
             </div>
-          ) : legacyFallback ? (
-            <div className="p-4 bg-slate-50/90 rounded-2xl border border-slate-150 flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-[9px] font-extrabold uppercase text-amber-600 block -mb-0.5">
-                    Quadrante Operacional (Formato Legado)
-                  </span>
-                  <h3 className="font-extrabold text-sm text-[#1E113F]">
-                    {legacyFallback.quadTitle}
-                  </h3>
-                </div>
-
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600">
-                    {legacyFallback.motLabel} + {legacyFallback.orgLabel}
-                  </span>
-                  {onRetakeDisc && (
-                    <button
-                      type="button"
-                      onClick={onRetakeDisc}
-                      className="text-[10px] font-bold text-[#523A8C] bg-[#EDE8F5] px-2 py-0.5 rounded-full hover:bg-[#E3DCF2] flex items-center gap-1"
-                    >
-                      <RotateCcw className="w-3 h-3" /> Fazer DISC
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <p className="text-[11px] text-slate-600 leading-relaxed pt-1">
-                {legacyFallback.quadDesc}
-              </p>
-            </div>
-          ) : null}
+          )}
 
           {/* Top 3 Dons Espirituais */}
           <div className="flex flex-col gap-2.5">
