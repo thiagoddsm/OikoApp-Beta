@@ -8,6 +8,10 @@ import {
   ShapeQuadrante,
   calculateShapeCompletion,
 } from '@/types/shape';
+import { DISC_META, DiscMetaItem } from '@/lib/disc-meta';
+import { DiscLetter } from '@/lib/disc-questions';
+import DiscBarChart from '@/components/volunteering/shape/disc/DiscBarChart';
+import DiscProfileBadge from '@/components/volunteering/shape/disc/DiscProfileBadge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
@@ -29,6 +33,9 @@ import {
   Trash2,
   Check,
   Save,
+  MessageSquare,
+  AlertTriangle,
+  ShieldAlert,
 } from 'lucide-react';
 import {
   getShapeResults,
@@ -49,11 +56,84 @@ const DONS = [
   'Profecia', 'Pastorado', 'Ensino', 'Sabedoria'
 ];
 
+type KanbanDiscColumnId = 'D' | 'I' | 'S' | 'C' | 'sem_disc';
+
+interface KanbanDiscColumnMeta {
+  id: KanbanDiscColumnId;
+  label: string;
+  subtitle: string;
+  letter: string;
+  emoji: string;
+  bg: string;
+  border: string;
+  text: string;
+}
+
+const KANBAN_DISC_COLUMNS: KanbanDiscColumnMeta[] = [
+  {
+    id: 'D',
+    letter: 'D',
+    label: 'D • Dominância',
+    subtitle: 'Executor & Pioneiro',
+    emoji: '🔴',
+    bg: 'bg-red-50/70',
+    border: 'border-red-200',
+    text: 'text-red-700',
+  },
+  {
+    id: 'I',
+    letter: 'I',
+    label: 'I • Influência',
+    subtitle: 'Comunicador & Conector',
+    emoji: '🟡',
+    bg: 'bg-amber-50/70',
+    border: 'border-amber-200',
+    text: 'text-amber-700',
+  },
+  {
+    id: 'S',
+    letter: 'S',
+    label: 'S • Estabilidade',
+    subtitle: 'Cuidador & Constante',
+    emoji: '🟢',
+    bg: 'bg-emerald-50/70',
+    border: 'border-emerald-200',
+    text: 'text-emerald-700',
+  },
+  {
+    id: 'C',
+    letter: 'C',
+    label: 'C • Conformidade',
+    subtitle: 'Analítico & Detalhista',
+    emoji: '🔵',
+    bg: 'bg-blue-50/70',
+    border: 'border-blue-200',
+    text: 'text-blue-700',
+  },
+  {
+    id: 'sem_disc',
+    letter: '?',
+    label: 'Sem DISC / Legado',
+    subtitle: 'Em andamento ou modelo anterior',
+    emoji: '⚪',
+    bg: 'bg-slate-50',
+    border: 'border-slate-200',
+    text: 'text-slate-600',
+  },
+];
+
+const getItemDiscColumn = (item: ShapeResult): KanbanDiscColumnId => {
+  if (item.discPrimary && ['D', 'I', 'S', 'C'].includes(item.discPrimary)) {
+    return item.discPrimary as KanbanDiscColumnId;
+  }
+  return 'sem_disc';
+};
+
 export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult[] }) {
   const { toast } = useToast();
   const [results, setResults] = useState<ShapeResult[]>(initialResults);
   const [search, setSearch] = useState('');
-  const [quadranteFilter, setQuadranteFilter] = useState<string>('todos');
+  const [discFilter, setDiscFilter] = useState<string>('todos');
   const [domFilter, setDomFilter] = useState<string>('todos');
   const [view, setView] = useState<'kanban' | 'list'>('kanban');
   
@@ -134,10 +214,11 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
 
   const filteredResults = results.filter(r => {
     const matchSearch = (r.nome || '').toLowerCase().includes(search.toLowerCase()) || (r.email || '').toLowerCase().includes(search.toLowerCase());
-    const matchQuadrante = quadranteFilter === 'todos' || r.quadrante === quadranteFilter;
+    const itemCol = getItemDiscColumn(r);
+    const matchDisc = discFilter === 'todos' || itemCol === discFilter;
     const top1Name = r.top3?.[0]?.nome || r.top3?.[0]?.name;
     const matchDom = domFilter === 'todos' || top1Name === domFilter;
-    return matchSearch && matchQuadrante && matchDom;
+    return matchSearch && matchDisc && matchDom;
   });
 
   const HEART_LABELS: Record<string, string> = {
@@ -153,11 +234,20 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
     q4: 'Maior sonho para o Reino',
   };
 
-  const kanbanColumns = Object.keys(QUADRANTE_META) as ShapeQuadrante[];
+  const kanbanColumns = KANBAN_DISC_COLUMNS;
 
   const formatAiAnalysis = (ai: any) => {
     if (!ai) return null;
-    let { resumoServidor = '', areasRecomendadas = [], alertas = [], proximosPassos = [], generatedAt } = ai;
+    let {
+      resumoServidor = '',
+      areasRecomendadas = [],
+      comoComunicar = [],
+      comoGerenciar = [],
+      evitar = [],
+      alertas = [],
+      proximosPassos = [],
+      generatedAt,
+    } = ai;
 
     // Se o resumoServidor veio com JSON bruto embutido, extrai os campos automaticamente
     if ((areasRecomendadas.length === 0 || proximosPassos.length === 0) && resumoServidor.includes('{')) {
@@ -171,6 +261,15 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
           if (Array.isArray(parsed.areasRecomendadas) && parsed.areasRecomendadas.length > 0) {
             areasRecomendadas = parsed.areasRecomendadas;
           }
+          if (Array.isArray(parsed.comoComunicar) && parsed.comoComunicar.length > 0) {
+            comoComunicar = parsed.comoComunicar;
+          }
+          if (Array.isArray(parsed.comoGerenciar) && parsed.comoGerenciar.length > 0) {
+            comoGerenciar = parsed.comoGerenciar;
+          }
+          if (Array.isArray(parsed.evitar) && parsed.evitar.length > 0) {
+            evitar = parsed.evitar;
+          }
           if (Array.isArray(parsed.alertas) && parsed.alertas.length > 0) {
             alertas = parsed.alertas;
           }
@@ -183,7 +282,16 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
       }
     }
 
-    return { resumoServidor, areasRecomendadas, alertas, proximosPassos, generatedAt };
+    return {
+      resumoServidor,
+      areasRecomendadas: Array.isArray(areasRecomendadas) ? areasRecomendadas : [],
+      comoComunicar: Array.isArray(comoComunicar) ? comoComunicar : [],
+      comoGerenciar: Array.isArray(comoGerenciar) ? comoGerenciar : [],
+      evitar: Array.isArray(evitar) ? evitar : [],
+      alertas: Array.isArray(alertas) ? alertas : [],
+      proximosPassos: Array.isArray(proximosPassos) ? proximosPassos : [],
+      generatedAt,
+    };
   };
 
   const handleGenerateAI = async () => {
@@ -253,15 +361,17 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
           />
         </div>
         
-        <Select value={quadranteFilter} onValueChange={setQuadranteFilter}>
-          <SelectTrigger className="w-full md:w-[200px]">
-            <SelectValue placeholder="Quadrante" />
+        <Select value={discFilter} onValueChange={setDiscFilter}>
+          <SelectTrigger className="w-full md:w-[220px]">
+            <SelectValue placeholder="Perfil DISC" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="todos">Todos Quadrantes</SelectItem>
-            {kanbanColumns.map(q => (
-              <SelectItem key={q} value={q}>{QUADRANTE_META[q]?.label || q}</SelectItem>
-            ))}
+            <SelectItem value="todos">Todos os Perfis</SelectItem>
+            <SelectItem value="D">🔴 D • Dominância</SelectItem>
+            <SelectItem value="I">🟡 I • Influência</SelectItem>
+            <SelectItem value="S">🟢 S • Estabilidade</SelectItem>
+            <SelectItem value="C">🔵 C • Conformidade</SelectItem>
+            <SelectItem value="sem_disc">⚪ Sem DISC / Legado</SelectItem>
           </SelectContent>
         </Select>
 
@@ -308,19 +418,24 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
 
       {/* View Kanban */}
       {view === 'kanban' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-          {kanbanColumns.map(quadrante => {
-            const colItems = filteredResults.filter(r => r.quadrante === quadrante);
-            const meta = QUADRANTE_META[quadrante];
-            if (!meta) return null;
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 items-start">
+          {kanbanColumns.map(col => {
+            const colItems = filteredResults.filter(r => getItemDiscColumn(r) === col.id);
             return (
-              <div key={quadrante} className="flex flex-col gap-4">
-                <div className={`p-4 rounded-xl border ${meta.bg} ${meta.border} flex items-center justify-between`}>
-                  <div className="flex items-center gap-2 font-medium">
-                    <span>{meta.emoji}</span>
-                    <span className={meta.color}>{meta.label}</span>
+              <div key={col.id} className="flex flex-col gap-3 min-w-0">
+                <div className={`p-3.5 rounded-2xl border ${col.bg} ${col.border} flex items-center justify-between`}>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 font-black text-xs">
+                      <span>{col.emoji}</span>
+                      <span className={col.text}>{col.label}</span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 font-medium truncate mt-0.5">
+                      {col.subtitle}
+                    </p>
                   </div>
-                  <Badge variant="secondary" className="bg-white/50">{colItems.length}</Badge>
+                  <Badge variant="secondary" className="bg-white/90 text-slate-700 font-extrabold text-[11px] shrink-0 ml-1">
+                    {colItems.length}
+                  </Badge>
                 </div>
                 
                 <div className="space-y-3">
@@ -332,33 +447,60 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                     return (
                       <Card 
                         key={item.id} 
-                        className="cursor-pointer hover:shadow-md transition-all hover:border-slate-300"
+                        className="cursor-pointer hover:shadow-md transition-all hover:border-slate-300 rounded-2xl border-slate-200"
                         onClick={() => setSelectedPerson(item)}
                       >
-                        <CardContent className="p-4 space-y-3">
+                        <CardContent className="p-3.5 space-y-3">
                           <div className="flex justify-between items-start gap-2">
-                            <div className="flex items-center gap-3">
-                              <Avatar className="h-10 w-10">
-                                <AvatarFallback className={`${meta.bg} ${meta.color} font-bold`}>
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <Avatar className="h-9 w-9 shrink-0">
+                                <AvatarFallback className={`${col.bg} ${col.text} font-black text-xs border ${col.border}`}>
                                   {renderInitials(item.nome)}
                                 </AvatarFallback>
                               </Avatar>
-                              <div>
-                                <p className="font-semibold text-sm line-clamp-1">{item.nome}</p>
-                                <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                  <Calendar className="w-3 h-3" />
+                              <div className="min-w-0">
+                                <p className="font-bold text-xs sm:text-sm text-slate-900 truncate">{item.nome}</p>
+                                <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                  <Calendar className="w-2.5 h-2.5" />
                                   {item.createdAt ? new Date(item.createdAt).toLocaleDateString('pt-BR') : '-'}
                                 </p>
                               </div>
                             </div>
 
                             {item.status === 'in_progress' ? (
-                              <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200 shrink-0 font-bold">
-                                {pct}% • Etapa {item.currentStep || 2}/7
+                              <Badge variant="outline" className="text-[9px] bg-amber-50 text-amber-700 border-amber-200 shrink-0 font-bold px-1.5 py-0">
+                                {pct}% • Etapa {item.currentStep || 2}/8
                               </Badge>
                             ) : (
-                              <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 shrink-0 font-bold">
+                              <Badge variant="outline" className="text-[9px] bg-emerald-50 text-emerald-700 border-emerald-200 shrink-0 font-bold px-1.5 py-0">
                                 100% Concluído
+                              </Badge>
+                            )}
+                          </div>
+
+                          {/* Badge de Perfil DISC no Card */}
+                          <div className="pt-0.5">
+                            {item.discPrimary ? (
+                              <div className="space-y-1.5">
+                                <DiscProfileBadge
+                                  primary={item.discPrimary as any}
+                                  secondary={item.discSecondary as any}
+                                />
+                                {item.discScores && (
+                                  <DiscBarChart
+                                    scores={item.discScores as any}
+                                    compact
+                                    className="w-full pt-1"
+                                  />
+                                )}
+                              </div>
+                            ) : item.quadrante && QUADRANTE_META[item.quadrante] ? (
+                              <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-600 border-slate-200 font-medium">
+                                Legado • {QUADRANTE_META[item.quadrante].emoji} {QUADRANTE_META[item.quadrante].label}
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-dashed border-amber-200">
+                                Aguardando DISC (Aula 2)
                               </Badge>
                             )}
                           </div>
@@ -380,13 +522,13 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                           </div>
 
                           {item.gcInfo && (
-                            <div className="text-xs text-slate-500">
+                            <div className="text-[11px] text-slate-500 truncate">
                               <strong>GC:</strong> {item.gcInfo}
                             </div>
                           )}
 
                           {item.ministryTarget && (
-                            <div className="text-xs text-[#523A8C] font-semibold flex items-center gap-1">
+                            <div className="text-[11px] text-[#523A8C] font-semibold flex items-center gap-1">
                               <Compass className="w-3 h-3 shrink-0" />
                               <span className="truncate">Área: {item.ministryTarget}</span>
                             </div>
@@ -422,7 +564,7 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                     );
                   })}
                   {colItems.length === 0 && (
-                    <div className="text-center text-sm text-slate-400 py-8 border-2 border-dashed rounded-xl border-slate-200">
+                    <div className="text-center text-xs text-slate-400 py-8 border-2 border-dashed rounded-2xl border-slate-200">
                       Nenhum resultado
                     </div>
                   )}
@@ -441,7 +583,7 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
               <TableRow>
                 <TableHead>Nome</TableHead>
                 <TableHead>Progresso / Status</TableHead>
-                <TableHead>Quadrante</TableHead>
+                <TableHead>Perfil DISC / Personalidade</TableHead>
                 <TableHead>Top 1 Dom</TableHead>
                 <TableHead>Área Sentida</TableHead>
                 <TableHead>Habilidades</TableHead>
@@ -452,7 +594,7 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
             </TableHeader>
             <TableBody>
               {filteredResults.map(item => {
-                const meta = QUADRANTE_META[item.quadrante];
+                const meta = item.quadrante ? QUADRANTE_META[item.quadrante] : null;
                 const comp = calculateShapeCompletion(item);
                 const pct = item.completionPercentage ?? comp.percentage;
                 const hasGifts = comp.giftsAnswered > 0 || (item.top3?.[0]?.score ?? 0) > 0;
@@ -464,7 +606,7 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                       <div className="flex flex-col gap-1 min-w-[130px]">
                         {item.status === 'in_progress' ? (
                           <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200 w-fit font-bold">
-                            {pct}% • Etapa {item.currentStep || 2}/7
+                            {pct}% • Etapa {item.currentStep || 2}/8
                           </Badge>
                         ) : (
                           <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 w-fit font-bold">
@@ -482,10 +624,17 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                       </div>
                     </TableCell>
                     <TableCell>
-                      {meta && (
-                        <Badge className={`${meta.bg} ${meta.color} hover:${meta.bg} border-none`}>
-                          {meta.emoji} {meta.label}
+                      {item.discPrimary ? (
+                        <DiscProfileBadge
+                          primary={item.discPrimary as any}
+                          secondary={item.discSecondary as any}
+                        />
+                      ) : meta ? (
+                        <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-700 border-slate-300">
+                          Legado • {meta.emoji} {meta.label}
                         </Badge>
+                      ) : (
+                        <span className="text-xs text-slate-400 italic">Pendente (Aula 2)</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -554,7 +703,7 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                 )}
                 {selectedPerson.status === 'in_progress' ? (
                   <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200 font-bold">
-                    Em andamento (Etapa {selectedPerson.currentStep || 2} de 7 • {selectedPerson.completionPercentage ?? selectedCompletion.percentage}% preenchido)
+                    Em andamento (Etapa {selectedPerson.currentStep || 2} de 8 • {selectedPerson.completionPercentage ?? selectedCompletion.percentage}% preenchido)
                   </Badge>
                 ) : (
                   <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 font-bold">
@@ -630,7 +779,11 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                     <div className="min-w-0">
                       <p className="text-[10px] font-bold text-slate-700 truncate">Personalidade (Aula 2)</p>
                       <p className="text-[10px] text-slate-500">
-                        {selectedCompletion.persoDone ? 'Respondido' : `${selectedCompletion.persoAnswered}/14 escalas`}
+                        {selectedPerson.discPrimary
+                          ? `DISC ${selectedPerson.discPrimary}${selectedPerson.discSecondary || ''}`
+                          : selectedCompletion.persoDone
+                          ? 'Respondido (Legado)'
+                          : `${selectedCompletion.persoAnswered}/12 questões`}
                       </p>
                     </div>
                   </div>
@@ -671,12 +824,75 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                 </section>
               )}
 
-              {/* Personalidade */}
+              {/* Personalidade - DISC com Fallback Legado */}
               <section className="space-y-3">
                 <h3 className="font-semibold text-lg flex items-center gap-2">
-                  <User className="w-5 h-5 text-slate-500" /> Personalidade
+                  <User className="w-5 h-5 text-slate-500" /> Personalidade Comportamental
                 </h3>
-                {QUADRANTE_META[selectedPerson.quadrante] && (
+
+                {selectedPerson.discPrimary && selectedPerson.discScores ? (
+                  <div className="p-5 rounded-2xl border border-slate-200 bg-white shadow-sm space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                          Perfil DISC Mapeado
+                        </span>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <DiscProfileBadge
+                            primary={selectedPerson.discPrimary as any}
+                            secondary={selectedPerson.discSecondary as any}
+                            strength={selectedPerson.discStrength}
+                            tie={selectedPerson.discTie}
+                            detailed
+                          />
+                          {selectedPerson.discTie && (
+                            <Badge variant="outline" className="text-[10px] text-indigo-700 bg-indigo-50 border-indigo-200 font-bold">
+                              Desempate sob pressão
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-left sm:text-right">
+                        <span className="text-xs text-slate-500">Intensidade:</span>
+                        <span className="text-xs font-black text-slate-800 ml-1">
+                          {selectedPerson.discStrength === 'marked'
+                            ? 'Muito Marcada'
+                            : selectedPerson.discStrength === 'defined'
+                            ? 'Marcada'
+                            : 'Equilibrada'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {DISC_META[selectedPerson.discPrimary as DiscLetter] && (
+                      <div className="space-y-2">
+                        <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                          {DISC_META[selectedPerson.discPrimary as DiscLetter].description}
+                        </p>
+                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-150 text-xs">
+                          <strong className="text-slate-800">Ambiente de serviço ideal: </strong>
+                          <span className="text-slate-600">
+                            {DISC_META[selectedPerson.discPrimary as DiscLetter].serviceStyle}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Gráfico de barras DISC */}
+                    <div className="pt-2">
+                      <span className="text-xs font-bold text-slate-700 block mb-2">
+                        Pontuação nas 4 Dimensões (Total 12 perguntas):
+                      </span>
+                      <DiscBarChart scores={selectedPerson.discScores as any} />
+                    </div>
+
+                    {selectedPerson.quadrante && QUADRANTE_META[selectedPerson.quadrante] && (
+                      <p className="text-[11px] text-slate-400 pt-1 border-t border-slate-100">
+                        Equivalente no modelo anterior: {QUADRANTE_META[selectedPerson.quadrante].emoji} {QUADRANTE_META[selectedPerson.quadrante].label}
+                      </p>
+                    )}
+                  </div>
+                ) : selectedPerson.quadrante && QUADRANTE_META[selectedPerson.quadrante] ? (
                   <div className={`p-4 rounded-xl border ${QUADRANTE_META[selectedPerson.quadrante].bg} ${QUADRANTE_META[selectedPerson.quadrante].border}`}>
                     <div className="flex items-center justify-between gap-2 font-medium mb-2">
                       <div className="flex items-center gap-2">
@@ -685,18 +901,20 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                           {QUADRANTE_META[selectedPerson.quadrante].label}
                         </span>
                       </div>
-                      {!selectedCompletion.persoDone && (
-                        <Badge variant="outline" className="text-[10px] bg-white/80 text-amber-700 border-amber-200">
-                          Aguardando Aula 2
-                        </Badge>
-                      )}
+                      <Badge variant="outline" className="text-[10px] bg-white/90 text-slate-700 border-slate-200 font-bold">
+                        Perfil Legado (Escalas O/E)
+                      </Badge>
                     </div>
                     <p className="text-sm font-medium text-slate-600 mt-1">
                       Organização: {Number(selectedPerson.orgScore || 3).toFixed(1)}/5 | Motivação: {Number(selectedPerson.motScore || 3).toFixed(1)}/5
                     </p>
-                    <p className="text-xs text-slate-500 mt-1">
-                      * Escala de 1 a 5. <strong>Motivação</strong> mede o foco de Tarefas (1) a Pessoas (5). <strong>Organização</strong> mede de Informal/Espontâneo (1) a Formal/Estruturado (5).
+                    <p className="text-xs text-slate-500 mt-2">
+                      * Avaliado no formato anterior de 14 perguntas lineares. O aluno pode refazer apenas o inventário DISC de 12 perguntas a qualquer momento pelo Molde de Servo.
                     </p>
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-xl border border-dashed border-slate-200 bg-slate-50 text-center text-xs text-slate-500">
+                    Perfil Comportamental DISC ainda não preenchido (etapa da Aula 2).
                   </div>
                 )}
               </section>
@@ -835,10 +1053,12 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <Card>
                         <CardHeader className="pb-2">
-                          <CardTitle className="text-sm text-emerald-700">Áreas Recomendadas</CardTitle>
+                          <CardTitle className="text-sm text-emerald-700 flex items-center gap-1.5">
+                            <Compass className="w-4 h-4" /> Áreas Recomendadas
+                          </CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <ul className="list-disc pl-4 space-y-1 text-sm text-slate-600">
+                          <ul className="list-disc pl-4 space-y-1 text-xs sm:text-sm text-slate-600">
                             {activeAiAnalysis.areasRecomendadas.map((area: string, i: number) => <li key={i}>{area}</li>)}
                           </ul>
                         </CardContent>
@@ -846,22 +1066,83 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
 
                       <Card>
                         <CardHeader className="pb-2">
-                          <CardTitle className="text-sm text-blue-700">Próximos Passos</CardTitle>
+                          <CardTitle className="text-sm text-blue-700 flex items-center gap-1.5">
+                            <CheckCircle2 className="w-4 h-4" /> Próximos Passos Pastorais
+                          </CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <ul className="list-disc pl-4 space-y-1 text-sm text-slate-600">
+                          <ul className="list-disc pl-4 space-y-1 text-xs sm:text-sm text-slate-600">
                             {activeAiAnalysis.proximosPassos.map((passo: string, i: number) => <li key={i}>{passo}</li>)}
                           </ul>
                         </CardContent>
                       </Card>
                     </div>
+
+                    {/* Guia Pastoral de Liderança (DISC + Dons) */}
+                    {(activeAiAnalysis.comoComunicar.length > 0 || activeAiAnalysis.comoGerenciar.length > 0) && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {activeAiAnalysis.comoComunicar.length > 0 && (
+                          <Card className="border-purple-200 bg-purple-50/30">
+                            <CardHeader className="pb-2">
+                              <CardTitle className="text-sm text-[#523A8C] flex items-center gap-1.5 font-bold">
+                                <MessageSquare className="w-4 h-4" /> Como a Liderança Deve se Comunicar
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <ul className="list-disc pl-4 space-y-1.5 text-xs text-slate-700">
+                                {activeAiAnalysis.comoComunicar.map((item: string, i: number) => (
+                                  <li key={i} className="leading-snug">{item}</li>
+                                ))}
+                              </ul>
+                            </CardContent>
+                          </Card>
+                        )}
+
+                        {activeAiAnalysis.comoGerenciar.length > 0 && (
+                          <Card className="border-indigo-200 bg-indigo-50/30">
+                            <CardHeader className="pb-2">
+                              <CardTitle className="text-sm text-indigo-800 flex items-center gap-1.5 font-bold">
+                                <Briefcase className="w-4 h-4" /> Melhores Práticas de Gestão
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <ul className="list-disc pl-4 space-y-1.5 text-xs text-slate-700">
+                                {activeAiAnalysis.comoGerenciar.map((item: string, i: number) => (
+                                  <li key={i} className="leading-snug">{item}</li>
+                                ))}
+                              </ul>
+                            </CardContent>
+                          </Card>
+                        )}
+                      </div>
+                    )}
+
+                    {/* O que Evitar com Este Perfil */}
+                    {activeAiAnalysis.evitar.length > 0 && (
+                      <Card className="border-rose-200 bg-rose-50/40">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm text-rose-800 flex items-center gap-1.5 font-bold">
+                            <ShieldAlert className="w-4 h-4 text-rose-600" /> O que Evitar com Este Perfil (Gatilhos de Atrito)
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <ul className="list-disc pl-4 space-y-1.5 text-xs text-rose-900">
+                            {activeAiAnalysis.evitar.map((item: string, i: number) => (
+                              <li key={i} className="leading-snug">{item}</li>
+                            ))}
+                          </ul>
+                        </CardContent>
+                      </Card>
+                    )}
                     
                     {activeAiAnalysis.alertas.length > 0 && (
                       <Card className="border-amber-200">
                         <CardHeader className="bg-amber-50 pb-2">
-                          <CardTitle className="text-sm text-amber-800">Alertas / Pontos de Atenção</CardTitle>
+                          <CardTitle className="text-sm text-amber-800 flex items-center gap-1.5">
+                            <AlertTriangle className="w-4 h-4" /> Alertas / Pontos de Atenção
+                          </CardTitle>
                         </CardHeader>
-                        <CardContent className="p-4 text-sm text-amber-900">
+                        <CardContent className="p-4 text-xs sm:text-sm text-amber-900">
                           <ul className="list-disc pl-4 space-y-1">
                             {activeAiAnalysis.alertas.map((alerta: string, i: number) => <li key={i}>{alerta}</li>)}
                           </ul>

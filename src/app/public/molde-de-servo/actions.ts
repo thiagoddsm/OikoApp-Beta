@@ -5,6 +5,7 @@ import { Timestamp } from 'firebase-admin/firestore';
 import { getPublicGCs as getEnrollmentPublicGCs } from '@/app/public/enrollment/actions';
 import { SHAPE_DATA } from '@/lib/shape-complete-data';
 import { calculateShapeCompletion, calculateShapeMetrics } from '@/types/shape';
+import { sanitizeDiscAnswers, DISC_VERSION } from '@/lib/disc';
 
 export async function getPublicGCs() {
   return getEnrollmentPublicGCs();
@@ -128,7 +129,8 @@ export async function lookupMemberByEmail(email: string) {
       savedProgress = {
         id: existingDocId,
         status: d.status || 'in_progress',
-        currentStep: d.currentStep || 2,
+        // Fluxo antigo (7 passos): concluído = 7; novo (8 passos): concluído = 8
+        currentStep: d.status === 'completed' ? 8 : d.currentStep || 2,
         completionPercentage: d.completionPercentage ?? completion.percentage,
         abilities: d.habilidades || [],
         availability:
@@ -139,6 +141,10 @@ export async function lookupMemberByEmail(email: string) {
         experiences: d.experiencias || {},
         heart: d.coracao || {},
         personality: d.perso || {},
+        discAnswers: sanitizeDiscAnswers(d.discAnswers),
+        hasLegacyPersonality:
+          !!d.perso && Object.keys(d.perso).length >= 14 && !d.discPrimary,
+        legacyQuadrante: !d.discPrimary ? d.quadrante || '' : '',
         gifts: d.dom || {},
         targetMinistry: d.ministryTarget || '',
       };
@@ -172,7 +178,10 @@ export interface SaveShapeStepPayload {
   abilities?: string[];
   availability?: string[];
   heart?: Record<string, string>;
+  /** LEGADO (escalas O/E): apenas repassado para preservar registros antigos */
   personality?: Record<string, number>;
+  /** DISC: { Q1: 'D', Q2: 'S', ... } */
+  discAnswers?: Record<string, string>;
   gifts?: Record<string, number>;
   experiences?: Record<string, string>;
   currentStep: number;
@@ -210,7 +219,8 @@ export async function saveShapeStepProgress(data: SaveShapeStepPayload) {
     const finalGcId = data.gcId || u.cellId || u.gcId || '';
     const finalGcName = data.gcName || u.cellName || u.gcName || '';
 
-    const metrics = calculateShapeMetrics(data.personality || {}, data.gifts || {});
+    const metrics = calculateShapeMetrics(data.personality || {}, data.gifts || {}, data.discAnswers);
+    const disc = metrics.disc;
 
     const experiencesWithAvail = {
       ...(data.experiences || {}),
@@ -223,6 +233,7 @@ export async function saveShapeStepProgress(data: SaveShapeStepPayload) {
       coracao: data.heart,
       dom: data.gifts,
       perso: data.personality,
+      discAnswers: disc.discAnswers,
       habilidades: data.abilities,
       disponibilidade: data.availability,
       experiencias: experiencesWithAvail,
@@ -242,14 +253,9 @@ export async function saveShapeStepProgress(data: SaveShapeStepPayload) {
       gcInfo: finalGcName,
       ministryTarget: data.targetMinistry || '',
       habilidades: data.abilities || [],
-      disponibilidade: data.availability || [],
       coracao: data.heart || {},
       experiencias: experiencesWithAvail,
-      perso: data.personality || {},
       dom: data.gifts || {},
-      quadrante: metrics.quadrante,
-      orgScore: metrics.orgScore,
-      motScore: metrics.motScore,
       domScores: metrics.domScores,
       top3: metrics.top3,
       currentStep: data.currentStep,
@@ -257,6 +263,34 @@ export async function saveShapeStepProgress(data: SaveShapeStepPayload) {
       completionPercentage: completion.percentage,
       updatedAt: now,
     };
+
+    // Só sobrescreve a disponibilidade se ela foi enviada (evita apagar em autosaves parciais)
+    if (data.availability !== undefined) {
+      payload.disponibilidade = data.availability;
+    }
+
+    // DISC (novo pilar P)
+    if (disc.discAnsweredCount > 0) {
+      payload.discAnswers = disc.discAnswers;
+      payload.discScores = disc.discScores;
+      payload.discAnsweredCount = disc.discAnsweredCount;
+      payload.discVersion = DISC_VERSION;
+      payload.discPrimary = disc.discPrimary;
+      payload.discSecondary = disc.discSecondary;
+      payload.discProfile = disc.discProfile;
+      payload.discTie = disc.discTie;
+      payload.discStrength = disc.discStrength;
+    }
+
+    // Quadrante: derivado do DISC (quando completo) ou mantido do legado (escalas O/E)
+    if (metrics.quadrante) {
+      payload.quadrante = metrics.quadrante;
+    }
+    if (disc.discAnsweredCount === 0 && data.personality && Object.keys(data.personality).length > 0) {
+      payload.perso = data.personality;
+      payload.orgScore = metrics.orgScore;
+      payload.motScore = metrics.motScore;
+    }
 
     if (!existingSnap.exists) {
       payload.createdAt = now;
@@ -271,7 +305,10 @@ export async function saveShapeStepProgress(data: SaveShapeStepPayload) {
         shapeStatus: data.status,
         shapeCurrentStep: data.currentStep,
         shapeCompletionPercentage: completion.percentage,
-        shapeQuadrante: metrics.quadrante,
+        ...(metrics.quadrante ? { shapeQuadrante: metrics.quadrante } : {}),
+        ...(disc.discPrimary
+          ? { shapeDiscPrimary: disc.discPrimary, shapeDiscSecondary: disc.discSecondary }
+          : {}),
         shapeTopGifts: metrics.top3.map((g) => g.nome),
         shapeUpdatedAt: now,
       },
@@ -308,6 +345,7 @@ export async function submitShapeAssessment(data: {
   availability?: string[];
   heart?: Record<string, string>;
   personality?: Record<string, number>;
+  discAnswers?: Record<string, string>;
   gifts?: Record<string, number>;
   experiences?: Record<string, string>;
   quadrant?: string;
@@ -332,9 +370,10 @@ export async function submitShapeAssessment(data: {
     availability: data.availability,
     heart: data.heart,
     personality: data.personality,
+    discAnswers: data.discAnswers,
     gifts: data.gifts,
     experiences: data.experiences,
-    currentStep: 7,
+    currentStep: 8,
     status: 'completed',
   });
 }

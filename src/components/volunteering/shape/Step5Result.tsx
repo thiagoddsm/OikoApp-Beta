@@ -3,12 +3,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { 
   BadgeCheck, 
-  Copy, 
   Send, 
   Star, 
   Sparkles, 
   Heart, 
-  Briefcase, 
   Check, 
   Share2, 
   UserCheck, 
@@ -17,25 +15,29 @@ import {
   Compass,
   Download,
   MessageSquare,
-  Bookmark,
   Users,
-  Award
+  RotateCcw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { SHAPE_DATA } from '@/lib/shape-complete-data';
 import { submitShapeAssessment, getMinistrySuggestions } from '@/app/public/molde-de-servo/actions';
 import { Step1FormData } from './Step1Intro';
+import { calculateDisc, DISC_TOTAL, type DiscLetter } from '@/lib/disc';
+import { DISC_META } from '@/lib/disc-meta';
+import DiscBarChart from './disc/DiscBarChart';
+import DiscProfileBadge from './disc/DiscProfileBadge';
 
 interface Step5ResultProps {
   formData: Step1FormData;
   selectedAbilities: string[];
   experiences: Record<string, string>;
   heartAnswers: Record<string, string>;
-  personalityAnswers: Record<string, number>;
+  personalityAnswers?: Record<string, number>;
+  discAnswers?: Record<string, DiscLetter | string>;
   giftAnswers: Record<string, number>;
+  onRetakeDisc?: () => void;
 }
 
 const BIBLICAL_REFERENCES: Record<string, string> = {
@@ -66,7 +68,9 @@ export default function Step5Result({
   experiences = {},
   heartAnswers = {},
   personalityAnswers = {},
+  discAnswers = {},
   giftAnswers = {},
+  onRetakeDisc,
 }: Step5ResultProps) {
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
@@ -122,8 +126,13 @@ export default function Step5Result({
     };
   }, [giftAnswers]);
 
-  // 2. CÁLCULO DA PERSONALIDADE / QUADRANTE
-  const { quadrant, quadTitle, quadDesc, quadIcon, orgLabel, motLabel } = useMemo(() => {
+  // 2. CÁLCULO DISC (OU FALLBACK LEGADO)
+  const discResult = useMemo(() => calculateDisc(discAnswers), [discAnswers]);
+  const hasDisc = discResult.discComplete && !!discResult.discPrimary;
+
+  // Fallback legado (apenas se não tiver DISC completo mas tiver as escalas O/E antigas)
+  const legacyFallback = useMemo(() => {
+    if (hasDisc) return null;
     let orgSum = 0;
     let motSum = 0;
 
@@ -171,7 +180,7 @@ export default function Step5Result({
       orgLabel: orgResult,
       motLabel: motResult,
     };
-  }, [personalityAnswers]);
+  }, [hasDisc, personalityAnswers]);
 
   // 3. SALVAR AUTOMATICAMENTE NO BANCO
   useEffect(() => {
@@ -192,8 +201,9 @@ export default function Step5Result({
           experiences: experiences,
           heart: heartAnswers,
           personality: personalityAnswers,
+          discAnswers: discResult.discAnswers,
           gifts: allGiftScores,
-          quadrant,
+          quadrant: discResult.quadrante || legacyFallback?.quadrant || '',
           topGifts,
         });
 
@@ -220,6 +230,21 @@ export default function Step5Result({
     const abilitiesList = selectedAbilities.length > 0 ? selectedAbilities.slice(0, 5).join(', ') : 'Gerais';
     const ministryLine = directedMinistry ? `\n🌱 *Área de Direcionamento Sentida:* ${directedMinistry}` : '';
     
+    let discSection = '';
+    if (hasDisc && discResult.discPrimary) {
+      const p = DISC_META[discResult.discPrimary];
+      const s = discResult.discSecondary ? DISC_META[discResult.discSecondary] : null;
+      const sText = s ? ` + ${s.name} (${s.letter})` : '';
+      discSection = `🧠 *PERFIL COMPORTAMENTAL (DISC):*
+${p.name} (${p.letter})${sText}
+D: ${discResult.discScores.D} | I: ${discResult.discScores.I} | S: ${discResult.discScores.S} | C: ${discResult.discScores.C}
+_${p.description}_`;
+    } else if (legacyFallback) {
+      discSection = `🧠 *TEMPERAMENTO OPERACIONAL (LEGADO):*
+${legacyFallback.quadTitle} (${legacyFallback.motLabel} + ${legacyFallback.orgLabel})
+_${legacyFallback.quadDesc}_`;
+    }
+
     return `*MOLDE DE SERVO (S.H.A.P.E.) — IGREJA BATISTA DA MANHÃ* 🏛️
 👤 *Servo(a):* ${formData.name || 'Membro'}
 📍 *GC:* ${formData.gcName || 'Membro IBM'}${ministryLine}
@@ -227,14 +252,12 @@ export default function Step5Result({
 ✨ *TOP 3 DONS ESPIRITUAIS:*
 ${giftsList}
 
-🧠 *TEMPERAMENTO OPERACIONAL:*
-${quadTitle} (${motLabel} + ${orgLabel})
-_${quadDesc}_
+${discSection}
 
 🛠️ *HABILIDADES:* ${abilitiesList}
 
 _Avaliação concluída no OikoApp • Conectando dons e propósitos no Reino!_`;
-  }, [formData, topGifts, quadTitle, motLabel, orgLabel, quadDesc, selectedAbilities, directedMinistry]);
+  }, [formData, topGifts, hasDisc, discResult, legacyFallback, selectedAbilities, directedMinistry]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(whatsappSummaryText);
@@ -255,7 +278,6 @@ _Avaliação concluída no OikoApp • Conectando dons e propósitos no Reino!_`
     window.print();
   };
 
-  const QuadIcon = quadIcon;
   const hashId = savedId ? `#SHAPE-${savedId.slice(0, 4).toUpperCase()}-BR` : '#SHAPE-8942-BR';
 
   return (
@@ -314,32 +336,77 @@ _Avaliação concluída no OikoApp • Conectando dons e propósitos no Reino!_`
 
         {/* Corpo do Cartão */}
         <div className="p-5 sm:p-6 flex flex-col gap-5">
-          {/* Quadrante Operacional */}
-          <div className="p-4 bg-slate-50/90 rounded-2xl border border-slate-150 flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-[#EDE8F5] text-[#523A8C] flex items-center justify-center">
-                  <QuadIcon className="w-4 h-4" />
-                </div>
+          {/* Perfil Comportamental (DISC ou Legado) */}
+          {hasDisc && discResult.discPrimary ? (
+            <div className="p-4 bg-slate-50/90 rounded-2xl border border-slate-150 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-extrabold uppercase text-slate-400 tracking-wider">
+                  Perfil Comportamental (DISC)
+                </span>
+                {onRetakeDisc && (
+                  <button
+                    type="button"
+                    onClick={onRetakeDisc}
+                    className="text-[10px] font-bold text-[#523A8C] hover:underline flex items-center gap-1"
+                  >
+                    <RotateCcw className="w-3 h-3" /> Refazer
+                  </button>
+                )}
+              </div>
+
+              <DiscProfileBadge
+                primary={discResult.discPrimary}
+                secondary={discResult.discSecondary}
+                strength={discResult.discStrength}
+                tie={discResult.discTie}
+                detailed
+              />
+
+              <div className="pt-2 border-t border-slate-200/60">
+                <span className="text-[9px] font-bold uppercase text-slate-400 block mb-1.5">
+                  Distribuição dos 4 fatores
+                </span>
+                <DiscBarChart
+                  scores={discResult.discScores}
+                  primary={discResult.discPrimary}
+                  secondary={discResult.discSecondary}
+                  total={DISC_TOTAL}
+                />
+              </div>
+            </div>
+          ) : legacyFallback ? (
+            <div className="p-4 bg-slate-50/90 rounded-2xl border border-slate-150 flex flex-col gap-2">
+              <div className="flex items-center justify-between">
                 <div>
-                  <span className="text-[9px] font-extrabold uppercase text-slate-400 block -mb-0.5">
-                    Quadrante Operacional
+                  <span className="text-[9px] font-extrabold uppercase text-amber-600 block -mb-0.5">
+                    Quadrante Operacional (Formato Legado)
                   </span>
                   <h3 className="font-extrabold text-sm text-[#1E113F]">
-                    {quadTitle}
+                    {legacyFallback.quadTitle}
                   </h3>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600">
+                    {legacyFallback.motLabel} + {legacyFallback.orgLabel}
+                  </span>
+                  {onRetakeDisc && (
+                    <button
+                      type="button"
+                      onClick={onRetakeDisc}
+                      className="text-[10px] font-bold text-[#523A8C] bg-[#EDE8F5] px-2 py-0.5 rounded-full hover:bg-[#E3DCF2] flex items-center gap-1"
+                    >
+                      <RotateCcw className="w-3 h-3" /> Fazer DISC
+                    </button>
+                  )}
                 </div>
               </div>
 
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600">
-                {motLabel} + {orgLabel}
-              </span>
+              <p className="text-[11px] text-slate-600 leading-relaxed pt-1">
+                {legacyFallback.quadDesc}
+              </p>
             </div>
-
-            <p className="text-[11px] text-slate-600 leading-relaxed pt-1">
-              {quadDesc}
-            </p>
-          </div>
+          ) : null}
 
           {/* Top 3 Dons Espirituais */}
           <div className="flex flex-col gap-2.5">

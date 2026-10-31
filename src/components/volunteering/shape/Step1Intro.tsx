@@ -48,6 +48,12 @@ export interface SavedShapeProgress {
   heart: Record<string, string>;
   personality: Record<string, number>;
   gifts: Record<string, number>;
+  discAnswers?: Record<string, string>;
+  discScores?: Record<string, number>;
+  discPrimary?: string;
+  discSecondary?: string;
+  hasLegacyPersonality?: boolean;
+  legacyQuadrante?: string | null;
   targetMinistry: string;
 }
 
@@ -209,11 +215,11 @@ export default function Step1Intro({
             1
           </span>
           <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#523A8C]">
-            PASSO 1 DE 7 • IDENTIFICAÇÃO
+            PASSO 1 DE 8 • IDENTIFICAÇÃO
           </span>
         </div>
         <span className="text-[11px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-          Etapa 1/7
+          Etapa 1/8
         </span>
       </div>
 
@@ -321,7 +327,7 @@ export default function Step1Intro({
                 PERSONALITY
               </span>
               <h4 className="text-xs font-black text-slate-800 leading-tight">
-                Os 4 Quadrantes
+                Perfil DISC (12 itens)
               </h4>
             </div>
           </div>
@@ -333,7 +339,7 @@ export default function Step1Intro({
                 A+E
               </span>
               <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700">
-                Aula 2 • Passo 6
+                Aula 2 • Passo 7
               </span>
             </div>
             <div>
@@ -431,9 +437,11 @@ export default function Step1Intro({
                     <span className="text-xs font-black text-emerald-950 uppercase tracking-wide">
                       {savedProgress.status === 'completed'
                         ? 'Avaliação 100% Concluída!'
+                        : savedProgress.currentStep >= 7
+                        ? 'Perfil DISC Concluído! Pronto para o Passo 7 (Habilidades)'
                         : savedProgress.currentStep >= 6
-                        ? 'Aula 1 Concluída! Pronto para a Aula 2'
-                        : `Progresso Salvo (Etapa ${savedProgress.currentStep} de 7)`}
+                        ? 'Aula 1 Concluída! Pronto para a Aula 2 (DISC)'
+                        : `Progresso Salvo (Etapa ${savedProgress.currentStep} de 8)`}
                     </span>
                   </div>
                   <span className="text-xs font-black text-emerald-700 bg-white px-2.5 py-0.5 rounded-full border border-emerald-200">
@@ -453,7 +461,7 @@ export default function Step1Intro({
                   {savedProgress.status === 'completed'
                     ? 'Suas respostas já estão salvas. Você pode visualizar seu Cartão do Servo ou revisar suas respostas.'
                     : savedProgress.currentStep >= 6
-                    ? 'Você já concluiu o Coração e os 133 itens do Inventário de Dons (Aula 1). Agora você pode avançar direto para Personalidade & Habilidades (Aula 2)!'
+                    ? 'Você já concluiu o Coração e os 133 itens do Inventário de Dons (Aula 1). Agora você pode avançar direto para o Inventário DISC e Habilidades (Aula 2)!'
                     : `Você já respondeu ${Object.keys(savedProgress.gifts || {}).length}/133 questões de dons. Continue exatamente de onde parou!`}
                 </p>
 
@@ -466,8 +474,10 @@ export default function Step1Intro({
                     <span>
                       {savedProgress.status === 'completed'
                         ? 'Ver Meu Cartão do Servo (Resultado)'
+                        : savedProgress.currentStep >= 7
+                        ? 'Ir para a Aula 2 (Passo 7: Habilidades & Experiências)'
                         : savedProgress.currentStep >= 6
-                        ? 'Ir direto para a Aula 2 (Passo 6: Personalidade & Habilidades)'
+                        ? 'Ir direto para a Aula 2 (Passo 6: Perfil DISC)'
                         : `Continuar da Etapa ${savedProgress.currentStep}`}
                     </span>
                     <ArrowRight className="w-3.5 h-3.5" />

@@ -11,24 +11,43 @@ export async function POST(req: NextRequest) {
     const { resultId, shapeData } = await req.json();
     if (!shapeData) return NextResponse.json({ error: 'Dados obrigatórios' }, { status: 400 });
 
-    const prompt = `Você é um pastor e orientador ministerial da Oiko Comunidade, em São Gonçalo/RJ.
-Analise o perfil S.H.A.P.E. abaixo e gere uma recomendação personalizada de onde esta pessoa pode servir.
+    const prompt = `Você é um pastor e orientador ministerial sênior da Oiko Comunidade, em São Gonçalo/RJ.
+Analise o perfil S.H.A.P.E. completo abaixo (com metodologia comportamental DISC e dons espirituais) e gere uma recomendação personalizada, empática e estratégica para a liderança pastoral guiar e acolher esta pessoa.
 
-IMPORTANTE: Não se limite a áreas que existam formalmente. Baseie-se nos dons, habilidades e sonhos da pessoa para sugerir áreas novas ou combinações criativas.
+IMPORTANTE: Não se limite a áreas que existam formalmente. Baseie-se nos dons, habilidades, perfil comportamental DISC e sonhos da pessoa para sugerir áreas novas ou combinações criativas.
 
-Perfil:
+Perfil do Voluntário:
 - Nome: ${shapeData.nome}
-- Quadrante de Personalidade: ${shapeData.quadrante}
-- Top 3 Dons Espirituais: ${shapeData.top3?.map((d: any) => d.nome + ' (' + d.score + 'pts)').join(', ')}
-- Profissão/Formação: ${shapeData.profissao || 'Não informado'}
+- Perfil Comportamental DISC:
+  * Perfil Primário: ${shapeData.discPrimary || 'Não avaliado via DISC'}
+  * Perfil Secundário: ${shapeData.discSecondary || 'Não avaliado'}
+  * Pontuações DISC: ${shapeData.discScores ? JSON.stringify(shapeData.discScores) : 'Sem pontuação'}
+  * Quadrante (Legado/Referência): ${shapeData.quadrante || 'Não informado'}
+- Top 3 Dons Espirituais: ${shapeData.top3?.map((d: any) => (d.nome || d.name) + ' (' + d.score + 'pts)').join(', ') || 'Não avaliados'}
+- Área onde sente chamado para servir: ${shapeData.ministryTarget || 'Não especificada'}
+- Profissão/Formação: ${shapeData.profissao || shapeData.formacao || 'Não informado'}
 - Habilidades Profissionais: ${(shapeData.habilidades || []).join(', ') || 'Não informadas'}
 - Sonhos e Coração:
-${Object.entries(shapeData.coracao || {}).map(([k, v]) => `  ${k}: ${v}`).join('\n')}
+${Object.entries(shapeData.coracao || {}).map(([k, v]) => `  ${k}: ${v}`).join('\n') || '  Não preenchido'}
+- Experiências e Disponibilidade:
+${Object.entries(shapeData.experiencias || {}).map(([k, v]) => `  ${k}: ${v}`).join('\n') || '  Não preenchido'}
 
-Responda em JSON válido com esta estrutura exata:
+Responda OBRIGATORIAMENTE em JSON válido com esta estrutura exata:
 {
-  "resumoServidor": "2-3 parágrafos sobre o perfil único desta pessoa",
-  "areasRecomendadas": ["área 1", "área 2", "área 3"],
+  "resumoServidor": "2-3 parágrafos sobre o perfil único desta pessoa, combinando seus dons, perfil comportamental DISC e motivações",
+  "areasRecomendadas": ["área recomendada 1", "área recomendada 2", "área recomendada 3"],
+  "comoComunicar": [
+    "Dica prática 1 de como a liderança deve falar e alinhar expectativas com esse perfil",
+    "Dica prática 2"
+  ],
+  "comoGerenciar": [
+    "Prática recomendada de liderança e acompanhamento ministerial para potencializar esse voluntário",
+    "Prática recomendada 2"
+  ],
+  "evitar": [
+    "O que os líderes e coordenadores NUNCA devem fazer ou evitar para não desmotivar esse perfil",
+    "Ponto de atenção ou atrito comum 2"
+  ],
   "alertas": ["destaque ou ponto de atenção 1", "destaque 2"],
   "proximosPassos": ["próximo passo concreto 1", "próximo passo 2", "próximo passo 3"]
 }`;
@@ -52,8 +71,23 @@ Responda em JSON válido com esta estrutura exata:
         analysis = JSON.parse(cleanedText);
       }
     } catch {
-      analysis = { resumoServidor: response.text, areasRecomendadas: [], alertas: [], proximosPassos: [] };
+      analysis = {
+        resumoServidor: response.text,
+        areasRecomendadas: [],
+        comoComunicar: [],
+        comoGerenciar: [],
+        evitar: [],
+        alertas: [],
+        proximosPassos: [],
+      };
     }
+
+    if (!Array.isArray(analysis.areasRecomendadas)) analysis.areasRecomendadas = [];
+    if (!Array.isArray(analysis.comoComunicar)) analysis.comoComunicar = [];
+    if (!Array.isArray(analysis.comoGerenciar)) analysis.comoGerenciar = [];
+    if (!Array.isArray(analysis.evitar)) analysis.evitar = [];
+    if (!Array.isArray(analysis.alertas)) analysis.alertas = [];
+    if (!Array.isArray(analysis.proximosPassos)) analysis.proximosPassos = [];
 
     analysis.generatedAt = new Date().toISOString();
 

@@ -6,13 +6,16 @@ import Step2Abilities from '@/components/volunteering/shape/Step2Abilities';
 import Step3Heart from '@/components/volunteering/shape/Step3Heart';
 import Step4Gifts, { GIFT_PARTS_RANGES } from '@/components/volunteering/shape/Step4Gifts';
 import Step5Result from '@/components/volunteering/shape/Step5Result';
+import Step6Disc from '@/components/volunteering/shape/Step6Disc';
 import { ArrowLeft, ArrowRight, User, Loader2, Save, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { SHAPE_DATA } from '@/lib/shape-complete-data';
 import { calculateShapeCompletion } from '@/types/shape';
+import { DISC_TOTAL, type DiscLetter } from '@/lib/disc';
+import { DISC_QUESTIONS } from '@/lib/disc-questions';
 import { saveShapeStepProgress } from './actions';
 
-const TOTAL_STEPS = 7;
+const TOTAL_STEPS = 8;
 
 const STEP_SUBTITLES: Record<number, string> = {
   1: 'Identificação do Aluno',
@@ -20,8 +23,9 @@ const STEP_SUBTITLES: Record<number, string> = {
   3: '📘 Aula 1 • Dons Espirituais (Parte 1 de 3)',
   4: '📘 Aula 1 • Dons Espirituais (Parte 2 de 3)',
   5: '📘 Aula 1 • Dons Espirituais (Parte 3 de 3)',
-  6: '📗 Aula 2 • Personalidade & Habilidades',
-  7: '✨ Cartão do Servo • Resultado',
+  6: '📗 Aula 2 • Perfil DISC (Parte A)',
+  7: '📗 Aula 2 • Habilidades & Disponibilidade (Parte B)',
+  8: '✨ Cartão do Servo • Resultado',
 };
 
 export default function MoldeDeServoPage() {
@@ -48,22 +52,29 @@ export default function MoldeDeServoPage() {
   // Passos 3, 4 e 5 (Aula 1): Dons Espirituais (133 questões divididas em 3 páginas)
   const [giftAnswers, setGiftAnswers] = useState<Record<string, number>>({});
 
-  // Passo 6 (Aula 2): Personalidade & Habilidades
-  const [personalityAnswers, setPersonalityAnswers] = useState<Record<string, number>>({});
+  // Passo 6 (Aula 2 - 6A): Perfil DISC
+  const [discAnswers, setDiscAnswers] = useState<Record<string, DiscLetter>>({});
+  const [legacyQuadrante, setLegacyQuadrante] = useState<string>('');
+
+  // Passo 7 (Aula 2 - 6B): Habilidades & Disponibilidade
   const [selectedAbilities, setSelectedAbilities] = useState<string[]>([]);
   const [experiences, setExperiences] = useState<Record<string, string>>({});
   const [availability, setAvailability] = useState<string[]>([]);
+
+  // Legado (se o usuário possuir respostas O/E antigas)
+  const [personalityAnswers, setPersonalityAnswers] = useState<Record<string, number>>({});
 
   const completionInfo = calculateShapeCompletion({
     coracao: heartAnswers,
     dom: giftAnswers,
     perso: personalityAnswers,
+    discAnswers,
     habilidades: selectedAbilities,
     experiencias: {
       ...experiences,
       availability: availability.join(', '),
     },
-    status: step === 7 ? 'completed' : 'in_progress',
+    status: step === 8 ? 'completed' : 'in_progress',
   });
 
   const updateFormData = (data: Partial<Step1FormData>) => {
@@ -76,6 +87,8 @@ export default function MoldeDeServoPage() {
     if (progress.experiences) setExperiences(progress.experiences);
     if (progress.heart) setHeartAnswers(progress.heart);
     if (progress.personality) setPersonalityAnswers(progress.personality);
+    if (progress.discAnswers) setDiscAnswers(progress.discAnswers as Record<string, DiscLetter>);
+    if (progress.legacyQuadrante) setLegacyQuadrante(progress.legacyQuadrante);
     if (progress.gifts) setGiftAnswers(progress.gifts);
     if (progress.targetMinistry) {
       updateFormData({ targetMinistry: progress.targetMinistry });
@@ -108,8 +121,8 @@ export default function MoldeDeServoPage() {
     setHeartAnswers((prev) => ({ ...prev, [`q${index}`]: value }));
   };
 
-  const handlePersonalityChange = (id: string, value: number) => {
-    setPersonalityAnswers((prev) => ({ ...prev, [id]: value }));
+  const handleDiscAnswer = (questionId: string, letter: DiscLetter) => {
+    setDiscAnswers((prev) => ({ ...prev, [questionId]: letter }));
   };
 
   const handleGiftAnswer = (questionId: string, value: number) => {
@@ -142,6 +155,7 @@ export default function MoldeDeServoPage() {
         experiences,
         heart: heartAnswers,
         personality: personalityAnswers,
+        discAnswers,
         gifts: giftAnswers,
         currentStep: nextStepNumber,
         status: isCompleted ? 'completed' : 'in_progress',
@@ -234,7 +248,7 @@ export default function MoldeDeServoPage() {
           setAula1CompletedBanner(true);
           toast({
             title: 'Etapa da Aula 1 concluída e salva! 🎉',
-            description: 'Seus Dons e Coração foram salvos (70% concluído). Você pode parar por aqui hoje ou seguir para a Aula 2!',
+            description: 'Seus Dons e Coração foram salvos (70% concluído). Você pode parar por aqui hoje ou seguir para o Perfil DISC da Aula 2!',
           });
         } else {
           toast({
@@ -248,24 +262,55 @@ export default function MoldeDeServoPage() {
       return;
     }
 
-    // Passo 6 (Aula 2): Personalidade & Habilidades -> Finaliza o Molde de Servo (100%)
+    // Passo 6 (Aula 2 - 6A): Perfil DISC
     if (step === 6) {
+      const unansweredDisc = DISC_QUESTIONS.filter((q) => !discAnswers[q.id]);
+      if (unansweredDisc.length > 0) {
+        await persistCurrentProgress(step, false);
+
+        toast({
+          variant: 'destructive',
+          title: `Faltam ${unansweredDisc.length} questões do Perfil DISC`,
+          description: 'Suas respostas marcadas foram salvas! Responda as restantes para avançar.',
+        });
+
+        const firstMissing = document.getElementById(`disc-question-${unansweredDisc[0].id}`);
+        if (firstMissing) {
+          firstMissing.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        return;
+      }
+
+      const ok = await persistCurrentProgress(7, false);
+      if (ok) {
+        toast({
+          title: 'Perfil DISC salvo com sucesso! 💾',
+          description: 'Agora vamos registrar suas Habilidades e Disponibilidade para gerar seu cartão (85% concluído).',
+        });
+        setStep(7);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      return;
+    }
+
+    // Passo 7 (Aula 2 - 6B): Habilidades & Disponibilidade -> Finaliza o Molde de Servo (100%)
+    if (step === 7) {
       if (selectedAbilities.length === 0) {
         toast({
           variant: 'destructive',
           title: 'Selecione suas habilidades',
-          description: 'Por favor, selecione pelo menos 1 habilidade prática na seção 2 antes de gerar seu Cartão do Servo.',
+          description: 'Por favor, selecione pelo menos 1 habilidade prática na seção 1 antes de gerar seu Cartão do Servo.',
         });
         return;
       }
 
-      const ok = await persistCurrentProgress(7, true);
+      const ok = await persistCurrentProgress(8, true);
       if (ok) {
         toast({
           title: 'Molde de Servo 100% concluído! 🎉',
           description: 'Seu Cartão do Servo foi gerado e salvo no seu perfil.',
         });
-        setStep(7);
+        setStep(8);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
       return;
@@ -285,7 +330,8 @@ export default function MoldeDeServoPage() {
     if (step === 3) return 'Salvar Parte 1 e Avançar';
     if (step === 4) return 'Salvar Parte 2 e Avançar';
     if (step === 5) return 'Salvar e Concluir Aula 1';
-    if (step === 6) return 'Finalizar Aula 2 e Gerar Cartão';
+    if (step === 6) return 'Salvar DISC e Ir para Habilidades';
+    if (step === 7) return 'Finalizar Aula 2 e Gerar Cartão';
     return 'Avançar';
   };
 
@@ -396,6 +442,13 @@ export default function MoldeDeServoPage() {
             />
           )}
           {step === 6 && (
+            <Step6Disc
+              discAnswers={discAnswers}
+              onDiscAnswer={handleDiscAnswer}
+              legacyQuadrante={legacyQuadrante}
+            />
+          )}
+          {step === 7 && (
             <Step2Abilities
               selectedAbilities={selectedAbilities}
               onToggleAbility={handleToggleAbility}
@@ -403,19 +456,22 @@ export default function MoldeDeServoPage() {
               onExperienceChange={handleExperienceChange}
               availability={availability}
               onToggleAvailability={handleToggleAvailability}
-              personalityAnswers={personalityAnswers}
-              onPersonalityChange={handlePersonalityChange}
               giftAnswers={giftAnswers}
             />
           )}
-          {step === 7 && (
+          {step === 8 && (
             <Step5Result
               formData={formData}
               selectedAbilities={selectedAbilities}
               experiences={experiences}
               heartAnswers={heartAnswers}
               personalityAnswers={personalityAnswers}
+              discAnswers={discAnswers}
               giftAnswers={giftAnswers}
+              onRetakeDisc={() => {
+                setStep(6);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
             />
           )}
         </div>

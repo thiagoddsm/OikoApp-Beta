@@ -18,7 +18,6 @@ import {
   Wrench,
   Activity,
   Heart,
-  Sliders,
   Award,
   BookOpen,
 } from 'lucide-react';
@@ -33,8 +32,6 @@ interface Step2AbilitiesProps {
   onExperienceChange: (id: string, value: string) => void;
   availability?: string[];
   onToggleAvailability?: (slot: string) => void;
-  personalityAnswers?: Record<string, number>;
-  onPersonalityChange?: (id: string, value: number) => void;
   giftAnswers?: Record<string, number>;
 }
 
@@ -105,8 +102,6 @@ export default function Step2Abilities({
   onExperienceChange,
   availability = [],
   onToggleAvailability,
-  personalityAnswers = {},
-  onPersonalityChange,
   giftAnswers = {},
 }: Step2AbilitiesProps) {
   const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({
@@ -135,53 +130,6 @@ export default function Step2Abilities({
       .slice(0, 3);
   }, [giftAnswers]);
 
-  // Cálculo do Feedback Imediato da Personalidade (Os 4 Quadrantes da Aula 2)
-  const { quadTitle, quadDesc, motLabel, orgLabel, quadrantName, orgScore, motScore } = useMemo(() => {
-    let orgSum = 0;
-    let motSum = 0;
-
-    SHAPE_DATA.personality.eixo_org.items.forEach((item) => {
-      orgSum += personalityAnswers[item.id] !== undefined ? personalityAnswers[item.id] : 3;
-    });
-
-    SHAPE_DATA.personality.eixo_mot.items.forEach((item) => {
-      motSum += personalityAnswers[item.id] !== undefined ? personalityAnswers[item.id] : 3;
-    });
-
-    const orgAvg = orgSum / SHAPE_DATA.personality.eixo_org.items.length;
-    const motAvg = motSum / SHAPE_DATA.personality.eixo_mot.items.length;
-
-    const orgRes = orgAvg >= 3.0 ? 'Formal' : 'Informal';
-    const motRes = motAvg >= 3.0 ? 'Pessoas' : 'Tarefas';
-
-    let title = '';
-    let desc = '';
-
-    if (motRes === 'Tarefas' && orgRes === 'Formal') {
-      title = '🎯 Tarefa / Formal';
-      desc = 'Prefere saber exatamente os alvos e como realizar a tarefa com processos claros.';
-    } else if (motRes === 'Tarefas' && orgRes === 'Informal') {
-      title = '⚡ Tarefa / Informal';
-      desc = 'Prefere cumprir uma ampla variedade de responsabilidades com flexibilidade.';
-    } else if (motRes === 'Pessoas' && orgRes === 'Formal') {
-      title = '❤️ Pessoas / Formal';
-      desc = 'Prefere interagir com pessoas em situações e ambientes mais estáveis e definidos.';
-    } else {
-      title = '🤝 Pessoas / Informal';
-      desc = 'Prefere responder e relacionar-se com as pessoas de forma espontânea.';
-    }
-
-    return {
-      quadTitle: title,
-      quadDesc: desc,
-      quadrantName: `${motRes} / ${orgRes}`,
-      orgScore: Number(orgAvg.toFixed(1)),
-      motScore: Number(motAvg.toFixed(1)),
-      motLabel: motRes === 'Pessoas' ? 'Foco em Pessoas' : 'Foco em Tarefas',
-      orgLabel: orgRes === 'Formal' ? 'Formal / Estruturado' : 'Informal / Espontâneo',
-    };
-  }, [personalityAnswers]);
-
   // Manipulação da matriz de disponibilidade
   const currentAvailabilityList = useMemo(() => {
     const raw = experiences['availability'] || '';
@@ -207,7 +155,7 @@ export default function Step2Abilities({
       {/* 1. Header Badges da Aula 2 */}
       <div className="flex items-center justify-between">
         <span className="px-3 py-1 bg-emerald-100 text-emerald-900 rounded-full text-[10px] font-black uppercase tracking-wider">
-          📗 Aula 2 • Passo 6 de 7 • Personalidade & Habilidades
+          📗 Aula 2 • Parte B • Passo 7 de 8 • Habilidades & Disponibilidade
         </span>
         <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-full text-[10px] font-bold">
           ✓ {selectedAbilities.length} habilidade{selectedAbilities.length !== 1 ? 's' : ''}
@@ -250,10 +198,10 @@ export default function Step2Abilities({
       {/* 3. Título Principal da Aula 2 */}
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl sm:text-3xl font-black text-[#1E113F] tracking-tight">
-          Personalidade & Habilidades
+          Habilidades & Disponibilidade
         </h1>
         <p className="text-slate-600 text-xs sm:text-sm leading-relaxed">
-          Agora na <strong>Aula 2</strong>, vamos alinhar o seu temperamento (os 4 Quadrantes) e as suas habilidades práticas para fechar o seu Cartão do Servo.
+          Agora na <strong>Aula 2</strong>, vamos registrar as suas habilidades práticas, sua experiência e quando você pode servir para fechar o seu Cartão do Servo.
         </p>
       </div>
 
@@ -268,239 +216,6 @@ export default function Step2Abilities({
       </div>
 
       {/* =========================================================
-          PARTE A DA AULA 2: PERSONALIDADE VOCACIONAL (2 EIXOS)
-         ========================================================= */}
-      <div className="flex flex-col gap-4 pt-1">
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-2">
-            <Sliders className="w-4 h-4 text-[#523A8C]" />
-            <h2 className="text-sm sm:text-base font-extrabold text-[#1E113F]">
-              Personalidade Vocacional
-            </h2>
-          </div>
-          <span className="text-[11px] font-bold text-slate-400">2 Escalas • 14 Questões</span>
-        </div>
-
-        {/* 1. ESCALA DE ORGANIZAÇÃO (ESCALA O) */}
-        <div className="p-4 sm:p-5 bg-white rounded-2xl border border-slate-150 shadow-sm flex flex-col gap-3.5">
-          <div className="border-b border-slate-100 pb-3">
-            <span className="text-[10px] font-black uppercase text-[#523A8C] tracking-wider">
-              1. ESCALA DE ORGANIZAÇÃO (ESCALA O)
-            </span>
-            <h3 className="text-sm font-extrabold text-slate-900 mt-0.5">
-              Como eu gostaria de me organizar?
-            </h3>
-            <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-              Avalia a tendência entre um estilo <strong>Informal (1)</strong> e um estilo <strong>Formal (5)</strong>.
-            </p>
-          </div>
-
-          <div className="space-y-3.5 pt-1">
-            {SHAPE_DATA.personality.eixo_org.items.map((item, idx) => {
-              const currentVal = personalityAnswers[item.id] ?? 3;
-              return (
-                <div
-                  key={item.id}
-                  className="p-3.5 bg-slate-50/80 rounded-xl border border-slate-100 flex flex-col gap-2.5"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-slate-800">
-                      <span className="text-[#523A8C] font-black mr-1">{idx + 1}.</span> {item.ctx}
-                    </span>
-                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-white border border-slate-200 text-[#523A8C] shrink-0">
-                      Nota: {currentVal}
-                    </span>
-                  </div>
-
-                  {/* Legenda Esquerda vs Direita */}
-                  <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600 px-1">
-                    <span className="text-slate-700 text-left max-w-[45%]">
-                      {item.esq} <span className="text-slate-400 font-normal">(1)</span>
-                    </span>
-                    <span className="text-slate-700 text-right max-w-[45%]">
-                      <span className="text-slate-400 font-normal">(5)</span> {item.dir}
-                    </span>
-                  </div>
-
-                  {/* 5 Botões de Escolha */}
-                  <div className="grid grid-cols-5 gap-1.5 pt-0.5">
-                    {[1, 2, 3, 4, 5].map((val) => {
-                      const isSelected = currentVal === val;
-                      return (
-                        <button
-                          type="button"
-                          key={val}
-                          onClick={() => onPersonalityChange && onPersonalityChange(item.id, val)}
-                          className={`py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center ${
-                            isSelected
-                              ? 'bg-[#523A8C] text-white shadow-md shadow-[#523A8C]/25 ring-2 ring-[#523A8C]'
-                              : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300'
-                          }`}
-                        >
-                          {val}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* 2. ESCALA DE MOTIVAÇÃO (ESCALA E) */}
-        <div className="p-4 sm:p-5 bg-white rounded-2xl border border-slate-150 shadow-sm flex flex-col gap-3.5">
-          <div className="border-b border-slate-100 pb-3">
-            <span className="text-[10px] font-black uppercase text-[#523A8C] tracking-wider">
-              2. ESCALA DE MOTIVAÇÃO (ESCALA E)
-            </span>
-            <h3 className="text-sm font-extrabold text-slate-900 mt-0.5">
-              Como me motivo?
-            </h3>
-            <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-              Avalia a motivação principal entre <strong>Foco em Tarefas (1)</strong> e <strong>Foco em Pessoas (5)</strong>.
-            </p>
-          </div>
-
-          <div className="space-y-3.5 pt-1">
-            {SHAPE_DATA.personality.eixo_mot.items.map((item, idx) => {
-              const currentVal = personalityAnswers[item.id] ?? 3;
-              return (
-                <div
-                  key={item.id}
-                  className="p-3.5 bg-slate-50/80 rounded-xl border border-slate-100 flex flex-col gap-2.5"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-slate-800">
-                      <span className="text-[#523A8C] font-black mr-1">{idx + 1}.</span> {item.ctx}
-                    </span>
-                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-white border border-slate-200 text-[#523A8C] shrink-0">
-                      Nota: {currentVal}
-                    </span>
-                  </div>
-
-                  {/* Legenda Esquerda vs Direita */}
-                  <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600 px-1">
-                    <span className="text-slate-700 text-left max-w-[45%]">
-                      {item.esq} <span className="text-slate-400 font-normal">(1)</span>
-                    </span>
-                    <span className="text-slate-700 text-right max-w-[45%]">
-                      <span className="text-slate-400 font-normal">(5)</span> {item.dir}
-                    </span>
-                  </div>
-
-                  {/* 5 Botões de Escolha */}
-                  <div className="grid grid-cols-5 gap-1.5 pt-0.5">
-                    {[1, 2, 3, 4, 5].map((val) => {
-                      const isSelected = currentVal === val;
-                      return (
-                        <button
-                          type="button"
-                          key={val}
-                          onClick={() => onPersonalityChange && onPersonalityChange(item.id, val)}
-                          className={`py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center ${
-                            isSelected
-                              ? 'bg-[#523A8C] text-white shadow-md shadow-[#523A8C]/25 ring-2 ring-[#523A8C]'
-                              : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300'
-                          }`}
-                        >
-                          {val}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* RESULTADO E ENCAIXE NOS QUADRANTES */}
-        <div className="p-5 bg-gradient-to-br from-[#EDE8F5] to-white rounded-2xl border border-[#523A8C]/30 shadow-sm flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-[10px] font-black uppercase text-[#523A8C] tracking-wider">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#523A8C]" />
-              RESULTADO E ENCAIXE NOS QUADRANTES
-            </div>
-            <span className="text-xs font-black text-[#523A8C] bg-white px-2.5 py-1 rounded-full border border-[#523A8C]/30 shadow-xs">
-              {quadrantName}
-            </span>
-          </div>
-
-          <p className="text-xs text-slate-600 leading-relaxed">
-            O cruzamento das pontuações das duas escalas define a posição do aluno em um dos <strong>Quatro Quadrantes da Personalidade</strong>:
-          </p>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
-            <div
-              className={`p-3 rounded-xl border text-left transition-all ${
-                quadrantName === 'Tarefas / Formal'
-                  ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-300 shadow-xs'
-                  : 'bg-white/80 border-slate-200 opacity-75'
-              }`}
-            >
-              <h4 className="text-xs font-extrabold text-blue-900 flex items-center gap-1.5">
-                <span>🎯</span> Tarefa / Formal
-              </h4>
-              <p className="text-[11px] text-blue-950/80 mt-1 leading-snug">
-                Prefere saber exatamente os alvos e como realizar a tarefa com processos claros.
-              </p>
-            </div>
-
-            <div
-              className={`p-3 rounded-xl border text-left transition-all ${
-                quadrantName === 'Tarefas / Informal'
-                  ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-300 shadow-xs'
-                  : 'bg-white/80 border-slate-200 opacity-75'
-              }`}
-            >
-              <h4 className="text-xs font-extrabold text-amber-900 flex items-center gap-1.5">
-                <span>⚡</span> Tarefa / Informal
-              </h4>
-              <p className="text-[11px] text-amber-950/80 mt-1 leading-snug">
-                Prefere cumprir uma ampla variedade de responsabilidades com flexibilidade.
-              </p>
-            </div>
-
-            <div
-              className={`p-3 rounded-xl border text-left transition-all ${
-                quadrantName === 'Pessoas / Formal'
-                  ? 'bg-rose-50 border-rose-400 ring-2 ring-rose-300 shadow-xs'
-                  : 'bg-white/80 border-slate-200 opacity-75'
-              }`}
-            >
-              <h4 className="text-xs font-extrabold text-rose-900 flex items-center gap-1.5">
-                <span>❤️</span> Pessoas / Formal
-              </h4>
-              <p className="text-[11px] text-rose-950/80 mt-1 leading-snug">
-                Prefere interagir com pessoas em situações e ambientes mais estáveis e definidos.
-              </p>
-            </div>
-
-            <div
-              className={`p-3 rounded-xl border text-left transition-all ${
-                quadrantName === 'Pessoas / Informal'
-                  ? 'bg-emerald-50 border-emerald-400 ring-2 ring-emerald-300 shadow-xs'
-                  : 'bg-white/80 border-slate-200 opacity-75'
-              }`}
-            >
-              <h4 className="text-xs font-extrabold text-emerald-900 flex items-center gap-1.5">
-                <span>🤝</span> Pessoas / Informal
-              </h4>
-              <p className="text-[11px] text-emerald-950/80 mt-1 leading-snug">
-                Prefere responder e relacionar-se com as pessoas de forma espontânea.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 pt-1 border-t border-slate-200/60">
-            <span>Organização: <strong>{orgScore}/5.0</strong> ({orgLabel})</span>
-            <span>Motivação: <strong>{motScore}/5.0</strong> ({motLabel})</span>
-          </div>
-        </div>
-      </div>
-
-      {/* =========================================================
           PARTE B DA AULA 2: HABILIDADES TÉCNICAS & DISPONIBILIDADE
          ========================================================= */}
       <div className="flex flex-col gap-3 pt-4 border-t border-slate-200 mt-2">
@@ -508,7 +223,7 @@ export default function Step2Abilities({
           <div className="flex items-center gap-2">
             <Wrench className="w-4 h-4 text-[#523A8C]" />
             <h2 className="text-sm font-extrabold text-[#1E113F]">
-              2. Habilidades & Talentos Práticos
+              1. Habilidades & Talentos Práticos
             </h2>
           </div>
           <span className="text-[11px] font-bold text-[#523A8C]">
@@ -608,7 +323,7 @@ export default function Step2Abilities({
         <div className="flex items-center gap-2 px-1">
           <Briefcase className="w-4 h-4 text-[#523A8C]" />
           <h2 className="text-sm font-extrabold text-[#1E113F]">
-            3. Experiência de Vida & Disponibilidade
+            2. Experiência de Vida & Disponibilidade
           </h2>
         </div>
 

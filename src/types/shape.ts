@@ -1,4 +1,11 @@
 import { SHAPE_DATA } from '@/lib/shape-complete-data';
+import {
+  calculateDisc,
+  DISC_TOTAL,
+  type DiscLetter,
+  type DiscScores,
+  type DiscStrength,
+} from '@/lib/disc';
 
 export interface ShapeTop3Item {
   id: string;
@@ -13,6 +20,10 @@ export interface ShapeAiAnalysis {
   areasRecomendadas: string[];
   alertas: string[];
   proximosPassos: string[];
+  /** Novos campos (DISC) */
+  comoComunicar?: string[];
+  comoGerenciar?: string[];
+  evitar?: string[];
   generatedAt: string; // ISO string após sanitize
 }
 
@@ -32,9 +43,11 @@ export interface ShapeResult {
   habilidades: string[];
   disponibilidade?: string[];
   coracao: Record<string, string>;
+  /** LEGADO: escalas O/E (14 itens). Somente leitura para registros antigos. */
   perso: Record<string, number>;
   dom: Record<string, number>;
-  quadrante: string; // ex: "Pessoas / Formal"
+  /** LEGADO: quadrante antigo (ou rótulo derivado do DISC) */
+  quadrante: string;
   orgScore: number;
   motScore: number;
   domScores: Record<string, number>;
@@ -43,15 +56,31 @@ export interface ShapeResult {
   status?: 'in_progress' | 'completed';
   currentStep?: number;
   completionPercentage?: number;
+  /** DISC */
+  discAnswers?: Record<string, DiscLetter>;
+  discScores?: DiscScores;
+  discPrimary?: DiscLetter | null;
+  discSecondary?: DiscLetter | null;
+  discProfile?: string;
+  discTie?: boolean;
+  discStrength?: DiscStrength | null;
+  discAnsweredCount?: number;
+  discVersion?: number;
   createdAt: string; // ISO string após sanitize
   updatedAt?: string;
   aiAnalysis?: ShapeAiAnalysis | null;
+}
+
+/** Respostas de dons válidas = chaves D001..D133 (ignora chaves antigas de score por domínio) */
+export function countGiftAnswers(dom?: Record<string, number>): number {
+  return Object.keys(dom || {}).filter((k) => /^D\d{3}$/.test(k)).length;
 }
 
 export function calculateShapeCompletion(data: {
   coracao?: Record<string, string>;
   dom?: Record<string, number>;
   perso?: Record<string, number>;
+  discAnswers?: Record<string, string>;
   habilidades?: string[];
   disponibilidade?: string[];
   experiencias?: Record<string, string>;
@@ -60,22 +89,28 @@ export function calculateShapeCompletion(data: {
   const heartAnswered = Object.values(data.coracao || {}).filter(
     (v) => typeof v === 'string' && v.trim().length > 0
   ).length;
-  const giftsAnswered = Object.keys(data.dom || {}).length;
-  const persoAnswered = Object.keys(data.perso || {}).length;
+  const giftsAnswered = countGiftAnswers(data.dom);
+  const discAnswered = Object.keys(calculateDisc(data.discAnswers).discAnswers).length;
+  const legacyPersoAnswered = Object.keys(data.perso || {}).length;
+  const legacyPersoDone = legacyPersoAnswered >= 14;
   const abilitiesCount = (data.habilidades || []).length;
   const hasAvailOrExp =
     (data.disponibilidade && data.disponibilidade.length > 0) ||
     Object.values(data.experiencias || {}).some((v) => typeof v === 'string' && v.trim().length > 0);
 
   // Pesos: Coração (15%) + Dons (55%) = 70% na Aula 1
-  // Personalidade (15%) + Habilidades/Disponibilidade (15%) = 30% na Aula 2
+  // DISC (15%) + Habilidades/Disponibilidade (15%) = 30% na Aula 2
   const heartScore = Math.min(heartAnswered / 5, 1) * 15;
   const giftsScore = Math.min(giftsAnswered / 133, 1) * 55;
-  const persoScore = Math.min(persoAnswered / 14, 1) * 15;
+  const persoScore =
+    Math.max(Math.min(discAnswered / DISC_TOTAL, 1), legacyPersoDone ? 1 : 0) * 15;
   const abilitiesScore = (abilitiesCount > 0 ? 10 : 0) + (hasAvailOrExp ? 5 : 0);
 
   const rawPercent = Math.round(heartScore + giftsScore + persoScore + abilitiesScore);
   const percentage = data.status === 'completed' ? 100 : Math.min(rawPercent, 99);
+
+  const discDone = discAnswered >= DISC_TOTAL;
+  const persoDone = discDone || legacyPersoDone;
 
   return {
     percentage,
@@ -85,43 +120,55 @@ export function calculateShapeCompletion(data: {
     giftsAnswered,
     giftsTotal: 133,
     giftsDone: giftsAnswered >= 133,
-    persoAnswered,
-    persoTotal: 14,
-    persoDone: persoAnswered >= 14,
+    discAnswered,
+    discTotal: DISC_TOTAL,
+    discDone,
+    legacyPersoDone,
+    /** pilar P concluído (DISC ou legado) */
+    persoAnswered: discDone ? discAnswered : legacyPersoAnswered,
+    persoTotal: discDone || !legacyPersoDone ? DISC_TOTAL : 14,
+    persoDone,
     abilitiesCount,
     abilitiesDone: abilitiesCount > 0,
     aula1Completed: giftsAnswered >= 133,
-    aula2Completed: data.status === 'completed' || (persoAnswered >= 14 && abilitiesCount > 0),
+    aula2Completed: data.status === 'completed' || (persoDone && abilitiesCount > 0),
   };
 }
 
+/**
+ * Métricas de personalidade + dons.
+ *  - Se houver respostas DISC → usa DISC (e deriva o quadrante a partir do perfil primário).
+ *  - Caso contrário, mantém o cálculo LEGADO (escalas O/E) somente se houver respostas legadas.
+ */
 export function calculateShapeMetrics(
   personality: Record<string, number> = {},
-  gifts: Record<string, number> = {}
+  gifts: Record<string, number> = {},
+  discAnswersRaw?: Record<string, string>
 ) {
-  let orgSum = 0;
-  let motSum = 0;
+  const disc = calculateDisc(discAnswersRaw);
 
-  SHAPE_DATA.personality.eixo_org.items.forEach((item) => {
-    orgSum += personality[item.id] !== undefined ? personality[item.id] : 3;
-  });
+  let orgScore: number | null = null;
+  let motScore: number | null = null;
+  let quadrante: string | null = disc.quadrante;
 
-  SHAPE_DATA.personality.eixo_mot.items.forEach((item) => {
-    motSum += personality[item.id] !== undefined ? personality[item.id] : 3;
-  });
-
-  const orgScore = Number((orgSum / SHAPE_DATA.personality.eixo_org.items.length).toFixed(2));
-  const motScore = Number((motSum / SHAPE_DATA.personality.eixo_mot.items.length).toFixed(2));
-
-  const orgResult = orgScore >= 3.0 ? 'Formal' : 'Informal';
-  const motResult = motScore >= 3.0 ? 'Pessoas' : 'Tarefas';
-  const quadrante = `${motResult} / ${orgResult}`;
+  if (disc.discAnsweredCount === 0 && Object.keys(personality).length > 0) {
+    let orgSum = 0;
+    let motSum = 0;
+    SHAPE_DATA.personality.eixo_org.items.forEach((item) => {
+      orgSum += personality[item.id] !== undefined ? personality[item.id] : 3;
+    });
+    SHAPE_DATA.personality.eixo_mot.items.forEach((item) => {
+      motSum += personality[item.id] !== undefined ? personality[item.id] : 3;
+    });
+    orgScore = Number((orgSum / SHAPE_DATA.personality.eixo_org.items.length).toFixed(2));
+    motScore = Number((motSum / SHAPE_DATA.personality.eixo_mot.items.length).toFixed(2));
+    quadrante = `${motScore >= 3.0 ? 'Pessoas' : 'Tarefas'} / ${orgScore >= 3.0 ? 'Formal' : 'Informal'}`;
+  }
 
   const domScores: Record<string, number> = {};
   SHAPE_DATA.gifts.forEach((g) => {
     domScores[g.id] = 0;
   });
-
   SHAPE_DATA.giftQuestions.forEach((q) => {
     const val = gifts[q.id];
     if (val !== undefined) {
@@ -140,6 +187,7 @@ export function calculateShapeMetrics(
     .sort((a, b) => b.score - a.score);
 
   return {
+    disc,
     orgScore,
     motScore,
     quadrante,
