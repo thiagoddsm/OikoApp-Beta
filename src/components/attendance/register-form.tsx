@@ -51,29 +51,44 @@ export function RegisterForm({ editingRecord, onCancelEdit }: RegisterFormProps)
 
   useEffect(() => {
     if (editingRecord) {
-      const date = editingRecord.data?.toDate ? editingRecord.data.toDate() : new Date();
-      const dateStr = date.toISOString().split('T')[0];
+      let dateStr = new Date().toISOString().split('T')[0];
+      if (editingRecord.data) {
+        if (typeof editingRecord.data.toDate === 'function') {
+          dateStr = editingRecord.data.toDate().toISOString().split('T')[0];
+        } else if (editingRecord.data.seconds) {
+          dateStr = new Date(editingRecord.data.seconds * 1000).toISOString().split('T')[0];
+        } else if (typeof editingRecord.data === 'string') {
+          dateStr = editingRecord.data.split('T')[0];
+        }
+      }
       
       setData(dateStr);
       setHorario(editingRecord.horario || horariosCultos[0]);
-      setAdultos(editingRecord.adultos?.toString() || '');
-      setCriancas(editingRecord.criancas?.toString() || '0');
-      setServos(editingRecord.servos?.toString() || '0');
-      setSalaVip(editingRecord.salaVip?.toString() || "");
-      setConversoes(editingRecord.conversoes?.toString() || '0');
-      setReconciliacoes(editingRecord.reconciliacoes?.toString() || '0');
+      setAdultos(editingRecord.adultos !== undefined && editingRecord.adultos !== null ? editingRecord.adultos.toString() : '');
+      setCriancas(editingRecord.criancas !== undefined && editingRecord.criancas !== null ? editingRecord.criancas.toString() : '');
+      setServos(editingRecord.servos !== undefined && editingRecord.servos !== null ? editingRecord.servos.toString() : '');
+      setSalaVip(editingRecord.salaVip !== undefined && editingRecord.salaVip !== null ? editingRecord.salaVip.toString() : '');
+      setConversoes(editingRecord.conversoes !== undefined && editingRecord.conversoes !== null ? editingRecord.conversoes.toString() : '');
+      setReconciliacoes(editingRecord.reconciliacoes !== undefined && editingRecord.reconciliacoes !== null ? editingRecord.reconciliacoes.toString() : '');
       setClima(editingRecord.clima || opcoesClima[0]);
-      setFeriadoProximo(editingRecord.feriadoProximo || false);
-      setJogoFutebol(editingRecord.jogoFutebol || false);
-      setTeveApelo(editingRecord.teveApelo || false);
-      setTeveCeia(editingRecord.teveCeia || false);
+      setFeriadoProximo(!!editingRecord.feriadoProximo);
+      setJogoFutebol(!!editingRecord.jogoFutebol);
+      setTeveApelo(!!editingRecord.teveApelo);
+      setTeveCeia(!!editingRecord.teveCeia);
       setSerieMensagem(editingRecord.serieMensagem || '');
-      setApresentacaoBebe(editingRecord.apresentacaoBebe || false);
+      setApresentacaoBebe(!!editingRecord.apresentacaoBebe);
       setObservacoes(editingRecord.observacoes || '');
     } else {
       resetForm();
     }
   }, [editingRecord]);
+
+  const toSafeInt = (val: string) => {
+    const parsed = parseInt(val, 10);
+    return isNaN(parsed) || parsed < 0 ? 0 : parsed;
+  };
+
+  const totalCalculado = toSafeInt(adultos) + toSafeInt(criancas) + toSafeInt(servos);
 
   const resetForm = () => {
     setData(new Date().toISOString().split('T')[0]);
@@ -115,20 +130,20 @@ export function RegisterForm({ editingRecord, onCancelEdit }: RegisterFormProps)
     const payload = {
       data: dateAsTimestamp,
       horario,
-      adultos: Number(adultos),
-      criancas: Number(criancas || 0),
-      servos: Number(servos || 0),
-      salaVip: Number(salaVip || 0),
-      conversoes: Number(conversoes || 0),
-      reconciliacoes: Number(reconciliacoes || 0),
+      adultos: toSafeInt(adultos),
+      criancas: toSafeInt(criancas),
+      servos: toSafeInt(servos),
+      salaVip: toSafeInt(salaVip),
+      conversoes: toSafeInt(conversoes),
+      reconciliacoes: toSafeInt(reconciliacoes),
       clima,
       feriadoProximo,
       jogoFutebol,
       teveApelo,
       teveCeia,
-      serieMensagem,
+      serieMensagem: serieMensagem.trim(),
       apresentacaoBebe,
-      observacoes,
+      observacoes: observacoes.trim(),
       atualizadoEm: Timestamp.now()
     };
 
@@ -139,6 +154,9 @@ export function RegisterForm({ editingRecord, onCancelEdit }: RegisterFormProps)
           toast({ title: "Sucesso!", description: "Registro atualizado com sucesso." });
           if (onCancelEdit) onCancelEdit();
         })
+        .catch((err: any) => {
+          toast({ title: "Erro ao atualizar", description: err.message, variant: "destructive" });
+        })
         .finally(() => setSalvando(false));
     } else {
       const collectionRef = collection(firestore, `registros_de_presenca`);
@@ -148,6 +166,8 @@ export function RegisterForm({ editingRecord, onCancelEdit }: RegisterFormProps)
       }).then(() => {
           toast({ title: "Sucesso!", description: "Registro salvo com sucesso." });
           resetForm();
+      }).catch((err: any) => {
+          toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" });
       }).finally(() => {
           setSalvando(false);
       });
@@ -203,6 +223,20 @@ export function RegisterForm({ editingRecord, onCancelEdit }: RegisterFormProps)
         <div className="space-y-2">
           <Label htmlFor="reconciliacoes">Reconciliações</Label>
           <Input id="reconciliacoes" type="number" value={reconciliacoes} onChange={(e) => setReconciliacoes(e.target.value)} placeholder="Ex: 10" min="0"/>
+        </div>
+      </div>
+
+      {/* Banner de Total em Tempo Real */}
+      <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
+        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 font-medium">
+          <span>Adultos: <strong className="text-slate-800 dark:text-slate-200">{toSafeInt(adultos)}</strong></span>
+          <span>+</span>
+          <span>Crianças: <strong className="text-slate-800 dark:text-slate-200">{toSafeInt(criancas)}</strong></span>
+          <span>+</span>
+          <span>Servos: <strong className="text-indigo-600 dark:text-indigo-400">{toSafeInt(servos)}</strong></span>
+        </div>
+        <div className="text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300">
+          Total Geral Presentes: <span className="text-base sm:text-lg font-black text-indigo-600 dark:text-indigo-400">{totalCalculado}</span> pessoas
         </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

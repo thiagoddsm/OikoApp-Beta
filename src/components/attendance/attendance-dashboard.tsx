@@ -88,6 +88,24 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     return null;
 };
 
+function getRecordTimestamp(r: any): number {
+  if (!r?.data) return 0;
+  if (r.data.seconds) return r.data.seconds;
+  if (typeof r.data.toDate === 'function') return r.data.toDate().getTime() / 1000;
+  const t = new Date(r.data).getTime();
+  return isNaN(t) ? 0 : t / 1000;
+}
+
+function getRecordDateObj(r: any): Date {
+  const sec = getRecordTimestamp(r);
+  return sec > 0 ? new Date(sec * 1000) : new Date();
+}
+
+function formatHorarioLabel(horario?: string): string {
+  if (!horario) return 'Culto';
+  return horario.includes(' - ') ? horario.split(' - ')[1] : horario;
+}
+
 export function AttendanceDashboard({ registros, loading }: AttendanceDashboardProps) {
   const [viewMode, setViewMode] = useState<'ampla' | 'individual'>('ampla');
   const [selectedRecordId, setSelectedRecordId] = useState<string>('');
@@ -143,11 +161,11 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
     try {
       if (filtroDataInicio) {
         const startTimestamp = new Date(filtroDataInicio + 'T00:00:00').getTime() / 1000;
-        filtrados = filtrados.filter(r => r.data?.seconds && r.data.seconds >= startTimestamp);
+        filtrados = filtrados.filter(r => getRecordTimestamp(r) >= startTimestamp);
       }
       if (filtroDataFim) {
         const endTimestamp = new Date(filtroDataFim + 'T23:59:59').getTime() / 1000;
-        filtrados = filtrados.filter(r => r.data?.seconds && r.data.seconds <= endTimestamp);
+        filtrados = filtrados.filter(r => getRecordTimestamp(r) <= endTimestamp);
       }
     } catch (e) {
       console.error("Erro ao filtrar data:", e);
@@ -174,7 +192,7 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
         filtrados = filtrados.filter(r => (r.teveApelo || false) === (filtroApelo === 'sim'));
     }
     
-    return filtrados.sort((a, b) => (a.data?.seconds || 0) - (b.data?.seconds || 0));
+    return filtrados.sort((a, b) => getRecordTimestamp(a) - getRecordTimestamp(b));
   }, [registros, filtroDataInicio, filtroDataFim, filtroHorario, filtroSerie, filtroFeriado, filtroJogo, filtroBebe, filtroApelo]);
 
   // Culto Selecionado para Análise Individual
@@ -213,7 +231,7 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
   const frequenciaAoLongoDoTempoData = useMemo(() => {
      return registrosFiltrados.map(r => ({
          id: r.id,
-         date: new Date((r.data?.seconds || 0) * 1000).toLocaleDateString('pt-BR', { timeZone: 'UTC' }),
+         date: getRecordDateObj(r).toLocaleDateString('pt-BR', { timeZone: 'UTC' }),
          Adultos: r.adultos || 0,
          Crianças: r.criancas || 0,
          Servos: r.servos || 0,
@@ -226,25 +244,34 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
 
   const mediaPorHorarioData = useMemo(() => {
     const grupos = horariosCultos.map(h => ({ 
-        name: h.split(' - ')[1],
+        name: formatHorarioLabel(h),
+        fullLabel: h,
         Adultos: 0,
         Crianças: 0,
+        Servos: 0,
         count: 0
     }));
 
     registrosFiltrados.forEach(r => {
-        const horario = r.horario.split(' - ')[1];
-        const grupo = grupos.find(g => g.name === horario);
+        const horarioName = formatHorarioLabel(r.horario);
+        const grupo = grupos.find(g => g.name === horarioName || g.fullLabel === r.horario);
         if (grupo) {
-            grupo.Adultos += r.adultos;
+            grupo.Adultos += (r.adultos || 0);
             grupo.Crianças += (r.criancas || 0);
+            grupo.Servos += (r.servos || 0);
             grupo.count++;
         }
     });
 
     return grupos
       .filter(g => g.count > 0)
-      .map(g => ({...g, Adultos: Math.round(g.Adultos/g.count), Crianças: Math.round(g.Crianças/g.count) }));
+      .map(g => ({
+        ...g, 
+        Adultos: Math.round(g.Adultos / g.count), 
+        Crianças: Math.round(g.Crianças / g.count),
+        Servos: Math.round(g.Servos / g.count),
+        Total: Math.round((g.Adultos + g.Crianças + g.Servos) / g.count)
+      }));
 
   }, [registrosFiltrados]);
 
@@ -254,7 +281,7 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
       const comJogo = registrosFiltrados.filter(r => r.jogoFutebol);
       const semJogo = registrosFiltrados.filter(r => !r.jogoFutebol);
 
-      const calcMedia = (arr: AttendanceRecord[]) => arr.length > 0 ? Math.round(arr.reduce((acc, r) => acc + r.adultos + (r.criancas || 0), 0) / arr.length) : 0;
+      const calcMedia = (arr: AttendanceRecord[]) => arr.length > 0 ? Math.round(arr.reduce((acc, r) => acc + (r.adultos || 0) + (r.criancas || 0) + (r.servos || 0), 0) / arr.length) : 0;
 
       return [
           { name: 'Feriado Próximo', Média: calcMedia(comFeriado) },
@@ -273,7 +300,7 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
       if (!recordsByHorario[r.horario]) {
         recordsByHorario[r.horario] = [];
       }
-      recordsByHorario[r.horario].push(r.adultos + (r.criancas || 0));
+      recordsByHorario[r.horario].push((r.adultos || 0) + (r.criancas || 0) + (r.servos || 0));
     });
     
     const statsByHorario: Record<string, { mean: number; stdDev: number; count: number }> = {};
@@ -291,11 +318,11 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
       };
     });
     
-    const totalsGlobal = registrosFiltrados.map(r => r.adultos + (r.criancas || 0));
+    const totalsGlobal = registrosFiltrados.map(r => (r.adultos || 0) + (r.criancas || 0) + (r.servos || 0));
     const meanGlobal = totalsGlobal.reduce((a, b) => a + b, 0) / totalsGlobal.length;
     
     const outliers = registrosFiltrados.map(r => {
-      const total = r.adultos + (r.criancas || 0);
+      const total = (r.adultos || 0) + (r.criancas || 0) + (r.servos || 0);
       const hStats = statsByHorario[r.horario];
       
       if (!hStats || hStats.count < 3) return null;
@@ -328,11 +355,11 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
     setIsGeneratingAi(true);
     try {
       const recordsForAi = registrosFiltrados.map(r => ({
-        dateStr: new Date(r.data.seconds * 1000).toLocaleDateString('pt-BR', { timeZone: 'UTC' }),
-        horario: r.horario,
-        adultos: r.adultos,
+        dateStr: getRecordDateObj(r).toLocaleDateString('pt-BR', { timeZone: 'UTC' }),
+        horario: r.horario || 'Culto',
+        adultos: r.adultos || 0,
         criancas: r.criancas || 0,
-        total: r.adultos + (r.criancas || 0),
+        total: (r.adultos || 0) + (r.criancas || 0) + (r.servos || 0),
         serieMensagem: r.serieMensagem || '',
         feriadoProximo: !!r.feriadoProximo,
         jogoFutebol: !!r.jogoFutebol,
@@ -356,15 +383,19 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
   };
 
   const handleExportCSV = () => {
-    const headers = ['Data', 'Horário', 'Adultos', 'Crianças', 'Total', 'Série de Mensagem', 'Feriado Próximo', 'Jogo de Futebol', 'Apresentação Bebê'];
+    const headers = ['Data', 'Horário', 'Adultos', 'Crianças', 'Servos', 'Total', 'Sala VIP', 'Conversões', 'Reconciliações', 'Série de Mensagem', 'Feriado Próximo', 'Jogo de Futebol', 'Apresentação Bebê'];
     const rows = registrosFiltrados.map(r => {
-      const dateStr = new Date(r.data.seconds * 1000).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+      const dateStr = getRecordDateObj(r).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
       return [
         dateStr,
-        r.horario,
-        r.adultos,
+        r.horario || '',
+        r.adultos || 0,
         r.criancas || 0,
-        r.adultos + (r.criancas || 0),
+        r.servos || 0,
+        (r.adultos || 0) + (r.criancas || 0) + (r.servos || 0),
+        r.salaVip || 0,
+        r.conversoes || 0,
+        r.reconciliacoes || 0,
         r.serieMensagem || '',
         r.feriadoProximo ? 'Sim' : 'Não',
         r.jogoFutebol ? 'Sim' : 'Não',
@@ -464,10 +495,10 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
               className="h-9 px-3 rounded-xl bg-white dark:bg-slate-800 border text-xs font-black text-slate-800 dark:text-white shadow-sm outline-none"
             >
               {registrosFiltrados.map((r) => {
-                const dateStr = new Date((r.data?.seconds || 0) * 1000).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+                const dateStr = getRecordDateObj(r).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
                 return (
                   <option key={r.id} value={r.id}>
-                    {dateStr} — {r.horario.split(' - ')[1] || r.horario} ({(r.adultos || 0) + (r.criancas || 0)} pessoas)
+                    {dateStr} — {formatHorarioLabel(r.horario)} ({(r.adultos || 0) + (r.criancas || 0) + (r.servos || 0)} pessoas)
                   </option>
                 );
               })}
@@ -486,7 +517,7 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
                   {selectedRecord.horario}
                 </Badge>
                 <span className="text-xs font-bold text-slate-500">
-                  🗓️ {new Date((selectedRecord.data?.seconds || 0) * 1000).toLocaleDateString('pt-BR', { timeZone: 'UTC', weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
+                  🗓️ {getRecordDateObj(selectedRecord).toLocaleDateString('pt-BR', { timeZone: 'UTC', weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
                 </span>
               </div>
               <h2 className="text-2xl font-black italic tracking-tighter uppercase text-slate-900 dark:text-white mt-1">

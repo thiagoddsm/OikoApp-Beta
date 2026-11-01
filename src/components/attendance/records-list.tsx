@@ -66,18 +66,43 @@ export function RecordsList({ registros, loading, onEdit }: RecordsListProps) {
     setIdToDelete(null);
   };
 
-  const formatarData = (timestamp: any) => {
-    if (!timestamp?.seconds) return '-';
-    const date = new Date(timestamp.seconds * 1000);
-    return date.toLocaleDateString('pt-BR', {timeZone: 'UTC'});
+  const formatarData = (rawDate: any) => {
+    if (!rawDate) return '-';
+    try {
+      if (typeof rawDate?.toDate === 'function') {
+        return rawDate.toDate().toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+      }
+      if (rawDate.seconds) {
+        return new Date(rawDate.seconds * 1000).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+      }
+      const d = new Date(rawDate);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+      }
+      return '-';
+    } catch {
+      return '-';
+    }
+  };
+
+  const formatarHorario = (horario?: string) => {
+    if (!horario) return '-';
+    return horario.includes(' - ') ? horario.split(' - ')[1] : horario;
   };
 
   const registrosOrdenados = useMemo(() => {
     if (!registros) return [];
     return [...registros].sort((a, b) => {
-      const dataA = a.data?.seconds || 0;
-      const dataB = b.data?.seconds || 0;
-      return dataB - dataA;
+      const getTimestamp = (reg: any) => {
+        if (reg?.data?.seconds) return reg.data.seconds;
+        if (typeof reg?.data?.toDate === 'function') return reg.data.toDate().getTime() / 1000;
+        if (reg?.data) {
+          const t = new Date(reg.data).getTime();
+          if (!isNaN(t)) return t / 1000;
+        }
+        return 0;
+      };
+      return getTimestamp(b) - getTimestamp(a);
     });
   }, [registros]);
 
@@ -120,7 +145,7 @@ export function RecordsList({ registros, loading, onEdit }: RecordsListProps) {
             {registrosOrdenados.map(reg => (
               <TableRow key={reg.id}>
                 <TableCell className="font-medium">{formatarData(reg.data)}</TableCell>
-                <TableCell>{reg.horario.split(' - ')[1]}</TableCell>
+                <TableCell className="font-semibold text-slate-800">{formatarHorario(reg.horario)}</TableCell>
                 <TableCell>{reg.adultos}</TableCell>
                 <TableCell>{reg.criancas || 0}</TableCell>
                 <TableCell className="font-medium text-indigo-600">{reg.servos || 0}</TableCell>
