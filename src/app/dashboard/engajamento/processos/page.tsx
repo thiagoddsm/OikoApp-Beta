@@ -31,7 +31,7 @@ const PROCESS_TYPE_LABELS: Record<ProcessType, { label: string; icon: React.Elem
   GERAL: { label: 'Acolhimento Geral', icon: Sparkles, color: 'bg-amber-100 text-amber-700 border-amber-200' },
 };
 
-export const FUNNEL_STAGES: Record<ProcessType, { id: string; label: string; badgeColor: string }[]> = {
+const FUNNEL_STAGES: Record<ProcessType, { id: string; label: string; badgeColor: string }[]> = {
   BATISMO: [
     { id: 'INTERESSE_REGISTRADO', label: '1. Interesse Registrado', badgeColor: 'bg-blue-100 text-blue-800 border-blue-200' },
     { id: 'EM_AULAS', label: '2. Em Aulas / Preparação', badgeColor: 'bg-amber-100 text-amber-800 border-amber-200' },

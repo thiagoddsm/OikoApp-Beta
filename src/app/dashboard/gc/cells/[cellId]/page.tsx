@@ -22,7 +22,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CreateOrEditCellDialog } from '../page';
+import { CreateOrEditCellDialog } from '../create-or-edit-cell-dialog';
 
 type UserType = {
   id: string; name: string; photoURL?: string;

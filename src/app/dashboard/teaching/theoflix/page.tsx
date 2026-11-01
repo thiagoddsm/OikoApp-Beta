@@ -57,7 +57,7 @@ const defaultLevelConfig: Record<number, { title: string; color: string; shadow:
   4: { title: 'Alta Gestão & Supervisão', color: 'bg-purple-600', bg: 'bg-purple-50', shadow: 'shadow-purple-500/30' },
 };
 
-export const getColorClasses = (color: string) => {
+const getColorClasses = (color: string) => {
     const maps: Record<string, any> = {
         blue: { color: 'bg-blue-600', bg: 'bg-blue-50', shadow: 'shadow-blue-500/30' },
         rose: { color: 'bg-rose-600', bg: 'bg-rose-50', shadow: 'shadow-rose-500/30' },
