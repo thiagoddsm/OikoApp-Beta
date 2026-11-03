@@ -112,7 +112,6 @@ export default function Step4Gifts({
           const globalIdx = range.start + idx + 1;
           const currentAnswer = giftAnswers[q.id];
           const isAnswered = currentAnswer !== undefined;
-          const giftMeta = SHAPE_DATA.gifts.find((g) => g.id === q.domId);
 
           return (
             <div
@@ -124,16 +123,11 @@ export default function Step4Gifts({
                   : 'border-slate-200/90'
               }`}
             >
-              {/* Top da questão: Número + Categoria do Dom */}
+              {/* Top da questão: Apenas número da questão */}
               <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black text-slate-400">
-                    #{globalIdx}
-                  </span>
-                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-[#EDE8F5] text-[#523A8C] uppercase tracking-wider">
-                    {giftMeta?.name || 'Dom'}
-                  </span>
-                </div>
+                <span className="text-xs font-black text-slate-400">
+                  #{globalIdx}
+                </span>
                 {isAnswered ? (
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                 ) : (
