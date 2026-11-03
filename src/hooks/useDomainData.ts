@@ -45,12 +45,18 @@ export function useEventsData() {
   const { data: userData, isLoading: loadingRole } = useDoc<{ hierarchy?: { role?: string }; }>(user ? `users/${user.uid}` : null);
   const roleResolved = !loadingRole && (userData !== undefined || !user);
 
-  const eventsQ = useMemoFirebase(() => (firestore && user && roleResolved) ? query(collection(firestore, 'volunteering_events'), limit(100)) : null, [firestore, user, roleResolved]);
-  const reservationsQ = useMemoFirebase(() => (firestore && user && roleResolved) ? query(collection(firestore, 'room_reservations'), limit(100)) : null, [firestore, user, roleResolved]);
-  const roomsQ = useMemoFirebase(() => (firestore && user && roleResolved) ? query(collection(firestore, 'rooms')) : null, [firestore, user, roleResolved]);
-  const strategicEventsQ = useMemoFirebase(() => (firestore && user && roleResolved) ? query(collection(firestore, 'strategic_events')) : null, [firestore, user, roleResolved]);
-  const reservationCategoriesQ = useMemoFirebase(() => (firestore && user && roleResolved) ? query(collection(firestore, 'reservation_categories')) : null, [firestore, user, roleResolved]);
-  const ministriesQ = useMemoFirebase(() => (firestore && user && roleResolved) ? query(collection(firestore, 'ministries')) : null, [firestore, user, roleResolved]);
+  const isPublicRoute = typeof window !== 'undefined' && (
+    window.location.pathname.includes('/calendario') ||
+    window.location.pathname.includes('/public/')
+  );
+  const allowQuery = Boolean(firestore && ((user && roleResolved) || isPublicRoute));
+
+  const eventsQ = useMemoFirebase(() => allowQuery && firestore ? query(collection(firestore, 'volunteering_events'), limit(500)) : null, [firestore, allowQuery]);
+  const reservationsQ = useMemoFirebase(() => allowQuery && firestore ? query(collection(firestore, 'room_reservations'), limit(1000)) : null, [firestore, allowQuery]);
+  const roomsQ = useMemoFirebase(() => allowQuery && firestore ? query(collection(firestore, 'rooms')) : null, [firestore, allowQuery]);
+  const strategicEventsQ = useMemoFirebase(() => allowQuery && firestore ? query(collection(firestore, 'strategic_events')) : null, [firestore, allowQuery]);
+  const reservationCategoriesQ = useMemoFirebase(() => allowQuery && firestore ? query(collection(firestore, 'reservation_categories')) : null, [firestore, allowQuery]);
+  const ministriesQ = useMemoFirebase(() => allowQuery && firestore ? query(collection(firestore, 'ministries')) : null, [firestore, allowQuery]);
 
   const { data: events, isLoading: le } = useCollection<VolunteeringEvent>(eventsQ);
   const { data: reservations, isLoading: lres } = useCollection<RoomReservation>(reservationsQ);

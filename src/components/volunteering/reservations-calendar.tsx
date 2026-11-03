@@ -257,39 +257,98 @@ export function ReservationsCalendar({
   const events = useMemo(() => {
     const allOccurrences: any[] = [];
 
-    // Mapear e injetar os Eventos Estratégicos Aprovados
+    // ── 1. Mapear e injetar os Eventos Estratégicos ─────────────────────────
     if (strategicEvents && Array.isArray(strategicEvents)) {
-      // Busca dinamicamente o ID da categoria que se chama "Eventual" e "Regular"
-      const eventualCategory = reservationCategories?.find(c => c.name.toLowerCase() === 'eventual');
+      const eventualCategory = reservationCategories?.find(c => c.name?.toLowerCase() === 'eventual');
       const eventualCategoryId = eventualCategory?.id;
-      const regularCategory = reservationCategories?.find(c => c.name.toLowerCase() === 'regular');
-      const regularCategoryId = regularCategory?.id;
 
-      if (strategicEvents) {
-        strategicEvents.forEach(evt => {
-          if (evt.status !== 'aprovado' && evt.status !== 'analise_estrategica') return;
-        
-        // Se houver filtro de categoria ativo, só exibe os estratégicos se a categoria "Eventual" estiver selecionada
+      strategicEvents.forEach(evt => {
+        // Ignora apenas eventos explicitamente rejeitados ou cancelados
+        if (evt.status === 'rejeitado' || evt.status === 'cancelado') return;
+
+        // Filtro de Categoria
+        const evtCatId = (evt.categoryId || evt.category || '').toLowerCase();
         if (categoryFilter.length > 0) {
-          const isEventualSelected = categoryFilter.includes('eventual') || (eventualCategoryId && categoryFilter.includes(eventualCategoryId));
-          if (!isEventualSelected) {
-            return;
-          }
+          const isMatch = categoryFilter.some(filterId => {
+            const fId = filterId.toLowerCase();
+            if (fId === 'eventual' || filterId === eventualCategoryId) {
+              return evtCatId === 'eventual' || evtCatId === eventualCategoryId?.toLowerCase() || !evtCatId;
+            }
+            return evtCatId === fId || evtCatId.includes(fId);
+          });
+          if (!isMatch) return;
         }
-        
-        if (roomFilter !== 'all' && evt.space !== roomFilter) return;
-        if (ministryFilter !== 'all' && ministryFilter !== 'geral') return; // Ocultar se filtrar por outro ministério
-        if (searchTerm && !evt.eventName.toLowerCase().includes(searchTerm.toLowerCase())) return;
+
+        // Filtro de Ambiente / Sala
+        if (roomFilter !== 'all') {
+          const matchesRoom = evt.space === roomFilter || 
+                             (Array.isArray(evt.rooms) && evt.rooms.includes(roomFilter));
+          if (!matchesRoom) return;
+        }
+
+        // Filtro de Ministério
+        if (ministryFilter !== 'all') {
+          const evtMin = (evt.ministry || 'geral').toLowerCase();
+          if (evtMin !== ministryFilter.toLowerCase()) return;
+        }
+
+        // Filtro de Pesquisa
+        if (searchTerm && !evt.eventName?.toLowerCase().includes(searchTerm.toLowerCase())) {
+          return;
+        }
+
+        // Suporte a múltiplas datas (eventDates ou additionalDates)
+        const explicitDates = Array.isArray(evt.eventDates) && evt.eventDates.length > 0
+          ? evt.eventDates
+          : (Array.isArray(evt.additionalDates) && evt.additionalDates.length > 0
+              ? [{ date: evt.startDate || evt.date, timeStart: evt.timeStart, timeEnd: evt.timeEnd }, ...evt.additionalDates]
+              : null);
+
+        if (explicitDates && explicitDates.length > 0) {
+          explicitDates.forEach((ed: any, edIdx: number) => {
+            const dateVal = typeof ed === 'string' ? ed : ed.date;
+            if (!dateVal) return;
+            const tStart = (typeof ed === 'object' && ed.timeStart) || evt.timeStart || '00:00';
+            const tEnd = (typeof ed === 'object' && ed.timeEnd) || evt.timeEnd || '23:59';
+            const cleanDate = dateVal.includes('T') ? dateVal.split('T')[0] : dateVal;
+            const occStart = new Date(`${cleanDate}T${tStart}`);
+            const occEnd = new Date(`${cleanDate}T${tEnd}`);
+            if (isNaN(occStart.getTime()) || isNaN(occEnd.getTime())) return;
+
+            allOccurrences.push({
+              id: `strategic_${evt.id}_${edIdx}`,
+              title: '⭐ ' + evt.eventName + (evt.space ? ` (${evt.space})` : ''),
+              start: occStart,
+              end: occEnd,
+              resource: {
+                ...evt,
+                isStrategicEvent: true,
+                status: evt.status === 'aprovado' ? 'approved' : 'pending',
+                rooms: evt.space ? [evt.space] : [],
+                frequency: 'Eventual',
+                categoryId: evt.categoryId || eventualCategoryId || 'eventual'
+              }
+            });
+          });
+          return;
+        }
+
+        // Data simples
+        const rawStart = evt.startDate || evt.date || evt.eventDate || evt.dateTime;
+        const rawEnd = evt.endDate || rawStart;
+        if (!rawStart) return;
 
         try {
-          const start = new Date(evt.startDate + 'T' + (evt.timeStart || '00:00'));
-          const end = new Date((evt.endDate || evt.startDate) + 'T' + (evt.timeEnd || '23:59'));
+          const cleanStart = rawStart.includes('T') ? rawStart.split('T')[0] : rawStart;
+          const cleanEnd = rawEnd.includes('T') ? rawEnd.split('T')[0] : rawEnd;
+          const start = new Date(`${cleanStart}T${evt.timeStart || '00:00'}`);
+          const end = new Date(`${cleanEnd}T${evt.timeEnd || '23:59'}`);
 
           if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
 
           allOccurrences.push({
             id: 'strategic_' + evt.id,
-            title: '⭐ ' + evt.eventName + ' (' + (evt.space || 'IBM') + ')',
+            title: '⭐ ' + evt.eventName + (evt.space ? ` (${evt.space})` : ''),
             start: start,
             end: end,
             resource: {
@@ -298,67 +357,66 @@ export function ReservationsCalendar({
               status: evt.status === 'aprovado' ? 'approved' : 'pending',
               rooms: evt.space ? [evt.space] : [],
               frequency: 'Eventual',
-              categoryId: eventualCategoryId || 'eventual'
+              categoryId: evt.categoryId || eventualCategoryId || 'eventual'
             }
-          }
-          );
+          });
         } catch (e) {
           console.error("Erro ao converter datas do evento estratégico no calendário:", e, evt);
         }
       });
     }
-  }
 
+    // ── 2. Mapear e injetar as Reservas de Ambientes (Cultos / Aulas / Reuniões) ──
     if (!reservations || !Array.isArray(reservations)) return allOccurrences;
 
     const filteredBase = reservations.filter(res => {
-        if (categoryFilter.length > 0) {
-            const eventualCategory = reservationCategories?.find(c => c.name.toLowerCase() === 'eventual');
-            const eventualCategoryId = eventualCategory?.id;
-            const regularCategory = reservationCategories?.find(c => c.name.toLowerCase() === 'regular');
-            const regularCategoryId = regularCategory?.id;
+      if (categoryFilter.length > 0) {
+        const eventualCategory = reservationCategories?.find(c => c.name?.toLowerCase() === 'eventual');
+        const eventualCategoryId = eventualCategory?.id;
+        const regularCategory = reservationCategories?.find(c => c.name?.toLowerCase() === 'regular');
+        const regularCategoryId = regularCategory?.id;
 
-            const resCat = (res.categoryId || (res as any).category || '').toLowerCase();
+        const resCat = (res.categoryId || (res as any).category || '').toLowerCase();
 
-            const isMatch = categoryFilter.some(filterId => {
-                const fId = filterId.toLowerCase();
-                if (fId === 'eventual' || filterId === eventualCategoryId) {
-                    return resCat === 'eventual' || resCat === eventualCategoryId?.toLowerCase() || resCat.includes('eventual');
-                }
-                if (fId === 'regular' || filterId === regularCategoryId) {
-                    return resCat === 'regular' || resCat === regularCategoryId?.toLowerCase() || resCat.includes('regular');
-                }
-                return resCat === fId;
-            });
-            if (!isMatch) return false;
-        }
-        if (roomFilter !== 'all' && !res.rooms?.includes(roomFilter)) return false;
-        if (ministryFilter !== 'all' && ((res as any).ministry || 'geral') !== ministryFilter) return false;
-        if (searchTerm && !res.eventName.toLowerCase().includes(searchTerm.toLowerCase())) return false;
-        return true;
+        const isMatch = categoryFilter.some(filterId => {
+          const fId = filterId.toLowerCase();
+          if (fId === 'eventual' || filterId === eventualCategoryId) {
+            return resCat === 'eventual' || resCat === eventualCategoryId?.toLowerCase() || resCat.includes('eventual');
+          }
+          if (fId === 'regular' || filterId === regularCategoryId) {
+            return resCat === 'regular' || resCat === regularCategoryId?.toLowerCase() || resCat.includes('regular');
+          }
+          return resCat === fId;
+        });
+        if (!isMatch) return false;
+      }
+      if (roomFilter !== 'all' && !res.rooms?.includes(roomFilter)) return false;
+      if (ministryFilter !== 'all' && ((res as any).ministry || 'geral') !== ministryFilter) return false;
+      if (searchTerm && !res.eventName?.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+      return true;
     });
 
     filteredBase.forEach(res => {
       try {
         const baseStart = res.startDateTime?.toDate ? res.startDateTime.toDate() :
-                         (res.startDateTime instanceof Date ? res.startDateTime : null);
+                         (res.startDateTime instanceof Date ? res.startDateTime : (typeof res.startDateTime === 'string' ? new Date(res.startDateTime) : null));
         const baseEnd = res.endDateTime?.toDate ? res.endDateTime.toDate() :
-                       (res.endDateTime instanceof Date ? res.endDateTime : null);
+                       (res.endDateTime instanceof Date ? res.endDateTime : (typeof res.endDateTime === 'string' ? new Date(res.endDateTime) : null));
 
         if (!baseStart || !baseEnd || isNaN(baseStart.getTime())) return;
 
-        const duration = baseEnd.getTime() - baseStart.getTime();
+        const duration = Math.max(0, baseEnd.getTime() - baseStart.getTime());
         const limitDate = moment().add(24, 'months');
 
         let recurrenceStop = res.recurrenceEndDate?.toDate ? res.recurrenceEndDate.toDate() :
                             (res.recurrenceEndDate instanceof Date ? res.recurrenceEndDate : limitDate.toDate());
 
         if (moment(recurrenceStop).isAfter(limitDate)) {
-            recurrenceStop = limitDate.toDate();
+          recurrenceStop = limitDate.toDate();
         }
 
         const ministryKey = (res as any).ministry || 'geral';
-        const matchedMin = ministries.find(m => m.id === ministryKey);
+        const matchedMin = ministries?.find(m => m.id === ministryKey);
         const ministryPrefix = matchedMin ? `[${matchedMin.name}] ` : '';
         const eventTitle = `${ministryPrefix}${res.eventName} (${res.rooms?.join(', ') || 'N/A'})`;
 
@@ -397,43 +455,45 @@ export function ReservationsCalendar({
           return;
         }
 
+        // ── Expansão Inteligente e Ilimitada de Recorrências ──────────────────
         let current = moment(baseStart);
-        const targetDay = res.dayOfWeek ? weekDayMap[res.dayOfWeek] : -1;
+        const targetDay = res.dayOfWeek && weekDayMap[res.dayOfWeek] !== undefined ? weekDayMap[res.dayOfWeek] : -1;
         let safeCounter = 0;
+        const maxIterations = 1500; // Cobre confortavelmente até 4 anos de calendário
 
-        while (current.isSameOrBefore(moment(recurrenceStop), 'day') && safeCounter < 200) {
-            safeCounter++;
-            let shouldAdd = false;
+        while (current.isSameOrBefore(moment(recurrenceStop), 'day') && safeCounter < maxIterations) {
+          safeCounter++;
+          let shouldAdd = false;
 
-            if (res.frequency === 'semanal') {
-                if (targetDay === -1 || current.day() === targetDay) shouldAdd = true;
-            } else if (res.frequency === 'quinzenal') {
-                const diffWeeks = current.diff(moment(baseStart), 'weeks');
-                if (diffWeeks % 2 === 0 && (targetDay === -1 || current.day() === targetDay)) shouldAdd = true;
-            } else if (res.frequency === 'mensal') {
-                if (res.weekOfMonth) {
-                    const week = Math.ceil(current.date() / 7);
-                    const isLastWeek = current.date() > (moment(current).endOf('month').date() - 7);
-                    const matchesWeek = (res.weekOfMonth === 'last' && isLastWeek) || (week.toString() === res.weekOfMonth);
-                    if (matchesWeek && current.day() === targetDay) shouldAdd = true;
-                } else {
-                    if (current.date() === moment(baseStart).date()) shouldAdd = true;
-                }
+          if (res.frequency === 'semanal') {
+            if (targetDay === -1 || current.day() === targetDay) shouldAdd = true;
+          } else if (res.frequency === 'quinzenal') {
+            const diffWeeks = current.diff(moment(baseStart), 'weeks');
+            if (diffWeeks % 2 === 0 && (targetDay === -1 || current.day() === targetDay)) shouldAdd = true;
+          } else if (res.frequency === 'mensal') {
+            if (res.weekOfMonth) {
+              const week = Math.ceil(current.date() / 7);
+              const isLastWeek = current.date() > (moment(current).endOf('month').date() - 7);
+              const matchesWeek = (res.weekOfMonth === 'last' && isLastWeek) || (week.toString() === res.weekOfMonth);
+              if (matchesWeek && current.day() === targetDay) shouldAdd = true;
+            } else {
+              if (current.date() === moment(baseStart).date()) shouldAdd = true;
             }
+          }
 
-            if (shouldAdd) {
-                const occStart = current.toDate();
-                const occEnd = new Date(occStart.getTime() + duration);
+          if (shouldAdd) {
+            const occStart = current.toDate();
+            const occEnd = new Date(occStart.getTime() + duration);
 
-                allOccurrences.push({
-                    id: `${res.id}_${occStart.getTime()}`,
-                    title: eventTitle,
-                    start: occStart,
-                    end: occEnd,
-                    resource: res,
-                });
-            }
-            current.add(1, 'day');
+            allOccurrences.push({
+              id: `${res.id}_${occStart.getTime()}`,
+              title: eventTitle,
+              start: occStart,
+              end: occEnd,
+              resource: res,
+            });
+          }
+          current.add(1, 'day');
         }
       } catch (e) {
         console.error("Erro ao expandir recorrência no calendário global:", e, res);
@@ -441,7 +501,7 @@ export function ReservationsCalendar({
     });
 
     return allOccurrences;
-  }, [reservations, strategicEvents, searchTerm, roomFilter, categoryFilter, ministryFilter, ministries]);
+  }, [reservations, strategicEvents, searchTerm, roomFilter, categoryFilter, ministryFilter, ministries, reservationCategories]);
 
   const eventStyleGetter = (event: any) => {
     const status = event.resource?.status || 'pending';

@@ -38,6 +38,23 @@ service cloud.firestore {
       allow read: if true;
     }
 
+    // Calendário e Eventos (Leitura pública para consulta no site da igreja)
+    match /strategic_events/{eventId} {
+      allow read: if true;
+    }
+    match /room_reservations/{resId} {
+      allow read: if true;
+    }
+    match /rooms/{roomId} {
+      allow read: if true;
+    }
+    match /reservation_categories/{catId} {
+      allow read: if true;
+    }
+    match /ministries/{minId} {
+      allow read: if true;
+    }
+
     // Audit Logs (Imutável por clientes)
     match /audit_logs/{logId} {
       allow read: if isAdmin();
