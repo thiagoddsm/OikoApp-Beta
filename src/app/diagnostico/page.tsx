@@ -590,13 +590,16 @@ export default function DiagnosticoRedePage() {
                                   onClick={() => handleResponder(questao.id, opcao.valor)}
                                   className={`py-2 px-1 rounded-xl text-center border transition-all flex flex-col items-center justify-center gap-0.5 ${
                                     isSelected
-                                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-md scale-102'
+                                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-md ring-2 ring-indigo-200'
                                       : 'bg-slate-50 text-slate-700 border-slate-200/90 hover:bg-slate-100 active:scale-95'
                                   }`}
                                 >
-                                  <span className="text-sm font-black">{opcao.valor}</span>
-                                  <span className="text-[9px] sm:text-[10px] font-semibold leading-tight line-clamp-1">
-                                    {opcao.label.split(' ')[0]}
+                                  <span className="text-sm sm:text-base font-black">{opcao.valor}</span>
+                                  <span className="hidden sm:flex text-[10.5px] font-bold leading-tight text-center px-0.5 min-h-[24px] items-center justify-center">
+                                    {opcao.shortLabel}
+                                  </span>
+                                  <span className="sm:hidden flex text-[8.5px] font-bold leading-tight text-center px-0.5 min-h-[20px] items-center justify-center">
+                                    {opcao.mobileLabel}
                                   </span>
                                 </button>
                               );

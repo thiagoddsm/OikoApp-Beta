@@ -32,11 +32,41 @@ export interface IdentificacaoIgreja {
 }
 
 export const ESCALA_AVALIACAO = [
-  { valor: 1, label: 'Não está indo bem', desc: 'Crítico / Inexistente' },
-  { valor: 2, label: 'Está abaixo do esperado', desc: 'Insuficiente' },
-  { valor: 3, label: 'Está em desenvolvimento', desc: 'Em progresso' },
-  { valor: 4, label: 'Está indo bem', desc: 'Consolidado' },
-  { valor: 5, label: 'Estamos fazendo com excelência', desc: 'Referência' },
+  {
+    valor: 1,
+    label: 'Não está indo bem',
+    shortLabel: 'Não está bem',
+    mobileLabel: 'Não está bem',
+    desc: 'Crítico / Inexistente',
+  },
+  {
+    valor: 2,
+    label: 'Abaixo do esperado',
+    shortLabel: 'Abaixo do esperado',
+    mobileLabel: 'Abaixo',
+    desc: 'Abaixo do esperado',
+  },
+  {
+    valor: 3,
+    label: 'Em desenvolvimento',
+    shortLabel: 'Em desenvolvimento',
+    mobileLabel: 'Em desenv.',
+    desc: 'Em desenvolvimento',
+  },
+  {
+    valor: 4,
+    label: 'Está indo bem',
+    shortLabel: 'Está indo bem',
+    mobileLabel: 'Está bem',
+    desc: 'Está indo bem',
+  },
+  {
+    valor: 5,
+    label: 'Excelente',
+    shortLabel: 'Excelente',
+    mobileLabel: 'Excelente',
+    desc: 'Estamos fazendo com excelência',
+  },
 ];
 
 export const FUNCOES_IGREJA = [
