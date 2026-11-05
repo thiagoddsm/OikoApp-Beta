@@ -42,7 +42,7 @@ import {
 } from 'lucide-react';
 import { salvarDiagnostico } from './actions';
 
-const STORAGE_KEY = 'rede-inspire-diagnostico-v1';
+const STORAGE_KEY = 'ibmanha-diagnostico-v1';
 
 export default function DiagnosticoRedePage() {
   const [etapa, setEtapa] = useState<number>(0);
@@ -60,7 +60,6 @@ export default function DiagnosticoRedePage() {
     cidade: '',
     uf: '',
     porte_igreja: '51_150',
-    igreja_da_cidade: false,
   });
 
   // Respostas (idQuestao => 1..5)
@@ -212,11 +211,11 @@ export default function DiagnosticoRedePage() {
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-300 flex items-center justify-center font-black text-slate-950 text-sm shadow-md">
-              IP
+              IBM
             </div>
             <div>
               <div className="text-[10px] font-black uppercase tracking-wider text-amber-400">
-                Rede Inspire • Igrejas que Prevalecem
+                Igreja Batista da Manhã
               </div>
               <h1 className="text-sm font-bold text-white tracking-tight">
                 Diagnóstico Institucional de Saúde da Igreja
@@ -254,9 +253,6 @@ export default function DiagnosticoRedePage() {
             <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-700/60 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
               <div className="relative z-10 space-y-3">
-                <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-400/20 border border-amber-400/30 text-amber-300 rounded-full text-xs font-black uppercase tracking-wider">
-                  <BookOpen className="w-3.5 h-3.5" /> Baseado no livro do Pr. Carlito Paes
-                </div>
                 <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
                   Como está a saúde real da sua igreja hoje?
                 </h2>
@@ -441,41 +437,6 @@ export default function DiagnosticoRedePage() {
                         {p.label}
                       </button>
                     ))}
-                  </div>
-                </div>
-
-                {/* Faz parte da Rede Inspire? */}
-                <div className="sm:col-span-2 space-y-2 pt-2 border-t border-slate-100">
-                  <label className="text-xs font-bold text-slate-700 block">
-                    Sua igreja já faz parte da Rede Inspire? *
-                  </label>
-                  <div className="flex gap-3">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setIdentificacao((prev) => ({ ...prev, igreja_da_cidade: true }))
-                      }
-                      className={`flex-1 p-3 rounded-xl text-xs font-bold border transition-all ${
-                        identificacao.igreja_da_cidade === true
-                          ? 'bg-amber-500 text-slate-950 border-amber-500 shadow-sm'
-                          : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                      }`}
-                    >
-                      Sim, somos da Rede Inspire
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setIdentificacao((prev) => ({ ...prev, igreja_da_cidade: false }))
-                      }
-                      className={`flex-1 p-3 rounded-xl text-xs font-bold border transition-all ${
-                        identificacao.igreja_da_cidade === false
-                          ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
-                          : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                      }`}
-                    >
-                      Não / Outra denominação
-                    </button>
                   </div>
                 </div>
               </div>
@@ -818,7 +779,7 @@ export default function DiagnosticoRedePage() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-black uppercase tracking-wider text-amber-400">
-                    Relatório Oficial • Rede Inspire
+                    Relatório Oficial • Igreja Batista da Manhã
                   </span>
                   <span className="text-[11px] font-semibold text-slate-400">
                     {new Date().toLocaleDateString('pt-BR')}
@@ -1018,13 +979,13 @@ export default function DiagnosticoRedePage() {
             <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 text-white rounded-3xl p-6 sm:p-8 border border-indigo-900/40 text-center space-y-3">
               <Award className="w-8 h-8 text-amber-400 mx-auto" />
               <h3 className="text-lg font-black text-white">
-                Bênção Pastoral para a {identificacao.igreja_nome}
+                Para a {identificacao.igreja_nome}
               </h3>
               <p className="text-xs sm:text-sm text-slate-300 max-w-xl mx-auto italic leading-relaxed">
                 &ldquo;{resultados.mensagens.encerramento}&rdquo;
               </p>
               <div className="pt-2 text-[11px] font-bold text-amber-400 uppercase tracking-wider">
-                Pr. Carlito Paes • Rede Inspire & Igreja Batista da Manhã
+                Igreja Batista da Manhã
               </div>
             </div>
           </div>

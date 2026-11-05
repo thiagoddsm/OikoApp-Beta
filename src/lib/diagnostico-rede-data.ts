@@ -28,7 +28,7 @@ export interface IdentificacaoIgreja {
   cidade: string;
   uf: string;
   porte_igreja: string;
-  igreja_da_cidade: boolean;
+  igreja_da_cidade?: boolean;
 }
 
 export const ESCALA_AVALIACAO = [
