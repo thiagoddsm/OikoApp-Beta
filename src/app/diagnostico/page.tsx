@@ -39,8 +39,17 @@ import {
   TrendingUp,
   RefreshCw,
   HelpCircle,
+  ChevronDown,
 } from 'lucide-react';
 import { salvarDiagnostico } from './actions';
+
+const PASTORES_LISTA = [
+  'Pr. Diego',
+  'Pr. Thiago',
+  'Pr. Leo',
+  'Pr. José Ricardo',
+  'Pr. Hugo Campos',
+];
 
 const STORAGE_KEY = 'ibmanha-diagnostico-v1';
 
@@ -307,16 +316,24 @@ export default function DiagnosticoRedePage() {
                   <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                     <User className="w-4 h-4 text-slate-400" /> Nome do Pastor Principal *
                   </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ex: Pastor João Silva"
-                    value={identificacao.pastor_nome}
-                    onChange={(e) =>
-                      setIdentificacao((prev) => ({ ...prev, pastor_nome: e.target.value }))
-                    }
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 outline-none text-sm transition-all"
-                  />
+                  <div className="relative">
+                    <select
+                      required
+                      value={identificacao.pastor_nome}
+                      onChange={(e) =>
+                        setIdentificacao((prev) => ({ ...prev, pastor_nome: e.target.value }))
+                      }
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 outline-none text-sm transition-all bg-white text-slate-800 appearance-none cursor-pointer pr-10"
+                    >
+                      <option value="">Selecione o pastor principal...</option>
+                      {PASTORES_LISTA.map((p) => (
+                        <option key={p} value={p}>
+                          {p}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
                 </div>
 
                 {/* Telefone / WhatsApp */}
