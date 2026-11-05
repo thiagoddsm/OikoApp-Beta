@@ -6,6 +6,8 @@ import {
   DOMINIOS_DIAGNOSTICO,
   ESCALA_AVALIACAO,
   calcularResultadosDiagnostico,
+  PASTORES_OFICIAIS,
+  normalizarPastorNome,
 } from '@/lib/diagnostico-rede-data';
 import {
   Church,
@@ -40,14 +42,6 @@ import {
 } from 'recharts';
 import { useToast } from '@/hooks/use-toast';
 
-const PASTORES_OFICIAIS = [
-  'Pr. Diego',
-  'Pr. Thiago',
-  'Pr. Leo',
-  'Pr. José Ricardo',
-  'Pr. Hugo Campos',
-];
-
 export default function DiagnosticosDashboardPage() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -70,12 +64,17 @@ export default function DiagnosticosDashboardPage() {
     carregar();
   }, []);
 
-  // Diagnósticos enriquecidos com cálculos
+  // Diagnósticos enriquecidos com cálculos e pastor normalizado
   const diagnosticosComCalculo = useMemo(() => {
     return diagnosticos.map((item) => {
+      const pastorNormalizado = normalizarPastorNome(item.identificacao.pastor_nome);
       const calc = calcularResultadosDiagnostico(item.respostas || {});
       return {
         ...item,
+        identificacao: {
+          ...item.identificacao,
+          pastor_nome: pastorNormalizado,
+        },
         calculado: calc,
       };
     });

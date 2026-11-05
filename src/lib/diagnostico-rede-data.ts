@@ -31,6 +31,24 @@ export interface IdentificacaoIgreja {
   igreja_da_cidade?: boolean;
 }
 
+export const PASTORES_OFICIAIS = [
+  'Pr. Diego',
+  'Pr. Thiago',
+  'Pr. Leo',
+  'Pr. José Ricardo',
+  'Pr. Hugo Campos',
+];
+
+export function normalizarPastorNome(nome: string = ''): string {
+  const limpo = (nome || '').trim().toLowerCase();
+  if (limpo.includes('hugo')) return 'Pr. Hugo Campos';
+  if (limpo.includes('diego')) return 'Pr. Diego';
+  if (limpo.includes('thiago')) return 'Pr. Thiago';
+  if (limpo.includes('leo') || limpo.includes('leonardo')) return 'Pr. Leo';
+  if (limpo.includes('ricardo')) return 'Pr. José Ricardo';
+  return (nome || '').trim();
+}
+
 export const ESCALA_AVALIACAO = [
   {
     valor: 1,
