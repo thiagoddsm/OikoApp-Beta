@@ -147,6 +147,7 @@ const menuItems = [
       label: "Ministerial", 
       icon: Church,
       subItems: [
+        { href: "/dashboard/diagnosticos", label: "Diagnósticos de Igrejas", icon: Activity, permissionId: 'ministerial_attendance' },
         { href: "/dashboard/attendance", label: "Frequência (Culto)", icon: CheckSquare, permissionId: 'ministerial_attendance' },
         { 
             label: "Ensino", 
