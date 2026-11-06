@@ -30,6 +30,7 @@ import { calculateMinistryFit } from '@/lib/ministry-benchmarks';
 import { MinistryProfile } from '@/types/shape';
 import DiscBarChart from './disc/DiscBarChart';
 import DiscProfileBadge from './disc/DiscProfileBadge';
+import { DiscDetailedReport } from './disc/DiscDetailedReport';
 
 interface Step5ResultProps {
   formData: Step1FormData;
@@ -79,6 +80,7 @@ export default function Step5Result({
   const [isSaving, setIsSaving] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [directedMinistry, setDirectedMinistry] = useState('');
+  const [showDetailedReport, setShowDetailedReport] = useState(false);
   const [ministryProfiles, setMinistryProfiles] = useState<MinistryProfile[]>([]);
   const [ministrySuggestions, setMinistrySuggestions] = useState<string[]>([
     'Louvor & Adoração',
@@ -440,6 +442,34 @@ _Avaliação concluída no OikoApp • Conectando dons e propósitos no Reino!_`
                   <span>{DISC_BLINDSPOT_META[discResult.discLowest].avoidDelegating}</span>
                 </div>
               )}
+
+              {/* Botão de Expansão: Relatório Comportamental Completo (Estilo CIS Assessment) */}
+              <div className="pt-2 border-t border-slate-200/60">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowDetailedReport(!showDetailedReport)}
+                  className="w-full py-2.5 px-3 rounded-xl bg-purple-50 hover:bg-purple-100 text-[#523A8C] border-purple-200 text-xs font-bold flex items-center justify-between transition-colors shadow-none"
+                >
+                  <span className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+                    <span>{showDetailedReport ? 'Ocultar Relatório Comportamental Completo' : 'Ver Diagnóstico Comportamental Completo & Estilo de Liderança'}</span>
+                  </span>
+                  <span className="text-[11px] font-extrabold">{showDetailedReport ? '▲ Fechar' : '▼ Expandir'}</span>
+                </Button>
+
+                {showDetailedReport && (
+                  <div className="mt-4 pt-2">
+                    <DiscDetailedReport
+                      scores={discResult.discScores}
+                      primary={discResult.discPrimary}
+                      secondary={discResult.discSecondary}
+                      lowest={discResult.discLowest}
+                      personName={formData.name || 'Servo(a)'}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

@@ -15,6 +15,7 @@ import { QUADRANT_BY_DISC } from '@/lib/disc';
 import { calculateMinistryFit, MinistryFitResult } from '@/lib/ministry-benchmarks';
 import DiscBarChart from '@/components/volunteering/shape/disc/DiscBarChart';
 import DiscProfileBadge from '@/components/volunteering/shape/disc/DiscProfileBadge';
+import { DiscDetailedReport } from '@/components/volunteering/shape/disc/DiscDetailedReport';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -271,6 +272,7 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
   const [selectedTeamName, setSelectedTeamName] = useState<string>('todos');
   
   const [selectedPerson, setSelectedPerson] = useState<ShapeResult | null>(null);
+  const [showPastorFullDiscModal, setShowPastorFullDiscModal] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -1637,6 +1639,19 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                         Equivalente no modelo anterior: {QUADRANTE_META[selectedPerson.quadrante].emoji} {QUADRANTE_META[selectedPerson.quadrante].label}
                       </p>
                     )}
+
+                    {/* Botão Pastoral: Relatório Comportamental Completo */}
+                    <div className="pt-3 border-t border-slate-100">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowPastorFullDiscModal(true)}
+                        className="w-full bg-gradient-to-r from-purple-50 via-indigo-50 to-purple-50 hover:from-purple-100 hover:to-indigo-100 text-[#523A8C] border-purple-200 text-xs font-bold gap-2 py-2.5 shadow-none"
+                      >
+                        <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+                        <span>Abrir Diagnóstico Comportamental Completo & Liderança (Estilo CIS Assessment)</span>
+                      </Button>
+                    </div>
                   </div>
                 ) : selectedPerson.quadrante && QUADRANTE_META[selectedPerson.quadrante] ? (
                   <div className={`p-4 rounded-xl border ${QUADRANTE_META[selectedPerson.quadrante].bg} ${QUADRANTE_META[selectedPerson.quadrante].border}`}>
@@ -2315,6 +2330,44 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                   <span>Salvar Alterações</span>
                 </>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Pastoral: Relatório Comportamental Completo Estilo CIS Assessment */}
+      <Dialog open={showPastorFullDiscModal} onOpenChange={setShowPastorFullDiscModal}>
+        <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto p-4 sm:p-6 rounded-3xl">
+          <DialogHeader className="pb-2 border-b border-slate-100">
+            <DialogTitle className="text-lg font-black text-slate-900 flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-amber-500" /> Relatório Comportamental Completo & Estilos de Liderança
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Mapeamento aprofundado com base nos 120 pontos do inventário DISC de {selectedPerson?.nome}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedPerson && selectedPerson.discPrimary && selectedPerson.discScores && (
+            <div className="py-2">
+              <DiscDetailedReport
+                scores={selectedPerson.discScores as any}
+                primary={selectedPerson.discPrimary as any}
+                secondary={selectedPerson.discSecondary as any}
+                lowest={selectedPerson.discLowest as any}
+                personName={selectedPerson.nome || 'Servo(a)'}
+              />
+            </div>
+          )}
+
+          <DialogFooter className="pt-3 border-t border-slate-100">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowPastorFullDiscModal(false)}
+              className="text-xs font-bold rounded-xl"
+            >
+              Fechar
             </Button>
           </DialogFooter>
         </DialogContent>
