@@ -40,7 +40,17 @@ import {
   RefreshCw,
   HelpCircle,
   ChevronDown,
+  ChevronUp,
+  Compass,
+  Trophy,
+  AlertTriangle,
+  Smartphone,
+  Link2,
+  Copy,
+  BarChart3,
+  Check,
 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 import { salvarDiagnostico } from './actions';
 
 const PASTORES_LISTA = [
@@ -54,9 +64,11 @@ const PASTORES_LISTA = [
 const STORAGE_KEY = 'ibmanha-diagnostico-v1';
 
 export default function DiagnosticoRedePage() {
+  const { toast } = useToast();
   const [etapa, setEtapa] = useState<number>(0);
   const [salvando, setSalvando] = useState(false);
   const [salvoNoBanco, setSalvoNoBanco] = useState(false);
+  const [dominioAberto, setDominioAberto] = useState<string | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
 
   // Etapa 0: Identificação
@@ -168,6 +180,65 @@ export default function DiagnosticoRedePage() {
       fullMark: 100,
     }));
   }, [resultados]);
+
+  // Pontos Fortes e Pontos de Atenção (Duas Colunas)
+  const pontosFortes = useMemo(() => {
+    return [...resultados.principios].sort((a, b) => b.score - a.score).slice(0, 5);
+  }, [resultados]);
+
+  const pontosAtencao = useMemo(() => {
+    return [...resultados.principios].sort((a, b) => a.score - b.score).slice(0, 5);
+  }, [resultados]);
+
+  // Destaques Contextuais por Domínio
+  const destaquesContextuais = useMemo(() => {
+    const alertas = resultados.dominios
+      .filter((d) => d.score < 60)
+      .map((d) => ({
+        tipo: 'alerta' as const,
+        titulo: 'Ponto de Alerta',
+        dominio: d.nome,
+        score: d.score,
+        insight: d.insightBaixo,
+        corBadge: 'bg-rose-50 text-rose-700 border-rose-200',
+        corIcone: 'text-rose-600',
+      }));
+
+    const ajustes = resultados.dominios
+      .filter((d) => d.score >= 60 && d.score <= 74)
+      .map((d) => ({
+        tipo: 'ajuste' as const,
+        titulo: 'Ajuste Fino',
+        dominio: d.nome,
+        score: d.score,
+        insight: `O domínio de ${d.nome} está em consolidação. Pequenos ajustes de processos trarão saltos de maturidade.`,
+        corBadge: 'bg-amber-50 text-amber-800 border-amber-200',
+        corIcone: 'text-amber-600',
+      }));
+
+    const diferenciais = resultados.dominios
+      .filter((d) => d.score >= 90)
+      .map((d) => ({
+        tipo: 'diferencial' as const,
+        titulo: 'Diferencial de Excelência',
+        dominio: d.nome,
+        score: d.score,
+        insight: `Sua igreja é uma referência em ${d.nome}. Esse pilar sólido deve ser usado como base para mentorear outras áreas.`,
+        corBadge: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        corIcone: 'text-emerald-600',
+      }));
+
+    return [...alertas, ...ajustes, ...diferenciais];
+  }, [resultados]);
+
+  const handleCopiarLink = () => {
+    const url = 'https://ibmanha.com.br/diagnostico';
+    navigator.clipboard.writeText(url);
+    toast({
+      title: 'Link copiado!',
+      description: 'Link do diagnóstico copiado para a área de transferência.',
+    });
+  };
 
   // Ação de Responder Questão
   const handleResponder = (questaoId: string, valor: number) => {
@@ -759,23 +830,30 @@ export default function DiagnosticoRedePage() {
         )}
 
         {/* ============================================================== */}
-        {/* ETAPA 7: RESULTADO FINAL & PLANO DE AÇÃO                       */}
+        {/* ETAPA 7: RESULTADO FINAL & PLANO DE AÇÃO APRIMORADO            */}
         {/* ============================================================== */}
         {etapa === 7 && (
           <div ref={printRef} className="space-y-6">
-            {/* Barra de Ações (Oculta na Impressão) */}
-            <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3 print:hidden">
+            {/* 1. Barra de Ações Superior (Oculta na Impressão) */}
+            <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/90 shadow-sm flex flex-wrap items-center justify-between gap-3 print:hidden">
               <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                Diagnóstico gerado com sucesso!
+                Diagnóstico gerado e sincronizado com sucesso!
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleCopiarLink}
+                  className="px-3.5 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs"
+                >
+                  <Link2 className="w-3.5 h-3.5 text-indigo-600" /> Copiar Link
+                </button>
                 <button
                   type="button"
                   onClick={() => window.print()}
                   className="px-3.5 py-2 rounded-xl bg-slate-900 text-white font-bold text-xs flex items-center gap-1.5 hover:bg-slate-800 transition-all shadow-sm"
                 >
-                  <Printer className="w-3.5 h-3.5" /> Imprimir / PDF
+                  <Printer className="w-3.5 h-3.5" /> Baixar PDF / Imprimir
                 </button>
                 <button
                   type="button"
@@ -794,54 +872,138 @@ export default function DiagnosticoRedePage() {
               </div>
             </div>
 
-            {/* Cabeçalho do Relatório */}
-            <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-800 relative overflow-hidden">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-amber-400">
-                    Relatório Oficial • Igreja Batista da Manhã
-                  </span>
-                  <span className="text-[11px] font-semibold text-slate-400">
-                    {new Date().toLocaleDateString('pt-BR')}
-                  </span>
+            {/* 2. Banner de Conexão Mobile (QR Code Hero) - Oculto na Impressão */}
+            <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-white rounded-3xl p-6 sm:p-7 border border-slate-800 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 print:hidden">
+              <div className="space-y-2 text-center md:text-left max-w-xl">
+                <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-400/20 border border-amber-400/30 text-amber-300 text-[10px] font-black uppercase tracking-widest">
+                  <Smartphone className="w-3 h-3" /> Leve no Celular
                 </div>
-                <h2 className="text-2xl sm:text-3xl font-black text-white">
+                <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                  Acesse seu diagnóstico na palma da mão
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                  Aponte a câmera do seu smartphone para o QR Code ao lado para abrir este relatório no celular e compartilhá-lo na reunião de liderança ou conselho pastoral.
+                </p>
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={handleCopiarLink}
+                    className="px-4 py-2 rounded-xl border border-white/20 hover:bg-white/10 text-white text-xs font-bold inline-flex items-center gap-2 transition-all"
+                  >
+                    <Copy className="w-3.5 h-3.5" /> Copiar Link do Diagnóstico
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-3 bg-white rounded-2xl shadow-lg shrink-0 flex flex-col items-center justify-center">
+                <img
+                  src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https%3A%2F%2Fibmanha.com.br%2Fdiagnostico"
+                  alt="QR Code do Diagnóstico"
+                  width={140}
+                  height={140}
+                  className="rounded-xl"
+                />
+                <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider mt-1.5">
+                  ibmanha.com.br/diagnostico
+                </span>
+              </div>
+            </div>
+
+            {/* 3. Cabeçalho Oficial do Relatório */}
+            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-sm space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full w-max">
+                  Relatório Oficial • Igreja Batista da Manhã
+                </span>
+                <span className="text-xs font-bold text-slate-400">
+                  Emitido em: {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                </span>
+              </div>
+
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 block mb-0.5">
+                  Diagnóstico Pastoral de Saúde da Igreja
+                </span>
+                <h2 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">
                   {identificacao.igreja_nome}
                 </h2>
-                <p className="text-xs sm:text-sm text-slate-300">
+                <p className="text-xs sm:text-sm text-slate-600 font-medium mt-1">
                   Pastor Principal: <strong>{identificacao.pastor_nome}</strong> • {identificacao.cidade} - {identificacao.uf}
                 </p>
               </div>
             </div>
 
-            {/* Card Principal: Índice Global e Status */}
-            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
-              <div className="md:col-span-1 flex flex-col items-center justify-center p-6 bg-slate-50 rounded-2xl border border-slate-200/80 text-center">
-                <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">
+            {/* 4. Card Principal: Medidor Circular (Gauge Radial) + Diagnóstico */}
+            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-sm grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6 items-center">
+              {/* Gauge Circular SVG */}
+              <div className="flex flex-col items-center justify-center p-6 bg-slate-50 rounded-2xl border border-slate-200/80 text-center">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
                   Índice de Prevalência
                 </span>
-                <div className="text-5xl sm:text-6xl font-black text-slate-900 tracking-tight">
-                  {resultados.scoreGlobal}%
+
+                <div className="relative w-44 h-44 flex items-center justify-center">
+                  <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
+                    {/* Círculo de fundo */}
+                    <circle
+                      cx="60"
+                      cy="60"
+                      r="48"
+                      stroke="#e2e8f0"
+                      strokeWidth="10"
+                      fill="transparent"
+                    />
+                    {/* Arco de progresso */}
+                    <circle
+                      cx="60"
+                      cy="60"
+                      r="48"
+                      stroke={
+                        resultados.scoreGlobal >= 71
+                          ? '#10b981'
+                          : resultados.scoreGlobal >= 41
+                          ? '#f59e0b'
+                          : '#ef4444'
+                      }
+                      strokeWidth="10"
+                      strokeDasharray={301.6}
+                      strokeDashoffset={301.6 - (301.6 * resultados.scoreGlobal) / 100}
+                      strokeLinecap="round"
+                      fill="transparent"
+                      className="transition-all duration-1000 ease-out"
+                    />
+                  </svg>
+                  <div className="absolute flex flex-col items-center justify-center">
+                    <span className="text-4xl sm:text-5xl font-black text-slate-900 tracking-tight">
+                      {resultados.scoreGlobal}%
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      de 100
+                    </span>
+                  </div>
                 </div>
+
                 <div
-                  className={`mt-3 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider border ${resultados.statusIgreja.cor} ${resultados.statusIgreja.bg} ${resultados.statusIgreja.border}`}
+                  className={`mt-4 px-4 py-1 rounded-full text-xs font-black uppercase tracking-wider border ${resultados.statusIgreja.cor} ${resultados.statusIgreja.bg} ${resultados.statusIgreja.border}`}
                 >
                   Igreja em {resultados.statusIgreja.nome}
                 </div>
               </div>
 
-              <div className="md:col-span-2 space-y-3">
-                <div className="text-xs font-black uppercase tracking-wider text-indigo-600">
-                  Diagnóstico Pastoral Geral
+              {/* Status Contextual & Palavra Pastoral */}
+              <div className="space-y-4">
+                <div>
+                  <span className="text-xs font-black uppercase tracking-wider text-indigo-600 block mb-1">
+                    Diagnóstico Pastoral Geral
+                  </span>
+                  <p className="text-sm sm:text-base text-slate-700 leading-relaxed font-medium">
+                    {resultados.statusIgreja.descricao}
+                  </p>
                 </div>
-                <p className="text-sm text-slate-700 leading-relaxed font-medium">
-                  {resultados.statusIgreja.descricao}
-                </p>
 
-                {/* Mensagem Pastoral de Abertura */}
-                <div className="p-4 rounded-2xl bg-indigo-50/60 border border-indigo-100 text-xs sm:text-sm text-indigo-950 space-y-1.5">
+                {/* Palavra Pastoral de Abertura */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-indigo-50/70 border border-indigo-100 text-xs sm:text-sm text-indigo-950 space-y-1.5">
                   <div className="font-extrabold text-indigo-900 flex items-center gap-1.5">
-                    <BookOpen className="w-4 h-4 text-indigo-600" />
+                    <BookOpen className="w-4 h-4 text-indigo-600 shrink-0" />
                     Palavra Pastoral: {resultados.mensagens.titulo}
                   </div>
                   <p className="italic text-slate-700 leading-relaxed">
@@ -851,15 +1013,53 @@ export default function DiagnosticoRedePage() {
               </div>
             </div>
 
-            {/* Gráfico Radar & Comparativo dos 5 Domínios */}
-            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
+            {/* 5. Cards de Diagnóstico Dinâmico (Alertas, Ajustes e Diferenciais) */}
+            {destaquesContextuais.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 px-1">
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-wider text-xs">
+                    Pontos de Atenção e Diferenciais Identificados
+                  </h3>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {destaquesContextuais.map((card, idx) => (
+                    <div
+                      key={idx}
+                      className="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-xs space-y-2 flex flex-col justify-between"
+                    >
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border ${card.corBadge}`}>
+                            {card.titulo}
+                          </span>
+                          <span className="text-xs font-black text-slate-800">
+                            {card.score}%
+                          </span>
+                        </div>
+                        <h4 className="text-sm font-black text-slate-900">
+                          {card.dominio}
+                        </h4>
+                        <p className="text-xs text-slate-600 leading-relaxed">
+                          {card.insight}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 6. Gráfico Radar & Detalhamento com Accordion dos 5 Domínios */}
+            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-sm space-y-6">
               <div className="border-b border-slate-100 pb-3">
                 <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
                   <TrendingUp className="w-5 h-5 text-indigo-600" />
                   Mapeamento dos 5 Domínios Institucionais
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Visualização equilibrada da saúde ministerial da igreja.
+                  Visualização equilibrada da saúde ministerial e detalhamento de cada princípio.
                 </p>
               </div>
 
@@ -876,18 +1076,19 @@ export default function DiagnosticoRedePage() {
                         dataKey="score"
                         stroke="#4f46e5"
                         fill="#6366f1"
-                        fillOpacity={0.45}
+                        fillOpacity={0.4}
                       />
                       <Tooltip />
                     </RadarChart>
                   </ResponsiveContainer>
                 </div>
 
-                {/* Lista dos 5 Domínios com Barras */}
-                <div className="space-y-3.5">
+                {/* Lista dos 5 Domínios com Accordion Expansível */}
+                <div className="space-y-3">
                   {resultados.dominios.map((dom) => {
+                    const isAberto = dominioAberto === dom.id;
                     let corBarra = 'bg-indigo-600';
-                    let corBadge = 'bg-indigo-50 text-indigo-700';
+                    let corBadge = 'bg-indigo-50 text-indigo-700 border-indigo-200';
                     let statusLabel = 'Em desenvolvimento';
 
                     if (dom.score >= 90) {
@@ -909,31 +1110,71 @@ export default function DiagnosticoRedePage() {
                     }
 
                     return (
-                      <div key={dom.id} className="p-3.5 rounded-2xl border border-slate-200/90 bg-slate-50/50 space-y-1.5">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="font-black text-slate-800">{dom.nome}</span>
-                          <span className="font-black text-slate-900 text-sm">{dom.score}%</span>
-                        </div>
-                        <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full ${corBarra} rounded-full transition-all duration-500`}
-                            style={{ width: `${dom.score}%` }}
-                          />
-                        </div>
-                        <div className="flex items-center justify-between pt-1">
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${corBadge}`}>
-                            {statusLabel}
-                          </span>
-                          <span className="text-[10px] text-slate-500 font-medium">
-                            {dom.subtitulo}
-                          </span>
-                        </div>
+                      <div
+                        key={dom.id}
+                        className="rounded-2xl border border-slate-200/90 bg-slate-50/60 overflow-hidden transition-all"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setDominioAberto(isAberto ? null : dom.id)}
+                          className="w-full p-3.5 text-left flex flex-col gap-1.5 hover:bg-slate-100/60 transition-all cursor-pointer"
+                        >
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-black text-slate-800 flex items-center gap-1.5">
+                              {dom.nome}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-black text-slate-900 text-sm">{dom.score}%</span>
+                              {isAberto ? (
+                                <ChevronUp className="w-4 h-4 text-slate-400" />
+                              ) : (
+                                <ChevronDown className="w-4 h-4 text-slate-400" />
+                              )}
+                            </div>
+                          </div>
+                          <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full ${corBarra} rounded-full transition-all duration-500`}
+                              style={{ width: `${dom.score}%` }}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between pt-0.5">
+                            <span className={`text-[9.5px] font-bold px-2 py-0.5 rounded-md border ${corBadge}`}>
+                              {statusLabel}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-medium">
+                              {isAberto ? 'Clique para recolher' : 'Clique para ver os 5 princípios'}
+                            </span>
+                          </div>
+                        </button>
 
-                        {/* Alerta de Insight se score < 60 */}
-                        {dom.score < 60 && (
-                          <div className="mt-2 p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-[11px] leading-snug flex items-start gap-1.5">
-                            <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
-                            <span>{dom.insightBaixo}</span>
+                        {/* Conteúdo Expandido do Domínio (Os 5 Princípios) */}
+                        {isAberto && (
+                          <div className="p-3 bg-white border-t border-slate-200/80 space-y-2 animate-in fade-in duration-200">
+                            {dom.principios.map((p) => (
+                              <div
+                                key={p.numero}
+                                className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-2 text-xs"
+                              >
+                                <span className="font-bold text-slate-800">
+                                  <span className="text-indigo-600 font-mono font-black mr-1">
+                                    P{p.numero}
+                                  </span>{' '}
+                                  {p.nome}
+                                </span>
+                                <span
+                                  className={`font-black px-2 py-0.5 rounded-md text-[11px] ${
+                                    p.score >= 75
+                                      ? 'bg-emerald-100 text-emerald-800'
+                                      : p.score >= 60
+                                      ? 'bg-indigo-100 text-indigo-800'
+                                      : 'bg-rose-100 text-rose-800'
+                                  }`}
+                                >
+                                  {p.score}%
+                                </span>
+                              </div>
+                            ))}
                           </div>
                         )}
                       </div>
@@ -943,59 +1184,142 @@ export default function DiagnosticoRedePage() {
               </div>
             </div>
 
-            {/* Plano de Ação Pastoral: Os Princípios que Mais Precisam de Atenção */}
-            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
+            {/* 7. Seção em Duas Colunas: "O que eleva sua casa" vs "Onde priorizar" */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Coluna Verde: Pontos Fortes */}
+              <div className="bg-white rounded-3xl p-6 border border-emerald-200/80 shadow-sm space-y-3">
+                <div className="flex items-center gap-2 border-b border-emerald-100 pb-3">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-black">
+                    <Trophy className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 block">
+                      Pontos Fortes
+                    </span>
+                    <h4 className="text-base font-black text-slate-900">
+                      O que está elevando sua casa
+                    </h4>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  {pontosFortes.map((p) => (
+                    <div
+                      key={p.numero}
+                      className="p-3 rounded-xl bg-emerald-50/40 border border-emerald-100/80 flex items-center justify-between gap-2 text-xs"
+                    >
+                      <div>
+                        <div className="font-extrabold text-slate-800">
+                          <span className="font-mono text-emerald-700 font-black mr-1">P{p.numero}</span>
+                          {p.nome}
+                        </div>
+                        <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">
+                          {DOMINIOS_DIAGNOSTICO.find((d) => d.id === p.dominioId)?.nome}
+                        </span>
+                      </div>
+                      <span className="text-xs font-black text-emerald-700 px-2 py-0.5 rounded-md bg-emerald-100">
+                        {p.score}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Coluna Vermelha: Onde Priorizar sua Energia */}
+              <div className="bg-white rounded-3xl p-6 border border-amber-200/80 shadow-sm space-y-3">
+                <div className="flex items-center gap-2 border-b border-amber-100 pb-3">
+                  <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-black">
+                    <AlertTriangle className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-800 block">
+                      Prioridades Estratégicas
+                    </span>
+                    <h4 className="text-base font-black text-slate-900">
+                      Onde priorizar sua energia
+                    </h4>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  {pontosAtencao.map((p) => (
+                    <div
+                      key={p.numero}
+                      className="p-3 rounded-xl bg-amber-50/40 border border-amber-100/80 flex items-center justify-between gap-2 text-xs"
+                    >
+                      <div>
+                        <div className="font-extrabold text-slate-800">
+                          <span className="font-mono text-amber-800 font-black mr-1">P{p.numero}</span>
+                          {p.nome}
+                        </div>
+                        <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">
+                          {DOMINIOS_DIAGNOSTICO.find((d) => d.id === p.dominioId)?.nome}
+                        </span>
+                      </div>
+                      <span className="text-xs font-black text-amber-800 px-2 py-0.5 rounded-md bg-amber-100">
+                        {p.score}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* 8. Plano de Ação Pastoral: Os Princípios para Ativar nos Próximos 90 Dias */}
+            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-sm space-y-4">
               <div className="border-b border-slate-100 pb-3">
                 <span className="px-3 py-1 bg-amber-100 text-amber-900 rounded-full text-[10px] font-black uppercase tracking-wider">
-                  Prioridade para os Próximos 90 Dias
+                  Plano Prático de Implementação
                 </span>
                 <h3 className="text-xl font-black text-slate-900 mt-2">
-                  Plano de Ação Pastoral por Princípio
+                  Princípios para Ativar nos Próximos 90 Dias
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Prescrição prática baseada nas menores pontuações identificadas na sua igreja.
+                  Prescrição pastoral detalhada com ações práticas para os princípios mais prioritários da congregação.
                 </p>
               </div>
 
               <div className="space-y-4">
-                {resultados.principios
-                  .sort((a, b) => a.score - b.score)
-                  .slice(0, 5)
-                  .map((principio, idx) => (
-                    <div
-                      key={principio.numero}
-                      className="p-5 rounded-2xl border border-slate-200/90 bg-slate-50 space-y-2.5"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <span className="w-6 h-6 rounded-lg bg-indigo-600 text-white font-black text-xs flex items-center justify-center">
-                            #{idx + 1}
-                          </span>
-                          <h4 className="text-sm font-extrabold text-slate-900">
-                            Princípio {principio.numero}: {principio.nome}
-                          </h4>
-                        </div>
-                        <span
-                          className={`text-xs font-black px-2.5 py-1 rounded-full ${
-                            principio.score < 60
-                              ? 'bg-rose-100 text-rose-800'
-                              : 'bg-amber-100 text-amber-900'
-                          }`}
-                        >
-                          Score: {principio.score}%
+                {pontosAtencao.map((principio, idx) => (
+                  <div
+                    key={principio.numero}
+                    className="p-5 rounded-2xl border border-slate-200/90 bg-slate-50/70 space-y-2.5"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-lg bg-indigo-600 text-white font-mono font-black text-xs flex items-center justify-center">
+                          P{principio.numero}
                         </span>
+                        <div>
+                          <h4 className="text-sm font-extrabold text-slate-900">
+                            {principio.nome}
+                          </h4>
+                          <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
+                            {DOMINIOS_DIAGNOSTICO.find((d) => d.id === principio.dominioId)?.nome}
+                          </span>
+                        </div>
                       </div>
-
-                      <div className="p-3 bg-white rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-700 leading-relaxed">
-                        <strong className="text-indigo-900 block mb-1">O que fazer na prática:</strong>
-                        {principio.planoAcao}
-                      </div>
+                      <span
+                        className={`text-xs font-black px-2.5 py-1 rounded-full ${
+                          principio.score < 60
+                            ? 'bg-rose-100 text-rose-800'
+                            : 'bg-amber-100 text-amber-900'
+                        }`}
+                      >
+                        Score: {principio.score}%
+                      </span>
                     </div>
-                  ))}
+
+                    <div className="p-3.5 bg-white rounded-xl border border-slate-200/80 text-xs sm:text-sm text-slate-700 leading-relaxed shadow-xs">
+                      <strong className="text-indigo-900 block mb-1">Prescrição Pastoral Acionável:</strong>
+                      {principio.planoAcao}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
-            {/* Mensagem de Encerramento Pastoral */}
+            {/* 9. Bênção Pastoral de Encerramento */}
             <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 text-white rounded-3xl p-6 sm:p-8 border border-indigo-900/40 text-center space-y-3">
               <Award className="w-8 h-8 text-amber-400 mx-auto" />
               <h3 className="text-lg font-black text-white">
