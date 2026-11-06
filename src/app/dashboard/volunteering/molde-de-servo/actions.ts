@@ -1,8 +1,9 @@
 'use server';
 import { getAdminDb } from '@/lib/firebase-admin';
-import { ShapeResult } from '@/types/shape';
+import { ShapeResult, MinistryProfile } from '@/types/shape';
 import { calculateShapeMetrics } from '@/types/shape';
 import { SHAPE_DATA } from '@/lib/shape-complete-data';
+import { DEFAULT_MINISTRY_PROFILES } from '@/lib/ministry-benchmarks';
 
 function sanitize(data: any): any {
   if (data === null || data === undefined) return data;
@@ -50,12 +51,77 @@ export async function getShapeResults(): Promise<ShapeResult[]> {
   }
 }
 
+export async function getMinistryProfiles(): Promise<MinistryProfile[]> {
+  try {
+    const db = getAdminDb();
+    const doc = await db.collection('app_config').doc('shape_settings').get();
+    if (doc.exists) {
+      const data = doc.data();
+      if (Array.isArray(data?.ministryProfiles) && data.ministryProfiles.length > 0) {
+        return data.ministryProfiles as MinistryProfile[];
+      }
+      // Se tiver apenas ministrySuggestions salvas, mescla com as descrições default
+      if (Array.isArray(data?.ministrySuggestions) && data.ministrySuggestions.length > 0) {
+        return data.ministrySuggestions.map((name: string) => {
+          const found = DEFAULT_MINISTRY_PROFILES.find(
+            p => p.nome.toLowerCase() === name.toLowerCase() || p.id.toLowerCase() === name.toLowerCase()
+          );
+          if (found) return found;
+          return {
+            id: name.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+            nome: name,
+            descricao: '',
+            expectativas: '',
+            discRecomendado: [],
+            donsRecomendados: [],
+          };
+        });
+      }
+    }
+  } catch (e) {
+    console.error('Erro ao ler ministryProfiles:', e);
+  }
+  return DEFAULT_MINISTRY_PROFILES;
+}
+
+export async function updateMinistryProfiles(profiles: MinistryProfile[]) {
+  try {
+    const cleanProfiles = profiles.map(p => ({
+      ...p,
+      id: p.id || p.nome.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+      nome: p.nome.trim(),
+      descricao: p.descricao?.trim() || '',
+      expectativas: p.expectativas?.trim() || '',
+      discRecomendado: Array.isArray(p.discRecomendado) ? p.discRecomendado : [],
+      quadranteRecomendado: p.quadranteRecomendado || '',
+      donsRecomendados: Array.isArray(p.donsRecomendados) ? p.donsRecomendados : [],
+      habilidadesRecomendadas: p.habilidadesRecomendadas?.trim() || '',
+    }));
+
+    const cleanNames = Array.from(new Set(cleanProfiles.map(p => p.nome).filter(Boolean)));
+    const db = getAdminDb();
+    await db.collection('app_config').doc('shape_settings').set({
+      ministryProfiles: cleanProfiles,
+      ministrySuggestions: cleanNames,
+      updatedAt: new Date().toISOString(),
+    }, { merge: true });
+
+    return { success: true, profiles: cleanProfiles, suggestions: cleanNames };
+  } catch (e: any) {
+    console.error('Erro ao salvar ministryProfiles:', e);
+    return { success: false, error: e.message || 'Falha ao salvar perfis dos ministérios.' };
+  }
+}
+
 export async function getMinistrySuggestions(): Promise<string[]> {
   try {
     const db = getAdminDb();
     const doc = await db.collection('app_config').doc('shape_settings').get();
     if (doc.exists) {
       const data = doc.data();
+      if (Array.isArray(data?.ministryProfiles) && data.ministryProfiles.length > 0) {
+        return (data.ministryProfiles as MinistryProfile[]).map(p => p.nome);
+      }
       if (Array.isArray(data?.ministrySuggestions) && data.ministrySuggestions.length > 0) {
         return data.ministrySuggestions;
       }
@@ -63,17 +129,7 @@ export async function getMinistrySuggestions(): Promise<string[]> {
   } catch (e) {
     console.error('Erro ao ler ministrySuggestions:', e);
   }
-  return [
-    'Louvor & Adoração',
-    'Ensino & Discipulado',
-    'Crianças (OikoKids)',
-    'Acolhimento & Recepção',
-    'Mídia, Som & Produção',
-    'Ação Social & Misericórdia',
-    'Liderança de GC',
-    'Intercessão & Oração',
-    'Gestão & Apoio',
-  ];
+  return DEFAULT_MINISTRY_PROFILES.map(p => p.nome);
 }
 
 export async function updateMinistrySuggestions(suggestions: string[]) {

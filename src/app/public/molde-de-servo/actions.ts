@@ -4,8 +4,9 @@ import { getAdminDb } from '@/lib/firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
 import { getPublicGCs as getEnrollmentPublicGCs } from '@/app/public/enrollment/actions';
 import { SHAPE_DATA } from '@/lib/shape-complete-data';
-import { calculateShapeCompletion, calculateShapeMetrics } from '@/types/shape';
+import { calculateShapeCompletion, calculateShapeMetrics, MinistryProfile } from '@/types/shape';
 import { sanitizeDiscAnswers, DISC_VERSION, type DiscLetter } from '@/lib/disc';
+import { DEFAULT_MINISTRY_PROFILES } from '@/lib/ministry-benchmarks';
 
 export async function getPublicGCs() {
   return getEnrollmentPublicGCs();
@@ -46,6 +47,9 @@ export async function getMinistrySuggestions(): Promise<string[]> {
     const doc = await db.collection('app_config').doc('shape_settings').get();
     if (doc.exists) {
       const data = doc.data();
+      if (Array.isArray(data?.ministryProfiles) && data.ministryProfiles.length > 0) {
+        return (data.ministryProfiles as MinistryProfile[]).map(p => p.nome);
+      }
       if (Array.isArray(data?.ministrySuggestions) && data.ministrySuggestions.length > 0) {
         return data.ministrySuggestions;
       }
@@ -55,6 +59,25 @@ export async function getMinistrySuggestions(): Promise<string[]> {
     console.error('Erro ao buscar sugestões de ministérios:', e);
     return DEFAULT_MINISTRY_SUGGESTIONS;
   }
+}
+
+/**
+ * Obtém os perfis detalhados de cada ministério (descrição, expectativas, DISC e dons)
+ */
+export async function getMinistryProfiles(): Promise<MinistryProfile[]> {
+  try {
+    const db = getAdminDb();
+    const doc = await db.collection('app_config').doc('shape_settings').get();
+    if (doc.exists) {
+      const data = doc.data();
+      if (Array.isArray(data?.ministryProfiles) && data.ministryProfiles.length > 0) {
+        return data.ministryProfiles as MinistryProfile[];
+      }
+    }
+  } catch (e) {
+    console.error('Erro ao buscar ministryProfiles:', e);
+  }
+  return DEFAULT_MINISTRY_PROFILES;
 }
 
 /**

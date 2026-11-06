@@ -1,4 +1,5 @@
 import type { DiscLetter, DiscScores } from './disc';
+import type { MinistryProfile } from '@/types/shape';
 
 export interface MinistryBenchmark {
   id: string;
@@ -201,3 +202,96 @@ export function calculateMinistryFit(
   // Ordena decrescente pelo Match Score Final
   return results.sort((a, b) => b.fitPercentage - a.fitPercentage);
 }
+
+export const DEFAULT_MINISTRY_PROFILES: MinistryProfile[] = [
+  {
+    id: 'louvor',
+    nome: 'Louvor & Adoração',
+    descricao: 'Condução congregacional da igreja no louvor e adoração através da música, arranjos e comunhão no altar.',
+    expectativas: 'Pontualidade nos ensaios semanais, consagração espiritual, alinhamento pastoral e postura humilde de servo.',
+    discRecomendado: ['I', 'S'],
+    quadranteRecomendado: 'Pessoas / Informal',
+    donsRecomendados: ['Comunicação Criativa', 'Encorajamento', 'Serviço', 'Fé'],
+    habilidadesRecomendadas: 'Vocal/canto afinado, execução de instrumentos (teclado, violão, baixo, bateria), leitura de cifras.',
+  },
+  {
+    id: 'ensino',
+    nome: 'Ensino & Discipulado',
+    descricao: 'Capacitação bíblica da membresia, classes do Molde de Servo, preparação para o batismo e acompanhamento um a um.',
+    expectativas: 'Amor pelo estudo sistemático da Palavra, didática paciente, fidelidade doutrinária e discipulado intencional.',
+    discRecomendado: ['C', 'I'],
+    quadranteRecomendado: 'Tarefas / Formal',
+    donsRecomendados: ['Ensino', 'Sabedoria', 'Conhecimento', 'Pastorado'],
+    habilidadesRecomendadas: 'Didática, clareza na exposição bíblica, mentoria pessoal, organização de planos de aula.',
+  },
+  {
+    id: 'kids',
+    nome: 'Crianças (OikoKids)',
+    descricao: 'Pastoreio infantil, ensino lúdico dos princípios de Jesus, recreação segura e cuidado dos filhos dos membros.',
+    expectativas: 'Paciência, zelo irrestrito pela segurança física e emocional, dinamismo, amor pelas crianças e assiduidade na escala.',
+    discRecomendado: ['S', 'I'],
+    quadranteRecomendado: 'Pessoas / Formal',
+    donsRecomendados: ['Hospitalidade', 'Misericórdia', 'Ensino', 'Encorajamento'],
+    habilidadesRecomendadas: 'Recreação, contação de histórias, artesanato/desenho, paciência com diferentes faixas etárias.',
+  },
+  {
+    id: 'acolhimento',
+    nome: 'Acolhimento & Recepção',
+    descricao: 'A primeira impressão da igreja: recepção na porta com carinho, orientação de lugares e entrega de boas-vindas.',
+    expectativas: 'Chegada 30 min antes do culto, sorriso acolhedor, percepção de pessoas novas e postura atenta para tirar dúvidas.',
+    discRecomendado: ['I', 'S'],
+    quadranteRecomendado: 'Pessoas / Informal',
+    donsRecomendados: ['Hospitalidade', 'Misericórdia', 'Encorajamento', 'Evangelismo'],
+    habilidadesRecomendadas: 'Facilidade de comunicação, memorização de nomes e rostos, simpatia natural e prontidão.',
+  },
+  {
+    id: 'midia',
+    nome: 'Mídia, Som & Produção',
+    descricao: 'Operação dos bastidores do culto: mesa de som digital, câmeras, corte de transmissão ao vivo e projeção de letras.',
+    expectativas: 'Atenção aos detalhes técnicos, chegada antecipada para testes de passagem de som e foco contínuo durante a liturgia.',
+    discRecomendado: ['C', 'S'],
+    quadranteRecomendado: 'Tarefas / Formal',
+    donsRecomendados: ['Artesanato', 'Serviço', 'Comunicação Criativa', 'Administração'],
+    habilidadesRecomendadas: 'Operação de áudio (X32/Wing etc.), software Holyrics/OBS/vMix, operação de câmeras e iluminação.',
+  },
+  {
+    id: 'social',
+    nome: 'Ação Social & Misericórdia',
+    descricao: 'Suporte humanitário a famílias carentes, triagem de pedidos de socorro, cestas básicas e projetos na comunidade.',
+    expectativas: 'Discrição absoluta, coração compassivo, disposição para serviço prático e sensibilidade às dores alheias.',
+    discRecomendado: ['S', 'C'],
+    quadranteRecomendado: 'Pessoas / Formal',
+    donsRecomendados: ['Misericórdia', 'Serviço', 'Contribuição', 'Hospitalidade'],
+    habilidadesRecomendadas: 'Triagem social, logística de arrecadações, visitação compassiva, organização comunitária.',
+  },
+  {
+    id: 'gc',
+    nome: 'Liderança de GC',
+    descricao: 'Pastoreio e facilitação de Pequenos Grupos nos lares, acolhimento relacional, comunhão e multiplicação.',
+    expectativas: 'Liderança servidora, vida diária de oração, pontualidade no relatório semanal e zelo pelo cuidado mútuo dos membros.',
+    discRecomendado: ['D', 'I'],
+    quadranteRecomendado: 'Tarefas / Informal',
+    donsRecomendados: ['Liderança', 'Pastorado', 'Discernimento', 'Fé', 'Encorajamento'],
+    habilidadesRecomendadas: 'Facilitação de conversas em grupo, hospitalidade no lar, mentoria e resolução pacífica de conflitos.',
+  },
+  {
+    id: 'intercessao',
+    nome: 'Intercessão & Oração',
+    descricao: 'Sustentação espiritual da igreja, cobertura dos cultos, vigílias e clamor confidencial pelos pedidos de oração.',
+    expectativas: 'Sigilo pastoral inegociável, maturidade espiritual, vida profunda no secreto e perseverança na oração.',
+    discRecomendado: ['S', 'C'],
+    quadranteRecomendado: 'Pessoas / Formal',
+    donsRecomendados: ['Intercessão', 'Fé', 'Discernimento', 'Sabedoria'],
+    habilidadesRecomendadas: 'Fervor e constância devocional, escuta sensível do Espírito Santo e discrição ética.',
+  },
+  {
+    id: 'gestao',
+    nome: 'Gestão & Apoio',
+    descricao: 'Secretaria, patrimônio, organização de arquivos eclesiásticos, suporte logístico e apoio aos ministérios.',
+    expectativas: 'Compromisso com prazos, organização metódica de processos, ética com dados confidenciais e proatividade.',
+    discRecomendado: ['C', 'D'],
+    quadranteRecomendado: 'Tarefas / Formal',
+    donsRecomendados: ['Administração', 'Serviço', 'Sabedoria', 'Conhecimento'],
+    habilidadesRecomendadas: 'Informática, Excel/planilhas, organização de compras, redação e processos administrativos.',
+  },
+];

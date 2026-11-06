@@ -6,6 +6,7 @@ import {
   QUADRANTE_META,
   HABILIDADES_MAP,
   ShapeQuadrante,
+  MinistryProfile,
   calculateShapeCompletion,
 } from '@/types/shape';
 import { DISC_META, DISC_BLINDSPOT_META, DiscMetaItem } from '@/lib/disc-meta';
@@ -15,6 +16,7 @@ import { calculateMinistryFit, MinistryFitResult } from '@/lib/ministry-benchmar
 import DiscBarChart from '@/components/volunteering/shape/disc/DiscBarChart';
 import DiscProfileBadge from '@/components/volunteering/shape/disc/DiscProfileBadge';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import {
@@ -44,12 +46,20 @@ import {
   HelpCircle,
   FileQuestion,
   ArrowRight,
+  ChevronDown,
+  ChevronUp,
+  Target,
+  Edit3,
+  Info,
 } from 'lucide-react';
 import {
   getShapeResults,
   getMinistrySuggestions,
   updateMinistrySuggestions,
+  getMinistryProfiles,
+  updateMinistryProfiles,
 } from '@/app/dashboard/volunteering/molde-de-servo/actions';
+import { DEFAULT_MINISTRY_PROFILES } from '@/lib/ministry-benchmarks';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -264,15 +274,18 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Modal de edição de áreas sugeridas ("Onde Deus está te chamando para servir")
+  // Modal de edição de áreas sugeridas & perfis vocacionais
   const [isMinistryConfigOpen, setIsMinistryConfigOpen] = useState(false);
-  const [ministryList, setMinistryList] = useState<string[]>([]);
+  const [ministryProfiles, setMinistryProfiles] = useState<MinistryProfile[]>([]);
   const [newMinistryInput, setNewMinistryInput] = useState('');
   const [isSavingMinistries, setIsSavingMinistries] = useState(false);
+  const [expandedMinistryId, setExpandedMinistryId] = useState<string | null>(null);
 
   useEffect(() => {
-    getMinistrySuggestions().then((list) => {
-      if (list && list.length > 0) setMinistryList(list);
+    getMinistryProfiles().then((profiles) => {
+      if (profiles && profiles.length > 0) {
+        setMinistryProfiles(profiles);
+      }
     });
   }, []);
 
@@ -291,30 +304,75 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
   const handleAddMinistry = () => {
     const trimmed = newMinistryInput.trim();
     if (!trimmed) return;
-    if (ministryList.some((m) => m.toLowerCase() === trimmed.toLowerCase())) {
+    if (ministryProfiles.some((m) => m.nome.toLowerCase() === trimmed.toLowerCase())) {
       toast({
         variant: 'destructive',
         title: 'Área já cadastrada',
-        description: 'Essa opção já consta na lista de sugestões.',
+        description: 'Essa opção já consta na lista de ministérios.',
       });
       return;
     }
-    setMinistryList((prev) => [...prev, trimmed]);
+    const newId = trimmed.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    const newProf: MinistryProfile = {
+      id: newId,
+      nome: trimmed,
+      descricao: '',
+      expectativas: '',
+      discRecomendado: [],
+      quadranteRecomendado: 'Tarefas / Formal',
+      donsRecomendados: [],
+      habilidadesRecomendadas: '',
+    };
+    setMinistryProfiles((prev) => [newProf, ...prev]);
+    setExpandedMinistryId(newId);
     setNewMinistryInput('');
   };
 
-  const handleRemoveMinistry = (indexToRemove: number) => {
-    setMinistryList((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+  const handleRemoveMinistry = (idToRemove: string) => {
+    setMinistryProfiles((prev) => prev.filter((p) => p.id !== idToRemove));
+    if (expandedMinistryId === idToRemove) setExpandedMinistryId(null);
+  };
+
+  const handleUpdateProfileField = (id: string, field: keyof MinistryProfile, value: any) => {
+    setMinistryProfiles((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, [field]: value } : p))
+    );
+  };
+
+  const handleToggleDisc = (id: string, letter: 'D' | 'I' | 'S' | 'C') => {
+    setMinistryProfiles((prev) =>
+      prev.map((p) => {
+        if (p.id !== id) return p;
+        const current = p.discRecomendado || [];
+        const next = current.includes(letter)
+          ? current.filter((l) => l !== letter)
+          : [...current, letter];
+        return { ...p, discRecomendado: next };
+      })
+    );
+  };
+
+  const handleToggleDom = (id: string, dom: string) => {
+    setMinistryProfiles((prev) =>
+      prev.map((p) => {
+        if (p.id !== id) return p;
+        const current = p.donsRecomendados || [];
+        const next = current.includes(dom)
+          ? current.filter((d) => d !== dom)
+          : [...current, dom];
+        return { ...p, donsRecomendados: next };
+      })
+    );
   };
 
   const handleSaveMinistries = async () => {
     setIsSavingMinistries(true);
     try {
-      const res = await updateMinistrySuggestions(ministryList);
+      const res = await updateMinistryProfiles(ministryProfiles);
       if (res.success) {
         toast({
-          title: 'Áreas atualizadas com sucesso! 🎉',
-          description: 'As novas opções já estão disponíveis para os alunos no Molde de Servo.',
+          title: 'Perfis Vocacionais atualizados com sucesso! 🎉',
+          description: 'As descrições, expectativas, perfis DISC e dons das áreas foram salvos.',
         });
         setIsMinistryConfigOpen(false);
       } else {
@@ -1933,26 +1991,28 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
         )}
       </Dialog>
 
-      {/* Modal de Configuração de Sugestões de Ministérios */}
+      {/* Modal de Configuração de Sugestões de Ministérios & Perfis Vocacionais */}
       <Dialog open={isMinistryConfigOpen} onOpenChange={setIsMinistryConfigOpen}>
-        <DialogContent className="max-w-md sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-black text-slate-900 flex items-center gap-2">
-              <Compass className="w-5 h-5 text-[#523A8C]" />
-              Editar Áreas de Serviço Sugeridas
-            </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500">
-              Essas são as opções de botões rápidos que aparecem no Cartão do Servo do aluno na pergunta:
-              <br />
-              <strong className="text-slate-700">"Onde você sente que Deus está te chamando para servir?"</strong>
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-3xl max-h-[92vh] flex flex-col p-0 overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-2xl">
+          <div className="p-6 pb-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 via-white to-purple-50/30">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-[#523A8C]/10 border border-[#523A8C]/20 flex items-center justify-center text-[#523A8C] shrink-0">
+                <Compass className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <DialogTitle className="text-lg font-black text-slate-900 flex items-center gap-2">
+                  Áreas de Serviço & Perfis Vocacionais
+                </DialogTitle>
+                <DialogDescription className="text-xs text-slate-500 mt-0.5">
+                  Descreva o que é cada área de serviço, o que espera dos voluntários e configure o perfil ideal (DISC, dons e personalidade).
+                </DialogDescription>
+              </div>
+            </div>
 
-          <div className="space-y-4 py-2">
             {/* Input para adicionar nova opção */}
-            <div className="flex gap-2">
+            <div className="flex gap-2 pt-4">
               <Input
-                placeholder="Ex: Diaconia, Segurança, Teatro..."
+                placeholder="Nome da nova área (Ex: Diaconia, Segurança, Teatro, Boas-Vindas...)"
                 value={newMinistryInput}
                 onChange={(e) => setNewMinistryInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -1961,44 +2021,266 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                     handleAddMinistry();
                   }
                 }}
-                className="h-10 text-xs rounded-xl"
+                className="h-10 text-xs rounded-xl bg-white"
               />
               <Button
                 type="button"
                 onClick={handleAddMinistry}
-                className="bg-[#523A8C] hover:bg-[#432E75] text-white text-xs font-bold rounded-xl h-10 px-4 shrink-0 gap-1.5"
+                className="bg-[#523A8C] hover:bg-[#432E75] text-white text-xs font-bold rounded-xl h-10 px-4 shrink-0 gap-1.5 shadow-sm"
               >
-                <Plus className="w-4 h-4" /> Adicionar
+                <Plus className="w-4 h-4" /> Nova Área
               </Button>
-            </div>
-
-            {/* Lista das opções atuais */}
-            <div className="max-h-64 overflow-y-auto space-y-1.5 pr-1">
-              {ministryList.map((item, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between p-2.5 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 transition-colors"
-                >
-                  <span className="text-xs font-bold text-slate-800">{item}</span>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveMinistry(idx)}
-                    className="p-1 text-slate-400 hover:text-red-600 rounded-lg hover:bg-white transition-colors"
-                    title="Remover"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-              {ministryList.length === 0 && (
-                <p className="text-xs text-center text-slate-400 py-4 italic">
-                  Nenhuma sugestão cadastrada.
-                </p>
-              )}
             </div>
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-0">
+          {/* Lista de Ministérios com Accordion Expansível */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-3">
+            {ministryProfiles.map((prof, idx) => {
+              const isExpanded = expandedMinistryId === prof.id;
+              return (
+                <div 
+                  key={prof.id || idx}
+                  className={`rounded-2xl border transition-all ${
+                    isExpanded 
+                      ? 'border-[#523A8C]/40 bg-purple-50/15 shadow-sm' 
+                      : 'border-slate-200 bg-white hover:border-slate-300'
+                  }`}
+                >
+                  {/* Cabeçalho do Card */}
+                  <div 
+                    className="p-3.5 flex items-center justify-between gap-3 cursor-pointer select-none"
+                    onClick={() => setExpandedMinistryId(isExpanded ? null : prof.id)}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0 flex-wrap">
+                      <span className="w-6 h-6 rounded-lg bg-slate-100 text-slate-600 font-extrabold text-[11px] flex items-center justify-center shrink-0">
+                        {idx + 1}
+                      </span>
+                      <span className="font-extrabold text-sm text-slate-900 truncate">
+                        {prof.nome}
+                      </span>
+
+                      {/* Resumo rápido do perfil */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {prof.discRecomendado && prof.discRecomendado.length > 0 && (
+                          <div className="flex items-center gap-0.5">
+                            {prof.discRecomendado.map(d => (
+                              <span 
+                                key={d}
+                                className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${
+                                  d === 'D' ? 'bg-red-100 text-red-700' :
+                                  d === 'I' ? 'bg-amber-100 text-amber-700' :
+                                  d === 'S' ? 'bg-emerald-100 text-emerald-700' :
+                                  'bg-blue-100 text-blue-700'
+                                }`}
+                              >
+                                {d}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {prof.quadranteRecomendado && (
+                          <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                            {prof.quadranteRecomendado}
+                          </span>
+                        )}
+
+                        {prof.donsRecomendados && prof.donsRecomendados.length > 0 && (
+                          <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md">
+                            {prof.donsRecomendados.length} dons
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setExpandedMinistryId(isExpanded ? null : prof.id)}
+                        className="h-8 px-2.5 text-xs font-bold text-slate-600 gap-1 rounded-xl"
+                      >
+                        {isExpanded ? (
+                          <>
+                            <span>Recolher</span>
+                            <ChevronUp className="w-3.5 h-3.5" />
+                          </>
+                        ) : (
+                          <>
+                            <span>Editar Perfil</span>
+                            <ChevronDown className="w-3.5 h-3.5" />
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleRemoveMinistry(prof.id)}
+                        className="h-8 w-8 text-slate-400 hover:text-red-600 rounded-xl"
+                        title="Excluir Área"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Detalhes Expansíveis */}
+                  {isExpanded && (
+                    <div className="p-4 pt-1 border-t border-slate-100 space-y-4 text-xs">
+                      {/* Nome da Área */}
+                      <div className="space-y-1">
+                        <label className="font-bold text-slate-700 flex items-center gap-1.5">
+                          Nome da Área
+                        </label>
+                        <Input
+                          value={prof.nome}
+                          onChange={(e) => handleUpdateProfileField(prof.id, 'nome', e.target.value)}
+                          className="h-9 text-xs rounded-xl bg-white"
+                        />
+                      </div>
+
+                      {/* 1. O que é a Área */}
+                      <div className="space-y-1">
+                        <label className="font-bold text-slate-700 flex items-center justify-between">
+                          <span>O que é esta Área (Propósito & Atividades)</span>
+                          <span className="text-[10px] text-slate-400 font-normal">Aparece para o aluno no Molde de Servo</span>
+                        </label>
+                        <Textarea
+                          rows={2}
+                          placeholder="Ex: Condução congregacional da igreja no louvor e adoração através da música, arranjos e comunhão no altar..."
+                          value={prof.descricao}
+                          onChange={(e) => handleUpdateProfileField(prof.id, 'descricao', e.target.value)}
+                          className="text-xs rounded-xl bg-white resize-none"
+                        />
+                      </div>
+
+                      {/* 2. O que esperamos das pessoas */}
+                      <div className="space-y-1">
+                        <label className="font-bold text-slate-700 flex items-center justify-between">
+                          <span>O que esperamos dos voluntários (Expectativas & Compromisso)</span>
+                          <span className="text-[10px] text-slate-400 font-normal">Pontualidade, frequência, postura e rotina</span>
+                        </label>
+                        <Textarea
+                          rows={2}
+                          placeholder="Ex: Pontualidade nos ensaios às quintas, consagração espiritual, alinhamento pastoral e postura humilde de servo..."
+                          value={prof.expectativas}
+                          onChange={(e) => handleUpdateProfileField(prof.id, 'expectativas', e.target.value)}
+                          className="text-xs rounded-xl bg-white resize-none"
+                        />
+                      </div>
+
+                      {/* 3. Perfil Comportamental Ideal (DISC) */}
+                      <div className="space-y-1.5">
+                        <label className="font-bold text-slate-700 flex items-center justify-between">
+                          <span>Perfil Comportamental Ideal (DISC)</span>
+                          <span className="text-[10px] text-slate-400 font-normal">Clique para ativar os fatores prioritários</span>
+                        </label>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {[
+                            { key: 'D', label: '🔴 D • Dominância', desc: 'Executor & Pioneiro' },
+                            { key: 'I', label: '🟡 I • Influência', desc: 'Comunicador & Conector' },
+                            { key: 'S', label: '🟢 S • Estabilidade', desc: 'Cuidador & Constante' },
+                            { key: 'C', label: '🔵 C • Conformidade', desc: 'Analítico & Detalhista' },
+                          ].map((item) => {
+                            const active = (prof.discRecomendado || []).includes(item.key as any);
+                            return (
+                              <button
+                                key={item.key}
+                                type="button"
+                                onClick={() => handleToggleDisc(prof.id, item.key as any)}
+                                className={`p-2.5 rounded-xl border text-left transition-all ${
+                                  active
+                                    ? 'border-[#523A8C] bg-[#523A8C]/10 text-[#523A8C] shadow-xs'
+                                    : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-600'
+                                }`}
+                              >
+                                <p className="font-extrabold text-xs">{item.label}</p>
+                                <p className="text-[10px] text-slate-500 mt-0.5">{item.desc}</p>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* 4. Quadrante Clássico Recomendado */}
+                      <div className="space-y-1">
+                        <label className="font-bold text-slate-700">
+                          Quadrante Clássico de Personalidade (SHAPE)
+                        </label>
+                        <Select
+                          value={prof.quadranteRecomendado || 'Tarefas / Formal'}
+                          onValueChange={(val) => handleUpdateProfileField(prof.id, 'quadranteRecomendado', val)}
+                        >
+                          <SelectTrigger className="h-9 text-xs rounded-xl bg-white">
+                            <SelectValue placeholder="Selecione o quadrante" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Tarefas / Formal">🎯 Tarefas / Formal (Processos & Estrutura)</SelectItem>
+                            <SelectItem value="Tarefas / Informal">⚡ Tarefas / Informal (Ação Rápida & Metas)</SelectItem>
+                            <SelectItem value="Pessoas / Formal">❤️ Pessoas / Formal (Acolhimento & Método)</SelectItem>
+                            <SelectItem value="Pessoas / Informal">🤝 Pessoas / Informal (Relacionamento & Espontâneo)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* 5. Dons Espirituais Recomendados */}
+                      <div className="space-y-1.5">
+                        <label className="font-bold text-slate-700 flex items-center justify-between">
+                          <span>Dons Espirituais Recomendados</span>
+                          <span className="text-[10px] text-slate-400 font-normal">Selecione os dons que combinam com este ministério</span>
+                        </label>
+                        <div className="flex flex-wrap gap-1.5 p-2.5 rounded-xl border border-slate-200 bg-white max-h-36 overflow-y-auto">
+                          {DONS.map((dom) => {
+                            const isDomActive = (prof.donsRecomendados || []).includes(dom);
+                            return (
+                              <button
+                                key={dom}
+                                type="button"
+                                onClick={() => handleToggleDom(prof.id, dom)}
+                                className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all ${
+                                  isDomActive
+                                    ? 'bg-[#523A8C] text-white border-[#523A8C] shadow-xs'
+                                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                                }`}
+                              >
+                                {isDomActive && <Check className="w-3 h-3 inline mr-1" />}
+                                {dom}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* 6. Habilidades e Requisitos Específicos */}
+                      <div className="space-y-1">
+                        <label className="font-bold text-slate-700">
+                          Habilidades / Requisitos Práticos
+                        </label>
+                        <Input
+                          value={prof.habilidadesRecomendadas || ''}
+                          onChange={(e) => handleUpdateProfileField(prof.id, 'habilidadesRecomendadas', e.target.value)}
+                          placeholder="Ex: Canto, instrumento, facilidade com softwares de projeção, didática infantil..."
+                          className="h-9 text-xs rounded-xl bg-white"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {ministryProfiles.length === 0 && (
+              <div className="text-center py-8 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+                <Compass className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                <p className="text-xs font-bold text-slate-600">Nenhuma área cadastrada</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">Clique em "Nova Área" acima para começar.</p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="p-4 px-6 border-t border-slate-100 bg-slate-50 gap-2 sm:gap-0">
             <Button
               type="button"
               variant="outline"
@@ -2012,7 +2294,7 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
               type="button"
               onClick={handleSaveMinistries}
               disabled={isSavingMinistries}
-              className="bg-[#523A8C] hover:bg-[#432E75] text-white text-xs font-bold rounded-xl gap-1.5"
+              className="bg-[#523A8C] hover:bg-[#432E75] text-white text-xs font-bold rounded-xl gap-1.5 shadow-sm"
             >
               {isSavingMinistries ? (
                 <span>Salvando...</span>

@@ -22,11 +22,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { SHAPE_DATA } from '@/lib/shape-complete-data';
-import { submitShapeAssessment, getMinistrySuggestions } from '@/app/public/molde-de-servo/actions';
+import { submitShapeAssessment, getMinistrySuggestions, getMinistryProfiles } from '@/app/public/molde-de-servo/actions';
 import { Step1FormData } from './Step1Intro';
 import { calculateDisc, DISC_TOTAL, type DiscLetter } from '@/lib/disc';
 import { DISC_META, DISC_BLINDSPOT_META } from '@/lib/disc-meta';
 import { calculateMinistryFit } from '@/lib/ministry-benchmarks';
+import { MinistryProfile } from '@/types/shape';
 import DiscBarChart from './disc/DiscBarChart';
 import DiscProfileBadge from './disc/DiscProfileBadge';
 
@@ -78,6 +79,7 @@ export default function Step5Result({
   const [isSaving, setIsSaving] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [directedMinistry, setDirectedMinistry] = useState('');
+  const [ministryProfiles, setMinistryProfiles] = useState<MinistryProfile[]>([]);
   const [ministrySuggestions, setMinistrySuggestions] = useState<string[]>([
     'Louvor & Adoração',
     'Ensino & Discipulado',
@@ -90,11 +92,12 @@ export default function Step5Result({
     'Gestão & Apoio',
   ]);
 
-  // Carrega opções dinâmicas de ministérios configuradas pelo pastor
+  // Carrega opções dinâmicas e perfis de ministérios configurados pelo pastor
   useEffect(() => {
-    getMinistrySuggestions().then((sugs) => {
-      if (sugs && sugs.length > 0) {
-        setMinistrySuggestions(sugs);
+    getMinistryProfiles().then((profs) => {
+      if (profs && profs.length > 0) {
+        setMinistryProfiles(profs);
+        setMinistrySuggestions(profs.map((p) => p.nome));
       }
     });
   }, []);
@@ -658,6 +661,51 @@ _Avaliação concluída no OikoApp • Conectando dons e propósitos no Reino!_`
             value={directedMinistry}
             onChange={(e) => setDirectedMinistry(e.target.value)}
           />
+
+          {/* Card explicativo dinâmico da área selecionada com expectativas e perfis */}
+          {(() => {
+            const activeProf = ministryProfiles.find(
+              (p) => p.nome.toLowerCase() === directedMinistry.trim().toLowerCase()
+            );
+            if (!activeProf || (!activeProf.descricao && !activeProf.expectativas && (!activeProf.discRecomendado || activeProf.discRecomendado.length === 0))) {
+              return null;
+            }
+            return (
+              <div className="p-3 bg-purple-50/70 border border-purple-200/70 rounded-2xl text-[11px] space-y-1.5 animate-in fade-in">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 font-extrabold text-[#523A8C]">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Sobre {activeProf.nome}</span>
+                  </div>
+                  {activeProf.quadranteRecomendado && (
+                    <span className="text-[9px] font-bold text-slate-500 bg-white border border-slate-200 px-2 py-0.5 rounded-full">
+                      {activeProf.quadranteRecomendado}
+                    </span>
+                  )}
+                </div>
+                {activeProf.descricao && (
+                  <p className="text-slate-700 leading-snug">{activeProf.descricao}</p>
+                )}
+                {activeProf.expectativas && (
+                  <p className="text-slate-600 text-[10px] bg-white/70 p-2 rounded-xl border border-purple-100">
+                    <strong className="text-slate-800">Expectativas:</strong> {activeProf.expectativas}
+                  </p>
+                )}
+                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                  {activeProf.discRecomendado && activeProf.discRecomendado.length > 0 && (
+                    <span className="text-[9px] font-bold text-[#523A8C] bg-purple-100/80 px-2 py-0.5 rounded-md">
+                      Perfil DISC: {activeProf.discRecomendado.join(' • ')}
+                    </span>
+                  )}
+                  {activeProf.donsRecomendados && activeProf.donsRecomendados.length > 0 && (
+                    <span className="text-[9px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md">
+                      Dons afins: {activeProf.donsRecomendados.slice(0, 3).join(', ')}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
 

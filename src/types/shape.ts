@@ -222,6 +222,17 @@ export const QUADRANTE_META: Record<string, { label: string; emoji: string; colo
   'Pessoas / Informal': { label: 'Pessoas / Informal', emoji: '🤝', color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' },
 };
 
+export interface MinistryProfile {
+  id: string;
+  nome: string;
+  descricao: string;
+  expectativas: string;
+  discRecomendado: ('D' | 'I' | 'S' | 'C')[];
+  quadranteRecomendado?: string;
+  donsRecomendados: string[];
+  habilidadesRecomendadas?: string;
+}
+
 export const HABILIDADES_MAP: Record<string, { nome: string; icon: string }> = {
   s1: { nome: 'Construção Civil', icon: '🛠️' },
   s2: { nome: 'Tecnologia / TI', icon: '💻' },
