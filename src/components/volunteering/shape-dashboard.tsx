@@ -10,6 +10,7 @@ import {
 } from '@/types/shape';
 import { DISC_META, DISC_BLINDSPOT_META, DiscMetaItem } from '@/lib/disc-meta';
 import { DiscLetter } from '@/lib/disc-questions';
+import { QUADRANT_BY_DISC } from '@/lib/disc';
 import { calculateMinistryFit, MinistryFitResult } from '@/lib/ministry-benchmarks';
 import DiscBarChart from '@/components/volunteering/shape/disc/DiscBarChart';
 import DiscProfileBadge from '@/components/volunteering/shape/disc/DiscProfileBadge';
@@ -136,13 +137,124 @@ const getItemDiscColumn = (item: ShapeResult): KanbanDiscColumnId => {
   return 'sem_disc';
 };
 
+export type KanbanQuadrantColumnId = 
+  | 'Tarefas / Formal' 
+  | 'Tarefas / Informal' 
+  | 'Pessoas / Formal' 
+  | 'Pessoas / Informal' 
+  | 'sem_quadrante';
+
+export interface KanbanQuadrantColumnMeta {
+  id: KanbanQuadrantColumnId;
+  label: string;
+  axis: string;
+  subtitle: string;
+  discEquiv: string;
+  emoji: string;
+  bg: string;
+  border: string;
+  text: string;
+}
+
+export const KANBAN_QUADRANT_COLUMNS: KanbanQuadrantColumnMeta[] = [
+  {
+    id: 'Tarefas / Formal',
+    label: 'Tarefas / Formal',
+    axis: 'Foco em Tarefas • Formal',
+    subtitle: 'Processos, Excelência & Método',
+    discEquiv: 'Equiv. DISC: C (Conformidade)',
+    emoji: '🎯',
+    bg: 'bg-blue-50/70',
+    border: 'border-blue-200',
+    text: 'text-blue-700',
+  },
+  {
+    id: 'Tarefas / Informal',
+    label: 'Tarefas / Informal',
+    axis: 'Foco em Tarefas • Informal',
+    subtitle: 'Ação Rápida, Metas & Pioneirismo',
+    discEquiv: 'Equiv. DISC: D (Dominância)',
+    emoji: '⚡',
+    bg: 'bg-amber-50/70',
+    border: 'border-amber-200',
+    text: 'text-amber-700',
+  },
+  {
+    id: 'Pessoas / Formal',
+    label: 'Pessoas / Formal',
+    axis: 'Foco em Pessoas • Formal',
+    subtitle: 'Acolhimento Estruturado & Constância',
+    discEquiv: 'Equiv. DISC: S (Estabilidade)',
+    emoji: '❤️',
+    bg: 'bg-rose-50/70',
+    border: 'border-rose-200',
+    text: 'text-rose-700',
+  },
+  {
+    id: 'Pessoas / Informal',
+    label: 'Pessoas / Informal',
+    axis: 'Foco em Pessoas • Informal',
+    subtitle: 'Relacionamento, Conexão & Espontaneidade',
+    discEquiv: 'Equiv. DISC: I (Influência)',
+    emoji: '🤝',
+    bg: 'bg-emerald-50/70',
+    border: 'border-emerald-200',
+    text: 'text-emerald-700',
+  },
+  {
+    id: 'sem_quadrante',
+    label: 'Aguardando Avaliação',
+    axis: 'Pendente',
+    subtitle: 'Em andamento ou sem classificação',
+    discEquiv: 'Pendente preenchimento',
+    emoji: '⚪',
+    bg: 'bg-slate-50',
+    border: 'border-slate-200',
+    text: 'text-slate-600',
+  },
+];
+
+export const normalizeQuadrant = (val?: string | null): KanbanQuadrantColumnId => {
+  if (!val) return 'sem_quadrante';
+  const clean = val.toLowerCase().replace(/\s+/g, ' ');
+  if (clean.includes('taref') && clean.includes('informal')) return 'Tarefas / Informal';
+  if (clean.includes('taref') && clean.includes('formal')) return 'Tarefas / Formal';
+  if (clean.includes('pesso') && clean.includes('informal')) return 'Pessoas / Informal';
+  if (clean.includes('pesso') && clean.includes('formal')) return 'Pessoas / Formal';
+  return 'sem_quadrante';
+};
+
+export const getItemQuadrantColumn = (item: ShapeResult): KanbanQuadrantColumnId => {
+  // 1. Tentar ler o quadrante direto do item (normalizado)
+  const norm = normalizeQuadrant(item.quadrante);
+  if (norm !== 'sem_quadrante') {
+    return norm;
+  }
+
+  // 2. Se não tiver, derivar via DISC Primário
+  if (item.discPrimary && QUADRANT_BY_DISC[item.discPrimary as DiscLetter]) {
+    return QUADRANT_BY_DISC[item.discPrimary as DiscLetter] as KanbanQuadrantColumnId;
+  }
+
+  // 3. Se tiver scores antigos de personalidade motScore e orgScore
+  if (typeof (item as any).motScore === 'number' && typeof (item as any).orgScore === 'number') {
+    const mot = (item as any).motScore >= 3.0 ? 'Pessoas' : 'Tarefas';
+    const org = (item as any).orgScore >= 3.0 ? 'Formal' : 'Informal';
+    return `${mot} / ${org}` as KanbanQuadrantColumnId;
+  }
+
+  return 'sem_quadrante';
+};
+
 export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult[] }) {
   const { toast } = useToast();
   const [results, setResults] = useState<ShapeResult[]>(initialResults);
   const [search, setSearch] = useState('');
   const [discFilter, setDiscFilter] = useState<string>('todos');
+  const [quadranteFilter, setQuadranteFilter] = useState<string>('todos');
   const [domFilter, setDomFilter] = useState<string>('todos');
   const [view, setView] = useState<'kanban' | 'list' | 'teams'>('kanban');
+  const [kanbanMode, setKanbanMode] = useState<'disc' | 'quadrantes'>('disc');
 
   // Estados do Raio-X de Equipes (Team Analytics)
   const [teamFilterType, setTeamFilterType] = useState<'ministry' | 'gc'>('ministry');
@@ -225,11 +337,18 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
 
   const filteredResults = results.filter(r => {
     const matchSearch = (r.nome || '').toLowerCase().includes(search.toLowerCase()) || (r.email || '').toLowerCase().includes(search.toLowerCase());
-    const itemCol = getItemDiscColumn(r);
-    const matchDisc = discFilter === 'todos' || itemCol === discFilter;
+    
+    // Filtro DISC
+    const itemDiscCol = getItemDiscColumn(r);
+    const matchDisc = discFilter === 'todos' || itemDiscCol === discFilter;
+
+    // Filtro Quadrante
+    const itemQuadCol = getItemQuadrantColumn(r);
+    const matchQuad = quadranteFilter === 'todos' || itemQuadCol === quadranteFilter;
+
     const top1Name = r.top3?.[0]?.nome || r.top3?.[0]?.name;
     const matchDom = domFilter === 'todos' || top1Name === domFilter;
-    return matchSearch && matchDisc && matchDom;
+    return matchSearch && matchDisc && matchQuad && matchDom;
   });
 
   // Equipes disponíveis (Ministérios e GCs) para o Team Analytics
@@ -253,8 +372,6 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
     q3: 'Causa que mais me engaja',
     q4: 'Maior sonho para o Reino',
   };
-
-  const kanbanColumns = KANBAN_DISC_COLUMNS;
 
   const formatAiAnalysis = (ai: any) => {
     if (!ai) return null;
@@ -386,19 +503,35 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
           />
         </div>
         
-        <Select value={discFilter} onValueChange={setDiscFilter}>
-          <SelectTrigger className="w-full md:w-[220px]">
-            <SelectValue placeholder="Perfil DISC" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos os Perfis</SelectItem>
-            <SelectItem value="D">🔴 D • Dominância</SelectItem>
-            <SelectItem value="I">🟡 I • Influência</SelectItem>
-            <SelectItem value="S">🟢 S • Estabilidade</SelectItem>
-            <SelectItem value="C">🔵 C • Conformidade</SelectItem>
-            <SelectItem value="sem_disc">⚪ Sem DISC / Legado</SelectItem>
-          </SelectContent>
-        </Select>
+        {view === 'kanban' && kanbanMode === 'quadrantes' ? (
+          <Select value={quadranteFilter} onValueChange={setQuadranteFilter}>
+            <SelectTrigger className="w-full md:w-[240px]">
+              <SelectValue placeholder="Filtrar por Quadrante" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os Quadrantes</SelectItem>
+              <SelectItem value="Tarefas / Formal">🎯 Tarefas / Formal (C)</SelectItem>
+              <SelectItem value="Tarefas / Informal">⚡ Tarefas / Informal (D)</SelectItem>
+              <SelectItem value="Pessoas / Formal">❤️ Pessoas / Formal (S)</SelectItem>
+              <SelectItem value="Pessoas / Informal">🤝 Pessoas / Informal (I)</SelectItem>
+              <SelectItem value="sem_quadrante">⚪ Aguardando Avaliação</SelectItem>
+            </SelectContent>
+          </Select>
+        ) : (
+          <Select value={discFilter} onValueChange={setDiscFilter}>
+            <SelectTrigger className="w-full md:w-[220px]">
+              <SelectValue placeholder="Perfil DISC" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os Perfis DISC</SelectItem>
+              <SelectItem value="D">🔴 D • Dominância</SelectItem>
+              <SelectItem value="I">🟡 I • Influência</SelectItem>
+              <SelectItem value="S">🟢 S • Estabilidade</SelectItem>
+              <SelectItem value="C">🔵 C • Conformidade</SelectItem>
+              <SelectItem value="sem_disc">⚪ Sem DISC / Legado</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
 
         <Select value={domFilter} onValueChange={setDomFilter}>
           <SelectTrigger className="w-full md:w-[200px]">
@@ -425,188 +558,295 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
 
         <div className="flex bg-slate-100 p-1 rounded-xl">
           <Button 
-            variant={view === 'kanban' ? 'default' : 'ghost'} 
+            variant={view === 'kanban' && kanbanMode === 'disc' ? 'default' : 'ghost'} 
             size="sm" 
-            onClick={() => setView('kanban')}
-            className="text-xs font-bold"
+            onClick={() => { setView('kanban'); setKanbanMode('disc'); }}
+            className="text-xs font-bold gap-1.5"
+            title="Kanban por Fatores DISC (D, I, S, C)"
           >
-            <LayoutGrid className="w-3.5 h-3.5 mr-1.5" /> Kanban
+            <LayoutGrid className="w-3.5 h-3.5" />
+            <span>Kanban DISC</span>
+          </Button>
+          <Button 
+            variant={view === 'kanban' && kanbanMode === 'quadrantes' ? 'default' : 'ghost'} 
+            size="sm" 
+            onClick={() => { setView('kanban'); setKanbanMode('quadrantes'); }}
+            className="text-xs font-bold gap-1.5"
+            title="Kanban por Eixos: Tarefas/Pessoas e Formal/Informal"
+          >
+            <Compass className="w-3.5 h-3.5 text-indigo-500" />
+            <span>Kanban Tarefas/Pessoas</span>
           </Button>
           <Button 
             variant={view === 'list' ? 'default' : 'ghost'} 
             size="sm" 
             onClick={() => setView('list')}
-            className="text-xs font-bold"
+            className="text-xs font-bold gap-1.5"
           >
-            <List className="w-3.5 h-3.5 mr-1.5" /> Lista
+            <List className="w-3.5 h-3.5" />
+            <span>Lista</span>
           </Button>
           <Button 
             variant={view === 'teams' ? 'default' : 'ghost'} 
             size="sm" 
             onClick={() => setView('teams')}
-            className="text-xs font-bold"
+            className="text-xs font-bold gap-1.5"
           >
-            <BarChart3 className="w-3.5 h-3.5 mr-1.5" /> Raio-X de Equipes
+            <BarChart3 className="w-3.5 h-3.5" />
+            <span>Raio-X de Equipes</span>
           </Button>
         </div>
       </div>
 
       {/* View Kanban */}
       {view === 'kanban' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 items-start">
-          {kanbanColumns.map(col => {
-            const colItems = filteredResults.filter(r => getItemDiscColumn(r) === col.id);
-            return (
-              <div key={col.id} className="flex flex-col gap-3 min-w-0">
-                <div className={`p-3.5 rounded-2xl border ${col.bg} ${col.border} flex items-center justify-between`}>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5 font-black text-xs">
-                      <span>{col.emoji}</span>
-                      <span className={col.text}>{col.label}</span>
-                    </div>
-                    <p className="text-[10px] text-slate-500 font-medium truncate mt-0.5">
-                      {col.subtitle}
-                    </p>
-                  </div>
-                  <Badge variant="secondary" className="bg-white/90 text-slate-700 font-extrabold text-[11px] shrink-0 ml-1">
-                    {colItems.length}
+        <div className="space-y-4">
+          {/* Header explicativo do modo Kanban ativo */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs">
+            <div className="flex items-center gap-2.5">
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 ${
+                kanbanMode === 'disc' 
+                  ? 'bg-red-50 text-red-600 border border-red-200' 
+                  : 'bg-indigo-50 text-indigo-600 border border-indigo-200'
+              }`}>
+                {kanbanMode === 'disc' ? '🎯' : '🧭'}
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-sm font-extrabold text-slate-900">
+                    {kanbanMode === 'disc' ? 'Quadro Kanban DISC' : 'Quadro Kanban Tarefas / Pessoas (Formal x Informal)'}
+                  </h3>
+                  <Badge variant="outline" className={`text-[10px] font-bold ${
+                    kanbanMode === 'disc' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                  }`}>
+                    {kanbanMode === 'disc' ? '4 Fatores Comportamentais (D, I, S, C)' : '4 Quadrantes de Personalidade SHAPE'}
                   </Badge>
                 </div>
-                
-                <div className="space-y-3">
-                  {colItems.map(item => {
-                    const comp = calculateShapeCompletion(item);
-                    const pct = item.completionPercentage ?? comp.percentage;
-                    const hasGifts = comp.giftsAnswered > 0 || (item.top3?.[0]?.score ?? 0) > 0;
-
-                    return (
-                      <Card 
-                        key={item.id} 
-                        className="cursor-pointer hover:shadow-md transition-all hover:border-slate-300 rounded-2xl border-slate-200"
-                        onClick={() => setSelectedPerson(item)}
-                      >
-                        <CardContent className="p-3.5 space-y-3">
-                          <div className="flex justify-between items-start gap-2">
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <Avatar className="h-9 w-9 shrink-0">
-                                <AvatarFallback className={`${col.bg} ${col.text} font-black text-xs border ${col.border}`}>
-                                  {renderInitials(item.nome)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="min-w-0">
-                                <p className="font-bold text-xs sm:text-sm text-slate-900 truncate">{item.nome}</p>
-                                <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                                  <Calendar className="w-2.5 h-2.5" />
-                                  {item.createdAt ? new Date(item.createdAt).toLocaleDateString('pt-BR') : '-'}
-                                </p>
-                              </div>
-                            </div>
-
-                            {item.status === 'in_progress' ? (
-                              <Badge variant="outline" className="text-[9px] bg-amber-50 text-amber-700 border-amber-200 shrink-0 font-bold px-1.5 py-0">
-                                {pct}% • Etapa {item.currentStep || 2}/8
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="text-[9px] bg-emerald-50 text-emerald-700 border-emerald-200 shrink-0 font-bold px-1.5 py-0">
-                                100% Concluído
-                              </Badge>
-                            )}
-                          </div>
-
-                          {/* Badge de Perfil DISC no Card */}
-                          <div className="pt-0.5">
-                            {item.discPrimary ? (
-                              <div className="space-y-1.5">
-                                <DiscProfileBadge
-                                  primary={item.discPrimary as any}
-                                  secondary={item.discSecondary as any}
-                                />
-                                {item.discScores && (
-                                  <DiscBarChart
-                                    scores={item.discScores as any}
-                                    compact
-                                    className="w-full pt-1"
-                                  />
-                                )}
-                              </div>
-                            ) : item.quadrante && QUADRANTE_META[item.quadrante] ? (
-                              <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-600 border-slate-200 font-medium">
-                                Legado • {QUADRANTE_META[item.quadrante].emoji} {QUADRANTE_META[item.quadrante].label}
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-dashed border-amber-200">
-                                Aguardando DISC (Aula 2)
-                              </Badge>
-                            )}
-                          </div>
-
-                          {/* Mini barra de progresso do card */}
-                          <div className="space-y-1">
-                            <div className="flex justify-between items-center text-[10px] text-slate-500">
-                              <span>Preenchimento</span>
-                              <span className="font-bold text-slate-700">{pct}%</span>
-                            </div>
-                            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                              <div
-                                className={`h-full rounded-full transition-all ${
-                                  pct >= 100 ? 'bg-emerald-500' : pct >= 70 ? 'bg-indigo-500' : 'bg-amber-500'
-                                }`}
-                                style={{ width: `${pct}%` }}
-                              />
-                            </div>
-                          </div>
-
-                          {item.gcInfo && (
-                            <div className="text-[11px] text-slate-500 truncate">
-                              <strong>GC:</strong> {item.gcInfo}
-                            </div>
-                          )}
-
-                          {item.ministryTarget && (
-                            <div className="text-[11px] text-[#523A8C] font-semibold flex items-center gap-1">
-                              <Compass className="w-3 h-3 shrink-0" />
-                              <span className="truncate">Área: {item.ministryTarget}</span>
-                            </div>
-                          )}
-
-                          <div className="flex flex-wrap gap-1 mt-2">
-                            {hasGifts ? (
-                              item.top3?.map((dom, i) => (
-                                <Badge key={i} variant="outline" className="text-[10px] py-0 px-1.5 h-5 bg-slate-50">
-                                  {dom.nome || dom.name} ({dom.score}pts)
-                                </Badge>
-                              ))
-                            ) : (
-                              <Badge variant="outline" className="text-[10px] py-0 px-1.5 h-5 bg-slate-50 text-slate-400 border-dashed">
-                                Dons pendentes ({comp.giftsAnswered}/133)
-                              </Badge>
-                            )}
-                          </div>
-
-                          <div className="flex flex-wrap gap-1 mt-2">
-                            {(item.habilidades || []).slice(0, 3).map((habId, i) => {
-                              const oldHab = HABILIDADES_MAP[habId];
-                              const label = oldHab ? `${oldHab.icon} ${oldHab.nome}` : habId;
-                              return (
-                                <Badge key={i} variant="secondary" className="text-[10px] py-0 px-1.5 h-5 bg-slate-100 text-slate-600 truncate max-w-full">
-                                  {label}
-                                </Badge>
-                              );
-                            })}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                  {colItems.length === 0 && (
-                    <div className="text-center text-xs text-slate-400 py-8 border-2 border-dashed rounded-2xl border-slate-200">
-                      Nenhum resultado
-                    </div>
-                  )}
-                </div>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {kanbanMode === 'disc' 
+                    ? 'Distribuição dos membros pelos 4 fatores comportamentais do inventário DISC (Dominância, Influência, Estabilidade e Conformidade).'
+                    : 'Distribuição pelos eixos clássicos do SHAPE: Foco em Tarefas ou Pessoas (Motivação) e Abordagem Formal ou Informal (Organização).'}
+                </p>
               </div>
-            );
-          })}
+            </div>
+
+            {/* Alternador de modo Kanban */}
+            <div className="flex items-center bg-slate-100 p-1 rounded-xl shrink-0 self-start sm:self-auto">
+              <Button
+                variant={kanbanMode === 'disc' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setKanbanMode('disc')}
+                className="text-xs font-bold gap-1.5 h-8 rounded-lg shadow-none"
+              >
+                <span>🎯</span>
+                <span>Kanban DISC</span>
+              </Button>
+              <Button
+                variant={kanbanMode === 'quadrantes' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setKanbanMode('quadrantes')}
+                className="text-xs font-bold gap-1.5 h-8 rounded-lg shadow-none"
+              >
+                <span>🧭</span>
+                <span>Tarefas / Pessoas</span>
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 items-start">
+            {(kanbanMode === 'disc' ? KANBAN_DISC_COLUMNS : KANBAN_QUADRANT_COLUMNS).map(col => {
+              const colItems = filteredResults.filter(r => 
+                kanbanMode === 'disc' 
+                  ? getItemDiscColumn(r) === col.id 
+                  : getItemQuadrantColumn(r) === col.id
+              );
+              return (
+                <div key={col.id} className="flex flex-col gap-3 min-w-0">
+                  <div className={`p-3.5 rounded-2xl border ${col.bg} ${col.border} flex items-center justify-between`}>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 font-black text-xs">
+                        <span>{col.emoji}</span>
+                        <span className={col.text}>{col.label}</span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 font-medium truncate mt-0.5">
+                        {col.subtitle}
+                      </p>
+                      {'discEquiv' in col && col.discEquiv && (
+                        <p className="text-[9px] text-slate-400 font-semibold truncate mt-0.5">
+                          {col.discEquiv}
+                        </p>
+                      )}
+                    </div>
+                    <Badge variant="secondary" className="bg-white/90 text-slate-700 font-extrabold text-[11px] shrink-0 ml-1">
+                      {colItems.length}
+                    </Badge>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    {colItems.map(item => {
+                      const comp = calculateShapeCompletion(item);
+                      const pct = item.completionPercentage ?? comp.percentage;
+                      const hasGifts = comp.giftsAnswered > 0 || (item.top3?.[0]?.score ?? 0) > 0;
+
+                      return (
+                        <Card 
+                          key={item.id} 
+                          className="cursor-pointer hover:shadow-md transition-all hover:border-slate-300 rounded-2xl border-slate-200"
+                          onClick={() => setSelectedPerson(item)}
+                        >
+                          <CardContent className="p-3.5 space-y-3">
+                            <div className="flex justify-between items-start gap-2">
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <Avatar className="h-9 w-9 shrink-0">
+                                  <AvatarFallback className={`${col.bg} ${col.text} font-black text-xs border ${col.border}`}>
+                                    {renderInitials(item.nome)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="min-w-0">
+                                  <p className="font-bold text-xs sm:text-sm text-slate-900 truncate">{item.nome}</p>
+                                  <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                    <Calendar className="w-2.5 h-2.5" />
+                                    {item.createdAt ? new Date(item.createdAt).toLocaleDateString('pt-BR') : '-'}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {item.status === 'in_progress' ? (
+                                <Badge variant="outline" className="text-[9px] bg-amber-50 text-amber-700 border-amber-200 shrink-0 font-bold px-1.5 py-0">
+                                  {pct}% • Etapa {item.currentStep || 2}/8
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-[9px] bg-emerald-50 text-emerald-700 border-emerald-200 shrink-0 font-bold px-1.5 py-0">
+                                  100% Concluído
+                                </Badge>
+                              )}
+                            </div>
+
+                            {/* Badge de Perfil no Card (Contextual por modo) */}
+                            <div className="pt-0.5">
+                              {kanbanMode === 'quadrantes' ? (
+                                <div className="space-y-1.5">
+                                  <div className="flex items-center justify-between gap-1 flex-wrap">
+                                    <Badge variant="outline" className={`text-[10px] font-bold border ${col.border} ${col.bg} ${col.text}`}>
+                                      {col.emoji} {col.label}
+                                    </Badge>
+                                    {item.discPrimary ? (
+                                      <Badge variant="secondary" className="text-[9px] bg-slate-100 text-slate-700 font-extrabold px-1.5 py-0">
+                                        DISC: {item.discProfile || item.discPrimary}
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="outline" className="text-[9px] text-slate-500 bg-slate-50 border-slate-200">
+                                        Legado
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  {item.discScores ? (
+                                    <DiscBarChart
+                                      scores={item.discScores as any}
+                                      compact
+                                      className="w-full pt-1"
+                                    />
+                                  ) : (typeof (item as any).motScore === 'number' && typeof (item as any).orgScore === 'number') ? (
+                                    <p className="text-[10px] text-slate-500 font-medium">
+                                      Mot: {(item as any).motScore >= 3 ? 'Pessoas' : 'Tarefas'} ({Number((item as any).motScore).toFixed(1)}) • Org: {(item as any).orgScore >= 3 ? 'Formal' : 'Informal'} ({Number((item as any).orgScore).toFixed(1)})
+                                    </p>
+                                  ) : null}
+                                </div>
+                              ) : (
+                                item.discPrimary ? (
+                                  <div className="space-y-1.5">
+                                    <DiscProfileBadge
+                                      primary={item.discPrimary as any}
+                                      secondary={item.discSecondary as any}
+                                    />
+                                    {item.discScores && (
+                                      <DiscBarChart
+                                        scores={item.discScores as any}
+                                        compact
+                                        className="w-full pt-1"
+                                      />
+                                    )}
+                                  </div>
+                                ) : item.quadrante && QUADRANTE_META[item.quadrante] ? (
+                                  <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-600 border-slate-200 font-medium">
+                                    Legado • {QUADRANTE_META[item.quadrante].emoji} {QUADRANTE_META[item.quadrante].label}
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-dashed border-amber-200">
+                                    Aguardando DISC (Aula 2)
+                                  </Badge>
+                                )
+                              )}
+                            </div>
+
+                            {/* Mini barra de progresso do card */}
+                            <div className="space-y-1">
+                              <div className="flex justify-between items-center text-[10px] text-slate-500">
+                                <span>Preenchimento</span>
+                                <span className="font-bold text-slate-700">{pct}%</span>
+                              </div>
+                              <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all ${
+                                    pct >= 100 ? 'bg-emerald-500' : pct >= 70 ? 'bg-indigo-500' : 'bg-amber-500'
+                                  }`}
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                            </div>
+
+                            {item.gcInfo && (
+                              <div className="text-[11px] text-slate-500 truncate">
+                                <strong>GC:</strong> {item.gcInfo}
+                              </div>
+                            )}
+
+                            {item.ministryTarget && (
+                              <div className="text-[11px] text-[#523A8C] font-semibold flex items-center gap-1">
+                                <Compass className="w-3 h-3 shrink-0" />
+                                <span className="truncate">Área: {item.ministryTarget}</span>
+                              </div>
+                            )}
+
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {hasGifts ? (
+                                item.top3?.map((dom, i) => (
+                                  <Badge key={i} variant="outline" className="text-[10px] py-0 px-1.5 h-5 bg-slate-50">
+                                    {dom.nome || dom.name} ({dom.score}pts)
+                                  </Badge>
+                                ))
+                              ) : (
+                                <Badge variant="outline" className="text-[10px] py-0 px-1.5 h-5 bg-slate-50 text-slate-400 border-dashed">
+                                  Dons pendentes ({comp.giftsAnswered}/133)
+                                </Badge>
+                              )}
+                            </div>
+
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {(item.habilidades || []).slice(0, 3).map((habId, i) => {
+                                const oldHab = HABILIDADES_MAP[habId];
+                                const label = oldHab ? `${oldHab.icon} ${oldHab.nome}` : habId;
+                                return (
+                                  <Badge key={i} variant="secondary" className="text-[10px] py-0 px-1.5 h-5 bg-slate-100 text-slate-600 truncate max-w-full">
+                                    {label}
+                                  </Badge>
+                                );
+                              })}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                    {colItems.length === 0 && (
+                      <div className="text-center text-xs text-slate-400 py-8 border-2 border-dashed rounded-2xl border-slate-200">
+                        Nenhum resultado
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
