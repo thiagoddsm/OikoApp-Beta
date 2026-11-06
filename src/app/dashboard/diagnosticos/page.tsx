@@ -13,7 +13,6 @@ import {
   Church,
   User,
   Phone,
-  Mail,
   MapPin,
   Calendar,
   Eye,
@@ -533,12 +532,10 @@ export default function DiagnosticosDashboardPage() {
                             <span>{item.identificacao.telefone}</span>
                           </div>
                         )}
-                        {item.identificacao.email && (
-                          <div className="flex items-center gap-1.5 truncate">
-                            <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                            <span className="truncate">{item.identificacao.email}</span>
-                          </div>
-                        )}
+                        <div className="flex items-center gap-1.5 text-emerald-700 font-semibold text-[11px] pt-0.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span>Avaliação Anônima & Secreta</span>
+                        </div>
                       </div>
                     </div>
 

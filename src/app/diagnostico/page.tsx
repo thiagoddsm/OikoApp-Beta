@@ -333,13 +333,22 @@ export default function DiagnosticoRedePage() {
             <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-700/60 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
               <div className="relative z-10 space-y-3">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 rounded-full text-xs font-black uppercase tracking-wider">
+                  <ShieldCheck className="w-3.5 h-3.5" /> Formulário 100% Secreto & Anônimo
+                </div>
                 <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
                   Como está a saúde real da sua igreja hoje?
                 </h2>
                 <p className="text-sm sm:text-base text-slate-300 leading-relaxed max-w-2xl">
-                  Este diagnóstico avalia a sua congregação através de <strong>25 princípios bíblicos e práticos</strong> divididos em 5 domínios fundamentais. Ao final, você receberá um relatório com métricas exatas e um plano de ação pastoral personalizado.
+                  Este diagnóstico avalia a congregação através de <strong>25 princípios bíblicos e práticos</strong> divididos em 5 domínios fundamentais. 
+                  <strong className="text-emerald-300 block mt-1">
+                    🔒 Suas respostas individuais são totalmente confidenciais e anônimas. Responda com sinceridade de coração.
+                  </strong>
                 </p>
                 <div className="flex flex-wrap gap-4 pt-2 text-xs font-semibold text-slate-300">
+                  <span className="flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-400" /> Respostas 100% anônimas
+                  </span>
                   <span className="flex items-center gap-1.5">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400" /> 75 afirmações objetivas
                   </span>
@@ -356,11 +365,16 @@ export default function DiagnosticoRedePage() {
             {/* Formulário de Identificação */}
             <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-sm space-y-6">
               <div className="border-b border-slate-100 pb-4">
-                <h3 className="text-lg font-extrabold text-slate-900">
-                  Dados de Identificação
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Preencha as informações da sua igreja e ministério para iniciarmos.
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-extrabold text-slate-900">
+                    Dados da Congregação e Pastor Avaliado
+                  </h3>
+                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                    <ShieldCheck className="w-3 h-3 text-emerald-600" /> Sigiloso
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Preencha as informações da sua igreja e selecione o pastor principal. Suas respostas individuais permanecem anônimas.
                 </p>
               </div>
 
@@ -419,22 +433,6 @@ export default function DiagnosticoRedePage() {
                     value={identificacao.telefone}
                     onChange={(e) =>
                       setIdentificacao((prev) => ({ ...prev, telefone: e.target.value }))
-                    }
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 outline-none text-sm transition-all"
-                  />
-                </div>
-
-                {/* E-mail */}
-                <div className="sm:col-span-2 space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                    <Mail className="w-4 h-4 text-slate-400" /> E-mail para envio do diagnóstico
-                  </label>
-                  <input
-                    type="email"
-                    placeholder="pastor@suaigreja.com.br"
-                    value={identificacao.email}
-                    onChange={(e) =>
-                      setIdentificacao((prev) => ({ ...prev, email: e.target.value }))
                     }
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 outline-none text-sm transition-all"
                   />
