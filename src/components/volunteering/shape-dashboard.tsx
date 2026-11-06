@@ -711,7 +711,8 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 items-start">
+          <div className="overflow-x-auto pb-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 items-start min-w-[1100px]">
             {(kanbanMode === 'disc' ? KANBAN_DISC_COLUMNS : KANBAN_QUADRANT_COLUMNS).map(col => {
               const colItems = filteredResults.filter(r => 
                 kanbanMode === 'disc' 
@@ -753,31 +754,40 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                           onClick={() => setSelectedPerson(item)}
                         >
                           <CardContent className="p-3.5 space-y-3">
-                            <div className="flex justify-between items-start gap-2">
-                              <div className="flex items-center gap-2.5 min-w-0">
-                                <Avatar className="h-9 w-9 shrink-0">
+                            {/* Cabeçalho do Card: Avatar + Nome sem espremer */}
+                            <div className="space-y-2">
+                              <div className="flex items-start gap-2.5">
+                                <Avatar className="h-9 w-9 shrink-0 mt-0.5">
                                   <AvatarFallback className={`${col.bg} ${col.text} font-black text-xs border ${col.border}`}>
                                     {renderInitials(item.nome)}
                                   </AvatarFallback>
                                 </Avatar>
-                                <div className="min-w-0">
-                                  <p className="font-bold text-xs sm:text-sm text-slate-900 truncate">{item.nome}</p>
-                                  <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                                    <Calendar className="w-2.5 h-2.5" />
-                                    {item.createdAt ? new Date(item.createdAt).toLocaleDateString('pt-BR') : '-'}
-                                  </p>
+                                <div className="min-w-0 flex-1">
+                                  <h4 
+                                    className="font-bold text-sm text-slate-900 leading-tight break-words line-clamp-2 hover:text-[#523A8C] transition-colors"
+                                    title={item.nome}
+                                  >
+                                    {item.nome || 'Sem Nome'}
+                                  </h4>
+                                  <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5">
+                                    <Calendar className="w-2.5 h-2.5 shrink-0" />
+                                    <span>{item.createdAt ? new Date(item.createdAt).toLocaleDateString('pt-BR') : '-'}</span>
+                                  </div>
                                 </div>
                               </div>
 
-                              {item.status === 'in_progress' ? (
-                                <Badge variant="outline" className="text-[9px] bg-amber-50 text-amber-700 border-amber-200 shrink-0 font-bold px-1.5 py-0">
-                                  {pct}% • Etapa {item.currentStep || 2}/8
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline" className="text-[9px] bg-emerald-50 text-emerald-700 border-emerald-200 shrink-0 font-bold px-1.5 py-0">
-                                  100% Concluído
-                                </Badge>
-                              )}
+                              {/* Status / Progresso Badge */}
+                              <div className="flex items-center justify-between gap-1">
+                                {item.status === 'in_progress' ? (
+                                  <Badge variant="outline" className="text-[9px] bg-amber-50 text-amber-700 border-amber-200 font-bold px-2 py-0.5">
+                                    ⏳ {pct}% • Etapa {item.currentStep || 2}/8
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-[9px] bg-emerald-50 text-emerald-700 border-emerald-200 font-bold px-2 py-0.5">
+                                    ✓ 100% Concluído
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
 
                             {/* Badge de Perfil no Card (Contextual por modo) */}
@@ -904,6 +914,7 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                 </div>
               );
             })}
+            </div>
           </div>
         </div>
       )}
