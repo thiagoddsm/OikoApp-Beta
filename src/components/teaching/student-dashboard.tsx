@@ -20,7 +20,7 @@ import { format, parseISO, addWeeks, addMonths, isBefore, startOfDay } from 'dat
 import { ptBR } from 'date-fns/locale';
 import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
 import { CertificateView } from './certificate-view';
-import { getModuleCompletion, evaluateTheoflixRequirement, evaluateRepositionRequirement, evaluateManualApprovalRequirement } from '@/domain/teaching/module-completion';
+import { getModuleCompletion, evaluateTheoflixRequirement, evaluateRepositionRequirement, evaluateManualApprovalRequirement, evaluateAttendanceRequirement } from '@/domain/teaching/module-completion';
 import { evaluateStudentAttendance } from '@/lib/teaching/attendance-calculator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -122,14 +122,33 @@ function getStudentStatus(
   if (isBefore(today, sessionDate)) return 'future';
 
   const cleanDateStr = dateStr.split('T')[0];
-  const att = (cls.attendance || []).find((a: any) => a.date === dateStr || a.date?.split('T')[0] === cleanDateStr);
+  const hasMultipleSlots = (cls.dailySlots && cls.dailySlots.length > 1) || dateStr.includes('T');
 
-  // 1. Checagem direta na chamada da turma
+  // 1. Prioriza correspondência exata de data/hora (essencial para turmas com múltiplos slots/horários no mesmo dia)
+  let att = (cls.attendance || []).find((a: any) => a.date === dateStr);
+
+  // 2. Se não achou exato e a turma/sessão NÃO tem múltiplos horários, permite busca por data simples
+  if (!att && !hasMultipleSlots) {
+    att = (cls.attendance || []).find((a: any) => a.date === cleanDateStr || a.date?.split('T')[0] === cleanDateStr);
+  }
+
+  // 3. Fallback por índice do módulo / syllabusId
+  const modIndex = sessionIndex !== -1 ? sessionIndex : (course ? getModuleIndexForDate(dateStr, cls, course?.syllabus || []) : -1);
+  if (!att && modIndex !== -1 && (cls.attendance || []).length > 0) {
+    att = (cls.attendance || []).find((a: any) => {
+      if (a.moduleIndex !== undefined && Number(a.moduleIndex) === modIndex) return true;
+      if (a.syllabusId && course?.syllabus) {
+        const sIdx = course.syllabus.findIndex((s: any) => s.id === a.syllabusId);
+        if (sIdx === modIndex) return true;
+      }
+      return false;
+    });
+  }
+
+  // 1. Checagem direta na chamada da turma encontrada
   if (att?.presentStudentIds?.includes(userId)) return 'present';
   if (att?.onlineStudentIds?.includes(userId)) return 'online';
   if (att?.repositions?.some((r: any) => r.studentId === userId)) return 'makeup';
-
-  const modIndex = sessionIndex !== -1 ? sessionIndex : (course ? getModuleIndexForDate(dateStr, cls, course.syllabus || []) : -1);
 
   if (modIndex !== -1) {
     const isMembership = isMembershipCourse(course || { id: cls.courseId });
@@ -146,6 +165,14 @@ function getStudentStatus(
       courseClasses: allClasses.length > 0 ? allClasses : [cls],
       quizAttempts: quizAttempts || [],
       isMembership
+    };
+
+    // Paridade com a Matriz de Presença / Domínio oficial de Ensino:
+    // Se o requisito presencial deste módulo foi cumprido em qualquer chamada válida da turma:
+    const regularAtt = evaluateAttendanceRequirement(completionParams);
+    if (regularAtt) {
+      if (regularAtt.onlineStudentIds?.includes(userId)) return 'online';
+      return 'present';
     };
 
     // 2. Se a chamada da turma para esta data já foi realizada e o aluno NÃO estava presente:
