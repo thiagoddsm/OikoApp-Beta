@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Step1Intro, { Step1FormData, SavedShapeProgress } from '@/components/volunteering/shape/Step1Intro';
 import Step2Abilities from '@/components/volunteering/shape/Step2Abilities';
 import Step3Heart from '@/components/volunteering/shape/Step3Heart';
@@ -83,15 +83,110 @@ export default function MoldeDeServoPage() {
     setFormData((prev) => ({ ...prev, ...data }));
   };
 
+  // Backup automático no localStorage do celular/navegador a cada resposta marcada
+  useEffect(() => {
+    if (!formData.userId) return;
+    try {
+      const draftKey = `oiko_shape_draft_v2_${formData.userId}`;
+      const draftPayload = {
+        updatedAt: Date.now(),
+        step,
+        formData,
+        heartAnswers,
+        giftAnswers,
+        discAnswers,
+        personalityAnswers,
+        selectedAbilities,
+        experiences,
+        availability,
+      };
+      localStorage.setItem(draftKey, JSON.stringify(draftPayload));
+    } catch {
+      // Ignora caso localStorage esteja indisponível
+    }
+  }, [
+    formData,
+    step,
+    heartAnswers,
+    giftAnswers,
+    discAnswers,
+    personalityAnswers,
+    selectedAbilities,
+    experiences,
+    availability,
+  ]);
+
+  // Ao identificar o userId (mesmo sem progresso prévio no servidor), verifica se há rascunho local no aparelho
+  useEffect(() => {
+    if (!formData.userId) return;
+    try {
+      const rawDraft = localStorage.getItem(`oiko_shape_draft_v2_${formData.userId}`);
+      if (!rawDraft) return;
+      const localDraft = JSON.parse(rawDraft);
+      if (localDraft.heartAnswers && Object.keys(localDraft.heartAnswers).length > 0) {
+        setHeartAnswers((prev) => ({ ...localDraft.heartAnswers, ...prev }));
+      }
+      if (localDraft.giftAnswers && Object.keys(localDraft.giftAnswers).length > 0) {
+        setGiftAnswers((prev) => ({ ...localDraft.giftAnswers, ...prev }));
+      }
+      if (localDraft.personalityAnswers && Object.keys(localDraft.personalityAnswers).length > 0) {
+        setPersonalityAnswers((prev) => ({ ...localDraft.personalityAnswers, ...prev }));
+      }
+      if (localDraft.discAnswers && Object.keys(localDraft.discAnswers).length > 0) {
+        setDiscAnswers((prev) => ({ ...sanitizeDiscAnswers(localDraft.discAnswers), ...prev }));
+      }
+      if (Array.isArray(localDraft.selectedAbilities) && localDraft.selectedAbilities.length > 0) {
+        setSelectedAbilities((prev) => (prev.length > 0 ? prev : localDraft.selectedAbilities));
+      }
+      if (localDraft.experiences && Object.keys(localDraft.experiences).length > 0) {
+        setExperiences((prev) => ({ ...localDraft.experiences, ...prev }));
+      }
+      if (Array.isArray(localDraft.availability) && localDraft.availability.length > 0) {
+        setAvailability((prev) => (prev.length > 0 ? prev : localDraft.availability));
+      }
+    } catch {
+      // Ignora erro de leitura local
+    }
+  }, [formData.userId]);
+
   const handleRestoreProgress = (progress: SavedShapeProgress, jumpToStep = false) => {
-    if (progress.abilities) setSelectedAbilities(progress.abilities);
-    if (progress.availability) setAvailability(progress.availability);
-    if (progress.experiences) setExperiences(progress.experiences);
-    if (progress.heart) setHeartAnswers(progress.heart);
-    if (progress.personality) setPersonalityAnswers(progress.personality);
-    if (progress.discAnswers) setDiscAnswers(sanitizeDiscAnswers(progress.discAnswers));
+    // Tenta mesclar também com eventual rascunho local do aparelho para não perder respostas não salvas
+    let localDraft: any = null;
+    try {
+      const uid = progress.id || formData.userId;
+      if (uid) {
+        const raw = localStorage.getItem(`oiko_shape_draft_v2_${uid}`);
+        if (raw) localDraft = JSON.parse(raw);
+      }
+    } catch {
+      // Ignora erro de parse
+    }
+
+    const mergedAbilities =
+      localDraft?.selectedAbilities?.length > (progress.abilities?.length || 0)
+        ? localDraft.selectedAbilities
+        : progress.abilities;
+    const mergedAvailability =
+      localDraft?.availability?.length > (progress.availability?.length || 0)
+        ? localDraft.availability
+        : progress.availability;
+    const mergedExperiences = { ...(progress.experiences || {}), ...(localDraft?.experiences || {}) };
+    const mergedHeart = { ...(progress.heart || {}), ...(localDraft?.heartAnswers || {}) };
+    const mergedPersonality = { ...(progress.personality || {}), ...(localDraft?.personalityAnswers || {}) };
+    const mergedDisc = {
+      ...sanitizeDiscAnswers(progress.discAnswers),
+      ...sanitizeDiscAnswers(localDraft?.discAnswers),
+    };
+    const mergedGifts = { ...(progress.gifts || {}), ...(localDraft?.giftAnswers || {}) };
+
+    if (mergedAbilities) setSelectedAbilities(mergedAbilities);
+    if (mergedAvailability) setAvailability(mergedAvailability);
+    if (Object.keys(mergedExperiences).length > 0) setExperiences(mergedExperiences);
+    if (Object.keys(mergedHeart).length > 0) setHeartAnswers(mergedHeart);
+    if (Object.keys(mergedPersonality).length > 0) setPersonalityAnswers(mergedPersonality);
+    if (Object.keys(mergedDisc).length > 0) setDiscAnswers(mergedDisc);
     if (progress.legacyQuadrante) setLegacyQuadrante(progress.legacyQuadrante);
-    if (progress.gifts) setGiftAnswers(progress.gifts);
+    if (Object.keys(mergedGifts).length > 0) setGiftAnswers(mergedGifts);
     if (progress.targetMinistry) {
       updateFormData({ targetMinistry: progress.targetMinistry });
     }
@@ -146,26 +241,58 @@ export default function MoldeDeServoPage() {
       return false;
     }
 
+    const payload = {
+      userId: formData.userId,
+      name: formData.name,
+      email: formData.email,
+      phone: formData.phone,
+      gcId: formData.gcId,
+      gcName: formData.gcName,
+      targetMinistry: formData.targetMinistry,
+      abilities: selectedAbilities,
+      availability,
+      experiences,
+      heart: heartAnswers,
+      personality: personalityAnswers,
+      discAnswers,
+      gifts: giftAnswers,
+      currentStep: nextStepNumber,
+      status: isCompleted ? ('completed' as const) : ('in_progress' as const),
+    };
+
     setIsSavingStep(true);
     try {
-      const res = await saveShapeStepProgress({
-        userId: formData.userId,
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        gcId: formData.gcId,
-        gcName: formData.gcName,
-        targetMinistry: formData.targetMinistry,
-        abilities: selectedAbilities,
-        availability,
-        experiences,
-        heart: heartAnswers,
-        personality: personalityAnswers,
-        discAnswers,
-        gifts: giftAnswers,
-        currentStep: nextStepNumber,
-        status: isCompleted ? 'completed' : 'in_progress',
-      });
+      let res: any = null;
+      let lastErr: any = null;
+
+      // Tenta via rota de API REST fixa (imune a atualização de build / Server Action hash) com até 3 tentativas
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          const response = await fetch('/api/shape/progress', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          res = await response.json();
+          if (res && typeof res.success === 'boolean') {
+            break;
+          }
+        } catch (err) {
+          lastErr = err;
+          if (attempt < 3) {
+            await new Promise((r) => setTimeout(r, 700 * attempt));
+          }
+        }
+      }
+
+      // Fallback final para Server Action caso a rota de API não tenha respondido
+      if (!res || typeof res.success !== 'boolean') {
+        try {
+          res = await saveShapeStepProgress(payload);
+        } catch (saErr) {
+          throw lastErr || saErr;
+        }
+      }
 
       if (!res.success) {
         toast({
@@ -180,8 +307,9 @@ export default function MoldeDeServoPage() {
     } catch (err: any) {
       toast({
         variant: 'destructive',
-        title: 'Erro de conexão',
-        description: 'Verifique sua internet e tente salvar novamente.',
+        title: 'Oscilação de conexão',
+        description:
+          'Suas respostas estão salvas neste aparelho! Verifique o sinal ou atualize a página e tente novamente.',
       });
       return false;
     } finally {

@@ -96,12 +96,22 @@ export default function Step5Result({
 
   // Carrega opções dinâmicas e perfis de ministérios configurados pelo pastor
   useEffect(() => {
-    getMinistryProfiles().then((profs) => {
-      if (profs && profs.length > 0) {
-        setMinistryProfiles(profs);
-        setMinistrySuggestions(profs.map((p) => p.nome));
-      }
-    });
+    fetch('/api/shape/lookup')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.profiles && data.profiles.length > 0) {
+          setMinistryProfiles(data.profiles);
+          setMinistrySuggestions(data.profiles.map((p: MinistryProfile) => p.nome));
+        }
+      })
+      .catch(() => {
+        getMinistryProfiles().then((profs) => {
+          if (profs && profs.length > 0) {
+            setMinistryProfiles(profs);
+            setMinistrySuggestions(profs.map((p) => p.nome));
+          }
+        }).catch(() => {});
+      });
   }, []);
 
   // 1. CÁLCULO DOS DONS
@@ -206,7 +216,8 @@ export default function Step5Result({
     async function autoSave() {
       setIsSaving(true);
       try {
-        const res = await submitShapeAssessment({
+        const payload = {
+          isFinalSubmission: true,
           userId: formData.userId,
           name: formData.name,
           email: formData.email,
@@ -219,10 +230,17 @@ export default function Step5Result({
           heart: heartAnswers,
           personality: personalityAnswers,
           discAnswers: discResult.discAnswers,
-          gifts: allGiftScores,
+          gifts: giftAnswers,
           quadrant: classicPersonality?.quadrant || discResult.quadrante || '',
           topGifts,
+        };
+
+        const response = await fetch('/api/shape/progress', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
         });
+        const res = await response.json();
 
         if (isMounted && res.success && res.id) {
           setSavedId(res.id);

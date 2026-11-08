@@ -242,29 +242,61 @@ export async function saveShapeStepProgress(data: SaveShapeStepPayload) {
     const finalGcId = data.gcId || u.cellId || u.gcId || '';
     const finalGcName = data.gcName || u.cellName || u.gcName || '';
 
-    const metrics = calculateShapeMetrics(data.personality || {}, data.gifts || {}, data.discAnswers);
+    const docRef = db.collection('shape_results').doc(data.userId);
+    const existingSnap = await docRef.get();
+    const existingData = existingSnap.exists ? existingSnap.data() || {} : {};
+
+    // Mescla segura para nunca perder respostas D001..D133 já salvas no banco
+    const existingValidGifts: Record<string, number> = {};
+    if (existingData.dom && typeof existingData.dom === 'object') {
+      for (const [k, v] of Object.entries(existingData.dom)) {
+        if (/^D\d{3}$/.test(k) && typeof v === 'number') {
+          existingValidGifts[k] = v;
+        }
+      }
+    }
+    const incomingValidGifts: Record<string, number> = {};
+    if (data.gifts && typeof data.gifts === 'object') {
+      for (const [k, v] of Object.entries(data.gifts)) {
+        if (/^D\d{3}$/.test(k) && typeof v === 'number') {
+          incomingValidGifts[k] = v;
+        }
+      }
+    }
+    const mergedGifts = { ...existingValidGifts, ...incomingValidGifts };
+    const mergedPersonality = { ...(existingData.perso || {}), ...(data.personality || {}) };
+    const mergedHeart = { ...(existingData.coracao || {}), ...(data.heart || {}) };
+    const mergedDiscRaw =
+      data.discAnswers && Object.keys(data.discAnswers).length > 0
+        ? { ...(existingData.discAnswers || {}), ...data.discAnswers }
+        : existingData.discAnswers;
+
+    const metrics = calculateShapeMetrics(mergedPersonality, mergedGifts, mergedDiscRaw);
     const disc = metrics.disc;
 
     const experiencesWithAvail = {
+      ...(existingData.experiencias || {}),
       ...(data.experiences || {}),
       ...(data.availability && data.availability.length > 0
         ? { availability: data.availability.join(', ') }
         : {}),
     };
 
+    const mergedAbilities =
+      data.abilities && data.abilities.length > 0
+        ? data.abilities
+        : existingData.habilidades || [];
+
     const completion = calculateShapeCompletion({
-      coracao: data.heart,
-      dom: data.gifts,
-      perso: data.personality,
+      coracao: mergedHeart,
+      dom: mergedGifts,
+      perso: mergedPersonality,
       discAnswers: disc.discAnswers,
-      habilidades: data.abilities,
-      disponibilidade: data.availability,
+      habilidades: mergedAbilities,
+      disponibilidade: data.availability ?? existingData.disponibilidade,
       experiencias: experiencesWithAvail,
       status: data.status,
     });
-
-    const docRef = db.collection('shape_results').doc(data.userId);
-    const existingSnap = await docRef.get();
 
     const now = Timestamp.now();
     const payload: Record<string, any> = {
@@ -274,11 +306,11 @@ export async function saveShapeStepProgress(data: SaveShapeStepPayload) {
       telefone: finalPhone,
       gcId: finalGcId,
       gcInfo: finalGcName,
-      ministryTarget: data.targetMinistry || '',
-      habilidades: data.abilities || [],
-      coracao: data.heart || {},
+      ministryTarget: data.targetMinistry || existingData.ministryTarget || '',
+      habilidades: mergedAbilities,
+      coracao: mergedHeart,
       experiencias: experiencesWithAvail,
-      dom: data.gifts || {},
+      dom: mergedGifts,
       domScores: metrics.domScores,
       top3: metrics.top3,
       currentStep: data.currentStep,
@@ -311,8 +343,8 @@ export async function saveShapeStepProgress(data: SaveShapeStepPayload) {
     if (metrics.quadrante) {
       payload.quadrante = metrics.quadrante;
     }
-    if (data.personality && Object.keys(data.personality).length > 0) {
-      payload.perso = data.personality;
+    if (Object.keys(mergedPersonality).length > 0) {
+      payload.perso = mergedPersonality;
       payload.orgScore = metrics.orgScore;
       payload.motScore = metrics.motScore;
     }

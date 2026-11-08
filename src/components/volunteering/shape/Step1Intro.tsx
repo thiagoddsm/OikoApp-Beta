@@ -111,7 +111,17 @@ export default function Step1Intro({
 
     setIsSearching(true);
     try {
-      const res = await lookupMemberByEmail(emailInput);
+      let res: any;
+      try {
+        const apiResp = await fetch('/api/shape/lookup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: emailInput }),
+        });
+        res = await apiResp.json();
+      } catch {
+        res = await lookupMemberByEmail(emailInput);
+      }
       setLookupDone(true);
 
       if (res.found && res.userId) {
