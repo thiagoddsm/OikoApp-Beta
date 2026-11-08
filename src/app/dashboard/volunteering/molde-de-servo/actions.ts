@@ -23,8 +23,40 @@ export async function getShapeResults(): Promise<ShapeResult[]> {
   try {
     const db = getAdminDb();
     const snap = await db.collection('shape_results').orderBy('createdAt', 'desc').get();
+
+    // Coleta userIds únicos para enriquecer com profissao / escolaridade / telefone da coleção 'users'
+    const userIds = Array.from(
+      new Set(
+        snap.docs
+          .map(doc => doc.data()?.userId || doc.id)
+          .filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+      )
+    );
+
+    const userMap = new Map<string, any>();
+    if (userIds.length > 0) {
+      try {
+        const chunks: string[][] = [];
+        for (let i = 0; i < userIds.length; i += 100) {
+          chunks.push(userIds.slice(i, i + 100));
+        }
+        for (const chunk of chunks) {
+          const refs = chunk.map(uid => db.collection('users').doc(uid));
+          const userSnaps = await db.getAll(...refs);
+          userSnaps.forEach(uSnap => {
+            if (uSnap.exists) {
+              userMap.set(uSnap.id, uSnap.data());
+            }
+          });
+        }
+      } catch (err) {
+        console.warn('Aviso ao enriquecer shape_results com users:', err);
+      }
+    }
+
     return snap.docs.map(doc => {
       const d = doc.data();
+      const linkedUser = userMap.get(d.userId || doc.id);
       let top3 = d.top3;
       let domScores = d.domScores;
 
@@ -38,9 +70,17 @@ export async function getShapeResults(): Promise<ShapeResult[]> {
         }
       }
 
+      const sanitized = sanitize(d);
+      const formacao = sanitized.formacao || linkedUser?.escolaridade || '';
+      const profissao = sanitized.profissao || linkedUser?.profissao || '';
+      const telefone = sanitized.telefone || linkedUser?.phone || '';
+
       return {
         id: doc.id,
-        ...sanitize(d),
+        ...sanitized,
+        ...(formacao ? { formacao } : {}),
+        ...(profissao ? { profissao } : {}),
+        ...(telefone ? { telefone } : {}),
         ...(top3 ? { top3: sanitize(top3) } : {}),
         ...(domScores ? { domScores: sanitize(domScores) } : {}),
       };

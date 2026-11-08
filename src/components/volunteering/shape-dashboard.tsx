@@ -52,6 +52,10 @@ import {
   Target,
   Edit3,
   Info,
+  Filter,
+  X,
+  GraduationCap,
+  Wrench,
 } from 'lucide-react';
 import {
   getShapeResults,
@@ -61,6 +65,8 @@ import {
   updateMinistryProfiles,
 } from '@/app/dashboard/volunteering/molde-de-servo/actions';
 import { DEFAULT_MINISTRY_PROFILES } from '@/lib/ministry-benchmarks';
+import { SHAPE_DATA } from '@/lib/shape-complete-data';
+import { ShapeAiAssistant } from '@/components/volunteering/shape-ai-assistant';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -264,6 +270,13 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
   const [discFilter, setDiscFilter] = useState<string>('todos');
   const [quadranteFilter, setQuadranteFilter] = useState<string>('todos');
   const [domFilter, setDomFilter] = useState<string>('todos');
+  const [domScope, setDomScope] = useState<'top3' | 'top1'>('top3');
+  const [habilidadeFilter, setHabilidadeFilter] = useState<string>('todas');
+  const [formacaoFilter, setFormacaoFilter] = useState<string>('');
+  const [ministryFilter, setMinistryFilter] = useState<string>('todos');
+  const [gcFilter, setGcFilter] = useState<string>('todos');
+  const [statusFilter, setStatusFilter] = useState<string>('todos');
+  const [activeAiFilterIds, setActiveAiFilterIds] = useState<string[] | null>(null);
   const [view, setView] = useState<'kanban' | 'list' | 'teams'>('kanban');
   const [kanbanMode, setKanbanMode] = useState<'disc' | 'quadrantes'>('disc');
 
@@ -395,20 +408,130 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
     }
   };
 
+  // Lista unificada de habilidades disponíveis (SHAPE_DATA + registros existentes)
+  const availableAbilities = Array.from(
+    new Set([
+      ...SHAPE_DATA.abilities.flatMap((group) => group.items),
+      ...results.flatMap((r) =>
+        (r.habilidades || []).map((h) => HABILIDADES_MAP[h]?.nome || h)
+      ),
+    ].filter((h): h is string => !!h && h.trim().length > 0))
+  ).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+  const hasActiveFilters =
+    search.trim() !== '' ||
+    discFilter !== 'todos' ||
+    quadranteFilter !== 'todos' ||
+    domFilter !== 'todos' ||
+    habilidadeFilter !== 'todas' ||
+    formacaoFilter.trim() !== '' ||
+    ministryFilter !== 'todos' ||
+    gcFilter !== 'todos' ||
+    statusFilter !== 'todos' ||
+    activeAiFilterIds !== null;
+
+  const clearAllFilters = () => {
+    setSearch('');
+    setDiscFilter('todos');
+    setQuadranteFilter('todos');
+    setDomFilter('todos');
+    setHabilidadeFilter('todas');
+    setFormacaoFilter('');
+    setMinistryFilter('todos');
+    setGcFilter('todos');
+    setStatusFilter('todos');
+    setActiveAiFilterIds(null);
+  };
+
   const filteredResults = results.filter(r => {
-    const matchSearch = (r.nome || '').toLowerCase().includes(search.toLowerCase()) || (r.email || '').toLowerCase().includes(search.toLowerCase());
+    // 0. Filtro de indicados pelo Consultor IA (se ativo)
+    if (activeAiFilterIds && !activeAiFilterIds.includes(r.id)) {
+      return false;
+    }
+
+    // 1. Busca Global (Nome, E-mail, Profissão, Formação, GC, Área)
+    const q = search.trim().toLowerCase();
+    const matchSearch =
+      !q ||
+      (r.nome || '').toLowerCase().includes(q) ||
+      (r.email || '').toLowerCase().includes(q) ||
+      (r.profissao || '').toLowerCase().includes(q) ||
+      (r.formacao || '').toLowerCase().includes(q) ||
+      (r.experiencias?.exp1 || '').toLowerCase().includes(q) ||
+      (r.gcInfo || '').toLowerCase().includes(q) ||
+      (r.ministryTarget || '').toLowerCase().includes(q);
     
-    // Filtro DISC
+    // 2. Filtro DISC
     const itemDiscCol = getItemDiscColumn(r);
     const matchDisc = discFilter === 'todos' || itemDiscCol === discFilter;
 
-    // Filtro Quadrante
+    // 3. Filtro Quadrante
     const itemQuadCol = getItemQuadrantColumn(r);
     const matchQuad = quadranteFilter === 'todos' || itemQuadCol === quadranteFilter;
 
-    const top1Name = r.top3?.[0]?.nome || r.top3?.[0]?.name;
-    const matchDom = domFilter === 'todos' || top1Name === domFilter;
-    return matchSearch && matchDisc && matchQuad && matchDom;
+    // 4. Filtro Dons Espirituais (Top 3 ou Top 1)
+    let matchDom = true;
+    if (domFilter !== 'todos') {
+      if (domScope === 'top1') {
+        const top1Name = r.top3?.[0]?.nome || r.top3?.[0]?.name;
+        matchDom = top1Name === domFilter;
+      } else {
+        matchDom = (r.top3 || []).some((d) => (d.nome || d.name) === domFilter);
+      }
+    }
+
+    // 5. Filtro por Habilidade
+    let matchHab = true;
+    if (habilidadeFilter !== 'todas') {
+      const targetHab = habilidadeFilter.toLowerCase();
+      matchHab = (r.habilidades || []).some((h) => {
+        const mappedName = (HABILIDADES_MAP[h]?.nome || h).toLowerCase();
+        return mappedName === targetHab || mappedName.includes(targetHab) || h.toLowerCase() === targetHab;
+      });
+    }
+
+    // 6. Filtro por Formação / Profissão / Trabalho
+    let matchFormacao = true;
+    if (formacaoFilter.trim() !== '') {
+      const fq = formacaoFilter.trim().toLowerCase();
+      const combinedWorkText = [
+        r.formacao,
+        r.profissao,
+        r.experiencias?.exp1,
+        r.experiencias?.exp2,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      matchFormacao = combinedWorkText.includes(fq);
+    }
+
+    // 7. Filtro por Área de Chamado / Ministério
+    const matchMinistry =
+      ministryFilter === 'todos' ||
+      (ministryFilter === 'sem_area' ? !r.ministryTarget : r.ministryTarget === ministryFilter);
+
+    // 8. Filtro por GC
+    const matchGc =
+      gcFilter === 'todos' ||
+      (gcFilter === 'sem_gc' ? !r.gcInfo : r.gcInfo === gcFilter);
+
+    // 9. Filtro por Status de Preenchimento
+    const matchStatus =
+      statusFilter === 'todos' ||
+      (statusFilter === 'completed' ? r.status !== 'in_progress' : r.status === 'in_progress');
+
+    return (
+      matchSearch &&
+      matchDisc &&
+      matchQuad &&
+      matchDom &&
+      matchHab &&
+      matchFormacao &&
+      matchMinistry &&
+      matchGc &&
+      matchStatus
+    );
   });
 
   // Equipes disponíveis (Ministérios e GCs) para o Team Analytics
@@ -551,110 +674,310 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
         </Button>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col md:flex-row gap-4 items-center bg-white p-4 rounded-xl shadow-sm border border-slate-100">
-        <div className="relative flex-1 w-full">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-          <Input 
-            placeholder="Buscar por nome ou e-mail..." 
-            className="pl-9"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+      {/* Consultor IA Conversacional S.H.A.P.E. */}
+      <ShapeAiAssistant
+        results={results}
+        onSelectPerson={(person) => setSelectedPerson(person)}
+        activeAiFilterIds={activeAiFilterIds}
+        onApplyAiFilterIds={setActiveAiFilterIds}
+      />
+
+      {/* Painel de Filtros Avançados & Modos de Visualização */}
+      <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-100 space-y-4">
+        {/* Linha 1: Busca Global + Alternador de Visualização + Atualizar */}
+        <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+            <Input
+              placeholder="Buscar por nome, e-mail, profissão, formação ou GC..."
+              className="pl-9 h-9 text-xs sm:text-sm rounded-xl"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="h-9 gap-1.5 text-xs font-bold text-slate-700 rounded-xl"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <span>Atualizar</span>
+            </Button>
+
+            <div className="flex bg-slate-100 p-1 rounded-xl overflow-x-auto">
+              <Button
+                variant={view === 'kanban' && kanbanMode === 'disc' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => {
+                  setView('kanban');
+                  setKanbanMode('disc');
+                }}
+                className="text-xs font-bold gap-1.5 h-8 rounded-lg"
+                title="Kanban por Fatores DISC (D, I, S, C)"
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span>Kanban DISC</span>
+              </Button>
+              <Button
+                variant={view === 'kanban' && kanbanMode === 'quadrantes' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => {
+                  setView('kanban');
+                  setKanbanMode('quadrantes');
+                }}
+                className="text-xs font-bold gap-1.5 h-8 rounded-lg"
+                title="Kanban por Eixos: Tarefas/Pessoas e Formal/Informal"
+              >
+                <Compass className="w-3.5 h-3.5 text-indigo-500" />
+                <span>Kanban Tarefas/Pessoas</span>
+              </Button>
+              <Button
+                variant={view === 'list' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setView('list')}
+                className="text-xs font-bold gap-1.5 h-8 rounded-lg"
+              >
+                <List className="w-3.5 h-3.5" />
+                <span>Lista</span>
+              </Button>
+              <Button
+                variant={view === 'teams' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setView('teams')}
+                className="text-xs font-bold gap-1.5 h-8 rounded-lg"
+              >
+                <BarChart3 className="w-3.5 h-3.5" />
+                <span>Raio-X de Equipes</span>
+              </Button>
+            </div>
+          </div>
         </div>
-        
-        {view === 'kanban' && kanbanMode === 'quadrantes' ? (
-          <Select value={quadranteFilter} onValueChange={setQuadranteFilter}>
-            <SelectTrigger className="w-full md:w-[240px]">
-              <SelectValue placeholder="Filtrar por Quadrante" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos os Quadrantes</SelectItem>
-              <SelectItem value="Tarefas / Formal">🎯 Tarefas / Formal (C)</SelectItem>
-              <SelectItem value="Tarefas / Informal">⚡ Tarefas / Informal (D)</SelectItem>
-              <SelectItem value="Pessoas / Formal">❤️ Pessoas / Formal (S)</SelectItem>
-              <SelectItem value="Pessoas / Informal">🤝 Pessoas / Informal (I)</SelectItem>
-              <SelectItem value="sem_quadrante">⚪ Aguardando Avaliação</SelectItem>
-            </SelectContent>
-          </Select>
-        ) : (
-          <Select value={discFilter} onValueChange={setDiscFilter}>
-            <SelectTrigger className="w-full md:w-[220px]">
-              <SelectValue placeholder="Perfil DISC" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos os Perfis DISC</SelectItem>
-              <SelectItem value="D">🔴 D • Dominância</SelectItem>
-              <SelectItem value="I">🟡 I • Influência</SelectItem>
-              <SelectItem value="S">🟢 S • Estabilidade</SelectItem>
-              <SelectItem value="C">🔵 C • Conformidade</SelectItem>
-              <SelectItem value="sem_disc">⚪ Sem DISC / Legado</SelectItem>
-            </SelectContent>
-          </Select>
-        )}
 
-        <Select value={domFilter} onValueChange={setDomFilter}>
-          <SelectTrigger className="w-full md:w-[200px]">
-            <SelectValue placeholder="Dom Dominante" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos os Dons</SelectItem>
-            {DONS.map(dom => (
-              <SelectItem key={dom} value={dom}>{dom}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* Linha 2: Grid de Filtros Multi-Critério (Dons, Habilidades, Formação/Profissão, DISC, Quadrante, Área, GC, Status) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2 border-t border-slate-100">
+          {/* 1. Filtro por Dons Espirituais + Escopo Top 3 / Top 1 */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-[#523A8C]" /> Dom Espiritual
+              </label>
+              <button
+                type="button"
+                onClick={() => setDomScope((prev) => (prev === 'top3' ? 'top1' : 'top3'))}
+                className="text-[10px] font-bold text-[#523A8C] hover:underline"
+                title="Alternar entre buscar nos 3 maiores dons ou apenas no 1º dom dominante"
+              >
+                Escopo: {domScope === 'top3' ? 'Top 3 Dons' : 'Apenas Top 1'}
+              </button>
+            </div>
+            <Select value={domFilter} onValueChange={setDomFilter}>
+              <SelectTrigger className="w-full h-9 text-xs rounded-xl">
+                <SelectValue placeholder="Filtrar por Dom" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os Dons ({domScope === 'top3' ? 'Top 3' : 'Top 1'})</SelectItem>
+                {DONS.map((dom) => (
+                  <SelectItem key={dom} value={dom}>
+                    {dom}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleRefresh}
-          disabled={isRefreshing}
-          className="h-9 gap-1.5 text-xs font-bold text-slate-700 rounded-xl"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-          <span>Atualizar</span>
-        </Button>
+          {/* 2. Filtro por Habilidades Práticas */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+              <Wrench className="w-3 h-3 text-[#523A8C]" /> Habilidade Prática / Técnica
+            </label>
+            <Select value={habilidadeFilter} onValueChange={setHabilidadeFilter}>
+              <SelectTrigger className="w-full h-9 text-xs rounded-xl">
+                <SelectValue placeholder="Filtrar por Habilidade" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todas">Todas as Habilidades</SelectItem>
+                {availableAbilities.map((hab) => (
+                  <SelectItem key={hab} value={hab}>
+                    {hab}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-        <div className="flex bg-slate-100 p-1 rounded-xl">
-          <Button 
-            variant={view === 'kanban' && kanbanMode === 'disc' ? 'default' : 'ghost'} 
-            size="sm" 
-            onClick={() => { setView('kanban'); setKanbanMode('disc'); }}
-            className="text-xs font-bold gap-1.5"
-            title="Kanban por Fatores DISC (D, I, S, C)"
-          >
-            <LayoutGrid className="w-3.5 h-3.5" />
-            <span>Kanban DISC</span>
-          </Button>
-          <Button 
-            variant={view === 'kanban' && kanbanMode === 'quadrantes' ? 'default' : 'ghost'} 
-            size="sm" 
-            onClick={() => { setView('kanban'); setKanbanMode('quadrantes'); }}
-            className="text-xs font-bold gap-1.5"
-            title="Kanban por Eixos: Tarefas/Pessoas e Formal/Informal"
-          >
-            <Compass className="w-3.5 h-3.5 text-indigo-500" />
-            <span>Kanban Tarefas/Pessoas</span>
-          </Button>
-          <Button 
-            variant={view === 'list' ? 'default' : 'ghost'} 
-            size="sm" 
-            onClick={() => setView('list')}
-            className="text-xs font-bold gap-1.5"
-          >
-            <List className="w-3.5 h-3.5" />
-            <span>Lista</span>
-          </Button>
-          <Button 
-            variant={view === 'teams' ? 'default' : 'ghost'} 
-            size="sm" 
-            onClick={() => setView('teams')}
-            className="text-xs font-bold gap-1.5"
-          >
-            <BarChart3 className="w-3.5 h-3.5" />
-            <span>Raio-X de Equipes</span>
-          </Button>
+          {/* 3. Filtro por Formação / Profissão / Trabalho */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+              <GraduationCap className="w-3 h-3 text-[#523A8C]" /> Formação / Profissão / Trabalho
+            </label>
+            <div className="relative">
+              <Input
+                placeholder="Ex: Administração, Saúde, TI, Direito..."
+                value={formacaoFilter}
+                onChange={(e) => setFormacaoFilter(e.target.value)}
+                className="h-9 text-xs rounded-xl pr-7"
+              />
+              {formacaoFilter && (
+                <button
+                  type="button"
+                  onClick={() => setFormacaoFilter('')}
+                  className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* 4. Filtro por Perfil Comportamental DISC */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+              <User className="w-3 h-3 text-[#523A8C]" /> Perfil Comportamental DISC
+            </label>
+            <Select value={discFilter} onValueChange={setDiscFilter}>
+              <SelectTrigger className="w-full h-9 text-xs rounded-xl">
+                <SelectValue placeholder="Perfil DISC" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os Perfis DISC</SelectItem>
+                <SelectItem value="D">🔴 D • Dominância (Executor)</SelectItem>
+                <SelectItem value="I">🟡 I • Influência (Comunicador)</SelectItem>
+                <SelectItem value="S">🟢 S • Estabilidade (Cuidador)</SelectItem>
+                <SelectItem value="C">🔵 C • Conformidade (Analítico)</SelectItem>
+                <SelectItem value="sem_disc">⚪ Sem DISC / Legado</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* 5. Filtro por Quadrante (Tarefas vs Pessoas • Formal vs Informal) */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+              <Compass className="w-3 h-3 text-[#523A8C]" /> Estilo: Tarefas vs Pessoas
+            </label>
+            <Select value={quadranteFilter} onValueChange={setQuadranteFilter}>
+              <SelectTrigger className="w-full h-9 text-xs rounded-xl">
+                <SelectValue placeholder="Todos os Quadrantes" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os Quadrantes</SelectItem>
+                <SelectItem value="Tarefas / Formal">🎯 Tarefas / Formal (Organizado • C)</SelectItem>
+                <SelectItem value="Tarefas / Informal">⚡ Tarefas / Informal (Dinâmico • D)</SelectItem>
+                <SelectItem value="Pessoas / Formal">❤️ Pessoas / Formal (Constante • S)</SelectItem>
+                <SelectItem value="Pessoas / Informal">🤝 Pessoas / Informal (Relacional • I)</SelectItem>
+                <SelectItem value="sem_quadrante">⚪ Aguardando Avaliação</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* 6. Filtro por Área de Chamado / Ministério */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+              <Briefcase className="w-3 h-3 text-[#523A8C]" /> Área de Chamado Sentida
+            </label>
+            <Select value={ministryFilter} onValueChange={setMinistryFilter}>
+              <SelectTrigger className="w-full h-9 text-xs rounded-xl">
+                <SelectValue placeholder="Todas as Áreas" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todas as Áreas</SelectItem>
+                {availableMinistries.map((m) => (
+                  <SelectItem key={m} value={m}>
+                    {m}
+                  </SelectItem>
+                ))}
+                <SelectItem value="sem_area">Sem área informada</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* 7. Filtro por GC (Pequeno Grupo) */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+              <Users className="w-3 h-3 text-[#523A8C]" /> GC (Grupo de Crescimento)
+            </label>
+            <Select value={gcFilter} onValueChange={setGcFilter}>
+              <SelectTrigger className="w-full h-9 text-xs rounded-xl">
+                <SelectValue placeholder="Todos os GCs" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os GCs</SelectItem>
+                {availableGCs.map((g) => (
+                  <SelectItem key={g} value={g}>
+                    {g}
+                  </SelectItem>
+                ))}
+                <SelectItem value="sem_gc">Sem GC informado</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* 8. Filtro por Status de Preenchimento */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3 text-[#523A8C]" /> Status do Teste
+            </label>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full h-9 text-xs rounded-xl">
+                <SelectValue placeholder="Todos os Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os Status</SelectItem>
+                <SelectItem value="completed">✓ 100% Concluídos</SelectItem>
+                <SelectItem value="in_progress">⏳ Em Andamento</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Barra de Resumo de Resultados & Limpar Filtros */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-slate-500 font-medium">
+              Exibindo <strong className="text-slate-900 font-extrabold">{filteredResults.length}</strong> de{' '}
+              <strong className="text-slate-700">{results.length}</strong> servos mapeados
+            </span>
+
+            {/* Atalhos rápidos de Formação/Profissão */}
+            <div className="hidden xl:flex items-center gap-1 ml-2">
+              <span className="text-[10px] text-slate-400 font-semibold mr-1">Áreas rápidas:</span>
+              {['Administração', 'Finanças', 'Saúde', 'Educação', 'TI', 'Direito', 'Engenharia', 'Comunicação'].map(
+                (area) => {
+                  const isSelected = formacaoFilter.toLowerCase() === area.toLowerCase();
+                  return (
+                    <button
+                      key={area}
+                      type="button"
+                      onClick={() => setFormacaoFilter(isSelected ? '' : area)}
+                      className={`text-[10px] px-2 py-0.5 rounded-full font-semibold transition-all border ${
+                        isSelected
+                          ? 'bg-[#523A8C] text-white border-[#523A8C]'
+                          : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      {area}
+                    </button>
+                  );
+                }
+              )}
+            </div>
+          </div>
+
+          {hasActiveFilters && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={clearAllFilters}
+              className="h-7 px-2.5 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg gap-1"
+            >
+              <X className="w-3.5 h-3.5" />
+              <span>Limpar Todos os Filtros</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -875,6 +1198,18 @@ export function ShapeDashboard({ initialResults }: { initialResults: ShapeResult
                               <div className="text-[11px] text-[#523A8C] font-semibold flex items-center gap-1">
                                 <Compass className="w-3 h-3 shrink-0" />
                                 <span className="truncate">Área: {item.ministryTarget}</span>
+                              </div>
+                            )}
+
+                            {(item.profissao || item.formacao || item.experiencias?.exp1) && (
+                              <div
+                                className="text-[11px] text-slate-600 flex items-center gap-1"
+                                title={[item.profissao, item.formacao, item.experiencias?.exp1].filter(Boolean).join(' • ')}
+                              >
+                                <GraduationCap className="w-3 h-3 shrink-0 text-slate-400" />
+                                <span className="truncate">
+                                  {item.profissao || item.formacao || item.experiencias?.exp1}
+                                </span>
                               </div>
                             )}
 
