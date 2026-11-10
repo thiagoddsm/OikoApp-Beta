@@ -52,47 +52,47 @@ export function normalizarPastorNome(nome: string = ''): string {
 export const ESCALA_AVALIACAO = [
   {
     valor: 1,
-    label: 'Não está indo bem',
-    shortLabel: 'Não está bem',
-    mobileLabel: 'Não está bem',
-    desc: 'Crítico / Inexistente',
+    label: 'Precisa melhorar muito',
+    shortLabel: 'Precisa melhorar',
+    mobileLabel: 'Melhorar',
+    desc: 'Raramente ou nunca vejo acontecer',
   },
   {
     valor: 2,
-    label: 'Abaixo do esperado',
-    shortLabel: 'Abaixo do esperado',
+    label: 'Abaixo do que deveria',
+    shortLabel: 'Abaixo do ideal',
     mobileLabel: 'Abaixo',
-    desc: 'Abaixo do esperado',
+    desc: 'Acontece pouco / ainda é fraco',
   },
   {
     valor: 3,
-    label: 'Em desenvolvimento',
-    shortLabel: 'Em desenvolvimento',
-    mobileLabel: 'Em desenv.',
-    desc: 'Em desenvolvimento',
+    label: 'Em construção',
+    shortLabel: 'Em construção',
+    mobileLabel: 'Às vezes',
+    desc: 'Às vezes vejo acontecer',
   },
   {
     valor: 4,
-    label: 'Está indo bem',
-    shortLabel: 'Está indo bem',
-    mobileLabel: 'Está bem',
-    desc: 'Está indo bem',
+    label: 'Muito bom',
+    shortLabel: 'Muito bom',
+    mobileLabel: 'Muito bom',
+    desc: 'Funciona bem na nossa igreja',
   },
   {
     valor: 5,
-    label: 'Excelente',
+    label: 'Excelente / Exemplo',
     shortLabel: 'Excelente',
     mobileLabel: 'Excelente',
-    desc: 'Estamos fazendo com excelência',
+    desc: 'É um ponto muito forte nosso',
   },
 ];
 
 export const FUNCOES_IGREJA = [
-  { id: 'pastor_senior', label: 'Pastor Sênior' },
-  { id: 'pastor_auxiliar', label: 'Pastor Auxiliar' },
+  { id: 'membro', label: 'Membro da Igreja' },
+  { id: 'lider_grupo', label: 'Líder de GC / Pequeno Grupo' },
   { id: 'lider_ministerio', label: 'Líder de Ministério' },
-  { id: 'lider_grupo', label: 'Líder de Grupo / Célula' },
-  { id: 'membro', label: 'Membro' },
+  { id: 'pastor_auxiliar', label: 'Pastor Auxiliar / Obreiro' },
+  { id: 'pastor_senior', label: 'Pastor Principal / Sênior' },
 ];
 
 export const PORTES_IGREJA = [
@@ -118,9 +118,18 @@ export const DOMINIOS_DIAGNOSTICO: DominioDiagnostico[] = [
         planoAcao:
           'Pastor, retorne ao texto. Reavalie sua grade de pregação dos próximos 90 dias e garanta que ela seja expositiva e centrada na Palavra. Crie ou reative grupos de leitura bíblica e modele você mesmo o hábito do estudo diário diante da liderança.',
         questoes: [
-          { id: 'p1_q1', texto: 'A mensagem é bíblica e fundamentada na Palavra.' },
-          { id: 'p1_q2', texto: 'O conselho bíblico é a palavra final em nossas decisões administrativas.' },
-          { id: 'p1_q3', texto: 'Estimulamos o estudo bíblico individual como base da nossa comunidade.' },
+          {
+            id: 'p1_q1',
+            texto: 'As mensagens pregadas na igreja são fiéis à Bíblia e ensinam a Palavra de Deus com clareza.',
+          },
+          {
+            id: 'p1_q2',
+            texto: 'A Bíblia é a nossa regra principal para tomar decisões e orientar a vida da igreja.',
+          },
+          {
+            id: 'p1_q3',
+            texto: 'A igreja incentiva cada membro a ler e meditar na Bíblia todos os dias em casa.',
+          },
         ],
       },
       {
@@ -130,9 +139,18 @@ export const DOMINIOS_DIAGNOSTICO: DominioDiagnostico[] = [
         planoAcao:
           'Reserve um retiro com a equipe principal para reescrever a visão em uma frase memorizável. Comunique-a do púlpito por 6 semanas seguidas. Audite cada ministério: o que não serve à visão precisa ser ajustado, integrado ou encerrado.',
         questoes: [
-          { id: 'p3_q1', texto: 'Nossa visão é clara, memorizável e comunicada com frequência.' },
-          { id: 'p3_q2', texto: 'Nossos ministérios estão todos alinhados à visão principal da igreja.' },
-          { id: 'p3_q3', texto: 'Cada membro sabe como sua contribuição ajuda a realizar a visão.' },
+          {
+            id: 'p3_q1',
+            texto: 'O propósito e a missão da nossa igreja são claros e fáceis de entender para todos.',
+          },
+          {
+            id: 'p3_q2',
+            texto: 'Todos os ministérios e equipes trabalham juntos para o mesmo objetivo da igreja.',
+          },
+          {
+            id: 'p3_q3',
+            texto: 'Cada pessoa entende como a sua participação e serviço ajudam a igreja a cumprir sua missão.',
+          },
         ],
       },
       {
@@ -142,9 +160,18 @@ export const DOMINIOS_DIAGNOSTICO: DominioDiagnostico[] = [
         planoAcao:
           'Implemente uma reunião trimestral de avaliação com a liderança usando 3 a 5 indicadores claros (frequência, batismos, novos discípulos, voluntários ativos, ofertas). Tenha coragem de podar o que não dá fruto — Jesus elogiou o servo fiel, não o ocupado.',
         questoes: [
-          { id: 'p7_q1', texto: 'Analisamos periodicamente nossos resultados espirituais e numéricos.' },
-          { id: 'p7_q2', texto: 'Temos coragem de encerrar atividades que não dão mais frutos.' },
-          { id: 'p7_q3', texto: 'Usamos métricas claras para entender as áreas de melhoria.' },
+          {
+            id: 'p7_q1',
+            texto: 'A liderança acompanha com frequência como a igreja está crescendo, tanto na fé quanto em pessoas.',
+          },
+          {
+            id: 'p7_q2',
+            texto: 'A igreja tem sabedoria e coragem para mudar ou encerrar atividades que não dão mais frutos.',
+          },
+          {
+            id: 'p7_q3',
+            texto: 'A igreja avalia de forma sincera o que está dando certo e onde precisamos melhorar.',
+          },
         ],
       },
       {
@@ -154,9 +181,18 @@ export const DOMINIOS_DIAGNOSTICO: DominioDiagnostico[] = [
         planoAcao:
           'Mapeie a sua cidade: quem é o seu povo, suas dores, seus anseios. Construa uma identidade que seja fiel à doutrina bíblica, mas viva no contexto local. Sua igreja precisa ser inconfundível na sua região.',
         questoes: [
-          { id: 'p12_q1', texto: 'Nossa igreja possui uma identidade clara e relevante para nossa região.' },
-          { id: 'p12_q2', texto: 'Não dependemos apenas de diretrizes externas para agir com relevância.' },
-          { id: 'p12_q3', texto: 'O pastor tem autonomia espiritual para conduzir a visão local.' },
+          {
+            id: 'p12_q1',
+            texto: 'Nossa igreja conhece bem a nossa cidade e atende às necessidades reais do nosso bairro.',
+          },
+          {
+            id: 'p12_q2',
+            texto: 'Nossa igreja tem estilo próprio e sabe agir de forma acolhedora no lugar onde está inserida.',
+          },
+          {
+            id: 'p12_q3',
+            texto: 'O pastor tem liberdade e direção de Deus para conduzir a igreja conforme a realidade da nossa congregação.',
+          },
         ],
       },
       {
@@ -166,9 +202,18 @@ export const DOMINIOS_DIAGNOSTICO: DominioDiagnostico[] = [
         planoAcao:
           'Liste tudo o que sua igreja faz por costume e separe em duas colunas: mandamento bíblico vs. tradição humana. Mantenha o primeiro inegociável e tenha liberdade de reformar o segundo. Tradição sem espírito vira museu.',
         questoes: [
-          { id: 'p13_q1', texto: 'Respeitamos nossa história, mas não deixamos o "sempre foi assim" travar o avanço.' },
-          { id: 'p13_q2', texto: 'Distinguimos o que é mandamento bíblico do que é apenas costume cultural.' },
-          { id: 'p13_q3', texto: 'Mudamos as formas sempre que necessário para preservar a essência.' },
+          {
+            id: 'p13_q1',
+            texto: 'Honramos nossa história, mas sem deixar que o costume do "sempre foi assim" impeça a igreja de avançar.',
+          },
+          {
+            id: 'p13_q2',
+            texto: 'Sabemos diferenciar o que é mandamento da Bíblia daquilo que é apenas costume ou preferência humana.',
+          },
+          {
+            id: 'p13_q3',
+            texto: 'A igreja tem disposição para renovar seus métodos e alcançar novas pessoas sem perder a essência do evangelho.',
+          },
         ],
       },
     ],
@@ -187,9 +232,18 @@ export const DOMINIOS_DIAGNOSTICO: DominioDiagnostico[] = [
         planoAcao:
           'Mapeie os dons reais da sua liderança atual. Posicione cada pessoa onde ela é forte, não onde ela é amiga. Como pastor, proteja blocos da sua semana exclusivamente para liderar — não apenas para visitar e administrar.',
         questoes: [
-          { id: 'p2_q1', texto: 'Nossos líderes são escolhidos por dons e competências, não por afinidade.' },
-          { id: 'p2_q2', texto: 'O pastor principal dedica tempo para exercer seu dom de liderança.' },
-          { id: 'p2_q3', texto: 'Há clareza sobre quem lidera e quem é liderado em cada esfera.' },
+          {
+            id: 'p2_q1',
+            texto: 'Nossos líderes são escolhidos pelo chamado de Deus, bom testemunho e capacidade, e não por favoritismo ou amizade.',
+          },
+          {
+            id: 'p2_q2',
+            texto: 'O pastor principal dedica tempo para pastorear, orientar os líderes e guiar a igreja na direção certa.',
+          },
+          {
+            id: 'p2_q3',
+            texto: 'Na nossa igreja, sabemos claramente quem é o responsável por cada área e a quem procurar quando precisamos de ajuda.',
+          },
         ],
       },
       {
@@ -199,9 +253,18 @@ export const DOMINIOS_DIAGNOSTICO: DominioDiagnostico[] = [
         planoAcao:
           'Crie um "fundo de inovação" no orçamento — mesmo que pequeno — para testar novas iniciativas a cada semestre. Celebre tentativas, não apenas resultados. Igrejas que prevalecem aprenderam a errar rápido e barato.',
         questoes: [
-          { id: 'p5_q1', texto: 'Encorajamos novas iniciativas e riscos calculados pelo Reino.' },
-          { id: 'p5_q2', texto: 'Investimos recursos em novos projetos com visão de futuro.' },
-          { id: 'p5_q3', texto: 'Não temos medo de errar ao tentar métodos novos para alcançar pessoas.' },
+          {
+            id: 'p5_q1',
+            texto: 'A igreja apoia novas ideias e projetos corajosos para pregar o evangelho e servir ao próximo.',
+          },
+          {
+            id: 'p5_q2',
+            texto: 'A igreja investe tempo e recursos com sabedoria, pensando no futuro e nas próximas gerações.',
+          },
+          {
+            id: 'p5_q3',
+            texto: 'A liderança não tem medo de experimentar jeitos novos e criativos para aproximar pessoas de Jesus.',
+          },
         ],
       },
       {
@@ -211,9 +274,18 @@ export const DOMINIOS_DIAGNOSTICO: DominioDiagnostico[] = [
         planoAcao:
           'Pastor, ninguém prevalece sozinho. Estabeleça pelo menos 2 mentores na sua vida (um espiritual e um de gestão). Em paralelo, comprometa-se a discipular pessoalmente 3 a 5 líderes emergentes neste ano.',
         questoes: [
-          { id: 'p18_q1', texto: 'O pastor principal tem mentores que o acompanham e desafiam.' },
-          { id: 'p18_q2', texto: 'Investimos intencionalmente no aperfeiçoamento da liderança atual.' },
-          { id: 'p18_q3', texto: 'Há um processo ativo de mentoria para levantar a próxima geração.' },
+          {
+            id: 'p18_q1',
+            texto: 'Nossos pastores buscam conselho, oração e mentoria com outros líderes espirituais maduros.',
+          },
+          {
+            id: 'p18_q2',
+            texto: 'A igreja oferece cursos, treinamentos e encontros práticos para preparar e cuidar dos seus voluntários e líderes.',
+          },
+          {
+            id: 'p18_q3',
+            texto: 'A igreja prepara novos líderes com carinho, discipulando pessoas para liderarem no futuro.',
+          },
         ],
       },
       {
@@ -223,9 +295,18 @@ export const DOMINIOS_DIAGNOSTICO: DominioDiagnostico[] = [
         planoAcao:
           'Audite seu fluxo de decisões: quantas pessoas precisam aprovar uma compra de R$ 200? Uma nova ideia? Reduza camadas. Dê autonomia com responsabilidade. Igreja burocrática perde o tempo de Deus.',
         questoes: [
-          { id: 'p20_q1', texto: 'Nossa estrutura permite que decisões sejam tomadas com agilidade.' },
-          { id: 'p20_q2', texto: 'Eliminamos processos burocráticos que travavam o crescimento.' },
-          { id: 'p20_q3', texto: 'Líderes ministeriais têm autonomia real em seus escopos.' },
+          {
+            id: 'p20_q1',
+            texto: 'Quando surge uma necessidade ou boa ideia, as decisões são tomadas de forma rápida e sem enrolação.',
+          },
+          {
+            id: 'p20_q2',
+            texto: 'A igreja funciona de forma prática no dia a dia, sem complicações ou burocracias desnecessárias.',
+          },
+          {
+            id: 'p20_q3',
+            texto: 'Os líderes de cada área têm liberdade e confiança da igreja para realizarem o seu ministério.',
+          },
         ],
       },
       {
@@ -235,9 +316,18 @@ export const DOMINIOS_DIAGNOSTICO: DominioDiagnostico[] = [
         planoAcao:
           'Converse abertamente com sua liderança e família sobre permanência. Igrejas que prevalecem têm pastores que ficam — porque fruto exige raiz, e raiz exige tempo. Construa uma cultura que honre o ciclo longo.',
         questoes: [
-          { id: 'p21_q1', texto: 'Existe uma perspectiva de longo prazo na liderança do pastor.' },
-          { id: 'p21_q2', texto: 'A igreja entende e respeita os ciclos de amadurecimento do pastor.' },
-          { id: 'p21_q3', texto: 'A estabilidade na liderança gera confiança visível na membresia.' },
+          {
+            id: 'p21_q1',
+            texto: 'Sentimos que o nosso pastor está comprometido em caminhar conosco por muitos anos, gerando frutos duradouros.',
+          },
+          {
+            id: 'p21_q2',
+            texto: 'A congregação ama, apoia e cuida da vida e da família do pastor nos momentos fáceis e difíceis.',
+          },
+          {
+            id: 'p21_q3',
+            texto: 'A estabilidade da nossa liderança pastoral transmite segurança e paz para toda a igreja.',
+          },
         ],
       },
     ],
@@ -256,9 +346,18 @@ export const DOMINIOS_DIAGNOSTICO: DominioDiagnostico[] = [
         planoAcao:
           'Reative o altar. Estabeleça um dia/horário fixo de oração coletiva e participe pessoalmente. Antes de toda decisão importante de liderança, pare e ore — não como rito, mas como dependência real de Deus.',
         questoes: [
-          { id: 'p4_q1', texto: 'A oração é o motor das decisões, não apenas um rito de abertura.' },
-          { id: 'p4_q2', texto: 'Temos movimentos de oração que envolvem a membresia ativamente.' },
-          { id: 'p4_q3', texto: 'Líderes são exemplos visíveis de uma vida de intercessão.' },
+          {
+            id: 'p4_q1',
+            texto: 'A oração é a base de tudo o que fazemos, e não apenas uma formalidade rápida no início das reuniões.',
+          },
+          {
+            id: 'p4_q2',
+            texto: 'A igreja realiza vigílias, reuniões ou correntes de oração com grande participação dos irmãos.',
+          },
+          {
+            id: 'p4_q3',
+            texto: 'Nossos líderes são conhecidos por terem uma vida ativa de oração pessoal e amor por interceder pelos outros.',
+          },
         ],
       },
       {
@@ -268,9 +367,18 @@ export const DOMINIOS_DIAGNOSTICO: DominioDiagnostico[] = [
         planoAcao:
           'Implemente prestação de contas trimestral aberta à membresia. Crie um conselho de accountability para o pastor e líderes-chave. Talento promove, mas só caráter sustenta — invista nele acima de tudo.',
         questoes: [
-          { id: 'p6_q1', texto: 'Existe transparência total na gestão financeira da nossa igreja.' },
-          { id: 'p6_q2', texto: 'O caráter do líder é priorizado acima do seu talento ou carisma.' },
-          { id: 'p6_q3', texto: 'Temos mecanismos reais de prestação de contas (accountability).' },
+          {
+            id: 'p6_q1',
+            texto: 'Existe total honestidade e transparência na forma como o dinheiro e os dízimos da igreja são administrados.',
+          },
+          {
+            id: 'p6_q2',
+            texto: 'A humildade, honestidade e conduta do líder são mais valorizadas do que apenas o seu carisma ou talento.',
+          },
+          {
+            id: 'p6_q3',
+            texto: 'A liderança presta contas com clareza sobre suas atitudes e decisões financeiras para a comunidade.',
+          },
         ],
       },
       {
@@ -280,9 +388,18 @@ export const DOMINIOS_DIAGNOSTICO: DominioDiagnostico[] = [
         planoAcao:
           'Reveja sua liturgia com olhar de visitante: o que confunde? O que distrai? Treine sua equipe de louvor a pastorear, não performar. O culto é encontro, não show — tudo deve facilitar a presença de Deus.',
         questoes: [
-          { id: 'p15_q1', texto: 'Nossos cultos facilitam um encontro real com a presença de Deus.' },
-          { id: 'p15_q2', texto: 'A liturgia é fluida e facilita a conexão do visitante com a mensagem.' },
-          { id: 'p15_q3', texto: 'O louvor é congregacional e focado na exaltação a Cristo.' },
+          {
+            id: 'p15_q1',
+            texto: 'Nossos cultos são momentos marcantes onde sentimos a presença de Deus e somos tocados pelo Espírito Santo.',
+          },
+          {
+            id: 'p15_q2',
+            texto: 'O culto é acolhedor e flui de maneira leve, ajudando tanto os membros quanto os visitantes a se sentirem em casa.',
+          },
+          {
+            id: 'p15_q3',
+            texto: 'Os louvores envolvem toda a igreja para adorar a Jesus de coração, sem parecer uma apresentação artística ou show.',
+          },
         ],
       },
       {
@@ -292,9 +409,18 @@ export const DOMINIOS_DIAGNOSTICO: DominioDiagnostico[] = [
         planoAcao:
           'Monte um time criativo (mesmo pequeno) com liberdade de propor novas linguagens — vídeo, design, redes, artes cênicas. A mensagem é imutável; a forma precisa falar a língua da geração atual.',
         questoes: [
-          { id: 'p16_q1', texto: 'Buscamos novas linguagens para apresentar a mensagem imutável.' },
-          { id: 'p16_q2', texto: 'Erros em tentativas de inovação são vistos como aprendizado.' },
-          { id: 'p16_q3', texto: 'Investimos em artes e tecnologia para comunicar a visão.' },
+          {
+            id: 'p16_q1',
+            texto: 'A igreja usa recursos criativos (como ilustrações, vídeos e mídias) para ensinar a Bíblia de forma viva e atraente.',
+          },
+          {
+            id: 'p16_q2',
+            texto: 'Quando alguém tenta algo novo para o Reino de Deus e não dá certo de primeira, a igreja incentiva e ajuda a melhorar.',
+          },
+          {
+            id: 'p16_q3',
+            texto: 'A igreja cuida do som, projeção, iluminação e transmissão para que todos consigam ouvir e participar bem.',
+          },
         ],
       },
       {
@@ -304,9 +430,18 @@ export const DOMINIOS_DIAGNOSTICO: DominioDiagnostico[] = [
         planoAcao:
           'Termine cada mensagem com 1 aplicação clara para a semana. Combine profundidade teológica com aplicação prática. Use recursos visuais, guias de estudo e mídias para que o ensino atravesse o domingo.',
         questoes: [
-          { id: 'p17_q1', texto: 'As mensagens do púlpito são práticas e aplicáveis ao dia a dia.' },
-          { id: 'p17_q2', texto: 'Há equilíbrio entre ensino teológico e inspiração para a vida.' },
-          { id: 'p17_q3', texto: 'O pastor utiliza recursos modernos para fixar o ensino.' },
+          {
+            id: 'p17_q1',
+            texto: 'As mensagens pregadas aos domingos trazem ensinamentos práticos para a nossa vida em casa, no trabalho e na família.',
+          },
+          {
+            id: 'p17_q2',
+            texto: 'As mensagens ensinam a verdade da Bíblia com profundidade e, ao mesmo tempo, confortam e desafiam o nosso coração.',
+          },
+          {
+            id: 'p17_q3',
+            texto: 'O pastor ensina de um jeito dinâmico (com histórias, exemplos claros e recursos visuais) que ajuda a guardar a mensagem.',
+          },
         ],
       },
     ],
@@ -325,9 +460,18 @@ export const DOMINIOS_DIAGNOSTICO: DominioDiagnostico[] = [
         planoAcao:
           'Crie espaços intencionais de relacionamento (cafés, grupos, encontros de casais). Treine líderes em mediação bíblica de conflitos. Igreja saudável não é a que não tem conflitos, é a que sabe reconciliá-los.',
         questoes: [
-          { id: 'p9_q1', texto: 'Promovemos ambientes onde as pessoas são conhecidas e amadas.' },
-          { id: 'p9_q2', texto: 'Conflitos internos são resolvidos com reconciliação bíblica.' },
-          { id: 'p9_q3', texto: 'Priorizamos a saúde das famílias e dos casamentos.' },
+          {
+            id: 'p9_q1',
+            texto: 'Nossa igreja é um lugar acolhedor, onde as pessoas são conhecidas pelo nome e se sentem verdadeiramente amadas.',
+          },
+          {
+            id: 'p9_q2',
+            texto: 'Quando surgem desentendimentos ou fofocas, os líderes agem com amor e sabedoria para restaurar a paz e o perdão.',
+          },
+          {
+            id: 'p9_q3',
+            texto: 'A igreja cuida com prioridade do fortalecimento das famílias, dos casamentos e da criação dos filhos.',
+          },
         ],
       },
       {
@@ -337,9 +481,18 @@ export const DOMINIOS_DIAGNOSTICO: DominioDiagnostico[] = [
         planoAcao:
           'Estabeleça uma meta clara: x% da membresia em pequenos grupos em 12 meses. Forme líderes de grupo com critérios espirituais. Sem pequenos grupos, o cuidado vira fila de espera no gabinete pastoral.',
         questoes: [
-          { id: 'p10_q1', texto: 'A maior parte dos membros está conectada em grupos pequenos.' },
-          { id: 'p10_q2', texto: 'O pastoreio mútuo acontece de forma orgânica nos relacionamentos.' },
-          { id: 'p10_q3', texto: 'Temos um ambiente acolhedor para visitantes em nossos grupos.' },
+          {
+            id: 'p10_q1',
+            texto: 'A maioria das pessoas da igreja participa de um Grupo de Crescimento (célula ou pequeno grupo nas casas).',
+          },
+          {
+            id: 'p10_q2',
+            texto: 'Os irmãos cuidam uns dos outros no dia a dia, visitando, mandando mensagens e ajudando nas horas difíceis.',
+          },
+          {
+            id: 'p10_q3',
+            texto: 'Nossos pequenos grupos recebem novos amigos e pessoas de fora com alegria, carinho e respeito.',
+          },
         ],
       },
       {
@@ -349,9 +502,18 @@ export const DOMINIOS_DIAGNOSTICO: DominioDiagnostico[] = [
         planoAcao:
           'Desenhe uma jornada de discipulado em etapas claras (ex: visitante → membro → discípulo → discipulador). Comunique essa jornada do púlpito. Discipulado não é programa, é cultura — e começa pelo pastor.',
         questoes: [
-          { id: 'p14_q1', texto: 'Existe um caminho claro de crescimento espiritual para quem chega.' },
-          { id: 'p14_q2', texto: 'O discipulado é um estilo de vida de acompanhamento pessoal.' },
-          { id: 'p14_q3', texto: 'Formamos discípulos que têm maturidade para discipular outros.' },
+          {
+            id: 'p14_q1',
+            texto: 'Quem chega à igreja recebe orientações claras sobre os próximos passos na fé: classes, batismo e amadurecimento.',
+          },
+          {
+            id: 'p14_q2',
+            texto: 'Temos irmãos mais maduros na fé que caminham junto com os mais novos, orando e ensinando de perto.',
+          },
+          {
+            id: 'p14_q3',
+            texto: 'A igreja ajuda os crentes a amadurecerem para que eles também consigam cuidar e ensinar novos convertidos.',
+          },
         ],
       },
       {
@@ -361,9 +523,18 @@ export const DOMINIOS_DIAGNOSTICO: DominioDiagnostico[] = [
         planoAcao:
           'Ensine sobre mordomia com naturalidade e frequência (não apenas em campanhas). Audite seu orçamento: quanto vai para pessoas e missão vs. estrutura? Generosidade ensinada gera generosidade vivida.',
         questoes: [
-          { id: 'p22_q1', texto: 'Ensinamos com frequência sobre fidelidade nos dízimos e ofertas.' },
-          { id: 'p22_q2', texto: 'Somos generosos com os necessitados e com a obra missionária.' },
-          { id: 'p22_q3', texto: 'Recursos são investidos prioritariamente em pessoas e missão.' },
+          {
+            id: 'p22_q1',
+            texto: 'A igreja ensina com alegria e equilíbrio bíblico sobre o privilégio de ser fiel nos dízimos e ofertas ao Senhor.',
+          },
+          {
+            id: 'p22_q2',
+            texto: 'Nossa igreja é generosa para socorrer pessoas em necessidade e sustentar a obra missionária.',
+          },
+          {
+            id: 'p22_q3',
+            texto: 'O dinheiro da igreja é investido prioritariamente no cuidado com as pessoas e na salvação de vidas.',
+          },
         ],
       },
       {
@@ -373,9 +544,18 @@ export const DOMINIOS_DIAGNOSTICO: DominioDiagnostico[] = [
         planoAcao:
           'Estruture uma rede de cuidado: líderes de grupo + diáconos + equipe pastoral. Mapeie as principais dores da sua congregação (luto, divórcio, dependência, finanças) e crie ministérios de apoio para cada uma.',
         questoes: [
-          { id: 'p23_q1', texto: 'Temos uma estrutura que garante que ninguém sofra sozinho.' },
-          { id: 'p23_q2', texto: 'A equipe de cuidado é acessível nos momentos de crise.' },
-          { id: 'p23_q3', texto: 'Existem ministérios para apoiar pessoas em diferentes dores da vida.' },
+          {
+            id: 'p23_q1',
+            texto: 'Na nossa igreja, quando alguém fica doente ou passa por luto, a comunidade se faz presente para ninguém sofrer sozinho.',
+          },
+          {
+            id: 'p23_q2',
+            texto: 'Os pastores e líderes de cuidado são acessíveis e acolhedores quando alguém passa por uma crise ou angústia.',
+          },
+          {
+            id: 'p23_q3',
+            texto: 'A igreja tem grupos e apoio para pessoas que enfrentam luto, separação, desemprego ou sofrimento emocional.',
+          },
         ],
       },
     ],
@@ -394,9 +574,18 @@ export const DOMINIOS_DIAGNOSTICO: DominioDiagnostico[] = [
         planoAcao:
           'Estabeleça metas claras de evangelismo e batismos. Treine sua membresia para compartilhar o evangelho de forma simples no cotidiano. Celebre cada novo nome — onde há colheita, há semeadura intencional.',
         questoes: [
-          { id: 'p8_q1', texto: 'Temos estratégias constantes para alcançar pessoas não religiosas.' },
-          { id: 'p8_q2', texto: 'Membros são motivados a compartilhar a fé em seus círculos.' },
-          { id: 'p8_q3', texto: 'Batismos e novas conversões são eventos frequentes.' },
+          {
+            id: 'p8_q1',
+            texto: 'A igreja tem iniciativas constantes para convidar e acolher pessoas que ainda não conhecem a Jesus.',
+          },
+          {
+            id: 'p8_q2',
+            texto: 'Somos encorajados e preparados para compartilhar a mensagem de Jesus com parentes, amigos e colegas de trabalho.',
+          },
+          {
+            id: 'p8_q3',
+            texto: 'Vemos com frequência novas pessoas se entregando a Jesus e descendo às águas do batismo na nossa igreja.',
+          },
         ],
       },
       {
@@ -406,9 +595,18 @@ export const DOMINIOS_DIAGNOSTICO: DominioDiagnostico[] = [
         planoAcao:
           'Identifique 1 dor real da sua cidade e crie 1 projeto consistente para responder a ela. Mobilize voluntários mensalmente. A pergunta-teste é: se sua igreja fechasse amanhã, a cidade sentiria falta?',
         questoes: [
-          { id: 'p11_q1', texto: 'Nossa igreja é relevante para a cidade através de projetos sociais.' },
-          { id: 'p11_q2', texto: 'A cidade sentiria falta se a igreja deixasse de existir hoje.' },
-          { id: 'p11_q3', texto: 'Mobilizamos voluntários para agir fora das quatro paredes.' },
+          {
+            id: 'p11_q1',
+            texto: 'Nossa igreja faz a diferença na cidade ajudando famílias com alimentos, roupas, cursos ou ações de carinho.',
+          },
+          {
+            id: 'p11_q2',
+            texto: 'Se a nossa igreja fechasse as portas hoje, os vizinhos e a cidade sentiriam uma falta enorme do nosso trabalho.',
+          },
+          {
+            id: 'p11_q3',
+            texto: 'A igreja incentiva os membros a saírem do templo para praticar boas ações e abençoar a comunidade.',
+          },
         ],
       },
       {
@@ -418,9 +616,18 @@ export const DOMINIOS_DIAGNOSTICO: DominioDiagnostico[] = [
         planoAcao:
           'Comece a falar de multiplicação como cultura, não evento. Identifique seu próximo plantador, sua próxima região, seu próximo grupo a multiplicar. Igreja saudável multiplica — é da natureza do Reino.',
         questoes: [
-          { id: 'p19_q1', texto: 'Temos o DNA de plantar novas frentes de trabalho regularmente.' },
-          { id: 'p19_q2', texto: 'O crescimento numérico é consequência natural da saúde.' },
-          { id: 'p19_q3', texto: 'Projetamos o futuro com planos de expansão geográfica.' },
+          {
+            id: 'p19_q1',
+            texto: 'Nossa igreja tem o coração voltado para apoiar ou plantar novas congregações, células e frentes de evangelismo.',
+          },
+          {
+            id: 'p19_q2',
+            texto: 'Nossa igreja cresce de forma saudável porque as pessoas são bem cuidadas e transformadas pelo evangelho.',
+          },
+          {
+            id: 'p19_q3',
+            texto: 'A liderança tem sonhos e planos para alcançar novos bairros e regiões com a mensagem de Cristo.',
+          },
         ],
       },
       {
@@ -430,9 +637,18 @@ export const DOMINIOS_DIAGNOSTICO: DominioDiagnostico[] = [
         planoAcao:
           'Audite seu orçamento e sua agenda: quanto da sua atenção e recurso vai para a próxima geração? Dê espaço real (não simbólico) para jovens liderarem. Uma igreja sem jovens é uma igreja sem amanhã.',
         questoes: [
-          { id: 'p24_q1', texto: 'Investimos pesadamente em crianças, adolescentes e jovens.' },
-          { id: 'p24_q2', texto: 'Damos espaço para os jovens exercerem liderança e darem ideias.' },
-          { id: 'p24_q3', texto: 'O ambiente da igreja é atraente para as novas gerações.' },
+          {
+            id: 'p24_q1',
+            texto: 'A igreja dedica amor, espaço de qualidade e recursos para o ministério de crianças, adolescentes e jovens.',
+          },
+          {
+            id: 'p24_q2',
+            texto: 'Os jovens têm oportunidade real de servir, dar ideias e assumir responsabilidades na igreja.',
+          },
+          {
+            id: 'p24_q3',
+            texto: 'O ambiente e a linguagem da nossa igreja atraem e acolhem com carinho a nova geração.',
+          },
         ],
       },
       {
@@ -442,9 +658,18 @@ export const DOMINIOS_DIAGNOSTICO: DominioDiagnostico[] = [
         planoAcao:
           'Excelência não é luxo, é honra. Comece pelo básico: pontualidade, limpeza, comunicação clara, acolhimento na entrada. Cada detalhe comunica como você vê a Deus. O que vale a pena fazer vale a pena fazer bem.',
         questoes: [
-          { id: 'p25_q1', texto: 'Buscamos o melhor para Deus em cada detalhe (zelo e ordem).' },
-          { id: 'p25_q2', texto: 'Pontualidade e organização são valores respeitados.' },
-          { id: 'p25_q3', texto: 'A excelência é vista como forma de honrar a Deus.' },
+          {
+            id: 'p25_q1',
+            texto: 'Procuramos fazer o melhor para Deus em tudo: no templo limpo, na boa recepção e na dedicação com o culto.',
+          },
+          {
+            id: 'p25_q2',
+            texto: 'Os horários de início e término dos cultos e reuniões são respeitados com pontualidade e consideração.',
+          },
+          {
+            id: 'p25_q3',
+            texto: 'Cuidamos da casa de Deus com zelo e dedicação porque entendemos que o Senhor merece o nosso melhor.',
+          },
         ],
       },
     ],

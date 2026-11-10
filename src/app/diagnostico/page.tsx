@@ -77,7 +77,7 @@ export default function DiagnosticoRedePage() {
     pastor_nome: '',
     email: '',
     telefone: '',
-    funcao_igreja: 'pastor_senior',
+    funcao_igreja: 'membro',
     cidade: '',
     uf: '',
     porte_igreja: '51_150',
@@ -334,15 +334,15 @@ export default function DiagnosticoRedePage() {
               <div className="absolute top-0 right-0 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
               <div className="relative z-10 space-y-3">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 rounded-full text-xs font-black uppercase tracking-wider">
-                  <ShieldCheck className="w-3.5 h-3.5" /> Formulário 100% Secreto & Anônimo
+                  <ShieldCheck className="w-3.5 h-3.5" /> Diagnóstico para Toda a Igreja • 100% Anônimo
                 </div>
                 <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-                  Como está a saúde real da sua igreja hoje?
+                  Como você vê a nossa igreja hoje?
                 </h2>
                 <p className="text-sm sm:text-base text-slate-300 leading-relaxed max-w-2xl">
-                  Este diagnóstico avalia a congregação através de <strong>25 princípios bíblicos e práticos</strong> divididos em 5 domínios fundamentais. 
+                  Este diagnóstico é para <strong>membros, voluntários, líderes e pastores</strong>. Sua visão sincera e do coração sobre o dia a dia da igreja é o que torna este diagnóstico verdadeiro e valioso.
                   <strong className="text-emerald-300 block mt-1">
-                    🔒 Suas respostas individuais são totalmente confidenciais e anônimas. Responda com sinceridade de coração.
+                    🔒 Suas respostas individuais são totalmente confidenciais e 100% anônimas. Responda com tranquilidade e sinceridade!
                   </strong>
                 </p>
                 <div className="flex flex-wrap gap-4 pt-2 text-xs font-semibold text-slate-300">
@@ -350,13 +350,13 @@ export default function DiagnosticoRedePage() {
                     <ShieldCheck className="w-4 h-4 text-emerald-400" /> Respostas 100% anônimas
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" /> 75 afirmações objetivas
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Linguagem simples e direta
                   </span>
                   <span className="flex items-center gap-1.5">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400" /> ~10 minutos para responder
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Relatório e Gráfico Radar
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Para membros, servos e líderes
                   </span>
                 </div>
               </div>
@@ -374,7 +374,7 @@ export default function DiagnosticoRedePage() {
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Preencha as informações da sua igreja e selecione o pastor principal. Suas respostas individuais permanecem anônimas.
+                  Preencha os dados da sua igreja, selecione o pastor principal e sua função. Todas as respostas permanecem 100% anônimas.
                 </p>
               </div>
 
@@ -593,13 +593,21 @@ export default function DiagnosticoRedePage() {
               {/* Guia de Escala Rápida */}
               <div className="bg-slate-50 rounded-2xl p-3 border border-slate-200/60 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-600">
                 <span className="font-bold text-slate-700 flex items-center gap-1">
-                  <HelpCircle className="w-3.5 h-3.5 text-indigo-500" /> Escala:
+                  <HelpCircle className="w-3.5 h-3.5 text-indigo-500" /> Como avaliar:
                 </span>
-                <span className="font-medium"><strong>1:</strong> Não está indo bem</span>
-                <span className="font-medium"><strong>2:</strong> Abaixo do esperado</span>
-                <span className="font-medium"><strong>3:</strong> Em desenvolvimento</span>
-                <span className="font-medium"><strong>4:</strong> Está indo bem</span>
-                <span className="font-medium"><strong>5:</strong> Excelente</span>
+                <span className="font-medium"><strong>1:</strong> Precisa melhorar muito</span>
+                <span className="font-medium"><strong>2:</strong> Abaixo do que deveria</span>
+                <span className="font-medium"><strong>3:</strong> Em construção</span>
+                <span className="font-medium"><strong>4:</strong> Muito bom</span>
+                <span className="font-medium"><strong>5:</strong> Excelente / Exemplo</span>
+              </div>
+
+              {/* Lembrete acolhedor */}
+              <div className="bg-amber-50/80 border border-amber-200/80 rounded-2xl p-3 text-xs text-amber-900 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>
+                  <strong>Lembrete:</strong> Responda com o coração e com base no que você percebe no dia a dia da igreja. Não existe resposta certa ou errada!
+                </span>
               </div>
             </div>
 
